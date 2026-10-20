@@ -1,10 +1,10 @@
-# 数据分析 Agent：第一阶段
+# 数据分析 Agent：第一、二阶段
 
-一个独立 Python 项目，先完成本地销售 CSV 的读取、校验、统计、绘图和 Markdown 报告。架构面向后续单 Agent：所有文件读取统一经过 `load_sales_csv`，本阶段无需模型、网络服务或 API 密钥；HelloAgents 在下一阶段接入。
+一个独立 Python 项目，支持本地销售 CSV 的读取、校验、统计、绘图和 Markdown 报告，并接入 HelloAgents 单 Agent 的自然语言工具调用。所有数据读取统一经过 `load_sales_csv`。第一阶段固定流程无需 API 密钥；第二阶段使用支持原生 Function Calling 的 OpenAI 兼容模型服务。
 
 ## 运行
 
-要求 Python 3.11+。以下命令在 PowerShell 中执行，复用已有 `.venv`；目录内已有 IDE 文件和虚拟环境均保留。
+要求 Python 3.12 或 3.13（`>=3.12,<3.14`，与固定的 HelloAgents 1.0.1 一致）。以下命令在 PowerShell 中执行，复用已有 `.venv`；目录内已有 IDE 文件和虚拟环境均保留。
 
 ```powershell
 Set-Location E:\AllProject\data-analysis-agent
@@ -13,7 +13,7 @@ if (!(Test-Path .venv\Scripts\python.exe)) { python -m venv .venv }
 .\.venv\Scripts\python.exe -m data_analysis_agent
 ```
 
-安装依赖需要能访问 Python 包源。无需激活虚拟环境，也无需复制 `.env.example`。`pyproject.toml` 声明构建和运行依赖，运行时只依赖 Matplotlib；CSV、Decimal 统计和测试均使用标准库。
+安装依赖需要能访问 Python 包源。无需激活虚拟环境；运行上述固定流程也无需复制 `.env.example`。`pyproject.toml` 声明 Matplotlib、`hello-agents==1.0.1` 和 python-dotenv；CSV、Decimal 统计和测试框架使用标准库。
 
 默认读取 [模拟销售 CSV](data/samples/sales_mock.csv)，在终端输出 JSON 概览和商品汇总，同时生成：
 
@@ -44,9 +44,33 @@ $env:TMP = $env:TEMP
 $env:MPLCONFIGDIR = Join-Path (Get-Location) '.cache/matplotlib'
 ```
 
-测试覆盖模拟数据预期结果、小数精度、平均值四舍五入、BOM、异常表头/行/金额/编码、缺失文件、空数据、零金额图表、Markdown 转义，以及实际生成图表和报告的完整流程。
+测试覆盖模拟数据预期结果、金额精度、CSV 异常、图表与报告、工具结果引用、模型认证/超时/重试、调用预算和日志脱敏。Agent 集成测试通过模拟 HTTP 传输层驱动真实 HelloAgents 和 OpenAI SDK，无需密钥且不调用外部 API。
 
-本阶段已在 Python 3.12.10、Matplotlib 3.11.2 上实际完成默认 CLI 全流程、8 项测试和 `pip check`；另验证了文件不存在时退出 1、参数错误时退出 2，以及安装后的 `sales-analysis` 入口。
+Windows 受限沙箱可能阻止 asyncio 初始化所需的本地套接字，表现为 Agent 测试等待。此时在允许本地套接字的普通 PowerShell 中执行相同测试命令；临时目录配置仅解决文件权限问题。
+
+第一阶段已在 Python 3.12.10、Matplotlib 3.11.2 上实际完成默认 CLI 全流程和 8 项测试；第二阶段增加 9 项离线配置/工具/框架测试，共 17 项。真实模型联调状态见第二阶段说明。
+
+## 第二阶段：自然语言分析
+
+先创建本地配置文件，已有文件保留：
+
+```powershell
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+在 `.env` 中填写 `LLM_MODEL_ID`、`LLM_API_KEY`、`LLM_BASE_URL`。服务必须支持原生工具调用；密钥不进入 Git。配置完整后执行：
+
+```powershell
+.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --question "总销售额是多少？"
+.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --input data/samples/sales_mock.csv --question "按商品汇总并生成图表和报告。"
+.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --question "计算利润率。"
+```
+
+前两个问题预期为 `status=ok`，结果来自工具计算；利润率问题预期为 `status=unsupported` 并说明缺少成本指标。新入口成功退出 0、配置/数据/模型失败退出 1、参数错误退出 2、不支持的请求退出 3。安装后的 `sales-agent` 命令对应同一入口。
+
+2026-10-20 已使用硅基流动 `deepseek-ai/DeepSeek-V4-Flash` 完成上述三个问题的真实在线验收，工具调用、统计结果及产物均符合预期。本机记录见 [在线验收记录](outputs/phase2-live-validation.md)。
+
+每次运行创建 `outputs/<run_id>/`，包含 `request.json`、`trace.jsonl`、`results/`、`outcome.json`，以及按问题需要生成的图表和报告。终端返回该目录绝对路径。详细配置、接口核对、工具契约和联调状态见 [第二阶段说明](docs/phase2.md)。
 
 ## 模拟数据与预期结果
 
@@ -93,9 +117,15 @@ data-analysis-agent/
 │   ├── analysis.py              # 纯统计函数，不读写文件
 │   ├── reporting.py             # PNG 图表和 Markdown 报告
 │   ├── main.py                  # 流程编排和 CLI
+│   ├── config.py                # 显式读取本地配置、校验与脱敏
+│   ├── agent_tools.py           # 绑定当前数据的四类工具与执行记录
+│   ├── agent.py                 # 单 Agent、调用预算、结果引用校验
+│   ├── agent_cli.py             # 第二阶段自然语言入口
 │   ├── __main__.py              # python -m 入口
 │   └── __init__.py
 ├── tests/test_workflow.py
+├── tests/test_agent.py           # 无外部 API 的真实框架集成测试
+├── docs/phase2.md
 ├── outputs/                     # 运行时生成，不提交
 ├── pyproject.toml
 ├── .gitignore
@@ -128,12 +158,12 @@ result = run_analysis("data/samples/sales_mock.csv", "outputs")
 print(json.dumps(result, ensure_ascii=False, indent=2))
 ```
 
-记录使用 `SalesRecord` TypedDict（日期和金额均为字符串），函数有类型标注和 docstring；输出能直接 JSON 序列化。统计函数接受统一入口产出的已校验记录。下一阶段可以添加 HelloAgents 工具适配层并注册这些能力，无需让读取、统计、报告依赖 Agent 框架；当前不创建额外的 Agent、工具注册器或模型配置。
+记录使用 `SalesRecord` TypedDict（日期和金额均为字符串），函数有类型标注和 docstring；输出能直接 JSON 序列化。统计函数接受统一入口产出的已校验记录。HelloAgents 适配集中在新增模块中，原有读取、统计和报告函数继续独立调用。
 
 ## 本地配置和 Git
 
-`.env.example` 仅包含说明，不含密钥；本阶段不读取 `.env`，参数通过 CLI 传入。下一阶段接入模型时再添加对应配置。
+`.env.example` 包含空的模型配置项和有限的调用预算默认值。自然语言入口显式读取当前目录的 `.env`，也可用 `--env-file` 指定；进程环境变量优先。第一阶段入口继续只使用 CLI 参数，不读取 `.env`。
 
 真实数据放 `data/private/`，产物放 `outputs/`。`.gitignore` 忽略 `.env` 及其变体（保留 `.env.example`）、常见密钥文件、整个数据目录（只放行明确的模拟 CSV）、常见数据文件扩展名、运行产物、日志、缓存、虚拟环境和 IDE 配置。自定义产物目录也应放在 `outputs/` 下；提交前使用 `git status --short` 检查，不使用强制添加来绕过忽略规则。
 
-本阶段在内存中处理一份小型 CSV，不提供流式读取、退款分析或多币种换算。HelloAgents 接入按计划留到下一阶段。
+当前在内存中处理一份小型 CSV，不提供流式读取、退款分析或多币种换算。Excel、SQL、页面与连续追问留到后续阶段。
