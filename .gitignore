@@ -1,0 +1,44 @@
+# Python / local development
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage*
+htmlcov/
+.idea/
+.vscode/
+*.iml
+
+# Secrets: only the documented, empty example belongs in Git
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credentials*.json
+
+# Private data: the only permitted data file is the explicit mock fixture
+data/*
+!data/samples/
+data/samples/*
+!data/samples/sales_mock.csv
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.parquet
+*.feather
+*.sqlite*
+*.db
+!data/samples/sales_mock.csv
+
+# Generated results may contain private data
+outputs/
+*.png
+*.log
+.cache/
