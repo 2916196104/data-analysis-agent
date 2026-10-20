@@ -48,7 +48,8 @@ def completion(message):
 
 
 class AgentTests(unittest.TestCase):
-    def run_script(self, root, messages, question="总销售额是多少？", settings=SETTINGS):
+    def run_script(self, root, messages, question="总销售额是多少？", settings=SETTINGS,
+                   input_path=SAMPLE, **input_options):
         requests = []
         sequence = iter(messages)
 
@@ -70,7 +71,7 @@ class AgentTests(unittest.TestCase):
             return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handler)))
 
         with patch("openai.OpenAI", side_effect=client):
-            result = run_agent_analysis(SAMPLE, question, root, settings=settings)
+            result = run_agent_analysis(input_path, question, root, settings=settings, **input_options)
         return result, requests
 
     def test_configuration_and_secret_redaction(self):
@@ -166,6 +167,29 @@ class AgentTests(unittest.TestCase):
             bad.write_text("date,product,sales_amount\n2026-10-01,A,-1\n", encoding="utf-8")
             result = run_agent_analysis(bad, "总销售额", directory, settings=SETTINGS)
             self.assertEqual(result["error"]["code"], "data_error")
+
+    def test_excel_uses_existing_agent_tools_and_records_sheet_mapping(self):
+        from test_excel import make_workbook, sample_rows
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = make_workbook(root / "agent.xlsx", sample_rows(), extra_sheet=True)
+            result, _ = self.run_script(root / "runs", [
+                tools(("summarize_sales", {})),
+                tools(("create_chart", {"result_id": "sales_by_product"})),
+                tools(("build_report", {"result_id": "sales_by_product", "chart_id": "chart"})),
+                final("ok", "sales_by_product", "chart", "report"),
+            ], question="按商品汇总并生成图表和报告。", input_path=path, sheet="销售明细")
+            self.assertEqual(result["status"], "ok", result)
+            source = result["results"]["report"]["source"]
+            self.assertEqual(source["sheet"], "销售明细")
+            self.assertEqual(source["column_mapping"]["sales_amount"], "销售额")
+            self.assertEqual(result["results"]["overview"]["data"]["overview"]["total_sales"], "900.00")
+            request = json.loads((Path(result["run_dir"]) / "request.json").read_text(encoding="utf-8"))
+            self.assertEqual(request["source"], source)
+            report = (Path(result["run_dir"]) / "report.md").read_text(encoding="utf-8")
+            self.assertIn("工作表：销售明细", report)
+            self.assertIn("sales_amount ← 销售额", report)
 
     def test_transient_retry_and_timeout_have_finite_attempts(self):
         with tempfile.TemporaryDirectory() as directory:

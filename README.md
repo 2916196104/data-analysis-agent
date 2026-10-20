@@ -1,6 +1,6 @@
-# 数据分析 Agent：第一、二阶段
+# 数据分析 Agent：CSV、Excel 与单 Agent
 
-一个独立 Python 项目，支持本地销售 CSV 的读取、校验、统计、绘图和 Markdown 报告，并接入 HelloAgents 单 Agent 的自然语言工具调用。所有数据读取统一经过 `load_sales_csv`。第一阶段固定流程无需 API 密钥；第二阶段使用支持原生 Function Calling 的 OpenAI 兼容模型服务。
+一个独立 Python 项目，支持本地销售 CSV/Excel 的读取、字段映射、校验、统计、绘图和 Markdown 报告，并接入 HelloAgents 单 Agent 的自然语言工具调用。应用统一通过 `load_sales_data` 读取数据，原有 `load_sales_csv` 接口继续保留。固定流程无需 API 密钥；自然语言流程使用支持原生 Function Calling 的 OpenAI 兼容模型服务。
 
 ## 运行
 
@@ -13,7 +13,7 @@ if (!(Test-Path .venv\Scripts\python.exe)) { python -m venv .venv }
 .\.venv\Scripts\python.exe -m data_analysis_agent
 ```
 
-安装依赖需要能访问 Python 包源。无需激活虚拟环境；运行上述固定流程也无需复制 `.env.example`。`pyproject.toml` 声明 Matplotlib、`hello-agents==1.0.1` 和 python-dotenv；CSV、Decimal 统计和测试框架使用标准库。
+安装依赖需要能访问 Python 包源。无需激活虚拟环境；运行上述固定流程也无需复制 `.env.example`。`pyproject.toml` 声明 Matplotlib、`hello-agents==1.0.1`、python-dotenv、`openpyxl==3.1.5` 和 `defusedxml==0.7.1`；CSV、Decimal 统计和测试框架使用标准库。
 
 默认读取 [模拟销售 CSV](data/samples/sales_mock.csv)，在终端输出 JSON 概览和商品汇总，同时生成：
 
@@ -48,7 +48,7 @@ $env:MPLCONFIGDIR = Join-Path (Get-Location) '.cache/matplotlib'
 
 Windows 受限沙箱可能阻止 asyncio 初始化所需的本地套接字，表现为 Agent 测试等待。此时在允许本地套接字的普通 PowerShell 中执行相同测试命令；临时目录配置仅解决文件权限问题。
 
-第一阶段已在 Python 3.12.10、Matplotlib 3.11.2 上实际完成默认 CLI 全流程和 8 项测试；第二阶段目前有 13 项离线配置/工具/框架测试，共 21 项。真实模型联调状态见第二阶段说明。
+第一阶段已在 Python 3.12.10、Matplotlib 3.11.2 上实际完成默认 CLI 全流程和 8 项测试；第二阶段有 13 项离线配置/工具/框架测试，第三阶段 A 增加 9 项 Excel/CSV 和 Agent 验证，目前共 30 项通过。联调状态见对应阶段说明。
 
 ## 第二阶段：自然语言分析
 
@@ -74,6 +74,21 @@ if (!(Test-Path .env)) { Copy-Item .env.example .env }
 
 每次运行创建 `outputs/<run_id>/`，包含 `request.json`、`trace.jsonl`、`results/`、`outcome.json`，以及按问题需要生成的图表和报告。终端返回该目录绝对路径。详细配置、接口核对、工具契约和联调状态见 [第二阶段说明](docs/phase2.md)。
 
+## 第三阶段 A：直接分析 Excel
+
+把自己的 `.xlsx` 文件放在 `data/private/`，首行为表头。默认识别 `date/销售日期/日期`、`product/商品名称/商品`、`sales_amount/销售额/销售金额`。工作簿只有一个数据工作表时可以省略 `--sheet`；多个工作表时必须明确选择。
+
+假设文件为 `data/private/my_sales.xlsx`，工作表名为“销售明细”：
+
+```powershell
+.\.venv\Scripts\python.exe -m data_analysis_agent --input data/private/my_sales.xlsx --sheet "销售明细" --output-dir outputs/my_excel_check
+.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --input data/private/my_sales.xlsx --sheet "销售明细" --question "按商品汇总并生成图表和报告。" --output-dir outputs/my_excel
+```
+
+其他表头可通过 `--column-map` 指定 UTF-8 JSON 文件，映射方向为“标准字段 → 原始表头”；参考 [映射示例](docs/column-map.example.json)。CSV 也支持中文表头和相同的映射选项。公式单元格需先粘贴为值，旧 `.xls` 需另存为 `.xlsx`。工作表、实际字段映射和文件指纹会记录到结果和报告中。
+
+2026-10-20 已用同批模拟数据验证 CSV、中文表头 Excel、自定义映射 Excel 的统计和 PNG 一致，并实际完成 Excel 的单 Agent 模型联调。详细使用、数据边界和本机复验命令见 [第三阶段 A 说明](docs/phase3.md)。
+
 ## 模拟数据与预期结果
 
 `sales_mock.csv` **全部为人工构造的模拟数据，不代表真实业务**。每一行的 `data_source` 均为 `SIMULATED`；此列用于标识数据性质，不参与分析。商品名使用英文，以便样例图在不同系统字体环境中正常显示。
@@ -97,7 +112,7 @@ if (!(Test-Path .env)) { Copy-Item .env.example .env }
 
 ## 数据契约
 
-CSV 使用逗号分隔，UTF-8 或 UTF-8 BOM 编码，必须包含以下大小写敏感的表头：
+CSV 使用逗号分隔，UTF-8 或 UTF-8 BOM 编码。内部标准字段如下，原始表头也可使用上文的中文名称或显式映射：
 
 | 字段 | 规则 | 示例 |
 | --- | --- | --- |
@@ -115,7 +130,7 @@ CSV 使用逗号分隔，UTF-8 或 UTF-8 BOM 编码，必须包含以下大小�
 data-analysis-agent/
 ├── data/samples/sales_mock.csv   # 唯一纳入 Git 的模拟数据
 ├── src/data_analysis_agent/
-│   ├── data_loader.py           # 统一读取入口和字段/内容校验
+│   ├── data_loader.py           # CSV/Excel 统一入口、工作表、映射与校验
 │   ├── analysis.py              # 纯统计函数，不读写文件
 │   ├── reporting.py             # PNG 图表和 Markdown 报告
 │   ├── main.py                  # 流程编排和 CLI
@@ -127,7 +142,10 @@ data-analysis-agent/
 │   └── __init__.py
 ├── tests/test_workflow.py
 ├── tests/test_agent.py           # 无外部 API 的真实框架集成测试
+├── tests/test_excel.py           # CSV/Excel 一致性、类型与错误验证
 ├── docs/phase2.md
+├── docs/phase3.md
+├── docs/column-map.example.json
 ├── outputs/                     # 运行时生成，不提交
 ├── pyproject.toml
 ├── .gitignore
@@ -138,7 +156,9 @@ data-analysis-agent/
 | 函数 | 作用 / 返回值 |
 | --- | --- |
 | `data_loader.validate_sales_fields(fieldnames)` | 独立检查表头；无返回值 |
-| `data_loader.load_sales_csv(input_path)` | 统一读取 CSV，返回已校验的记录列表 |
+| `data_loader.load_sales_data(input_path, *, sheet=None, column_map=None)` | 统一读取 CSV/Excel，返回含 records/source 的 SalesDataset |
+| `data_loader.load_sales_csv(input_path)` | 保留的 CSV 函数，返回已校验的记录列表 |
+| `data_loader.load_sales_xlsx(input_path, *, sheet=None, column_map=None)` | 单独读取一个 Excel 工作表，返回同格式记录列表 |
 | `analysis.get_data_overview(records)` | 返回记录数、商品数、日期范围和金额统计字典 |
 | `analysis.summarize_sales_by_product(records)` | 返回排序后的 `{商品: 金额字符串}` |
 | `reporting.generate_sales_chart(totals, output_path)` | 写入 PNG，返回绝对路径字符串 |
@@ -168,4 +188,4 @@ print(json.dumps(result, ensure_ascii=False, indent=2))
 
 真实数据放 `data/private/`，产物放 `outputs/`。`.gitignore` 忽略 `.env` 及其变体（保留 `.env.example`）、常见密钥文件、整个数据目录（只放行明确的模拟 CSV）、常见数据文件扩展名、运行产物、日志、缓存、虚拟环境和 IDE 配置。自定义产物目录也应放在 `outputs/` 下；提交前使用 `git status --short` 检查，不使用强制添加来绕过忽略规则。
 
-当前在内存中处理一份小型 CSV，不提供流式读取、退款分析或多币种换算。Excel、SQL、页面与连续追问留到后续阶段。
+当前面向一份小型 CSV 或一个 Excel 数据工作表，不提供大数据流式统计、退款分析、多币种换算或成本指标。SQL、页面与连续追问留到后续阶段。

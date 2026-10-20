@@ -43,6 +43,7 @@ def write_markdown_report(
     chart_path: str | Path,
     output_path: str | Path,
     source_name: str,
+    *, source: Mapping | None = None,
 ) -> str:
     """Write a UTF-8 report with an image link relative to the report directory."""
     path = Path(output_path).resolve()
@@ -52,6 +53,12 @@ def write_markdown_report(
         "# 销售数据分析报告",
         "",
         f"数据文件：{_markdown_text(source_name)}",
+        *([f"数据格式：{_markdown_text(source['format'])}",
+           f"工作表：{_markdown_text(source['sheet']) if source['sheet'] else '不适用'}",
+           "字段映射：" + "；".join(
+               f"{field} ← {_markdown_text(name)}" for field, name in source['column_mapping'].items()),
+           f"数据 SHA-256：`{source['sha256']}`"]
+          if source and "format" in source else []),
         "",
         "统计口径：一行是一条销售记录；金额按原始数据单位统计，不推断币种。",
         "",

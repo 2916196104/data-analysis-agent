@@ -1,4 +1,4 @@
-"""Pure sales statistics; all data enters through data_loader.load_sales_csv."""
+"""Pure sales statistics over normalized records from the unified data loader."""
 
 from collections import defaultdict
 from collections.abc import Sequence

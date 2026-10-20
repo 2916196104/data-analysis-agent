@@ -1,4 +1,4 @@
-"""Four narrow HelloAgents tools bound to one application-selected CSV."""
+"""Four narrow HelloAgents tools bound to one application-selected dataset."""
 
 from contextlib import redirect_stdout
 from copy import deepcopy
@@ -34,6 +34,7 @@ class SalesToolContext:
         result = {
             "result_id": result_id, "kind": kind, "data": data,
             "source_sha256": self.source["sha256"],
+            "source": deepcopy(self.source),
             "source_result_ids": list(source_result_ids),
         }
         write_json(self.run_dir / "results" / f"{result_id}.json", result, self.secret)
@@ -86,6 +87,7 @@ class SalesToolContext:
         report = write_markdown_report(
             overview["data"]["overview"], summary["data"]["sales_by_product"],
             chart["data"]["chart_path"], self.run_dir / "report.md", self.source["name"],
+            source=self.source,
         )
         with Path(report).open("a", encoding="utf-8") as handle:
             handle.write(
@@ -170,7 +172,7 @@ def create_tool_registry(context: SalesToolContext) -> RecordingRegistry:
     """Register only the four sales tools; no general file, shell or code execution tools."""
     registry = RecordingRegistry(context)
     definitions = [
-        ("inspect_dataset", "检查当前 CSV 字段和概览，计算总销售额、记录数等；识别数据限制。", ()),
+        ("inspect_dataset", "检查当前数据字段和概览，计算总销售额、记录数等；识别数据限制。", ()),
         ("summarize_sales", "调用统计函数按商品汇总销售额，返回结果 ID 和精确金额。", ()),
         ("create_chart", "根据已有商品汇总结果 ID 生成柱状图，返回图表结果 ID。", ("result_id",)),
         ("build_report", "根据商品汇总和匹配图表的结果 ID 生成有计算依据的 Markdown 报告。",

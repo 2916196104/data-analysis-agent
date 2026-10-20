@@ -84,7 +84,7 @@ SDK 按其规则重试临时连接错误、超时、限流及服务端错误，�
 | `create_chart` | `result_id` | 仅接受当前运行的商品汇总结果，生成 PNG，保存 `chart` |
 | `build_report` | `result_id`、`chart_id` | 核对统计和图表来源，生成 Markdown，保存 `report` |
 
-应用在启动任务时通过 `load_sales_csv()` 一次性加载已选 CSV，并计算文件 SHA-256。Agent 不能指定其他数据路径或输出文件名，也不能给图表/报告传入自行编造的金额。原始明细留在本地，模型接收字段、概览和聚合结果。
+应用在启动任务时通过统一入口 `load_sales_data()` 加载应用选定的数据，并计算文件 SHA-256。第三阶段 A 扩展了 Excel、工作表选择和字段映射，见 [使用说明](phase3.md)；原有 `load_sales_csv()` API 保留。Agent 不能指定其他数据路径或输出文件名，也不能给图表/报告传入自行编造的金额。原始明细留在本地，模型接收字段、概览和聚合结果。
 
 Agent 的最终响应只允许 `status` 和已经生成的 `result_ids`。应用校验引用后读取保存的结果，组装终端答案；统计值和报告正文由原有确定性函数生成。直接输出金额、未知结果引用或额外统计字段会被拒绝。模型决定分析步骤，程序保证被展示的数字来自实际工具结果；自然语言任务是否覆盖完整仍需按验收案例检查。
 
@@ -114,7 +114,7 @@ outputs/<run_id>/
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-`tests/test_agent.py` 使用真实 HelloAgents、工具注册表和 OpenAI SDK，仅通过 `httpx.MockTransport` 模拟服务响应。验证三个验收问题、参数/结果引用拒绝、有限重试、认证失败、超时、模型/工具调用上限，以及不记录测试密钥。另覆盖 JSON 代码块、非 JSON 答复的一次格式纠正、纠正失败与共享调用预算；加上原有 8 项测试，目前共 21 项。
+`tests/test_agent.py` 使用真实 HelloAgents、工具注册表和 OpenAI SDK，仅通过 `httpx.MockTransport` 模拟服务响应。验证三个验收问题、参数/结果引用拒绝、有限重试、认证失败、超时、模型/工具调用上限，以及不记录测试密钥。另覆盖 JSON 代码块、非 JSON 答复的一次格式纠正、纠正失败与共享调用预算；第二阶段完成时加上原有 8 项共 21 项，第三阶段 A 扩展后共 30 项，见 [第三阶段验证](phase3.md#验证)。
 
 Windows 沙箱可能限制临时目录或 asyncio 的本地套接字：临时目录设置见 README；本地套接字被阻止时，应在普通 PowerShell 执行测试。该测试不请求真实模型服务。
 
