@@ -48,7 +48,7 @@ $env:MPLCONFIGDIR = Join-Path (Get-Location) '.cache/matplotlib'
 
 Windows 受限沙箱可能阻止 asyncio 初始化所需的本地套接字，表现为 Agent 测试等待。此时在允许本地套接字的普通 PowerShell 中执行相同测试命令；临时目录配置仅解决文件权限问题。
 
-第一阶段已在 Python 3.12.10、Matplotlib 3.11.2 上实际完成默认 CLI 全流程和 8 项测试；第二阶段增加 9 项离线配置/工具/框架测试，共 17 项。真实模型联调状态见第二阶段说明。
+第一阶段已在 Python 3.12.10、Matplotlib 3.11.2 上实际完成默认 CLI 全流程和 8 项测试；第二阶段目前有 13 项离线配置/工具/框架测试，共 21 项。真实模型联调状态见第二阶段说明。
 
 ## 第二阶段：自然语言分析
 
@@ -67,6 +67,8 @@ if (!(Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
 前两个问题预期为 `status=ok`，结果来自工具计算；利润率问题预期为 `status=unsupported` 并说明缺少成本指标。新入口成功退出 0、配置/数据/模型失败退出 1、参数错误退出 2、不支持的请求退出 3。安装后的 `sales-agent` 命令对应同一入口。
+
+模型最终答复若为完整的 JSON 代码块，应用会移除代码块后校验；若无法解析为 JSON，会在原有总调用预算内请求一次格式纠正。纠正仍失败时返回 `agent_error`，不把已有工具结果冒充任务已完成。未知结果引用和模型自行提供的统计字段仍被拒绝。
 
 2026-10-20 已使用硅基流动 `deepseek-ai/DeepSeek-V4-Flash` 完成上述三个问题的真实在线验收，工具调用、统计结果及产物均符合预期。本机记录见 [在线验收记录](outputs/phase2-live-validation.md)。
 

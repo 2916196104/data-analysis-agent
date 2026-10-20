@@ -198,6 +198,63 @@ class AgentTests(unittest.TestCase):
                     result, _ = self.run_script(directory, [tools(("inspect_dataset", {})), message])
                     self.assertEqual(result["error"]["code"], "agent_error", result)
 
+    def test_complete_json_code_blocks_are_validated_like_plain_json(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for language in ("json", ""):
+                message = final("ok", "overview")
+                message["content"] = f"  ```{language}\n{message['content']}\n```\n"
+                with self.subTest(language=language):
+                    result, requests = self.run_script(directory, [tools(("inspect_dataset", {})), message])
+                    self.assertEqual(result["status"], "ok", result)
+                    self.assertEqual(len(requests), 2)
+                    self.assertIn("900.00", result["answer"])
+            forged = {"role": "assistant", "content": '```json\n'
+                      '{"status":"ok","result_ids":["forged"]}\n```'}
+            result, _ = self.run_script(directory, [tools(("inspect_dataset", {})), forged])
+            self.assertEqual(result["error"]["code"], "agent_error", result)
+
+    def test_non_json_answer_is_corrected_once_using_saved_results(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bad = {"role": "assistant", "content": "模型直接回答：总销售额 999.00。"}
+            result, requests = self.run_script(directory, [
+                tools(("inspect_dataset", {})), bad, final("ok", "overview"),
+            ])
+            self.assertEqual(result["status"], "ok", result)
+            self.assertIn("900.00", result["answer"])
+            self.assertNotIn("999.00", result["answer"])
+            self.assertEqual(result["tool_calls"], 1)
+            self.assertEqual(result["model_calls"], 3)
+            self.assertEqual(result["model_responses"], 3)
+            self.assertEqual(result["usage"]["total_tokens"], 45)
+            self.assertEqual(requests[-1]["messages"][-1]["role"], "user")
+            self.assertIn("overview", requests[-1]["messages"][-1]["content"])
+            trace = (Path(result["run_dir"]) / "trace.jsonl").read_text(encoding="utf-8")
+            self.assertNotIn(bad["content"], trace)
+            events = [json.loads(line) for line in trace.splitlines()]
+            self.assertEqual(len([event for event in events if event["event"] == "final_format_retry"]), 1)
+            self.assertEqual([event["step"] for event in events if event["event"] == "model_response"], [1, 2, 3])
+
+    def test_repeated_non_json_answer_stops_after_one_correction(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bad = {"role": "assistant", "content": "总销售额为 900.00。"}
+            result, requests = self.run_script(directory, [tools(("inspect_dataset", {})), bad, bad])
+            self.assertEqual(result["error"]["code"], "agent_error", result)
+            self.assertEqual(len(requests), 3)
+            self.assertEqual(result["model_calls"], 3)
+            self.assertEqual(result["model_responses"], 3)
+            self.assertNotIn("answer", result)
+
+    def test_final_format_correction_shares_original_call_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result, requests = self.run_script(directory, [
+                tools(("inspect_dataset", {})), {"role": "assistant", "content": "不是 JSON"},
+            ], settings=replace(SETTINGS, max_steps=2))
+            self.assertEqual(result["error"]["code"], "call_limit", result)
+            self.assertEqual(len(requests), 2)
+            self.assertEqual(result["model_calls"], 2)
+            self.assertEqual(result["model_responses"], 2)
+            self.assertEqual(result["usage"]["total_tokens"], 30)
+
     def test_model_and_tool_limits_are_not_reported_as_success(self):
         with tempfile.TemporaryDirectory() as directory:
             result, requests = self.run_script(directory, [tools(("inspect_dataset", {}))] * 2,

@@ -88,6 +88,8 @@ SDK 按其规则重试临时连接错误、超时、限流及服务端错误，�
 
 Agent 的最终响应只允许 `status` 和已经生成的 `result_ids`。应用校验引用后读取保存的结果，组装终端答案；统计值和报告正文由原有确定性函数生成。直接输出金额、未知结果引用或额外统计字段会被拒绝。模型决定分析步骤，程序保证被展示的数字来自实际工具结果；自然语言任务是否覆盖完整仍需按验收案例检查。
 
+最终响应允许完整的 JSON 代码块外壳，但代码块内部仍执行相同的字段、状态和结果引用校验。无法解析为 JSON 的答复会触发一次格式纠正，复用同一 Agent、已有工具结果和原有模型/工具总调用预算；不会重置上限或直接采用模型文本里的金额。再次无法解析则返回 `agent_error`，预算不足则返回 `call_limit`。`trace.jsonl` 中的 `final_format_retry` 记录纠正尝试和可用结果 ID，不保存无效答复正文。
+
 ```text
 outputs/<run_id>/
 ├── request.json                 # 问题、模型名称、限制、数据来源与指纹
@@ -112,7 +114,7 @@ outputs/<run_id>/
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-`tests/test_agent.py` 使用真实 HelloAgents、工具注册表和 OpenAI SDK，仅通过 `httpx.MockTransport` 模拟服务响应。验证三个验收问题、参数/结果引用拒绝、有限重试、认证失败、超时、模型/工具调用上限，以及不记录测试密钥。原有 8 项测试同时运行。
+`tests/test_agent.py` 使用真实 HelloAgents、工具注册表和 OpenAI SDK，仅通过 `httpx.MockTransport` 模拟服务响应。验证三个验收问题、参数/结果引用拒绝、有限重试、认证失败、超时、模型/工具调用上限，以及不记录测试密钥。另覆盖 JSON 代码块、非 JSON 答复的一次格式纠正、纠正失败与共享调用预算；加上原有 8 项测试，目前共 21 项。
 
 Windows 沙箱可能限制临时目录或 asyncio 的本地套接字：临时目录设置见 README；本地套接字被阻止时，应在普通 PowerShell 执行测试。该测试不请求真实模型服务。
 
@@ -127,3 +129,5 @@ Windows 沙箱可能限制临时目录或 asyncio 的本地套接字：临时目
 本次三项验收共 8 次模型逻辑调用、5 次工具调度。已核对工具执行回执、数值、图表/报告及数据来源引用，并检查 17 份运行产物中没有配置的 API 密钥。原有 17 项离线测试通过记录继续保留。
 
 本机完整记录见 [真实模型验收记录](../outputs/phase2-live-validation.md) 和 `outputs/phase2-live-validation.json`；每项请求、结果和工具轨迹位于 `outputs/live_acceptance/<run_id>/`。这些产物均由 Git 忽略，需要复现时执行上面的 CLI 命令。
+
+2026-10-20 修复了工具执行成功后，模型最终文本偶发无法按 JSON 解析的问题。修复后 21 项离线测试全部通过，真实 CLI 连续两次总额查询均返回 900.00，图表/报告问题返回 `ok`，利润率问题返回 `unsupported`；其中一次总额查询和利润率查询实际经过一次格式纠正。四次运行的次数、交付物和密钥脱敏检查通过，本机记录见 [格式兼容修复验证](../outputs/final_response_fix/verification.json)。此前的失败记录保留，以便对照。

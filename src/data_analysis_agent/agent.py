@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
 from io import StringIO
@@ -30,6 +31,10 @@ result_ids 只引用已成功生成的结果，包含用户要求的图表/报�
 
 class AgentExecutionError(RuntimeError):
     """The agent did not produce a verifiable result within the run limits."""
+
+
+class FinalResponseFormatError(AgentExecutionError):
+    """The final public response needs one bounded JSON-format correction."""
 
 
 def _new_llm(settings: AgentSettings):
@@ -80,8 +85,15 @@ def _build_agent(settings: AgentSettings, context, llm):
 
 
 def _validate_final(text: str, context) -> tuple[str, list[str]]:
+    text = text.strip()
+    fenced = re.fullmatch(r"```(?:json)?\s*\n(.*?)\n```", text, flags=re.DOTALL)
+    if fenced:
+        text = fenced.group(1)
     try:
         final = json.loads(text)
+    except (TypeError, ValueError) as exc:
+        raise FinalResponseFormatError("模型最终答复不是有效 JSON，无法确认任务完成。") from exc
+    try:
         if not isinstance(final, dict) or set(final) != {"status", "result_ids"}:
             raise ValueError
         status, result_ids = final["status"], final["result_ids"]
@@ -164,6 +176,7 @@ def run_agent_analysis(
     (run_dir / "trace.jsonl").touch()
     result = {"run_id": run_id, "run_dir": str(run_dir), "status": "error"}
     secret, context, agent, llm = "", None, None, None
+    model_responses, usage = 0, {}
     try:
         values = read_settings(env_file) if settings is None else {}
         secret = settings.api_key if settings else values.get("LLM_API_KEY", "").strip()
@@ -194,7 +207,7 @@ def run_agent_analysis(
 
             async def record_model(event):
                 data = event.data
-                entry = {"event": "model_response", "step": data.get("step"),
+                entry = {"event": "model_response", "step": model_responses + data.get("step", 0),
                          "usage": data.get("usage"), "finish_reason": data.get("finish_reason"),
                          "tool_count": data.get("tool_count")}
                 with (run_dir / "trace.jsonl").open("a", encoding="utf-8") as handle:
@@ -209,12 +222,36 @@ def run_agent_analysis(
 
             with _new_llm(settings) as llm:
                 agent = _build_agent(settings, context, llm)
-                final_text = agent.run(question, on_step=record_model, on_tool_call=record_request)
-            if context.limit_reached:
-                raise AgentExecutionError("达到工具调用上限；本次任务未确认完成。")
-            if agent.last_run.status != "completed":
-                raise AgentExecutionError("模型达到轮次或输出上限；本次任务未确认完成。")
-            status, result_ids = _validate_final(final_text, context)
+                prompt = question
+                for attempt in range(2):
+                    try:
+                        final_text = agent.run(prompt, on_step=record_model, on_tool_call=record_request)
+                    finally:
+                        if agent.last_run is not None:
+                            model_responses += agent.last_run.model_calls
+                            for key, value in (agent.last_run.usage or {}).items():
+                                usage[key] = usage.get(key, 0) + value
+                    if context.limit_reached:
+                        raise AgentExecutionError("达到工具调用上限；本次任务未确认完成。")
+                    if agent.last_run.status != "completed":
+                        raise AgentExecutionError("模型达到轮次或输出上限；本次任务未确认完成。")
+                    try:
+                        status, result_ids = _validate_final(final_text, context)
+                        break
+                    except FinalResponseFormatError:
+                        if attempt:
+                            raise
+                        entry = {"event": "final_format_retry", "attempt": 1,
+                                 "available_result_ids": list(context.results)}
+                        with (run_dir / "trace.jsonl").open("a", encoding="utf-8") as handle:
+                            handle.write(safe_json(entry, secret, indent=None) + "\n")
+                        prompt = (
+                            '最终答复无法按 JSON 解析。请只纠正格式，不重复执行已成功的工具。'
+                            '只返回含 status 和 result_ids 的 JSON 对象；status 只能是 "ok" '
+                            '或 "unsupported"，result_ids 是已保存结果ID的非空数组。'
+                            '不得输出解释、金额或其他字段。已成功保存的结果ID为：'
+                            + json.dumps(list(context.results), ensure_ascii=False)
+                        )
             result.update(status=status, answer=_grounded_answer(status, result_ids, context),
                           result_ids=result_ids)
     except Exception as exc:
@@ -225,8 +262,8 @@ def run_agent_analysis(
             result["results"] = context.results
             result["tool_calls"] = context.tool_calls
         if agent is not None and agent.last_run is not None:
-            result["model_responses"] = agent.last_run.model_calls
-            result["usage"] = agent.last_run.usage or None
+            result["model_responses"] = model_responses
+            result["usage"] = usage or None
         if llm is not None:
             result["model_calls"] = llm.budget.calls
         result["elapsed_seconds"] = round(perf_counter() - started, 3)
