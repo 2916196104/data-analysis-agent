@@ -65,7 +65,9 @@ Set-Location E:\AllProject\data-analysis-agent
 .\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli run --db data/private/reviews.sqlite3 --source amazon_reviews_2023 --dataset-version amazon-reviews-2023 --limit 200 --workers 4
 ```
 
-IDEA 可选 **18 亚马逊并发标注200条（调用模型）**，此配置不限定商品或日期。先用少量评论比较 `--workers 2` 与 `4`；服务端限流、并发配额和单条评论长度会影响实际速度。认证、限流或模型 API 错误后不再提交新请求，但最多 4 条已在途的请求会保存结果后结束；失败项仍需要显式 `--retry-failed`。不要同时运行两个标注进程，避免重复发送相同评论。并发不会减少总模型调用量或直接提高标签准确率。
+IDEA 可选 **18 亚马逊并发标注200条（调用模型）**，此配置不限定商品或日期。先用少量评论比较 `--workers 2` 与 `4`；服务端限流、并发配额和单条评论长度会影响实际速度。认证、限流及其他不可恢复的模型 API 错误会停批；单次超时、连接中断或服务端 5xx 会记录失败后继续，连续 3 次这类错误才停批。最多 4 条已在途的请求会保存结果后结束。失败项仍需要显式 `--retry-failed`。不要同时运行两个标注进程，避免重复发送相同评论。并发不会减少总模型调用量或直接提高标签准确率。
+
+如果终端显示 `model_timeout`，可在 `.env` 中把 `LLM_TIMEOUT_SECONDS=30` 调到例如 `60`，并按服务状况设置 `LLM_MAX_RETRIES=1` 或 `2`（允许 0—3）。超时和重试会延长单条评论的最长等待时间。旧记录中的 `model_api_error` 未保存具体异常，不能仅凭该代码确认是超时；处理服务故障后使用 `--retry-failed` 重试。
 
 模型标签质量应从不同商品和星级抽样，在本机[人工复核工作台](review-workbench.md)核对维度、情感及原文片段，记录漏标和错标后再修改提示词或模型。提示词规则变动会产生新的版本，原有成功记录不会自动复用；改模型也会形成独立标注身份。先用小样本比较准确率、平均耗时、失败率和 token 用量，再决定是否整库重标。
 

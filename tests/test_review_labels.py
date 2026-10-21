@@ -252,16 +252,31 @@ class ReviewLabelTests(unittest.TestCase):
         self.assertEqual(profile["successful_reviews"], 2)
         self.assertEqual(profile["successful_attempts"], 3)
 
-    def test_transient_retry_is_bounded_and_transport_failure_stops_batch(self):
+    def test_transient_retry_is_bounded_and_one_timeout_does_not_stop_batch(self):
         init_labeling(self.db)
         bad = httpx.Response(500, json={"error": {"message": "temporary failure"}}, headers={"retry-after-ms": "1"})
         result, requests = self.run_script([bad, response([])], limit=1)
         self.assertEqual(len(requests), 2)
         self.assertEqual(result["model_calls"], 1)
         timeout = httpx.ReadTimeout("must not persist " + FAKE_KEY)
-        failed, requests = self.run_script([timeout, timeout])
-        self.assertEqual(len(requests), 2)
-        self.assertEqual(failed["stopped_reason"], "model_api_error")
+        self.add_reviews(["另一条评论"], name="extra.jsonl")
+        continued, requests = self.run_script([timeout, timeout, response([])])
+        self.assertEqual(len(requests), 3)
+        self.assertEqual(continued["stopped_reason"], None)
+        self.assertEqual((continued["failed_reviews"], continued["successful_reviews"]), (1, 1))
+        self.assertEqual(continued["results"][0]["error_code"], "model_timeout")
+        self.assertNotIn(FAKE_KEY, json.dumps(continued))
+
+    def test_repeated_server_errors_stop_batch(self):
+        init_labeling(self.db)
+        self.add_reviews(["第三条", "第四条"], name="extra.jsonl")
+        bad = httpx.Response(503, json={"error": {"message": "temporary failure"}},
+                             headers={"retry-after-ms": "1"})
+        result, requests = self.run_script([bad] * 6 + [response([])])
+        self.assertEqual(len(requests), 6)
+        self.assertEqual(result["processed_reviews"], 3)
+        self.assertEqual(result["stopped_reason"], "repeated_model_api_errors")
+        self.assertEqual([item["error_code"] for item in result["results"]], ["model_server_error"] * 3)
 
     def test_truncated_output_and_overlong_input_are_failed_without_partial_opinions(self):
         init_labeling(self.db)

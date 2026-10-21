@@ -7,7 +7,8 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from time import perf_counter
 from typing import Literal
 
-from openai import APIError, AuthenticationError, OpenAI, RateLimitError
+from openai import (APIConnectionError, APIError, APITimeoutError, AuthenticationError,
+                    InternalServerError, OpenAI, RateLimitError)
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from .config import AgentSettings, read_settings
@@ -18,6 +19,8 @@ from .review_scope import review_scope
 ASPECTS = {"quality": "商品质量", "effectiveness": "使用效果", "price": "价格",
            "packaging": "包装", "logistics": "物流", "service": "客服"}
 MAX_TEXT_CHARS = 12000
+TRANSIENT_ERROR_LIMIT = 3
+TRANSIENT_ERRORS = {"model_timeout", "model_connection_error", "model_server_error"}
 
 
 class Opinion(BaseModel):
@@ -134,6 +137,12 @@ def _label_review(client, review, settings):
             error, stop = "authentication_error", True
         except RateLimitError:
             error, stop = "rate_limit", True
+        except APITimeoutError:
+            error = "model_timeout"
+        except APIConnectionError:
+            error = "model_connection_error"
+        except InternalServerError:
+            error = "model_server_error"
         except APIError:
             error, stop = "model_api_error", True
     return opinions, metadata, error, stop, called, round((perf_counter() - started) * 1000, 3)
@@ -176,6 +185,7 @@ def run_labeling(db_path, *, limit=20, retry_failed=False, product_ids=None, env
             review = next(remaining)
             pending[pool.submit(_label_review, client, review, settings)] = review
         stopping = False
+        transient_errors = 0
         while pending:
             completed, _ = wait(pending, return_when=FIRST_COMPLETED)
             for future in completed:
@@ -197,9 +207,13 @@ def run_labeling(db_path, *, limit=20, retry_failed=False, product_ids=None, env
                                               "failed" if error else "success"), "error_code": error,
                                           "opinion_count": len(opinions)})
                 notify()
+                transient_errors = transient_errors + 1 if error in TRANSIENT_ERRORS else 0
                 if stop:
                     stopping = True
                     result["stopped_reason"] = result["stopped_reason"] or error
+                elif transient_errors >= TRANSIENT_ERROR_LIMIT:
+                    stopping = True
+                    result["stopped_reason"] = result["stopped_reason"] or "repeated_model_api_errors"
             while not stopping and len(pending) < workers:
                 next_review = next(remaining, None)
                 if next_review is None:
