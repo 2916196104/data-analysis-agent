@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>评论标注工作台</title>
+  <link rel="stylesheet" href="/workbench.css">
+  <script src="/workbench.js" defer></script>
+</head>
+<body>
+<header class="masthead">
+  <div><span class="eyebrow">REVIEW DESK · 历史评论</span><h1>评论标注工作台</h1><p>查看原文、核对观点，让每一次判断都有据可查。</p></div>
+  <span class="local-badge">本机工作台</span>
+</header>
+<main>
+  <p id="notice" role="status" aria-live="polite"></p>
+  <section class="panel" aria-labelledby="progress-title">
+    <div class="section-heading"><div><h2 id="progress-title">商品标注进度</h2><p>按所选模型版本统计全库，不受下方评论筛选影响。完成率以有正文评论为分母。</p></div><button id="refresh" type="button">刷新数据</button></div>
+    <label class="profile-label">模型 / 提示词版本<select id="profile"></select></label>
+    <p id="profile-description" class="muted wrap"></p>
+    <div id="totals" class="metrics"></div>
+    <div class="table-scroll"><table><thead><tr><th>商品</th><th>评论总数</th><th>成功 / 有正文</th><th>待标注</th><th>失败</th><th>空正文</th><th>已复核</th><th>标注完成率</th></tr></thead><tbody id="progress"></tbody></table></div>
+  </section>
+  <section class="panel" aria-labelledby="filter-title">
+    <h2 id="filter-title">筛选评论</h2>
+    <form id="filters" class="filters">
+      <label class="product-filter">商品<select name="product_key" id="product"><option value="">全部商品</option></select></label>
+      <label>开始日期（UTC）<input name="date_from" type="date"></label>
+      <label>结束日期（UTC，含当天）<input name="date_to" type="date"></label>
+      <label>观点维度<select name="aspect" id="aspect"></select></label>
+      <label>情感<select name="sentiment" id="sentiment"></select></label>
+      <label>处理状态<select name="processing_status" id="processing-status"></select></label>
+      <label>人工复核<select name="human_status" id="human-status"></select></label>
+      <label>每页条数<select name="page_size"><option>10</option><option selected>20</option><option>50</option><option>100</option></select></label>
+      <div class="filter-actions"><button class="primary" type="submit">应用筛选</button><button type="reset">重置</button></div>
+    </form>
+    <p class="muted">维度和情感须匹配同一条观点；已复核评论使用最新人工结果筛选，其余使用模型结果。</p>
+  </section>
+  <div class="workspace">
+    <section class="panel" aria-labelledby="reviews-title">
+      <div class="section-heading"><h2 id="reviews-title">评论与观点</h2><span id="result-count" class="muted"></span></div>
+      <div id="reviews"></div>
+      <nav class="pagination" aria-label="评论分页"><button id="previous">上一页</button><span id="page-description"></span><button id="next">下一页</button></nav>
+    </section>
+    <section class="panel detail" aria-labelledby="detail-title">
+      <h2 id="detail-title">原文与人工复核</h2>
+      <div id="detail"><p class="empty">从左侧选择一条评论，查看原文和标注依据。</p></div>
+    </section>
+  </div>
+</main>
+<footer>Amazon Reviews 2023 · 历史数据。页面操作不会调用模型；人工复核单独保存，模型原始记录保留。</footer>
+</body>
+</html>

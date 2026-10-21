@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "data-analysis-agent"
 version = "0.3.0"
-description = "Local CSV and Excel sales analysis with a single HelloAgents tool-calling agent."
+description = "Local sales analysis agent and streaming Amazon review imports into SQLite."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
@@ -14,11 +14,21 @@ dependencies = [
     "python-dotenv>=1.2.4,<1.3",
     "openpyxl==3.1.5",
     "defusedxml==0.7.1",
+    "openai>=1.109,<2",
+    "pydantic>=2,<3",
 ]
 
 [project.scripts]
 sales-analysis = "data_analysis_agent.main:main"
 sales-agent = "data_analysis_agent.agent_cli:main"
+review-import = "data_analysis_agent.review_cli:main"
+review-label = "data_analysis_agent.review_label_cli:main"
+review-analysis = "data_analysis_agent.review_analysis_cli:main"
+review-monitor = "data_analysis_agent.review_monitor_cli:main"
+review-workbench = "data_analysis_agent.review_workbench:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+data_analysis_agent = ["workbench_assets/*.html", "workbench_assets/*.css", "workbench_assets/*.js"]

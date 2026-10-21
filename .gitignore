@@ -33,8 +33,11 @@ data/samples/*
 *.xls
 *.parquet
 *.feather
+*.jsonl
+*.jsonl.gz
 *.sqlite*
 *.db
+*.db-*
 !data/samples/sales_mock.csv
 
 # Generated results may contain private data

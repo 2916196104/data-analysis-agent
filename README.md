@@ -1,6 +1,47 @@
-# 数据分析 Agent：CSV、Excel 与单 Agent
+# 数据分析 Agent：销售分析与评论标注工作台
 
 一个独立 Python 项目，支持本地销售 CSV/Excel 的读取、字段映射、校验、统计、绘图和 Markdown 报告，并接入 HelloAgents 单 Agent 的自然语言工具调用。应用统一通过 `load_sales_data` 读取数据，原有 `load_sales_csv` 接口继续保留。固定流程无需 API 密钥；自然语言流程使用支持原生 Function Calling 的 OpenAI 兼容模型服务。
+
+新增独立的 Amazon 评论/商品元数据 JSONL 导入入口，使用标准库 SQLite，支持 `.jsonl`/`.jsonl.gz` 流式读取、去重、原文定位和数据质量摘要。**环境配置和业务数据库初始化由你执行**；原有销售入口继续使用。配置步骤、可运行的模拟数据及完整契约见 [第三阶段 B：评论数据导入](docs/review-import.md)。
+
+All_Beauty 的完整真实文件已下载到 `data/private/amazon_reviews_2023/raw/`，已选取 4 款美发造型工具，在临时库验证 4,941 条唯一评论的导入、去重和原文位置。选品、真实验收结果及业务库操作步骤见 [All_Beauty 真实数据说明](docs/all-beauty-real-data.md)。
+
+新增 [评论标注工作台](docs/review-workbench.md)：本机网页支持商品、UTC 日期、维度、情感、模型处理状态及人工复核状态筛选；分页查看原文、观点与模型版本；人工确认、纠错及历史回查；按商品查看标注进度。人工记录另存，保留模型原始结果。无需新增依赖或模型配置，**数据库升级仍由你执行**，请先按说明备份：
+
+```powershell
+.\.venv\Scripts\python.exe -m data_analysis_agent.review_workbench init --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.review_workbench serve --db data/private/reviews.sqlite3
+```
+
+浏览器打开 `http://127.0.0.1:8765`。页面不会自动升级数据库或调用模型，原有销售分析入口继续使用。
+
+已新增 [六维度评论观点标注](docs/review-labeling.md)：复用现有模型配置，保存维度、情感、原文片段及位置、模型和提示词版本；支持增量跳过、失败重试与只读进度查询。业务库检查已确认导入及去重正确，可标注正文 4,939 条。观点表初始化和环境配置仍由你执行：
+
+```powershell
+.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli init --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli run --db data/private/reviews.sqlite3 --limit 20
+.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli status --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli evidence --db data/private/reviews.sqlite3 --review-id 1
+```
+
+标注 `run` 与进度 `status` 现可使用相同的商品、UTC 起止日期及 `--as-of` 回放范围。新增只读 `query` 命令，按明确的模型、服务地址与提示词版本返回有效观点，优先采用最新人工复核快照。无需升级数据库，完整参数、示例和时间口径见 [按范围查询评论](docs/review-query-scope.md)。
+
+新增 [评论统计与证据工具](docs/review-analytics.md)：`get_trend`、`get_top_issues`、`compare_products`、`get_evidence` 共用上述范围与人工有效观点规则，按去重评论计算数量、覆盖率和负面占比。命令行 `python -m data_analysis_agent.review_analysis_cli` 提供趋势、基线变化、商品对比、证据查询及 JSON 导出；无需前端、数据库升级或线上模型调用。
+
+新增 [分析记录、月度回放与规则告警](docs/review-monitoring.md)：`python -m data_analysis_agent.review_monitor_cli` 保存本次分析输入、人工观点和统计证据；按 UTC 月末回放，检查样本量、覆盖率、负面数量及占比增长；支持冷却去重、告警查询、确认和忽略。首次使用须显式执行该入口的 `init --db`，只新增监控表。命令不调用模型，样本不足会记录“无法判断”。
+
+`run` 会向配置的模型端点发送评论正文；默认每批最多 20 条。重复执行继续下一批，成功结果不重复调用模型；`--retry-failed` 可显式纳入失败项。开发联调仅用模拟样本请求线上接口；业务库中的真实标注由你执行。已有观点表时无需重复初始化。
+
+```powershell
+New-Item -ItemType Directory -Force data/private | Out-Null
+.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli init --db data/private/reviews.sqlite3
+# 本机真实文件已准备好；仅导入选定的 4 款商品。
+.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli import --db data/private/reviews.sqlite3 --reviews data/private/amazon_reviews_2023/raw/All_Beauty.jsonl.gz --meta data/private/amazon_reviews_2023/raw/meta_All_Beauty.jsonl.gz --product-id B00R1TAN7I --product-id B019GBG0IE --product-id B01M1OFZOG --product-id B01N4885PD
+.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli summary --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli evidence --db data/private/reviews.sqlite3 --review-id 1
+```
+
+导入不会自动创建数据库或调用模型。有坏记录时保留合法记录及错误明细，退出码为 3；文件损坏等整体失败会回滚本次导入。评论工作台、模型标注、评论统计、规则监控与销售 Agent 使用各自入口，后续再增加评论问答。
 
 ## 运行
 
@@ -48,7 +89,7 @@ $env:MPLCONFIGDIR = Join-Path (Get-Location) '.cache/matplotlib'
 
 Windows 受限沙箱可能阻止 asyncio 初始化所需的本地套接字，表现为 Agent 测试等待。此时在允许本地套接字的普通 PowerShell 中执行相同测试命令；临时目录配置仅解决文件权限问题。
 
-第一阶段已在 Python 3.12.10、Matplotlib 3.11.2 上实际完成默认 CLI 全流程和 8 项测试；第二阶段有 13 项离线配置/工具/框架测试，第三阶段 A 增加 9 项 Excel/CSV 和 Agent 验证，目前共 30 项通过。联调状态见对应阶段说明。
+第一阶段已在 Python 3.12.10、Matplotlib 3.11.2 上实际完成默认 CLI 全流程和 8 项测试；第二阶段有 13 项离线配置/工具/框架测试，第三阶段 A 增加 9 项 Excel/CSV 和 Agent 验证，当时共 30 项通过。第三阶段 B 新增评论导入离线测试，联调和使用说明见对应阶段文档。
 
 ## 第二阶段：自然语言分析
 
@@ -138,13 +179,40 @@ data-analysis-agent/
 │   ├── agent_tools.py           # 绑定当前数据的四类工具与执行记录
 │   ├── agent.py                 # 单 Agent、调用预算、结果引用校验
 │   ├── agent_cli.py             # 第二阶段自然语言入口
+│   ├── review_loader.py         # Amazon JSONL/gzip 流式解析和校验
+│   ├── review_store.py          # SQLite 导入、去重、质量统计和原文证据
+│   ├── review_cli.py            # 评论 init/import/summary/evidence 独立入口
+│   ├── review_labeler.py        # 六维度 Pydantic 输出与原文校验、模型标注
+│   ├── review_label_store.py    # 观点表显式初始化、尝试历史和增量查询
+│   ├── review_label_cli.py      # 标注 init/run/status/evidence/query 独立入口
+│   ├── review_scope.py          # UTC 范围和当前模型/人工有效观点共享口径
+│   ├── review_analytics.py      # 趋势、问题基线、商品对比和证据业务工具
+│   ├── review_analysis_cli.py   # 四类工具的 JSON 命令行入口与导出
+│   ├── review_monitor.py        # 同一快照分析、月度回放和规则判断
+│   ├── review_monitor_store.py  # 运行快照、告警命中与人工处理历史
+│   ├── review_monitor_cli.py    # init/run/replay、记录查询与告警处理
+│   ├── review_workbench.py      # 本机工作台 HTTP 与显式 init/serve 入口
+│   ├── review_workbench_store.py # 筛选分页、商品进度与人工复核快照
+│   ├── workbench_assets/        # 无外部资源的 HTML/CSS/JavaScript 页面
 │   ├── __main__.py              # python -m 入口
 │   └── __init__.py
 ├── tests/test_workflow.py
 ├── tests/test_agent.py           # 无外部 API 的真实框架集成测试
 ├── tests/test_excel.py           # CSV/Excel 一致性、类型与错误验证
+├── tests/test_reviews.py         # 临时 SQLite、JSONL、原文、去重与回滚测试
+├── tests/test_review_labels.py   # 无网络的六维度、证据、增量和失败恢复测试
+├── tests/test_review_workbench.py # 临时库与本机 HTTP 的筛选、复核、进度测试
+├── tests/test_review_scope.py    # 范围、回放截止、版本隔离与有效观点测试
+├── tests/test_review_analytics.py # 统计口径、基线、证据、CLI 与只读测试
+├── tests/test_review_monitor.py # 冷却、去重、证据快照、回放与事务测试
 ├── docs/phase2.md
 ├── docs/phase3.md
+├── docs/review-import.md
+├── docs/review-labeling.md
+├── docs/review-workbench.md
+├── docs/review-query-scope.md
+├── docs/review-analytics.md
+├── docs/review-monitoring.md
 ├── docs/column-map.example.json
 ├── outputs/                     # 运行时生成，不提交
 ├── pyproject.toml
@@ -188,4 +256,4 @@ print(json.dumps(result, ensure_ascii=False, indent=2))
 
 真实数据放 `data/private/`，产物放 `outputs/`。`.gitignore` 忽略 `.env` 及其变体（保留 `.env.example`）、常见密钥文件、整个数据目录（只放行明确的模拟 CSV）、常见数据文件扩展名、运行产物、日志、缓存、虚拟环境和 IDE 配置。自定义产物目录也应放在 `outputs/` 下；提交前使用 `git status --short` 检查，不使用强制添加来绕过忽略规则。
 
-当前面向一份小型 CSV 或一个 Excel 数据工作表，不提供大数据流式统计、退款分析、多币种换算或成本指标。SQL、页面与连续追问留到后续阶段。
+销售分析当前面向一份小型 CSV 或一个 Excel 数据工作表，不提供大数据流式销售统计、退款分析、多币种换算或成本指标。评论入口已支持 SQLite、流式导入、六维度增量标注、本机人工复核、范围查询、四类统计证据工具、运行快照、按月历史回放及规则告警；评论问答、HTTP API 与定时运行留到后续阶段。
