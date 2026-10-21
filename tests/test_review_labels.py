@@ -5,8 +5,10 @@ import json
 import sqlite3
 import sys
 import tempfile
+import threading
+import time
 import unittest
-from contextlib import closing, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
@@ -305,6 +307,9 @@ class ReviewLabelTests(unittest.TestCase):
         for value in (0, 1001, True, "20"):
             with self.assertRaises(ReviewDataError):
                 run_labeling(self.db, settings=SETTINGS, limit=value)
+        for value in (0, 5, True, "4"):
+            with self.assertRaises(ReviewDataError):
+                run_labeling(self.db, settings=SETTINGS, workers=value)
         for value in ([""], "P1", [1]):
             with self.assertRaises(ReviewDataError):
                 run_labeling(self.db, settings=SETTINGS, product_ids=value)
@@ -331,6 +336,75 @@ class ReviewLabelTests(unittest.TestCase):
         with patch("data_analysis_agent.review_labeler.read_settings", side_effect=AssertionError("must not load .env")):
             self.assertEqual(cli("status", "--db", str(self.db))[0], 0)
             self.assertEqual(cli("evidence", "--db", str(self.db), "--review-id", "1")[0], 0)
+
+    def test_parallel_requests_keep_one_writer_and_report_progress(self):
+        init_labeling(self.db)
+        self.add_reviews([f"新的评论 {index}" for index in range(6)], name="more.jsonl")
+        active, maximum = 0, 0
+        lock = threading.Lock()
+        requests = []
+
+        def handler(request):
+            nonlocal active, maximum
+            with lock:
+                active += 1
+                maximum = max(maximum, active)
+                requests.append(request)
+            time.sleep(0.03)
+            with lock:
+                active -= 1
+            return response([])
+
+        def client(**kwargs):
+            return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+        updates = []
+        with patch("data_analysis_agent.review_labeler.OpenAI", side_effect=client):
+            result = run_labeling(self.db, settings=SETTINGS, workers=4, progress=updates.append)
+        self.assertEqual(maximum, 4)
+        self.assertEqual((result["selected_reviews"], result["successful_reviews"], result["model_calls"]),
+                         (8, 8, 8))
+        self.assertEqual([item["completed"] for item in updates], list(range(9)))
+        self.assertEqual(len({item["review_id"] for item in result["results"]}), 8)
+        self.assertEqual(labeling_status(self.db)["profiles"][0]["successful_reviews"], 8)
+
+    def test_parallel_auth_failure_stops_submitting_new_requests(self):
+        init_labeling(self.db)
+        self.add_reviews([f"新的评论 {index}" for index in range(4)], name="more.jsonl")
+        lock = threading.Lock()
+        seen = 0
+
+        def handler(request):
+            nonlocal seen
+            with lock:
+                seen += 1
+                number = seen
+            if number == 1:
+                return httpx.Response(401, json={"error": {"message": "denied", "type": "authentication_error"}})
+            time.sleep(0.03)
+            return response([])
+
+        def client(**kwargs):
+            return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+        with patch("data_analysis_agent.review_labeler.OpenAI", side_effect=client):
+            result = run_labeling(self.db, settings=SETTINGS, workers=4)
+        self.assertEqual((seen, result["processed_reviews"], result["model_calls"]), (4, 4, 4))
+        self.assertEqual(result["stopped_reason"], "authentication_error")
+        self.assertEqual(labeling_status(self.db)["profiles"][0]["unprocessed_reviews"], 2)
+
+    def test_cli_progress_is_visible_before_final_json(self):
+        init_labeling(self.db)
+        output, progress = io.StringIO(), io.StringIO()
+        with patch.object(sys, "argv", ["review-label", "run", "--db", str(self.db), "--workers", "2"]), \
+                patch("data_analysis_agent.review_labeler.read_settings", return_value={
+                    "LLM_MODEL_ID": SETTINGS.model, "LLM_API_KEY": FAKE_KEY, "LLM_BASE_URL": SETTINGS.base_url,
+                }), self.mock_model([response([]), response([])], []), \
+                redirect_stdout(output), redirect_stderr(progress):
+            self.assertEqual(main(), 0)
+        self.assertEqual(json.loads(output.getvalue())["successful_reviews"], 2)
+        self.assertIn("标注进度 0/2", progress.getvalue())
+        self.assertIn("标注进度 2/2", progress.getvalue())
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 import hashlib
 import json
 import re
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from time import perf_counter
 from typing import Literal
 
@@ -108,10 +109,43 @@ def _metadata(response, secret):
     return {"model_version": clean(response.model), "response_id": clean(response.id), "usage": usage}
 
 
+def _label_review(client, review, settings):
+    started = perf_counter()
+    opinions, metadata, error, stop, called = [], {}, None, False, False
+    if len(review["text"]) > MAX_TEXT_CHARS:
+        error = "input_too_long"
+    else:
+        try:
+            called = True
+            response = client.chat.completions.create(
+                model=settings.model, temperature=0, max_tokens=4096,
+                response_format={"type": "json_object"}, messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": json.dumps({"review_text": review["text"]}, ensure_ascii=False)},
+                ],
+            )
+            metadata = _metadata(response, settings.api_key)
+            if not response.choices or response.choices[0].finish_reason != "stop":
+                raise OpinionValidationError("模型没有完整完成观点输出。")
+            opinions = validate_opinions(response.choices[0].message.content, review["text"])
+        except OpinionValidationError:
+            error = "invalid_output"
+        except AuthenticationError:
+            error, stop = "authentication_error", True
+        except RateLimitError:
+            error, stop = "rate_limit", True
+        except APIError:
+            error, stop = "model_api_error", True
+    return opinions, metadata, error, stop, called, round((perf_counter() - started) * 1000, 3)
+
+
 def run_labeling(db_path, *, limit=20, retry_failed=False, product_ids=None, env_file=".env", settings=None,
-                 date_from=None, date_to=None, as_of=None, source=None, dataset_version=None, progress=None):
+                 date_from=None, date_to=None, as_of=None, source=None, dataset_version=None, progress=None,
+                 workers=1):
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
         raise ReviewDataError("limit 必须是 1—1000 的整数。")
+    if isinstance(workers, bool) or not isinstance(workers, int) or not 1 <= workers <= 4:
+        raise ReviewDataError("workers 必须是 1—4 的整数。")
     if product_ids is not None and (not isinstance(product_ids, list)
                                   or any(not isinstance(item, str) or not item.strip() for item in product_ids)):
         raise ReviewDataError("product_ids 必须是非空商品 ID 的列表。")
@@ -133,55 +167,44 @@ def run_labeling(db_path, *, limit=20, retry_failed=False, product_ids=None, env
     notify()
     if not reviews:
         return result
-    # shortcut: Sequential batches; concurrent runners may make duplicate API calls before the DB uniqueness check.
+    # One runner owns the batch; only model requests overlap, and SQLite writes stay on this thread.
     with OpenAI(api_key=settings.api_key, base_url=settings.base_url, timeout=settings.timeout_seconds,
-                max_retries=settings.max_retries) as client:
-        for review in reviews:
-            notify()
-            started = perf_counter()
-            opinions, metadata, error, stop = [], {}, None, False
-            if len(review["text"]) > MAX_TEXT_CHARS:
-                error = "input_too_long"
-            else:
-                try:
-                    result["model_calls"] += 1
-                    response = client.chat.completions.create(
-                        model=settings.model, temperature=0, max_tokens=4096,
-                        response_format={"type": "json_object"}, messages=[
-                            {"role": "system", "content": SYSTEM_PROMPT},
-                            {"role": "user", "content": json.dumps({"review_text": review["text"]}, ensure_ascii=False)},
-                        ],
-                    )
-                    metadata = _metadata(response, settings.api_key)
-                    if not response.choices or response.choices[0].finish_reason != "stop":
-                        raise OpinionValidationError("模型没有完整完成观点输出。")
-                    opinions = validate_opinions(response.choices[0].message.content, review["text"])
-                except OpinionValidationError:
-                    error = "invalid_output"
-                except AuthenticationError:
-                    error, stop = "authentication_error", True
-                except RateLimitError:
-                    error, stop = "rate_limit", True
-                except APIError:
-                    error, stop = "model_api_error", True
-            annotation_id = save_annotation(
-                db_path, review, **identity, status="failed" if error else "success", opinions=opinions,
-                error_code=error, elapsed_ms=round((perf_counter() - started) * 1000, 3), **metadata,
-            )
-            result["processed_reviews"] += 1
-            if annotation_id is None:
-                result["already_completed"] += 1
-            else:
-                result["failed_reviews" if error else "successful_reviews"] += 1
-                result["opinion_count"] += len(opinions)
-            result["results"].append({"review_id": review["id"], "annotation_id": annotation_id,
-                                      "status": "already_completed" if annotation_id is None else (
-                                          "failed" if error else "success"), "error_code": error,
-                                      "opinion_count": len(opinions)})
-            notify()
-            if stop:
-                result["stopped_reason"] = error
-                break
+                max_retries=settings.max_retries) as client, ThreadPoolExecutor(max_workers=workers) as pool:
+        remaining = iter(reviews)
+        pending = {}
+        for _ in range(min(workers, len(reviews))):
+            review = next(remaining)
+            pending[pool.submit(_label_review, client, review, settings)] = review
+        stopping = False
+        while pending:
+            completed, _ = wait(pending, return_when=FIRST_COMPLETED)
+            for future in completed:
+                review = pending.pop(future)
+                opinions, metadata, error, stop, called, elapsed_ms = future.result()
+                result["model_calls"] += int(called)
+                annotation_id = save_annotation(
+                    db_path, review, **identity, status="failed" if error else "success", opinions=opinions,
+                    error_code=error, elapsed_ms=elapsed_ms, **metadata,
+                )
+                result["processed_reviews"] += 1
+                if annotation_id is None:
+                    result["already_completed"] += 1
+                else:
+                    result["failed_reviews" if error else "successful_reviews"] += 1
+                    result["opinion_count"] += len(opinions)
+                result["results"].append({"review_id": review["id"], "annotation_id": annotation_id,
+                                          "status": "already_completed" if annotation_id is None else (
+                                              "failed" if error else "success"), "error_code": error,
+                                          "opinion_count": len(opinions)})
+                notify()
+                if stop:
+                    stopping = True
+                    result["stopped_reason"] = result["stopped_reason"] or error
+            while not stopping and len(pending) < workers:
+                next_review = next(remaining, None)
+                if next_review is None:
+                    break
+                pending[pool.submit(_label_review, client, next_review, settings)] = next_review
     if result["failed_reviews"] or result["stopped_reason"]:
         result["status"] = "partial"
     return result

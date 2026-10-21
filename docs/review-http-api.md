@@ -188,6 +188,7 @@ $labelRequest = @{
         as_of = '2016-03-31'
         limit = 20
         retry_failed = $false
+        workers = 1
     }
 } | ConvertTo-Json -Depth 10
 $submission = Invoke-RestMethod "$apiBase/tasks" -Method Post -ContentType 'application/json' -Body $labelRequest
@@ -200,6 +201,8 @@ Invoke-RestMethod "$apiBase/tasks/$taskId" | ConvertTo-Json -Depth 20
 ### 提交本机文件导入
 
 请求体结构如下。相对路径以 `--import-root data/private` 为基准；禁止越出该目录，worker 执行前再次检查文件。
+
+导入参数可增加 `"max_reviews": 1000`，限制本次新增评论数；省略或设为 `null` 表示不限。必须为正整数且同时提供 `reviews_path`，重复、坏记录和未选中的商品不占额度，元数据不受上限限制。达到上限是本批成功完成（存在坏记录时仍为 partial），结果含 `limit_reached=true`、`scan_complete=false`，不代表整份文件已扫描或校验；详见[数量与提速说明](review-import.md#自定义导入数量与提速)。
 
 ```json
 {

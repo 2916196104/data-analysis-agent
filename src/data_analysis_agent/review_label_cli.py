@@ -3,6 +3,7 @@
 import argparse
 import json
 import sqlite3
+import sys
 from pathlib import Path
 
 if __name__ == "__main__" and not __package__:
@@ -38,6 +39,7 @@ def main():
         command.add_argument("--base-url", required=command is query, help="标注时使用的服务地址")
         command.add_argument("--prompt-version", required=command is query, help="标注时使用的完整提示词版本")
     run.add_argument("--limit", type=int, default=20, help="每批最多处理条数，1—1000，默认20")
+    run.add_argument("--workers", type=int, default=1, help="同时调用模型的请求数，1—4，默认1")
     run.add_argument("--env-file", type=Path, default=Path(".env"))
     run.add_argument("--retry-failed", action="store_true", help="同时选择失败评论重新尝试")
     evidence.add_argument("--review-id", required=True, type=int)
@@ -54,8 +56,13 @@ def main():
         if args.command == "init":
             result = {"status": "ok", **init_labeling(args.db)}
         elif args.command == "run":
+            def show_progress(value):
+                print(f"标注进度 {value['completed']}/{value['total']}，成功 {value['successful_reviews']}，"
+                      f"失败 {value['failed_reviews']}，模型调用 {value['model_calls']}",
+                      file=sys.stderr, flush=True)
+
             result = run_labeling(args.db, limit=args.limit, retry_failed=args.retry_failed,
-                                   env_file=args.env_file, **scope)
+                                   env_file=args.env_file, progress=show_progress, workers=args.workers, **scope)
         elif args.command == "status":
             result = {"status": "ok", "current_prompt_version": PROMPT_VERSION,
                       **labeling_status(args.db, **scope, **identity)}

@@ -150,16 +150,20 @@ class ImportParameters(Input):
     meta_path: str | None = Field(default=None, min_length=1, max_length=4000)
     dataset_version: Text = DATASET_VERSION
     product_ids: list[Text] = Field(default_factory=list, max_length=100)
+    max_reviews: int | None = Field(default=None, ge=1, strict=True)
 
     @model_validator(mode="after")
     def has_file(self):
         if self.reviews_path is None and self.meta_path is None:
             raise ValueError("至少指定 reviews_path 或 meta_path。")
+        if self.max_reviews is not None and self.reviews_path is None:
+            raise ValueError("max_reviews 需要同时指定 reviews_path。")
         return self
 
 
 class LabelParameters(Scope):
     limit: int = Field(default=20, ge=1, le=1000, strict=True)
+    workers: int = Field(default=1, ge=1, le=4, strict=True)
     retry_failed: bool = Field(default=False, strict=True)
 
 

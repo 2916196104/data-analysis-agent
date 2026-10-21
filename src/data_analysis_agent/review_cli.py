@@ -28,6 +28,7 @@ def main() -> int:
     load.add_argument("--meta", type=Path, help="Amazon 商品元数据 .jsonl 或 .jsonl.gz")
     load.add_argument("--dataset-version", default=DATASET_VERSION)
     load.add_argument("--product-id", action="append", help="只导入指定 parent_asin，可重复传入")
+    load.add_argument("--max-reviews", type=int, help="本次最多新增评论数（正整数）；重复和坏记录不占额度，省略则不限")
     evidence.add_argument("--review-id", required=True, type=int)
     args = parser.parse_args()
     if args.command == "import" and args.reviews is None and args.meta is None:
@@ -37,7 +38,8 @@ def main() -> int:
             result = {"status": "ok", **init_database(args.db)}
         elif args.command == "import":
             result = import_amazon_jsonl(args.db, reviews_path=args.reviews, meta_path=args.meta,
-                                         dataset_version=args.dataset_version, product_ids=args.product_id)
+                                         dataset_version=args.dataset_version, product_ids=args.product_id,
+                                         max_reviews=args.max_reviews)
         elif args.command == "summary":
             result = {"status": "ok", "quality": get_quality_summary(args.db)}
         else:

@@ -2,6 +2,8 @@
 
 一个独立 Python 项目，支持本地销售 CSV/Excel 的读取、字段映射、校验、统计、绘图和 Markdown 报告，并接入 HelloAgents 单 Agent 的自然语言工具调用。应用统一通过 `load_sales_data` 读取数据，原有 `load_sales_csv` 接口继续保留。固定流程无需 API 密钥；自然语言流程使用支持原生 Function Calling 的 OpenAI 兼容模型服务。
 
+新增独立的 [React 评论分析工作台](frontend/README.md)，使用 TypeScript、Vite、Ant Design 和 ECharts。支持选择已有评论数据、服务端路径导入、提交结构化分析、真实任务进度、历史恢复、原文证据和 JSON 导出。启动与后端 Origin 配置、接口映射及现有能力边界见前端说明。
+
 新增独立的 Amazon 评论/商品元数据 JSONL 导入入口，使用标准库 SQLite，支持 `.jsonl`/`.jsonl.gz` 流式读取、去重、原文定位和数据质量摘要。**环境配置和业务数据库初始化由你执行**；原有销售入口继续使用。配置步骤、可运行的模拟数据及完整契约见 [第三阶段 B：评论数据导入](docs/review-import.md)。
 
 All_Beauty 的完整真实文件已下载到 `data/private/amazon_reviews_2023/raw/`，已选取 4 款美发造型工具，在临时库验证 4,941 条唯一评论的导入、去重和原文位置。选品、真实验收结果及业务库操作步骤见 [All_Beauty 真实数据说明](docs/all-beauty-real-data.md)。
@@ -30,7 +32,7 @@ All_Beauty 的完整真实文件已下载到 `data/private/amazon_reviews_2023/r
 
 新增 [分析记录、月度回放与规则告警](docs/review-monitoring.md)：`python -m data_analysis_agent.review_monitor_cli` 保存本次分析输入、人工观点和统计证据；按 UTC 月末回放，检查样本量、覆盖率、负面数量及占比增长；支持冷却去重、告警查询、确认和忽略。首次使用须显式执行该入口的 `init --db`，只新增监控表。命令不调用模型，样本不足会记录“无法判断”。
 
-`run` 会向配置的模型端点发送评论正文；默认每批最多 20 条。重复执行继续下一批，成功结果不重复调用模型；`--retry-failed` 可显式纳入失败项。开发联调仅用模拟样本请求线上接口；业务库中的真实标注由你执行。已有观点表时无需重复初始化。
+`run` 会向配置的模型端点发送评论正文；默认每批最多 20 条。重复执行继续下一批，成功结果不重复调用模型；`--retry-failed` 可显式纳入失败项。可用 `--limit 200 --workers 4` 同时处理最多 4 条评论的模型请求，并在终端逐条查看进度；默认单路。用[观点标注说明](docs/review-labeling.md)中的人工复核方法比较模型准确率。开发联调仅用模拟样本请求线上接口；业务库中的真实标注由你执行。已有观点表时无需重复初始化。
 
 ```powershell
 New-Item -ItemType Directory -Force data/private | Out-Null
@@ -47,7 +49,7 @@ New-Item -ItemType Directory -Force data/private | Out-Null
 
 新增 [统一 HTTP API 与后台任务](docs/review-http-api.md)：商品评论、人工复核、四个分析工具、运行记录与告警统一通过 `/api/v1` 调用。导入、标注、分析、回放使用独立 SQLite 任务库持久化，支持进度查询、幂等提交、显式重试和中断恢复。原有 CLI 保留，本次未新增或运行测试，验证由你进行。首次按文档安装依赖并显式初始化后启动。
 
-已提供 **39 个 IDEA 运行配置**，保存于 [.run](.run/)。在顶部运行配置列表选择 **03 查看评论库摘要** 即可开始；脚本路径、工作目录、业务参数均已填好。HTTP 服务使用 **69 → 70 → 71**；完整用途、历史回放范围与推荐顺序见 [IDEA 一键运行说明](docs/idea-running.md)。
+已提供 **42 个 IDEA 运行配置**，保存于 [.run](.run/)。在顶部运行配置列表选择 **03 查看评论库摘要** 即可开始；脚本路径、工作目录、业务参数均已填好。**05 自定义数量导入亚马逊评论** 可在运行时输入新增评论上限，**18 亚马逊并发标注200条** 可在 4 路并发下继续增量标注。HTTP 服务使用 **69 → 70 → 71**；完整用途、历史回放范围与推荐顺序见 [IDEA 一键运行说明](docs/idea-running.md)。
 
 **在 IntelliJ IDEA 中直接点击运行：** `review_cli.py`、`review_label_cli.py`、`review_analysis_cli.py`、`review_monitor_cli.py`、`review_workbench.py`、`agent_cli.py`、`main.py` 和 `__main__.py` 均支持按文件运行，无需改为模块模式。选择项目的 `.venv` Python 解释器；首次未填写参数时显示帮助并正常退出，不执行业务操作。
 

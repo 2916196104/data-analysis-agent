@@ -46,3 +46,11 @@ outputs/
 *.log
 .cache/
 *.worker.lock
+
+# Independent frontend
+node_modules/
+.vite/
+*.tsbuildinfo
+frontend/test-results/
+frontend/.npm-cache/
+output/playwright/

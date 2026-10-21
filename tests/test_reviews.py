@@ -188,6 +188,57 @@ class ReviewImportTests(unittest.TestCase):
         self.assertEqual(outcome["status"], "partial")
         self.assertTrue(outcome["imports"][0]["warnings"])
 
+    def test_review_limit_counts_only_new_valid_selected_reviews_and_can_continue(self):
+        for name in ("limited.jsonl", "limited.jsonl.gz"):
+            with self.subTest(name=name):
+                self.db = self.root / (name + ".sqlite3")
+                init_database(self.db)
+                self.import_reviews([review()])
+                path = self.write_jsonl(name, [review(), review(user_id="BAD", rating=99),
+                    review(parent_asin="P2", user_id="FILTERED"), review(user_id="U2"),
+                    review(user_id="U3"), review(user_id="U4")])
+                result = import_amazon_jsonl(self.db, reviews_path=path, product_ids=["P1"], max_reviews=2)
+                summary = result["imports"][0]
+                self.assertEqual(result["status"], "partial")
+                self.assertEqual((summary["inserted_records"], summary["duplicate_records"],
+                                  summary["invalid_records"], summary["filtered_records"]), (2, 1, 1, 1))
+                self.assertEqual(summary["total_lines"], 5)
+                self.assertTrue(summary["limit_reached"])
+                self.assertFalse(summary["scan_complete"])
+                self.assertEqual(get_review_evidence(self.db, 3)["line_number"], 5)
+                continued = import_amazon_jsonl(self.db, reviews_path=path, product_ids=["P1"], max_reviews=2)
+                self.assertEqual(continued["imports"][0]["inserted_records"], 1)
+                self.assertTrue(continued["imports"][0]["scan_complete"])
+                self.assertEqual(continued["quality"]["review_count"], 4)
+
+    def test_review_limit_preserves_anonymous_identity_and_does_not_limit_metadata(self):
+        init_database(self.db)
+        path = self.write_jsonl("anonymous.jsonl.gz", [review(user_id="")] * 3)
+        meta = self.write_jsonl("meta.jsonl", [product(), product(parent_asin="P2")])
+        for expected in (1, 2, 3):
+            result = import_amazon_jsonl(self.db, reviews_path=path, meta_path=meta, max_reviews=1)
+            self.assertEqual(result["status"], "ok")
+            self.assertEqual(result["imports"][0]["valid_records"], 2)
+            self.assertTrue(result["imports"][0]["scan_complete"])
+            self.assertEqual(result["quality"]["review_count"], expected)
+            evidence = get_review_evidence(self.db, expected)
+            self.assertEqual(evidence["line_number"], expected)
+            self.assertEqual(evidence["file_sha256"], file_sha256(path))
+
+    def test_review_limit_validates_before_writing_and_still_checks_input_fingerprint(self):
+        init_database(self.db)
+        path = self.write_jsonl("limited.jsonl", [review(), review(user_id="U2")])
+        for invalid in (0, -1, True, 1.5, "1"):
+            with self.subTest(invalid=invalid), self.assertRaises(ReviewDataError):
+                import_amazon_jsonl(self.db, reviews_path=path, max_reviews=invalid)
+        with self.assertRaises(ReviewDataError):
+            import_amazon_jsonl(self.db, meta_path=path, max_reviews=1)
+        with patch("data_analysis_agent.review_store.file_sha256", side_effect=[file_sha256(path), "changed"]):
+            with self.assertRaisesRegex(ReviewDataError, "回滚"):
+                import_amazon_jsonl(self.db, reviews_path=path, max_reviews=1)
+        self.assertEqual(get_quality_summary(self.db)["import_count"], 0)
+        self.assertEqual(get_quality_summary(self.db)["review_count"], 0)
+
     def test_corrupt_gzip_rolls_back_both_files_and_import_history(self):
         init_database(self.db)
         metadata = self.write_jsonl("meta.jsonl", [product()])
@@ -305,6 +356,44 @@ class ReviewImportTests(unittest.TestCase):
         self.assertEqual(json.loads(outcome.stdout)["status"], "error")
         self.assertNotIn("Traceback", outcome.stderr)
         self.assertEqual(get_quality_summary(self.db)["product_count"], 0)
+
+    def test_cli_review_limit(self):
+        init_database(self.db)
+        path = self.write_jsonl("reviews.jsonl", [review(user_id=f"U{i}") for i in range(3)])
+        for limit, expected in (("1", 1), ("2", 3)):
+            result = self.run_cli("import", "--db", str(self.db), "--reviews", str(path), "--max-reviews", limit)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["quality"]["review_count"], expected)
+        self.assertEqual(self.run_cli("import", "--db", str(self.db), "--reviews", str(path),
+                                     "--max-reviews", "0").returncode, 1)
+
+    def test_task_worker_preserves_review_limit_and_schema_rejects_invalid_values(self):
+        from pydantic import ValidationError
+        from data_analysis_agent.review_api_schemas import ImportParameters
+        from data_analysis_agent.review_task_store import init_tasks, enqueue, worker_started, claim_task, get_task
+        from data_analysis_agent.review_task_worker import TaskWorker, prepare_parameters
+
+        init_database(self.db)
+        path = self.write_jsonl("reviews.jsonl", [review(user_id=f"U{i}") for i in range(3)])
+        for invalid in (0, -1, True, 1.5, "1"):
+            with self.subTest(invalid=invalid), self.assertRaises(ValidationError):
+                ImportParameters(reviews_path=path.name, max_reviews=invalid)
+        with self.assertRaises(ValidationError):
+            ImportParameters(meta_path=path.name, max_reviews=1)
+        task_db = self.root / "tasks.sqlite3"
+        init_tasks(task_db, self.db)
+        values = prepare_parameters("import", {"reviews_path": path.name, "max_reviews": 2},
+                                    import_root=self.root, env_file=self.root / "unused.env")
+        task = enqueue(task_db, "import", values)["task"]
+        worker = TaskWorker(self.db, task_db, import_root=self.root, env_file=self.root / "unused.env")
+        worker_started(task_db, worker.worker_id)
+        claimed = claim_task(task_db, worker.worker_id)
+        worker._execute(claimed)
+        completed = get_task(task_db, task["task_id"])
+        self.assertEqual(completed["status"], "succeeded", completed["error"])
+        self.assertEqual(completed["parameters"]["max_reviews"], 2)
+        self.assertEqual(completed["result"]["quality"]["review_count"], 2)
+        self.assertTrue(completed["result"]["imports"][0]["limit_reached"])
 
 
 if __name__ == "__main__":

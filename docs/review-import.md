@@ -40,7 +40,29 @@ New-Item -ItemType Directory -Force data/private | Out-Null
 .\.venv\Scripts\python.exe -m data_analysis_agent.review_cli import --db outputs/review_demo/reviews.sqlite3 --reviews outputs/review_demo/mock_reviews.jsonl --dataset-version demo-simulated --product-id DEMO-P1 --product-id DEMO-P2
 ```
 
-此命令使用下一节生成的模拟文件。筛选不会改变文件扫描范围，仍需逐行经过整个文件；选中商品以外的合法 JSON 对象计为 `filtered_records`，不再验证其评分等字段。JSON 损坏或商品 ID 格式错误仍计入坏记录。
+此命令使用下一节生成的模拟文件。默认筛选仍需逐行经过整个文件；选中商品以外的合法 JSON 对象计为 `filtered_records`，不再验证其评分等字段。JSON 损坏或商品 ID 格式错误仍计入坏记录。
+
+### 自定义导入数量与提速
+
+添加 `--max-reviews 1000`，本次最多新增 1000 条评论；可改为任意正整数，省略时不限数量。例如只导入指定商品的评论：
+
+```powershell
+.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli import --db data/private/reviews.sqlite3 --reviews data/private/amazon_reviews_2023/raw/All_Beauty.jsonl.gz --product-id B00R1TAN7I --max-reviews 1000
+```
+
+- 上限统计本次新增的唯一评论，不是文件行数或数据库总数。重复、坏记录及未选中的商品不占额度；有效的空正文评论占额度。
+- 达到上限后停止解析评论，摘要返回 `limit_reached=true`、`scan_complete=false`；`total_lines` 仅表示已扫描的行数。这表示已完成本批目标，不会单凭达到上限返回失败。即使上限恰好落在文件末行，也保守标记为未确认扫描完整文件。
+- 再次运行会从文件开头扫描，跳过已存在评论，继续新增最多指定数量；不是从上次行号直接恢复。坏记录可能再次计入导入历史。已有四款商品的全部评论已导入时，再设上限也不会重复新增；要扩大范围请调整或删除 `--product-id`。
+- 限量导入不检查停止位置之后的评论 JSON 或 gzip 尾部完整性，不能当作整份文件的数据质量验收；整文件 SHA-256 前后校验仍然保留，所以即使数量很少也有完整文件读取开销。
+- `--meta` 可省略。提供时仍先完整处理符合商品筛选的元数据，评论上限不限制商品元数据；后续可以单独补充元数据。
+
+导入实现复用单条评论的内容指纹，并使用有界商品缓存减少重复的占位记录写入；保留原有事务、去重、原文定位与文件变更回滚规则，无需升级数据库。数量较少时，主要节省后续解压、JSON 解析与数据库写入；不会保证所有文件和机器都有固定提速比例。
+
+IDEA 可选择 **05 自定义数量导入亚马逊评论**，运行时输入本次新增上限（默认 1000），默认仍筛选现有四款商品。网页“从服务端目录导入”提供“本次最多新增评论数”，留空即不限；HTTP 参数对应 `max_reviews`，仅提供元数据时不能设置此参数。
+
+2026-10-21 使用 20,000 条、4 款商品的人工模拟评论，在全新临时库中对比改动前后，各运行 3 次取中位数：JSONL 全量导入从 1.0892 秒降至 0.9454 秒，gzip 从 1.0551 秒降至 0.9166 秒，耗时约下降 13%；两种格式限量新增 1000 条分别为 0.0661 秒和 0.0453 秒。限量测试完成的工作量较少，不与全量视为同等任务。全量结果的评论身份、内容指纹及行号一致；此结果不代表真实大文件的固定性能。原始记录保存在本机 `.cache/import-speed/benchmark.json`。
+
+本次验证：127 项 Python 测试、12 项前端单元测试及前端构建通过；真实 API、worker 和浏览器的隔离模拟验收确认，包含 3 条新评论的文件设置上限 1 时只新增 1 条，并返回停止标记。浏览器验收记录位于 `output/playwright/frontend-hFUeJV/acceptance.json`。未调用线上模型或向业务库导入数据。
 
 安装入口已在 `pyproject.toml` 声明为 `review-import`。如需使用 `.venv\Scripts\review-import.exe`，由你重新执行 `pip install -e .` 注册；直接使用上面的 `python -m` 无需额外注册，且本次没有新增依赖。
 

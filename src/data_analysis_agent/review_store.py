@@ -145,19 +145,24 @@ def _store_product(connection, record, raw_json, raw_data, run_id, line_number, 
     return True
 
 
-def _store_review(connection, record, raw_json, run_id, line_number, version, fingerprint, fetched_at):
+def _store_review(connection, record, raw_json, run_id, line_number, version, fingerprint, fetched_at,
+                  known_products):
     # Anonymous records have no safe cross-file identity; keep distinct locations.
-    identity = record if record["user_id"] else {"file_sha256": fingerprint, "line": line_number}
-    record_id = content_sha256(identity)
+    digest = content_sha256(record)
+    record_id = digest if record["user_id"] else content_sha256({"file_sha256": fingerprint, "line": line_number})
     if connection.execute(
         "SELECT 1 FROM reviews WHERE source=? AND dataset_version=? AND source_record_id=?",
         (SOURCE, version, record_id),
     ).fetchone():
         return False
-    connection.execute(
-        "INSERT INTO products(source, dataset_version, product_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
-        (SOURCE, version, record["product_id"]),
-    )
+    if record["product_id"] not in known_products:
+        connection.execute(
+            "INSERT INTO products(source, dataset_version, product_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
+            (SOURCE, version, record["product_id"]),
+        )
+        # Bound memory even when importing a category with millions of products.
+        if len(known_products) < 4096:
+            known_products.add(record["product_id"])
     connection.execute(
         """INSERT INTO reviews
         (source, dataset_version, source_record_id, product_id, asin, user_id, title,
@@ -166,12 +171,12 @@ def _store_review(connection, record, raw_json, run_id, line_number, version, fi
         (SOURCE, version, record_id, record["product_id"], record["asin"], record["user_id"],
          record["title"], record["text"], int(bool(record["text"].strip())),
          record["rating"], record["published_at"], fetched_at,
-         raw_json, content_sha256(record), run_id, line_number),
+         raw_json, digest, run_id, line_number),
     )
     return True
 
 
-def _import_file(connection, path, kind, version, product_ids, progress=None):
+def _import_file(connection, path, kind, version, product_ids, progress=None, max_reviews=None):
     if progress:
         progress({"stage": "hashing_" + kind, "completed": 0, "total": None, "unit": "lines"})
     fingerprint = file_sha256(path)
@@ -183,44 +188,50 @@ def _import_file(connection, path, kind, version, product_ids, progress=None):
     counts = {name: 0 for name in
               ("total_lines", "blank_lines", "filtered_records", "inserted_records", "duplicate_records",
                "invalid_records", "empty_text_records", "missing_rating_records", "missing_user_id_records")}
-    for line in iter_jsonl(path):
-        counts["total_lines"] += 1
-        if progress and counts["total_lines"] % 1000 == 0:
-            progress({"stage": "importing_" + kind, "completed": counts["total_lines"] - 1,
-                      "total": None, "unit": "lines", "inserted_records": counts["inserted_records"],
-                      "invalid_records": counts["invalid_records"]})
-        reason = line.error
-        if line.data is None and reason is None:
-            counts["blank_lines"] += 1
-            continue
-        if reason is None:
-            try:
-                # Filter by product before validating other fields, but report malformed JSON.
-                candidate = line.data.get("parent_asin")
-                if (product_ids and isinstance(candidate, str) and candidate.strip()
-                        and candidate.strip() not in product_ids):
-                    counts["filtered_records"] += 1
-                    continue
-                if kind == "reviews":
-                    record = normalize_review(line.data)
-                    inserted = _store_review(connection, record, line.text, run_id, line.number,
-                                             version, fingerprint, started)
-                    counts["empty_text_records"] += not record["text"].strip()
-                    counts["missing_rating_records"] += record["rating"] is None
-                    counts["missing_user_id_records"] += not record["user_id"]
-                else:
-                    record = normalize_product(line.data)
-                    inserted = _store_product(connection, record, line.text, line.data,
-                                              run_id, line.number, version)
-                counts["inserted_records" if inserted else "duplicate_records"] += 1
-            except ReviewDataError as exc:
-                reason = str(exc)
-        if reason is not None:
-            counts["invalid_records"] += 1
-            connection.execute(
-                "INSERT INTO import_errors(import_run_id, line_number, reason, raw_line) VALUES (?, ?, ?, ?)",
-                (run_id, line.number, reason, line.raw),
-            )
+    known_products = set()
+    limit_reached = False
+    with closing(iter_jsonl(path)) as lines:
+        for line in lines:
+            counts["total_lines"] += 1
+            if progress and counts["total_lines"] % 1000 == 0:
+                progress({"stage": "importing_" + kind, "completed": counts["total_lines"] - 1,
+                          "total": None, "unit": "lines", "inserted_records": counts["inserted_records"],
+                          "invalid_records": counts["invalid_records"]})
+            reason = line.error
+            if line.data is None and reason is None:
+                counts["blank_lines"] += 1
+                continue
+            if reason is None:
+                try:
+                    # Filter by product before validating other fields, but report malformed JSON.
+                    candidate = line.data.get("parent_asin")
+                    if (product_ids and isinstance(candidate, str) and candidate.strip()
+                            and candidate.strip() not in product_ids):
+                        counts["filtered_records"] += 1
+                        continue
+                    if kind == "reviews":
+                        record = normalize_review(line.data)
+                        inserted = _store_review(connection, record, line.text, run_id, line.number,
+                                                 version, fingerprint, started, known_products)
+                        counts["empty_text_records"] += not record["text"].strip()
+                        counts["missing_rating_records"] += record["rating"] is None
+                        counts["missing_user_id_records"] += not record["user_id"]
+                    else:
+                        record = normalize_product(line.data)
+                        inserted = _store_product(connection, record, line.text, line.data,
+                                                  run_id, line.number, version)
+                    counts["inserted_records" if inserted else "duplicate_records"] += 1
+                    if kind == "reviews" and max_reviews is not None and counts["inserted_records"] >= max_reviews:
+                        limit_reached = True
+                        break
+                except ReviewDataError as exc:
+                    reason = str(exc)
+            if reason is not None:
+                counts["invalid_records"] += 1
+                connection.execute(
+                    "INSERT INTO import_errors(import_run_id, line_number, reason, raw_line) VALUES (?, ?, ?, ?)",
+                    (run_id, line.number, reason, line.raw),
+                )
     if progress:
         progress({"stage": "verifying_" + kind, "completed": counts["total_lines"], "total": None, "unit": "lines"})
     if file_sha256(path) != fingerprint:
@@ -230,6 +241,8 @@ def _import_file(connection, path, kind, version, product_ids, progress=None):
         "import_run_id": run_id, "source": SOURCE, "dataset_version": version,
         "kind": kind, "file_path": str(path), "file_sha256": fingerprint,
         "product_ids": sorted(product_ids),
+        "max_reviews": max_reviews if kind == "reviews" else None,
+        "limit_reached": limit_reached, "scan_complete": not limit_reached,
         **counts, "valid_records": valid,
         "status": "partial" if counts["invalid_records"] or not valid else "ok",
         "warnings": ["未找到符合条件的有效记录。"] if not valid else [],
@@ -281,10 +294,15 @@ def _quality_summary(connection):
 
 def import_amazon_jsonl(db_path: str | Path, *, reviews_path: str | Path | None = None,
                         meta_path: str | Path | None = None, dataset_version: str = DATASET_VERSION,
-                        product_ids: list[str] | None = None, progress=None) -> dict:
+                        product_ids: list[str] | None = None, progress=None, max_reviews: int | None = None) -> dict:
     """Import both inputs in one transaction; row errors are retained, fatal errors roll back."""
     if not isinstance(dataset_version, str) or not dataset_version.strip():
         raise ReviewDataError("dataset_version 不能为空。")
+    if max_reviews is not None:
+        if isinstance(max_reviews, bool) or not isinstance(max_reviews, int) or max_reviews < 1:
+            raise ReviewDataError("max_reviews 必须是正整数，省略时不限数量。")
+        if reviews_path is None:
+            raise ReviewDataError("max_reviews 需要同时指定评论文件。")
     if product_ids is not None and (not isinstance(product_ids, list)
                                   or any(not isinstance(item, str) or not item.strip() for item in product_ids)):
         raise ReviewDataError("product_ids 必须是非空商品 ID 的列表。")
@@ -303,7 +321,7 @@ def import_amazon_jsonl(db_path: str | Path, *, reviews_path: str | Path | None 
     with closing(_connect(database)) as connection:
         with connection:
             connection.execute("BEGIN IMMEDIATE")
-            imports = [_import_file(connection, path, kind, dataset_version.strip(), selected, progress)
+            imports = [_import_file(connection, path, kind, dataset_version.strip(), selected, progress, max_reviews)
                        for kind, path in files]
             quality = _quality_summary(connection)
     if progress:
