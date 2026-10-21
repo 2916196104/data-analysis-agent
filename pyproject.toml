@@ -16,6 +16,8 @@ dependencies = [
     "defusedxml==0.7.1",
     "openai>=1.109,<2",
     "pydantic>=2,<3",
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.30,<1",
 ]
 
 [project.scripts]
@@ -26,6 +28,7 @@ review-label = "data_analysis_agent.review_label_cli:main"
 review-analysis = "data_analysis_agent.review_analysis_cli:main"
 review-monitor = "data_analysis_agent.review_monitor_cli:main"
 review-workbench = "data_analysis_agent.review_workbench:main"
+review-api = "data_analysis_agent.review_api_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

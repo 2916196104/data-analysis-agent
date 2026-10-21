@@ -5,6 +5,11 @@ import json
 import sys
 from pathlib import Path
 
+if __name__ == "__main__" and not __package__:
+    from _cli_bootstrap import prepare_direct_run
+
+    __package__ = prepare_direct_run(__file__)
+
 from .analysis import get_data_overview, summarize_sales_by_product
 from .data_loader import ColumnMap, SalesDataError, load_sales_data
 from .reporting import generate_sales_chart, write_markdown_report
@@ -61,3 +66,7 @@ def main() -> int:
         return 1
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

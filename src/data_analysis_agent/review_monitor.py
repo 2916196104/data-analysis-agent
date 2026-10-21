@@ -181,7 +181,7 @@ def _shift_month(day, amount):
 
 
 def replay_monthly(db_path, *, month_from, month_to, baseline_months=1, model, base_url, prompt_version,
-                   product_ids=None, source=None, dataset_version=None, rules=None):
+                   product_ids=None, source=None, dataset_version=None, rules=None, progress=None):
     """Advance through whole UTC months; each month commits separately and can be resumed."""
     start, end = _month(month_from, "month_from"), _month(month_to, "month_to")
     count = (end.year - start.year) * 12 + end.month - start.month + 1
@@ -199,6 +199,9 @@ def replay_monthly(db_path, *, month_from, month_to, baseline_months=1, model, b
     for index in range(count):
         current = _shift_month(start, index)
         last = _shift_month(current, 1) - timedelta(days=1)
+        if progress:
+            progress({"stage": "replaying", "completed": index, "total": count, "unit": "months",
+                      "month": current.isoformat()[:7]})
         try:
             result = run_analysis(
                 db_path, model=model, base_url=base_url, prompt_version=prompt_version,
@@ -211,5 +214,8 @@ def replay_monthly(db_path, *, month_from, month_to, baseline_months=1, model, b
                     "baseline_months": baseline_months, "runs": runs, "failed_month": current.isoformat()[:7],
                     "error": str(exc)}
         runs.append({"month": current.isoformat()[:7], **result})
+        if progress:
+            progress({"stage": "replaying", "completed": index + 1, "total": count, "unit": "months",
+                      "month": current.isoformat()[:7], "run_id": result["run_id"]})
     return {"complete": True, "month_from": month_from, "month_to": month_to,
             "baseline_months": baseline_months, "runs": runs}

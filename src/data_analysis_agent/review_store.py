@@ -171,7 +171,9 @@ def _store_review(connection, record, raw_json, run_id, line_number, version, fi
     return True
 
 
-def _import_file(connection, path, kind, version, product_ids):
+def _import_file(connection, path, kind, version, product_ids, progress=None):
+    if progress:
+        progress({"stage": "hashing_" + kind, "completed": 0, "total": None, "unit": "lines"})
     fingerprint = file_sha256(path)
     started = _now()
     run_id = connection.execute(
@@ -183,6 +185,10 @@ def _import_file(connection, path, kind, version, product_ids):
                "invalid_records", "empty_text_records", "missing_rating_records", "missing_user_id_records")}
     for line in iter_jsonl(path):
         counts["total_lines"] += 1
+        if progress and counts["total_lines"] % 1000 == 0:
+            progress({"stage": "importing_" + kind, "completed": counts["total_lines"] - 1,
+                      "total": None, "unit": "lines", "inserted_records": counts["inserted_records"],
+                      "invalid_records": counts["invalid_records"]})
         reason = line.error
         if line.data is None and reason is None:
             counts["blank_lines"] += 1
@@ -215,6 +221,8 @@ def _import_file(connection, path, kind, version, product_ids):
                 "INSERT INTO import_errors(import_run_id, line_number, reason, raw_line) VALUES (?, ?, ?, ?)",
                 (run_id, line.number, reason, line.raw),
             )
+    if progress:
+        progress({"stage": "verifying_" + kind, "completed": counts["total_lines"], "total": None, "unit": "lines"})
     if file_sha256(path) != fingerprint:
         raise ReviewDataError("读取期间输入文件发生变化，整次导入已回滚。")
     valid = counts["inserted_records"] + counts["duplicate_records"]
@@ -273,7 +281,7 @@ def _quality_summary(connection):
 
 def import_amazon_jsonl(db_path: str | Path, *, reviews_path: str | Path | None = None,
                         meta_path: str | Path | None = None, dataset_version: str = DATASET_VERSION,
-                        product_ids: list[str] | None = None) -> dict:
+                        product_ids: list[str] | None = None, progress=None) -> dict:
     """Import both inputs in one transaction; row errors are retained, fatal errors roll back."""
     if not isinstance(dataset_version, str) or not dataset_version.strip():
         raise ReviewDataError("dataset_version 不能为空。")
@@ -295,9 +303,11 @@ def import_amazon_jsonl(db_path: str | Path, *, reviews_path: str | Path | None 
     with closing(_connect(database)) as connection:
         with connection:
             connection.execute("BEGIN IMMEDIATE")
-            imports = [_import_file(connection, path, kind, dataset_version.strip(), selected)
+            imports = [_import_file(connection, path, kind, dataset_version.strip(), selected, progress)
                        for kind, path in files]
             quality = _quality_summary(connection)
+    if progress:
+        progress({"stage": "imported", "completed": len(files), "total": len(files), "unit": "files"})
     return {"status": "partial" if any(item["status"] == "partial" for item in imports) else "ok",
             "database": str(database), "imports": imports, "quality": quality}
 

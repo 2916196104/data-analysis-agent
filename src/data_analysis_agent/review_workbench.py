@@ -9,6 +9,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
+if __name__ == "__main__" and not __package__:
+    from _cli_bootstrap import prepare_direct_run
+
+    __package__ = prepare_direct_run(__file__)
+
 from .review_loader import ReviewDataError, _unique_object, _reject_constant
 from .review_workbench_store import (
     ReviewConflict, ReviewNotFound, check_workbench, init_workbench, list_reviews,

@@ -45,3 +45,4 @@ outputs/
 *.png
 *.log
 .cache/
+*.worker.lock

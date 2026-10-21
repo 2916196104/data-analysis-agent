@@ -109,7 +109,7 @@ def _metadata(response, secret):
 
 
 def run_labeling(db_path, *, limit=20, retry_failed=False, product_ids=None, env_file=".env", settings=None,
-                 date_from=None, date_to=None, as_of=None, source=None, dataset_version=None):
+                 date_from=None, date_to=None, as_of=None, source=None, dataset_version=None, progress=None):
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
         raise ReviewDataError("limit 必须是 1—1000 的整数。")
     if product_ids is not None and (not isinstance(product_ids, list)
@@ -124,12 +124,20 @@ def run_labeling(db_path, *, limit=20, retry_failed=False, product_ids=None, env
     result = {"status": "ok", **identity, "selected_reviews": len(reviews), "processed_reviews": 0,
               "successful_reviews": 0, "failed_reviews": 0, "opinion_count": 0,
               "already_completed": 0, "model_calls": 0, "stopped_reason": None, "results": [], "scope": scope}
+    def notify():
+        if progress:
+            progress({"stage": "labeling", "completed": result["processed_reviews"], "total": len(reviews),
+                      "unit": "reviews", "successful_reviews": result["successful_reviews"],
+                      "failed_reviews": result["failed_reviews"], "model_calls": result["model_calls"]})
+
+    notify()
     if not reviews:
         return result
     # shortcut: Sequential batches; concurrent runners may make duplicate API calls before the DB uniqueness check.
     with OpenAI(api_key=settings.api_key, base_url=settings.base_url, timeout=settings.timeout_seconds,
                 max_retries=settings.max_retries) as client:
         for review in reviews:
+            notify()
             started = perf_counter()
             opinions, metadata, error, stop = [], {}, None, False
             if len(review["text"]) > MAX_TEXT_CHARS:
@@ -170,6 +178,7 @@ def run_labeling(db_path, *, limit=20, retry_failed=False, product_ids=None, env
                                       "status": "already_completed" if annotation_id is None else (
                                           "failed" if error else "success"), "error_code": error,
                                       "opinion_count": len(opinions)})
+            notify()
             if stop:
                 result["stopped_reason"] = error
                 break

@@ -5,6 +5,11 @@ import json
 import sys
 from pathlib import Path
 
+if __name__ == "__main__" and not __package__:
+    from _cli_bootstrap import prepare_direct_run
+
+    __package__ = prepare_direct_run(__file__)
+
 from .agent import run_agent_analysis
 
 

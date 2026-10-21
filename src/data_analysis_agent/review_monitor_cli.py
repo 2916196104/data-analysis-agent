@@ -5,6 +5,11 @@ import json
 import sqlite3
 from pathlib import Path
 
+if __name__ == "__main__" and not __package__:
+    from _cli_bootstrap import prepare_direct_run
+
+    __package__ = prepare_direct_run(__file__)
+
 from .review_labeler import ASPECTS
 from .review_loader import ReviewDataError
 from .review_monitor import DEFAULT_RULES, replay_monthly, run_analysis

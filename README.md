@@ -45,6 +45,16 @@ New-Item -ItemType Directory -Force data/private | Out-Null
 
 ## 运行
 
+新增 [统一 HTTP API 与后台任务](docs/review-http-api.md)：商品评论、人工复核、四个分析工具、运行记录与告警统一通过 `/api/v1` 调用。导入、标注、分析、回放使用独立 SQLite 任务库持久化，支持进度查询、幂等提交、显式重试和中断恢复。原有 CLI 保留，本次未新增或运行测试，验证由你进行。首次按文档安装依赖并显式初始化后启动。
+
+已提供 **39 个 IDEA 运行配置**，保存于 [.run](.run/)。在顶部运行配置列表选择 **03 查看评论库摘要** 即可开始；脚本路径、工作目录、业务参数均已填好。HTTP 服务使用 **69 → 70 → 71**；完整用途、历史回放范围与推荐顺序见 [IDEA 一键运行说明](docs/idea-running.md)。
+
+**在 IntelliJ IDEA 中直接点击运行：** `review_cli.py`、`review_label_cli.py`、`review_analysis_cli.py`、`review_monitor_cli.py`、`review_workbench.py`、`agent_cli.py`、`main.py` 和 `__main__.py` 均支持按文件运行，无需改为模块模式。选择项目的 `.venv` Python 解释器；首次未填写参数时显示帮助并正常退出，不执行业务操作。
+
+例如，右键 `src/data_analysis_agent/review_cli.py` 选择运行。要查看评论库摘要，在该运行配置的“脚本参数 / Parameters”中填写 `summary --db E:/AllProject/data-analysis-agent/data/private/reviews.sqlite3`，再点击绿色运行按钮，即可输出 JSON。标注入口可以填写 `status --db E:/AllProject/data-analysis-agent/data/private/reviews.sqlite3` 查看进度。需要导入、标注或回放时，按各入口帮助填写对应子命令与参数。
+
+使用相对路径时，将运行配置的工作目录设置为实际项目根目录（本机为 `E:\AllProject\data-analysis-agent`）。入口不会自动修改工作目录；业务实现文件（例如 `review_store.py`）由入口调用。原有 `python -m ...` 和安装后的命令行入口仍按原有规则执行。
+
 要求 Python 3.12 或 3.13（`>=3.12,<3.14`，与固定的 HelloAgents 1.0.1 一致）。以下命令在 PowerShell 中执行，复用已有 `.venv`；目录内已有 IDE 文件和虚拟环境均保留。
 
 ```powershell

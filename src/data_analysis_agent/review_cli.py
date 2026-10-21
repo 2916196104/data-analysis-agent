@@ -6,6 +6,11 @@ import sqlite3
 import zlib
 from pathlib import Path
 
+if __name__ == "__main__" and not __package__:
+    from _cli_bootstrap import prepare_direct_run
+
+    __package__ = prepare_direct_run(__file__)
+
 from .review_loader import DATASET_VERSION, ReviewDataError
 from .review_store import get_quality_summary, get_review_evidence, import_amazon_jsonl, init_database
 
