@@ -387,13 +387,13 @@ class MonitorTests(unittest.TestCase):
             with self.assertRaisesRegex(ReviewDataError, "simulated"):
                 self.run_monitor()
         self.assertEqual(self.counts(), before)
-        original = monitor._attach_alert
+        original = monitor.attach_alert_occurrence
 
         def fail_after_write(*args, **kwargs):
             original(*args, **kwargs)
             raise sqlite3.OperationalError("simulated persistence failure")
 
-        with patch.object(monitor, "_attach_alert", side_effect=fail_after_write):
+        with patch.object(monitor, "attach_alert_occurrence", side_effect=fail_after_write):
             with self.assertRaises(sqlite3.Error):
                 self.run_monitor()
         self.assertEqual(self.counts(), before)

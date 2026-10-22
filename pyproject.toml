@@ -22,18 +22,18 @@ dependencies = [
 ]
 
 [project.scripts]
-sales-analysis = "data_analysis_agent.main:main"
-sales-agent = "data_analysis_agent.agent_cli:main"
-review-import = "data_analysis_agent.review_cli:main"
-review-label = "data_analysis_agent.review_label_cli:main"
-review-analysis = "data_analysis_agent.review_analysis_cli:main"
-review-monitor = "data_analysis_agent.review_monitor_cli:main"
-review-workbench = "data_analysis_agent.review_workbench:main"
-review-api = "data_analysis_agent.review_api_cli:main"
-review-migrate = "data_analysis_agent.review_migrate:main"
+sales-analysis = "data_analysis_agent.cli.sales:main"
+sales-agent = "data_analysis_agent.cli.agent:main"
+review-import = "data_analysis_agent.cli.reviews:main"
+review-label = "data_analysis_agent.cli.labeling:main"
+review-analysis = "data_analysis_agent.cli.analytics:main"
+review-monitor = "data_analysis_agent.cli.monitoring:main"
+review-workbench = "data_analysis_agent.cli.workbench:main"
+review-api = "data_analysis_agent.cli.server:main"
+review-migrate = "data_analysis_agent.cli.migrate:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-data_analysis_agent = ["workbench_assets/*.html", "workbench_assets/*.css", "workbench_assets/*.js"]
+"data_analysis_agent.api" = ["workbench_assets/*.html", "workbench_assets/*.css", "workbench_assets/*.js"]

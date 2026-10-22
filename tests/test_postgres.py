@@ -28,7 +28,7 @@ from data_analysis_agent.review_migrate import migrate_sqlite
 from data_analysis_agent.review_loader import ReviewDataError
 from data_analysis_agent.review_monitor import replay_monthly, run_analysis
 from data_analysis_agent.review_monitor_store import get_analysis_run, init_monitoring, list_alerts, set_alert_status
-from data_analysis_agent.review_store import _connect, get_quality_summary, import_amazon_jsonl, init_database
+from data_analysis_agent.review_store import connect_review_database, get_quality_summary, import_amazon_jsonl, init_database
 from data_analysis_agent.review_task_store import (TaskConflict, claim_task, enqueue, finish_task, get_task,
                                                  init_tasks, queue_health, worker_started)
 from data_analysis_agent.review_task_worker import TaskWorker, WorkerLock
@@ -125,7 +125,7 @@ class PostgresTests(unittest.TestCase):
         source_file = next(self.fixture.root.glob("simulated-*.jsonl"))
         self.assertEqual(import_amazon_jsonl(self.target, reviews_path=source_file)["quality"]["review_count"], 25)
         self.assertEqual(import_amazon_jsonl(self.target, reviews_path=source_file)["imports"][0]["inserted_records"], 0)
-        with closing(_connect(self.target, readonly=True)) as connection:
+        with closing(connect_review_database(self.target, readonly=True)) as connection:
             with self.assertRaises(DatabaseError):
                 connection.execute("DELETE FROM reviews")
         review = pending_reviews(self.target, **IDENTITY, limit=1)[0]
@@ -216,7 +216,7 @@ class PostgresTests(unittest.TestCase):
                 response = client.get("/api/v1/" + path)
                 self.assertEqual(response.status_code, 200, response.text)
                 self.assertNotIn(self.target, response.text)
-            with patch("data_analysis_agent.review_api.get_quality_summary", side_effect=DatabaseError("safe failure")):
+            with patch("data_analysis_agent.api.routes.reviews.get_quality_summary", side_effect=DatabaseError("safe failure")):
                 self.assertEqual(client.get("/api/v1/quality").status_code, 503)
         output = io.StringIO()
         with patch.dict(os.environ, {"DATABASE_URL": self.target}), patch("sys.argv", ["review_cli", "summary", "--db", "env:DATABASE_URL"]), redirect_stdout(output):

@@ -5,9 +5,10 @@ from pathlib import Path
 
 
 def prepare_direct_run(script: str) -> str:
-    package_dir = Path(script).resolve().parent
+    script_path = Path(script).resolve()
+    package_dir = next(parent for parent in script_path.parents if parent.name == "data_analysis_agent")
     sys.path.insert(0, str(package_dir.parent))
     # A bare Run click should explain the commands, not start business work.
     if len(sys.argv) == 1:
         sys.argv.append("--help")
-    return package_dir.name
+    return ".".join(script_path.parent.relative_to(package_dir.parent).parts)

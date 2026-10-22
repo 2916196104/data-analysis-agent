@@ -57,7 +57,7 @@ New-Item -ItemType Directory -Force data/private | Out-Null
 
 例如，右键 `src/data_analysis_agent/review_cli.py` 选择运行。要查看评论库摘要，在该运行配置的“脚本参数 / Parameters”中填写 `summary --db env:DATABASE_URL`，再点击绿色运行按钮，即可输出 JSON。标注入口可以填写 `status --db env:DATABASE_URL` 查看进度。工作目录设为项目根目录，从 `.env` 读取 PostgreSQL 地址。需要导入、标注或回放时，按各入口帮助填写对应子命令与参数。
 
-使用相对路径时，将运行配置的工作目录设置为实际项目根目录（本机为 `E:\AllProject\data-analysis-agent`）。入口不会自动修改工作目录；业务实现文件（例如 `review_store.py`）由入口调用。原有 `python -m ...` 和安装后的命令行入口仍按原有规则执行。
+使用相对路径时，将运行配置的工作目录设置为实际项目根目录（本机为 `E:\AllProject\data-analysis-agent`）。入口不会自动修改工作目录；业务实现文件（例如 `reviews/store.py`）由入口调用，根目录的 `review_store.py` 保留为兼容转发。原有 `python -m ...` 和安装后的命令行入口仍按原有规则执行。
 
 要求 Python 3.12 或 3.13（`>=3.12,<3.14`，与固定的 HelloAgents 1.0.1 一致）。以下命令在 PowerShell 中执行，复用已有 `.venv`；目录内已有 IDE 文件和虚拟环境均保留。
 
@@ -183,77 +183,86 @@ CSV 使用逗号分隔，UTF-8 或 UTF-8 BOM 编码。内部标准字段如下�
 
 ```text
 data-analysis-agent/
-├── data/samples/sales_mock.csv   # 唯一纳入 Git 的模拟数据
+├── frontend/                    # 独立 React / TypeScript 页面与测试
 ├── src/data_analysis_agent/
-│   ├── data_loader.py           # CSV/Excel 统一入口、工作表、映射与校验
-│   ├── analysis.py              # 纯统计函数，不读写文件
-│   ├── reporting.py             # PNG 图表和 Markdown 报告
-│   ├── main.py                  # 流程编排和 CLI
-│   ├── config.py                # 显式读取本地配置、校验与脱敏
-│   ├── agent_tools.py           # 绑定当前数据的四类工具与执行记录
-│   ├── agent.py                 # 单 Agent、调用预算、结果引用校验
-│   ├── agent_cli.py             # 第二阶段自然语言入口
-│   ├── review_loader.py         # Amazon JSONL/gzip 流式解析和校验
-│   ├── review_store.py          # SQLite 导入、去重、质量统计和原文证据
-│   ├── review_cli.py            # 评论 init/import/summary/evidence 独立入口
-│   ├── review_labeler.py        # 六维度 Pydantic 输出与原文校验、模型标注
-│   ├── review_label_store.py    # 观点表显式初始化、尝试历史和增量查询
-│   ├── review_label_cli.py      # 标注 init/run/status/evidence/query 独立入口
-│   ├── review_scope.py          # UTC 范围和当前模型/人工有效观点共享口径
-│   ├── review_analytics.py      # 趋势、问题基线、商品对比和证据业务工具
-│   ├── review_analysis_cli.py   # 四类工具的 JSON 命令行入口与导出
-│   ├── review_monitor.py        # 同一快照分析、月度回放和规则判断
-│   ├── review_monitor_store.py  # 运行快照、告警命中与人工处理历史
-│   ├── review_monitor_cli.py    # init/run/replay、记录查询与告警处理
-│   ├── review_workbench.py      # 本机工作台 HTTP 与显式 init/serve 入口
-│   ├── review_workbench_store.py # 筛选分页、商品进度与人工复核快照
-│   ├── workbench_assets/        # 无外部资源的 HTML/CSS/JavaScript 页面
-│   ├── __main__.py              # python -m 入口
-│   └── __init__.py
-├── tests/test_workflow.py
-├── tests/test_agent.py           # 无外部 API 的真实框架集成测试
-├── tests/test_excel.py           # CSV/Excel 一致性、类型与错误验证
-├── tests/test_reviews.py         # 临时 SQLite、JSONL、原文、去重与回滚测试
-├── tests/test_review_labels.py   # 无网络的六维度、证据、增量和失败恢复测试
-├── tests/test_review_workbench.py # 临时库与本机 HTTP 的筛选、复核、进度测试
-├── tests/test_review_scope.py    # 范围、回放截止、版本隔离与有效观点测试
-├── tests/test_review_analytics.py # 统计口径、基线、证据、CLI 与只读测试
-├── tests/test_review_monitor.py # 冷却、去重、证据快照、回放与事务测试
-├── docs/phase2.md
-├── docs/phase3.md
-├── docs/review-import.md
-├── docs/review-labeling.md
-├── docs/review-workbench.md
-├── docs/review-query-scope.md
-├── docs/review-analytics.md
-├── docs/review-monitoring.md
-├── docs/column-map.example.json
-├── outputs/                     # 运行时生成，不提交
-├── pyproject.toml
-├── .gitignore
-├── .env.example
+│   ├── agents/                  # Agent 编排与工具适配
+│   │   ├── sales.py             # 单 Agent、预算与结果引用校验
+│   │   └── tools.py             # 销售工具注册、数据绑定与执行记录
+│   ├── sales/                   # 销售业务
+│   │   ├── loader.py            # CSV/Excel 读取、映射与校验
+│   │   ├── analysis.py          # 纯统计函数
+│   │   ├── reporting.py         # 图表和报告
+│   │   └── workflow.py          # 销售分析流程
+│   ├── reviews/                 # 商品评论业务
+│   │   ├── loader.py            # JSONL/gzip 流式解析
+│   │   ├── store.py             # 导入、去重、质量统计与原文证据
+│   │   ├── catalog.py           # 商品目录
+│   │   ├── labeling.py          # 模型标注、结构化输出和证据校验
+│   │   ├── label_store.py       # 标注历史和增量查询
+│   │   ├── scope.py             # 日期、版本和有效观点口径
+│   │   ├── parameters.py        # 共享业务参数、监控规则与月份校验
+│   │   ├── analytics.py         # 趋势、问题、商品对比和证据查询
+│   │   ├── monitoring.py        # 分析快照、月度回放和规则判断
+│   │   ├── monitor_store.py     # 运行记录与告警历史
+│   │   └── human_review.py      # 人工复核、筛选分页和商品进度
+│   ├── jobs/                    # 后台任务
+│   │   ├── parameters.py        # 四类任务载荷契约，不依赖 HTTP
+│   │   ├── store.py             # 队列持久化与状态管理
+│   │   └── worker.py            # 执行、重试、心跳与互斥锁
+│   ├── api/                     # HTTP 接口与原生工作台
+│   │   ├── app.py               # FastAPI 应用与路由
+│   │   ├── schemas.py           # HTTP 查询参数与请求封装
+│   │   ├── workbench.py         # 原生工作台 HTTP 服务
+│   │   └── workbench_assets/    # 原生工作台 HTML/CSS/JavaScript
+│   ├── cli/                     # 命令行入口
+│   │   ├── sales.py / agent.py
+│   │   ├── reviews.py / labeling.py / analytics.py / monitoring.py
+│   │   └── server.py / workbench.py / migrate.py
+│   ├── core/                    # 公共配置与数据库适配
+│   │   ├── config.py
+│   │   ├── database.py          # SQLite/PostgreSQL 连接创建与适配
+│   │   ├── errors.py            # 共享校验异常
+│   │   ├── clock.py             # UTC 时间戳
+│   │   ├── serialization.py     # 严格 JSON、稳定序列化与摘要
+│   │   └── validation.py        # 通用输入模型、整数与文本校验
+│   ├── __main__.py              # 保留 python -m data_analysis_agent
+│   ├── _cli_bootstrap.py        # IDE 直接运行支持
+│   └── 原有根目录模块            # 兼容转发，不再存放业务实现
+├── tests/                       # 后端业务、接口、数据库与入口兼容测试
+├── scripts/                     # 辅助脚本与测试数据生成
+├── .run/                        # 保留现有 IDEA 运行配置
+├── docs/                        # 功能说明与使用指南
+├── data/samples/sales_mock.csv   # 唯一纳入 Git 的模拟数据
+├── outputs/                     # 运行时产物，不提交
+├── pyproject.toml               # 依赖、命令行注册与静态资源打包
 └── README.md
 ```
 
+新增业务代码放入对应子包，内部导入使用新路径。根目录旧模块保留为兼容转发，例如 `review_store` 对应 `reviews.store`、`agent` 对应 `agents.sales`、`review_task_worker` 对应 `jobs.worker`。新旧导入指向同一模块对象，避免重复状态或旧路径的测试替换失效。
+
+现有 9 个命令名称、`python -m data_analysis_agent`、旧模块的 `python -m` 用法和 IDEA 脚本入口保持可用。新入口也可使用，例如 `python -m data_analysis_agent.cli.server --help`；直接运行 `src/data_analysis_agent/cli/server.py` 且不传参数时显示帮助。安装包中的命令注册已指向 `cli/`。
+
+目录分区后已继续整理依赖：数据库驱动连接统一由 `core.database.connect_database` 创建，评论库和任务库分别通过公开接口校验结构；`jobs.parameters` 定义任务载荷，`api.schemas` 负责 HTTP 查询与请求封装；跨模块调用统一使用公开接口。`core` 不再依赖评论模块，任务执行器可以在不导入 HTTP 层的情况下加载。接口参数、数据库结构与原有命令保持兼容，具体调用约定见 [依赖与公开接口说明](docs/dependencies.md)。部分业务模块仍含 CLI 函数，评论模型标注保留在 `reviews.labeling`，销售 Agent 编排集中在 `agents/`。
+
 | 函数 | 作用 / 返回值 |
 | --- | --- |
-| `data_loader.validate_sales_fields(fieldnames)` | 独立检查表头；无返回值 |
-| `data_loader.load_sales_data(input_path, *, sheet=None, column_map=None)` | 统一读取 CSV/Excel，返回含 records/source 的 SalesDataset |
-| `data_loader.load_sales_csv(input_path)` | 保留的 CSV 函数，返回已校验的记录列表 |
-| `data_loader.load_sales_xlsx(input_path, *, sheet=None, column_map=None)` | 单独读取一个 Excel 工作表，返回同格式记录列表 |
-| `analysis.get_data_overview(records)` | 返回记录数、商品数、日期范围和金额统计字典 |
-| `analysis.summarize_sales_by_product(records)` | 返回排序后的 `{商品: 金额字符串}` |
-| `reporting.generate_sales_chart(totals, output_path)` | 写入 PNG，返回绝对路径字符串 |
-| `reporting.write_markdown_report(overview, totals, chart_path, output_path, source_name)` | 写入报告，返回绝对路径字符串 |
-| `main.run_analysis(input_path, output_dir)` | 完整流程，返回统计结果及产物路径字典 |
+| `sales.loader.validate_sales_fields(fieldnames)` | 独立检查表头；无返回值 |
+| `sales.loader.load_sales_data(input_path, *, sheet=None, column_map=None)` | 统一读取 CSV/Excel，返回含 records/source 的 SalesDataset |
+| `sales.loader.load_sales_csv(input_path)` | 保留的 CSV 函数，返回已校验的记录列表 |
+| `sales.loader.load_sales_xlsx(input_path, *, sheet=None, column_map=None)` | 单独读取一个 Excel 工作表，返回同格式记录列表 |
+| `sales.analysis.get_data_overview(records)` | 返回记录数、商品数、日期范围和金额统计字典 |
+| `sales.analysis.summarize_sales_by_product(records)` | 返回排序后的 `{商品: 金额字符串}` |
+| `sales.reporting.generate_sales_chart(totals, output_path)` | 写入 PNG，返回绝对路径字符串 |
+| `sales.reporting.write_markdown_report(overview, totals, chart_path, output_path, source_name)` | 写入报告，返回绝对路径字符串 |
+| `sales.workflow.run_analysis(input_path, output_dir)` | 完整流程，返回统计结果及产物路径字典 |
 
 在安装项目后，可从任意 Python 调用方使用这些函数：
 
 ```python
 import json
-from data_analysis_agent.data_loader import load_sales_csv
-from data_analysis_agent.analysis import get_data_overview, summarize_sales_by_product
-from data_analysis_agent.main import run_analysis
+from data_analysis_agent.sales.loader import load_sales_csv
+from data_analysis_agent.sales.analysis import get_data_overview, summarize_sales_by_product
+from data_analysis_agent.sales.workflow import run_analysis
 
 rows = load_sales_csv("data/samples/sales_mock.csv")
 print(get_data_overview(rows))
@@ -262,7 +271,7 @@ result = run_analysis("data/samples/sales_mock.csv", "outputs")
 print(json.dumps(result, ensure_ascii=False, indent=2))
 ```
 
-记录使用 `SalesRecord` TypedDict（日期和金额均为字符串），函数有类型标注和 docstring；输出能直接 JSON 序列化。统计函数接受统一入口产出的已校验记录。HelloAgents 适配集中在新增模块中，原有读取、统计和报告函数继续独立调用。
+记录使用 `SalesRecord` TypedDict（日期和金额均为字符串），函数有类型标注和 docstring；输出能直接 JSON 序列化。统计函数接受统一入口产出的已校验记录。HelloAgents 适配集中在 `agents/` 中，读取、统计和报告函数继续独立调用。
 
 ## 本地配置和 Git
 
