@@ -22,7 +22,7 @@ Set-Location E:\AllProject\data-analysis-agent
 已有商品、评论及模型观点表时，只需要执行：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_workbench init --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.api.workbench init --db data/private/reviews.sqlite3
 ```
 
 首次成功返回 `created=true`，重复执行返回 `created=false`。该操作原子增加三张表和索引，不修改原有表、记录、模型观点、`PRAGMA user_version` 或标注 schema 版本：
@@ -38,7 +38,7 @@ Set-Location E:\AllProject\data-analysis-agent
 ### 3. 启动本机服务
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_workbench serve --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.api.workbench serve --db data/private/reviews.sqlite3
 ```
 
 在浏览器打开 [评论标注工作台](http://127.0.0.1:8765)。终端保持运行，按 `Ctrl+C` 停止。端口占用时可指定 `--port 8766`，随后打开对应端口。

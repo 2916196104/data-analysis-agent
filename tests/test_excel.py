@@ -13,9 +13,9 @@ from unittest.mock import patch
 
 from openpyxl import Workbook
 
-from data_analysis_agent.agent import run_agent_analysis
-from data_analysis_agent.data_loader import SalesDataError, load_sales_csv, load_sales_data, load_sales_xlsx
-from data_analysis_agent.main import run_analysis
+from data_analysis_agent.agents.sales import run_agent_analysis
+from data_analysis_agent.sales.loader import SalesDataError, load_sales_csv, load_sales_data, load_sales_xlsx
+from data_analysis_agent.sales.workflow import run_analysis
 
 SAMPLE = Path(__file__).resolve().parents[1] / "data/samples/sales_mock.csv"
 CN_HEADERS = ["销售日期", "商品名称", "销售额"]
@@ -145,7 +145,7 @@ class ExcelTests(unittest.TestCase):
             (["2026-10-01", "A", "#DIV/0!"], "Excel 错误"),
         ]
         with tempfile.TemporaryDirectory() as directory, patch(
-            "data_analysis_agent.agent._new_llm", side_effect=AssertionError("must not call model")
+            "data_analysis_agent.agents.sales._new_llm", side_effect=AssertionError("must not call model")
         ):
             root = Path(directory)
             path = root / "bad.xlsx"
@@ -185,7 +185,7 @@ class ExcelTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout)["overview"]["total_sales"], "900.00")
             result = subprocess.run([
-                sys.executable, "-m", "data_analysis_agent.agent_cli", "--input", str(path),
+                sys.executable, "-m", "data_analysis_agent.cli.agent", "--input", str(path),
                 "--sheet", "不存在", "--question", "总销售额是多少？", "--output-dir", str(root / "agent"),
             ], env={**os.environ, "PYTHONIOENCODING": "utf-8"},
                 capture_output=True, text=True, encoding="utf-8", timeout=20)

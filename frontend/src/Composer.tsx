@@ -9,10 +9,10 @@ export function datasets(products: Product[]) {
 }
 
 interface Values { question: string; current: [Dayjs, Dayjs]; baseline: [Dayjs, Dayjs] }
-export default function Composer({ options, quality, dataset, setDataset, productIds, setProductIds, profileId, setProfileId, busy, onSubmit, onPreview, onImport }: {
+export default function Composer({ options, quality, dataset, setDataset, productIds, setProductIds, profileId, setProfileId, busy, onSubmit, onPreview, onImport, onLabel }: {
   options: Options; quality?: Quality; dataset: string; setDataset: (key: string) => void;
   productIds: string[]; setProductIds: (ids: string[]) => void; profileId?: number; setProfileId: (id: number) => void;
-  busy: boolean; onSubmit: (parameters: AnalysisParameters, question: string) => void; onPreview: () => void; onImport: () => void;
+  busy: boolean; onSubmit: (parameters: AnalysisParameters, question: string) => void; onPreview: () => void; onImport: () => void; onLabel: () => void;
 }) {
   const [form] = Form.useForm<Values>();
   const available = options.products.filter(p => datasetKey(p) === dataset);
@@ -52,7 +52,7 @@ export default function Composer({ options, quality, dataset, setDataset, produc
           <Form.Item label="标注版本" className="span-two"><Select aria-label="标注版本" value={profileId} disabled={busy} placeholder="暂无标注版本" onChange={setProfileId} options={options.profiles.map(p => ({ value: p.profile_id, label: `${p.requested_model} · ${p.prompt_version}` }))} /></Form.Item>
         </div>
         {!options.products.length && <Alert type="info" showIcon message="还没有评论数据" description="可从后端已配置的导入目录导入 JSONL 或 JSONL.gz 文件。" action={<Button onClick={onImport}>导入数据</Button>} />}
-        {!!options.products.length && !profile && <Alert type="warning" showIcon message="暂无可用的标注版本" description="请先通过后端标注任务或 CLI 处理评论，再刷新此页。分析不会自动调用模型。" />}
+        {!!options.products.length && !profile && <Alert type="warning" showIcon message="暂无可用的标注版本" description="请先完成模型标注，再进行分析。标注结束后会自动刷新可用版本。" action={<Button onClick={onLabel}>开始模型标注</Button>} />}
         <div className="submit-row"><Button aria-label="预览数据" icon={<DatabaseOutlined />} disabled={!available.length} onClick={onPreview}>预览数据</Button><Button aria-label="开始分析" type="primary" htmlType="submit" loading={busy} disabled={!profile || !available.length} icon={<ArrowRightOutlined />} iconPosition="end">开始分析</Button></div>
       </div>
     </Form>

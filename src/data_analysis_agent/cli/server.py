@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -59,6 +60,9 @@ def main():
         command.add_argument("--task-id", required=True)
     retry.add_argument("--idempotency-key")
     args = parser.parse_args()
+    if args.command in ("serve", "worker"):
+        logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s %(name)s | %(message)s")
+        logging.getLogger("data_analysis_agent").setLevel(logging.INFO)
     task_db = args.task_db or default_task_database(args.db)
     try:
         if args.command != "init":
@@ -84,7 +88,7 @@ def main():
                 raise ReviewDataError("HTTP 依赖未安装，请执行 .venv/Scripts/python.exe -m pip install -e .") from exc
             app = create_app(args.db, task_db, import_root=args.import_root, env_file=args.env_file,
                              embedded_worker=not args.no_worker, allowed_origins=args.allow_origin)
-            uvicorn.run(app, host=args.host, port=args.port, workers=1, access_log=False)
+            uvicorn.run(app, host=args.host, port=args.port, workers=1, access_log=True)
             return 0
         elif args.command == "worker":
             worker = TaskWorker(args.db, task_db, import_root=args.import_root, env_file=args.env_file)

@@ -54,9 +54,9 @@ SDK 按其规则重试临时连接错误、超时、限流及服务端错误，�
 ## 运行与验收
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --question "总销售额是多少？"
-.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --input data/samples/sales_mock.csv --question "按商品汇总并生成图表和报告。"
-.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --question "计算利润率。"
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.agent --question "总销售额是多少？"
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.agent --input data/samples/sales_mock.csv --question "按商品汇总并生成图表和报告。"
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.agent --question "计算利润率。"
 ```
 
 也可使用 `.\.venv\Scripts\sales-agent.exe`。通过 `--output-dir outputs/my_analysis` 指定运行根目录；每次创建新的运行子目录，不覆盖之前的任务。

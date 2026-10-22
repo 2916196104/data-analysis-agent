@@ -3,7 +3,7 @@
 import json
 import unittest
 
-from data_analysis_agent import review_labeler
+from data_analysis_agent.reviews import labeling as review_labeler
 from data_analysis_agent.reviews import opinions
 
 

@@ -13,8 +13,8 @@ API 统一接入现有评论查询、标注进度、人工复核、四个分析�
 ```powershell
 Set-Location E:\AllProject\data-analysis-agent
 .\.venv\Scripts\python.exe -m pip install -e .
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli init --db data/private/reviews.sqlite3
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli serve --db data/private/reviews.sqlite3 --port 8000 --import-root data/private --env-file .env
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server init --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server serve --db data/private/reviews.sqlite3 --port 8000 --import-root data/private --env-file .env
 ```
 
 `init` 显式初始化评论、标注、人工复核、监控表及任务库。已有受支持的表保留原数据；各部分分别提交，如果后续一步失败，前面完成的初始化保留，可以排查后重跑。业务库的父目录必须已存在。`serve` 只检查表结构，不会自动初始化或升级。
@@ -40,6 +40,12 @@ Set-Location E:\AllProject\data-analysis-agent
 `/docs` 使用 FastAPI 自带文档页面，其脚本资源需要浏览器能够访问对应 CDN；`openapi.json` 和 API 本身不依赖这些资源。
 
 ## 直接在 IDEA 中运行
+
+### 控制台日志
+
+`serve` 默认开启 HTTP 请求日志，显示请求方法、接口和状态码，包括前端的自动进度轮询。`serve` 和独立 `worker` 都输出带时间的任务日志：提交/重试、开始、进度、结束状态及耗时；标注显示成功/失败/模型调用数，导入完成显示新增/重复/无效记录数。可用 `task_id` 关联同一任务的记录。
+
+更新代码后需重启后端进程；独立执行器模式也需重启 worker，任务执行日志在 worker 的控制台查看。单纯填写前端表单不发送请求，因此不会产生后端日志。业务日志不输出请求体、评论正文、模型密钥或异常原文；默认输出到控制台，未配置独立日志文件。
 
 已新增以下配置，工作目录均为项目根目录，解释器均为项目 `.venv`：
 
@@ -261,8 +267,8 @@ worker 不自动重跑失败或中断任务，避免不知情地重复发起模�
 默认 `serve` 同时启动 worker。需要分开管理时开两个终端：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli worker --db data/private/reviews.sqlite3 --import-root data/private --env-file .env
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli serve --db data/private/reviews.sqlite3 --port 8000 --no-worker
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server worker --db data/private/reviews.sqlite3 --import-root data/private --env-file .env
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server serve --db data/private/reviews.sqlite3 --port 8000 --no-worker
 ```
 
 每个业务库最多一个 worker，采用操作系统文件锁；进程退出后锁自动释放，遗留的 `.worker.lock` 文件本身不表示锁仍被占用。不要手动删除运行中 worker 的锁文件。第二个 worker 启动会失败；多 API 进程应使用 `--no-worker`，这版 CLI 固定使用一个 Uvicorn 进程。
@@ -278,9 +284,9 @@ API 首版只绑定本机，暂不提供账号和公网访问。浏览器来源�
 保留原来的导入、标注、统计、监控 CLI；另提供不依赖 HTTP 请求的任务查询与重试入口：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli tasks --db data/private/reviews.sqlite3
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli task --db data/private/reviews.sqlite3 --task-id $taskId
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli retry --db data/private/reviews.sqlite3 --task-id $taskId
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server tasks --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server task --db data/private/reviews.sqlite3 --task-id $taskId
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server retry --db data/private/reviews.sqlite3 --task-id $taskId
 ```
 
 实现使用 FastAPI 的 [应用生命周期](https://fastapi.tiangolo.com/advanced/events/) 管理内置 worker。任务记录、恢复与互斥由项目自行持久化，未使用仅附属于一次 HTTP 响应的后台函数作为任务队列。

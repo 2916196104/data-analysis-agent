@@ -21,15 +21,15 @@ Set-Location E:\AllProject\data-analysis-agent
 
 ```powershell
 New-Item -ItemType Directory -Force data/private | Out-Null
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli init --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews init --db data/private/reviews.sqlite3
 ```
 
 从 [Amazon Reviews 2023 项目页](https://amazon-reviews-2023.github.io/main.html) 自行下载所选类目的 `review` 和 `meta` 文件，放到 `data/private/`。以下假设使用 `All_Beauty.jsonl.gz` 和 `meta_All_Beauty.jsonl.gz`；文件名应与实际下载文件一致。解压后的 `.jsonl` 也可直接读取。
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli import --db data/private/reviews.sqlite3 --reviews data/private/All_Beauty.jsonl.gz --meta data/private/meta_All_Beauty.jsonl.gz
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli summary --db data/private/reviews.sqlite3
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli evidence --db data/private/reviews.sqlite3 --review-id 1
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews import --db data/private/reviews.sqlite3 --reviews data/private/All_Beauty.jsonl.gz --meta data/private/meta_All_Beauty.jsonl.gz
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews summary --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews evidence --db data/private/reviews.sqlite3 --review-id 1
 ```
 
 可以只传 `--reviews` 或 `--meta`。同时传入时先处理元数据，再处理评论，整个命令使用同一个事务。先导入评论也可以：系统创建缺少元数据的商品占位记录，后续导入元数据会补全。
@@ -37,7 +37,7 @@ New-Item -ItemType Directory -Force data/private | Out-Null
 确定商品 ID 后，可重复传入 `--product-id` 筛选 `parent_asin`，例如下面的模拟商品 ID：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli import --db outputs/review_demo/reviews.sqlite3 --reviews outputs/review_demo/mock_reviews.jsonl --dataset-version demo-simulated --product-id DEMO-P1 --product-id DEMO-P2
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews import --db outputs/review_demo/reviews.sqlite3 --reviews outputs/review_demo/mock_reviews.jsonl --dataset-version demo-simulated --product-id DEMO-P1 --product-id DEMO-P2
 ```
 
 此命令使用下一节生成的模拟文件。默认筛选仍需逐行经过整个文件；选中商品以外的合法 JSON 对象计为 `filtered_records`，不再验证其评分等字段。JSON 损坏或商品 ID 格式错误仍计入坏记录。
@@ -47,7 +47,7 @@ New-Item -ItemType Directory -Force data/private | Out-Null
 添加 `--max-reviews 1000`，本次最多新增 1000 条评论；可改为任意正整数，省略时不限数量。例如只导入指定商品的评论：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli import --db data/private/reviews.sqlite3 --reviews data/private/amazon_reviews_2023/raw/All_Beauty.jsonl.gz --product-id B00R1TAN7I --max-reviews 1000
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews import --db data/private/reviews.sqlite3 --reviews data/private/amazon_reviews_2023/raw/All_Beauty.jsonl.gz --product-id B00R1TAN7I --max-reviews 1000
 ```
 
 - 上限统计本次新增的唯一评论，不是文件行数或数据库总数。重复、坏记录及未选中的商品不占额度；有效的空正文评论占额度。
@@ -95,10 +95,10 @@ for name, rows in (("mock_reviews.jsonl", reviews), ("mock_meta.jsonl", meta)):
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 '@ | .\.venv\Scripts\python.exe -
 
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli init --db outputs/review_demo/reviews.sqlite3
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli import --db outputs/review_demo/reviews.sqlite3 --reviews outputs/review_demo/mock_reviews.jsonl --meta outputs/review_demo/mock_meta.jsonl --dataset-version demo-simulated
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli summary --db outputs/review_demo/reviews.sqlite3
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli evidence --db outputs/review_demo/reviews.sqlite3 --review-id 1
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews init --db outputs/review_demo/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews import --db outputs/review_demo/reviews.sqlite3 --reviews outputs/review_demo/mock_reviews.jsonl --meta outputs/review_demo/mock_meta.jsonl --dataset-version demo-simulated
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews summary --db outputs/review_demo/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews evidence --db outputs/review_demo/reviews.sqlite3 --review-id 1
 ```
 
 全新模拟库的预期结果：
@@ -209,7 +209,7 @@ SQLite 使用四张表：`products`、`reviews`、`import_runs`、`import_errors
 每次只解析一行；文件指纹按 1 MiB 分块读取。为检查输入变化，每份文件依次进行导入前指纹读取、逐行解析、导入后指纹读取，共三次顺序扫描；gzip 只在解析时解压。内存随单条记录大小和 SQLite 缓存增长，不随评论总量构造 Python 列表。整个命令使用一个写事务，期间占用 SQLite 写锁；首版不提供断点续传，失败后可依靠去重重跑。
 
 ```python
-from data_analysis_agent.review_store import (
+from data_analysis_agent.reviews.store import (
     get_quality_summary,
     get_review_evidence,
     import_amazon_jsonl,
@@ -241,9 +241,9 @@ CLI 的 `partial` 对应 Python 返回字典的状态；文件及数据库错误
 
 | 实现文件 | 职责 |
 | --- | --- |
-| `src/data_analysis_agent/review_loader.py` | JSONL 流式解析、分块指纹与 Amazon 字段校验 |
-| `src/data_analysis_agent/review_store.py` | 显式初始化、事务导入、去重、来源定位和质量查询 |
-| `src/data_analysis_agent/review_cli.py` | `init`、`import`、`summary`、`evidence` 四个子命令 |
+| `src/data_analysis_agent/reviews/loader.py` | JSONL 流式解析、分块指纹与 Amazon 字段校验 |
+| `src/data_analysis_agent/reviews/store.py` | 显式初始化、事务导入、去重、来源定位和质量查询 |
+| `src/data_analysis_agent/cli/reviews.py` | `init`、`import`、`summary`、`evidence` 四个子命令 |
 | `tests/test_reviews.py` | 无网络、无模型调用的临时数据库测试 |
 
 `data/private/`、`outputs/`、JSONL、SQLite 和数据库辅助文件由 Git 忽略。导入模块负责评论数据底座；已新增独立的 [观点标注模块](review-labeling.md)，后续可在原始评论、观点及来源记录上增加回放统计和告警。

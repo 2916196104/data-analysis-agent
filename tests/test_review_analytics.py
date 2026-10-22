@@ -12,12 +12,12 @@ from unittest.mock import patch
 
 from test_review_workbench import IDENTITY, WorkbenchFixture, opinion
 
-from data_analysis_agent.review_analysis_cli import main
-from data_analysis_agent.review_analytics import compare_products, get_evidence, get_top_issues, get_trend
-from data_analysis_agent.review_labeler import validate_opinions
-from data_analysis_agent.review_loader import ReviewDataError
-from data_analysis_agent.review_store import import_amazon_jsonl
-from data_analysis_agent.review_workbench_store import save_human_review
+from data_analysis_agent.cli.analytics import main
+from data_analysis_agent.reviews.analytics import compare_products, get_evidence, get_top_issues, get_trend
+from data_analysis_agent.reviews.labeling import validate_opinions
+from data_analysis_agent.reviews.loader import ReviewDataError
+from data_analysis_agent.reviews.store import import_amazon_jsonl
+from data_analysis_agent.reviews.human_review import save_human_review
 
 
 class ReviewAnalyticsTests(WorkbenchFixture, unittest.TestCase):
@@ -203,8 +203,8 @@ class ReviewAnalyticsTests(WorkbenchFixture, unittest.TestCase):
 
     def test_tools_are_read_only_and_do_not_load_configuration_or_invoke_models(self):
         before = self.db.read_bytes()
-        with patch("data_analysis_agent.review_labeler.read_settings", side_effect=AssertionError("must not read .env")), \
-                patch("data_analysis_agent.review_labeler.OpenAI", side_effect=AssertionError("must not call model")):
+        with patch("data_analysis_agent.reviews.labeling.read_settings", side_effect=AssertionError("must not read .env")), \
+                patch("data_analysis_agent.reviews.labeling.OpenAI", side_effect=AssertionError("must not call model")):
             get_trend(self.db, **self.options())
             get_top_issues(self.db, **self.options(), baseline_from="2022-12-01", baseline_to="2022-12-31")
             compare_products(self.db, **self.options())
@@ -222,7 +222,7 @@ class ReviewAnalyticsTests(WorkbenchFixture, unittest.TestCase):
             return code, json.loads(output.getvalue())
 
         before = self.db.read_bytes()
-        with patch("data_analysis_agent.review_labeler.read_settings", side_effect=AssertionError("must not read .env")):
+        with patch("data_analysis_agent.reviews.labeling.read_settings", side_effect=AssertionError("must not read .env")):
             target = self.root / "outputs" / "trend.json"
             code, result = cli("trend", "--period", "day", "--output", str(target))
             self.assertEqual((code, result["status"], result["summary"]["review_count"]), (0, "ok", 6))
@@ -243,7 +243,7 @@ class ReviewAnalyticsTests(WorkbenchFixture, unittest.TestCase):
                     main()
             self.assertEqual(error.exception.code, 2)
         self.assertEqual(self.db.read_bytes(), before)
-        child = subprocess.run([sys.executable, "-m", "data_analysis_agent.review_analysis_cli", "trend", *args,
+        child = subprocess.run([sys.executable, "-m", "data_analysis_agent.cli.analytics", "trend", *args,
                                 "--period", "month"], capture_output=True, text=True, encoding="utf-8", timeout=20)
         self.assertEqual(child.returncode, 0, child.stderr)
         self.assertEqual(json.loads(child.stdout)["buckets"][0]["bucket"], "2023-01")

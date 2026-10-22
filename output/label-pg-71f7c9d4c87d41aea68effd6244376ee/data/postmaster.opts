@@ -1,0 +1,1 @@
+C:/Program Files/PostgreSQL/18/bin/postgres.exe "-D" "E:/AllProject/data-analysis-agent/output/label-pg-71f7c9d4c87d41aea68effd6244376ee/data" "-h" "127.0.0.1" "-p" "15439"

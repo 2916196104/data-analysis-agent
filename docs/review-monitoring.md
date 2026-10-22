@@ -13,9 +13,9 @@
 ```powershell
 $monitorPython = (Resolve-Path '.\.venv\Scripts\python.exe').Path
 $monitorDb = 'data/private/reviews.sqlite3'
-& $monitorPython -m data_analysis_agent.review_monitor_cli init --db $monitorDb
+& $monitorPython -m data_analysis_agent.cli.monitoring init --db $monitorDb
 
-$progress = & $monitorPython -m data_analysis_agent.review_label_cli status --db $monitorDb | ConvertFrom-Json
+$progress = & $monitorPython -m data_analysis_agent.cli.labeling status --db $monitorDb | ConvertFrom-Json
 $progress.profiles | Select-Object requested_model, base_url, prompt_version
 $profile = @($progress.profiles)[0]
 if ($null -eq $profile) { throw '请先完成一批评论标注，并确认模型配置。' }
@@ -35,12 +35,12 @@ $monitorArgs = @(
 ## 按月回放并查看分析记录
 
 ```powershell
-$replay = & $monitorPython -m data_analysis_agent.review_monitor_cli replay @monitorArgs --month-from 2016-01 --month-to 2016-03 --baseline-months 1 | ConvertFrom-Json
+$replay = & $monitorPython -m data_analysis_agent.cli.monitoring replay @monitorArgs --month-from 2016-01 --month-to 2016-03 --baseline-months 1 | ConvertFrom-Json
 $replay.result.runs | Select-Object month, run_id, reused, new_alerts, merged_alerts
 
-& $monitorPython -m data_analysis_agent.review_monitor_cli runs --db $monitorDb --page 1 --page-size 20
+& $monitorPython -m data_analysis_agent.cli.monitoring runs --db $monitorDb --page 1 --page-size 20
 $runId = $replay.result.runs[0].run_id
-& $monitorPython -m data_analysis_agent.review_monitor_cli run-detail --db $monitorDb --run-id $runId
+& $monitorPython -m data_analysis_agent.cli.monitoring run-detail --db $monitorDb --run-id $runId
 ```
 
 每个当前窗口是一个完整 UTC 月，截止时间为该月最后一毫秒。例如 2016 年 2 月窗口为 2 月 1—29 日，默认基线为 1 月 1—31 日。`--baseline-months 3` 表示此前连续三个完整月；每个月的基线都会向前滚动。回放范围最多 1200 个月，基线长度为 1—120 个月。
@@ -52,7 +52,7 @@ $runId = $replay.result.runs[0].run_id
 ## 分析一个自定义窗口
 
 ```powershell
-& $monitorPython -m data_analysis_agent.review_monitor_cli run @monitorArgs --date-from 2016-03-01 --date-to 2016-03-31 --baseline-from 2016-02-01 --baseline-to 2016-02-29 --as-of 2016-03-31
+& $monitorPython -m data_analysis_agent.cli.monitoring run @monitorArgs --date-from 2016-03-01 --date-to 2016-03-31 --baseline-from 2016-02-01 --baseline-to 2016-02-29 --as-of 2016-03-31
 ```
 
 起止日期包含当天，基线必须完全早于当前窗口。`--as-of` 默认当前窗口结束日，也支持带时区的 ISO 时间，所有工具、输入快照和证据使用同一截止时间。任意窗口允许长度不同，告警比较的是负面评论占比，数量差仅作为辅助信息，不自动换算日均数量。
@@ -62,7 +62,7 @@ $runId = $replay.result.runs[0].run_id
 ## 调整告警规则
 
 ```powershell
-& $monitorPython -m data_analysis_agent.review_monitor_cli replay @monitorArgs --month-from 2016-01 --month-to 2016-03 --baseline-months 1 --min-samples 20 --min-coverage 0.8 --min-negative-count 3 --min-increase-pp 10 --cooldown-days 30
+& $monitorPython -m data_analysis_agent.cli.monitoring replay @monitorArgs --month-from 2016-01 --month-to 2016-03 --baseline-months 1 --min-samples 20 --min-coverage 0.8 --min-negative-count 3 --min-increase-pp 10 --cooldown-days 30
 ```
 
 | 参数 | 默认值 | 判断方式 |
@@ -91,12 +91,12 @@ $runId = $replay.result.runs[0].run_id
 ## 查询、确认与忽略告警
 
 ```powershell
-$alerts = & $monitorPython -m data_analysis_agent.review_monitor_cli alerts --db $monitorDb --status pending --page-size 20 | ConvertFrom-Json
+$alerts = & $monitorPython -m data_analysis_agent.cli.monitoring alerts --db $monitorDb --status pending --page-size 20 | ConvertFrom-Json
 $alerts.result.items | Select-Object id, product_id, aspect, first_seen, last_seen, status, occurrence_count
 
 if ($alerts.result.items.Count -gt 0) {
     $alertId = $alerts.result.items[0].id
-    & $monitorPython -m data_analysis_agent.review_monitor_cli alert --db $monitorDb --alert-id $alertId
+    & $monitorPython -m data_analysis_agent.cli.monitoring alert --db $monitorDb --alert-id $alertId
 }
 ```
 
@@ -106,10 +106,10 @@ if ($alerts.result.items.Count -gt 0) {
 
 ```powershell
 # 确认存在值得跟进的问题
-& $monitorPython -m data_analysis_agent.review_monitor_cli confirm --db $monitorDb --alert-id $alertId --actor '本地复核员' --note '已核查原文，跟进包装问题'
+& $monitorPython -m data_analysis_agent.cli.monitoring confirm --db $monitorDb --alert-id $alertId --actor '本地复核员' --note '已核查原文，跟进包装问题'
 
 # 或：记录忽略理由
-& $monitorPython -m data_analysis_agent.review_monitor_cli ignore --db $monitorDb --alert-id $alertId --actor '本地复核员' --note '经复核暂不跟进'
+& $monitorPython -m data_analysis_agent.cli.monitoring ignore --db $monitorDb --alert-id $alertId --actor '本地复核员' --note '经复核暂不跟进'
 ```
 
 两种操作都要求处理人，备注最多 2000 字符；确认与忽略之间可以纠正选择，每次实际状态变化均记录前后状态、处理人、备注和实际 UTC 时间。重复设置当前状态返回 `changed: false`，不重复写入处理历史；该操作不会用新备注覆盖旧备注。

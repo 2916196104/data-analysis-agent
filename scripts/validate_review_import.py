@@ -12,13 +12,13 @@ from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
-from data_analysis_agent.review_loader import file_sha256
-from data_analysis_agent.review_store import get_review_evidence
+from data_analysis_agent.reviews.loader import file_sha256
+from data_analysis_agent.reviews.store import get_review_evidence
 
 
 def run_cli(*arguments):
     result = subprocess.run(
-        [sys.executable, "-m", "data_analysis_agent.review_cli", *map(str, arguments)],
+        [sys.executable, "-m", "data_analysis_agent.cli.reviews", *map(str, arguments)],
         capture_output=True, text=True, encoding="utf-8",
         env={**os.environ, "PYTHONIOENCODING": "utf-8"},
     )

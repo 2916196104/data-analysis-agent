@@ -13,10 +13,10 @@ from unittest.mock import patch
 import httpx
 from openai import OpenAI
 
-from data_analysis_agent.agent import run_agent_analysis
-from data_analysis_agent.agent_tools import SalesToolContext, create_tool_registry
-from data_analysis_agent.config import AgentSettings, ConfigurationError, read_settings, safe_json
-from data_analysis_agent.data_loader import load_sales_csv
+from data_analysis_agent.agents.sales import run_agent_analysis
+from data_analysis_agent.agents.tools import SalesToolContext, create_tool_registry
+from data_analysis_agent.core.config import AgentSettings, ConfigurationError, read_settings, safe_json
+from data_analysis_agent.sales.loader import load_sales_csv
 
 SAMPLE = Path(__file__).resolve().parents[1] / "data/samples/sales_mock.csv"
 FAKE_KEY = "offline-test-key-not-a-real-credential"
@@ -155,7 +155,7 @@ class AgentTests(unittest.TestCase):
 
     def test_missing_configuration_and_bad_data_never_call_model(self):
         with tempfile.TemporaryDirectory() as directory, patch(
-            "data_analysis_agent.agent._new_llm", side_effect=AssertionError("Network must not be called")
+            "data_analysis_agent.agents.sales._new_llm", side_effect=AssertionError("Network must not be called")
         ):
             with patch.dict(os.environ, {name: "" for name in ("LLM_MODEL_ID", "LLM_API_KEY", "LLM_BASE_URL")}):
                 result = run_agent_analysis(SAMPLE, "总销售额", directory,
@@ -296,7 +296,7 @@ class AgentTests(unittest.TestCase):
             env = {**os.environ, "PYTHONIOENCODING": "utf-8",
                    **{name: "" for name in ("LLM_MODEL_ID", "LLM_API_KEY", "LLM_BASE_URL")}}
             result = subprocess.run([
-                sys.executable, "-m", "data_analysis_agent.agent_cli", "--input", str(SAMPLE),
+                sys.executable, "-m", "data_analysis_agent.cli.agent", "--input", str(SAMPLE),
                 "--question", "总销售额", "--output-dir", directory,
                 "--env-file", str(Path(directory) / "absent.env"),
             ], env=env, capture_output=True, text=True, encoding="utf-8", timeout=10)

@@ -15,12 +15,12 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from data_analysis_agent.review_label_store import init_labeling, pending_reviews, save_annotation
-from data_analysis_agent.review_labeler import validate_opinions
-from data_analysis_agent.review_loader import ReviewDataError
-from data_analysis_agent.review_store import init_database, import_amazon_jsonl
-from data_analysis_agent.review_workbench import create_server, main
-from data_analysis_agent.review_workbench_store import (
+from data_analysis_agent.reviews.label_store import init_labeling, pending_reviews, save_annotation
+from data_analysis_agent.reviews.labeling import validate_opinions
+from data_analysis_agent.reviews.loader import ReviewDataError
+from data_analysis_agent.reviews.store import init_database, import_amazon_jsonl
+from data_analysis_agent.api.workbench import create_server, main
+from data_analysis_agent.reviews.human_review import (
     ReviewConflict, ReviewNotFound, init_workbench, list_reviews, review_detail,
     save_human_review, workbench_options,
 )
@@ -295,7 +295,7 @@ class WorkbenchHTTPTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(self.request("POST",path,"not json",headers)[0],400)
         self.assertEqual(self.request("POST",path,body,{**headers,"Content-Type":"text/plain"})[0],400)
         self.assertEqual(self.request("POST",path,body,{**headers,"Content-Length":"200001"})[0],400)
-        with patch("data_analysis_agent.review_workbench.workbench_options",side_effect=sqlite3.OperationalError("private info")):
+        with patch("data_analysis_agent.api.workbench.workbench_options",side_effect=sqlite3.OperationalError("private info")):
             code,_,response=self.request("GET","/api/options")
         self.assertEqual(code,503)
         self.assertNotIn(b"private info",response)

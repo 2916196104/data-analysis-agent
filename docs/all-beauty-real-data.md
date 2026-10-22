@@ -51,7 +51,7 @@ meta_All_Beauty.jsonl.gz
 
 ```powershell
 Set-Location E:\AllProject\data-analysis-agent
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli summary --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews summary --db data/private/reviews.sqlite3
 ```
 
 本次检查的该库返回 `review_count=0`、`product_count=0`、`import_count=0`。若仍是此状态，可以跳过第 2 步。
@@ -62,7 +62,7 @@ Set-Location E:\AllProject\data-analysis-agent
 
 ```powershell
 New-Item -ItemType Directory -Force data/private | Out-Null
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli init --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews init --db data/private/reviews.sqlite3
 ```
 
 已初始化的评论库会返回 `created=false`，不会清空数据。程序拒绝覆盖其他类型的数据库。
@@ -72,7 +72,7 @@ New-Item -ItemType Directory -Force data/private | Out-Null
 这条命令扫描完整原始文件，只保存指定商品；原文位置直接指向官方文件。可以整段复制到 PowerShell：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli import `
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews import `
   --db data/private/reviews.sqlite3 `
   --reviews data/private/amazon_reviews_2023/raw/All_Beauty.jsonl.gz `
   --meta data/private/amazon_reviews_2023/raw/meta_All_Beauty.jsonl.gz `
@@ -96,7 +96,7 @@ New-Item -ItemType Directory -Force data/private | Out-Null
 重复执行第 3 步。元数据和评论的新增数都应为 0，重复数分别为 4 和 4,980。这里的 4,980 是本次输入行数，包含原文件自身的 39 行重复；库中唯一评论数继续为 4,941。导入历史数会增加。
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli summary --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews summary --db data/private/reviews.sqlite3
 ```
 
 ### 5. 查询原文位置
@@ -104,7 +104,7 @@ New-Item -ItemType Directory -Force data/private | Out-Null
 在空库按上面的命令导入后，下面例子对应 GranNaturals 的一条评论，原始评论文件第 44,623 行：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli evidence --db data/private/reviews.sqlite3 --review-id 347
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews evidence --db data/private/reviews.sqlite3 --review-id 347
 ```
 
 核对返回的 `product_id=B00R1TAN7I`、`line_number=44623`、`file_sha256` 和 `raw_json`。`evidence_ref` 应为：

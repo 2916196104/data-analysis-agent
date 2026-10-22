@@ -5,19 +5,24 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from data_analysis_agent.review_label_store import init_labeling, pending_reviews, save_annotation
-from data_analysis_agent.review_labeler import validate_opinions
-from data_analysis_agent.review_monitor_store import init_monitoring
-from data_analysis_agent.review_store import import_amazon_jsonl, init_database
-from data_analysis_agent.review_task_store import init_tasks
-from data_analysis_agent.review_workbench_store import init_workbench
+from data_analysis_agent.reviews.label_store import init_labeling, pending_reviews, save_annotation
+from data_analysis_agent.reviews.labeling import validate_opinions
+from data_analysis_agent.reviews.monitor_store import init_monitoring
+from data_analysis_agent.reviews.store import import_amazon_jsonl, init_database
+from data_analysis_agent.jobs.store import init_tasks
+from data_analysis_agent.reviews.human_review import init_workbench
 
 
-def create_fixture(root: Path):
+def create_fixture(root: Path, database=None):
     root.mkdir(parents=True, exist_ok=True)
     db, tasks = root / 'reviews.sqlite3', root / 'reviews.tasks.sqlite3'
     if db.exists() or tasks.exists():
         raise ValueError('验收目录已存在数据库，请使用一个新的空目录。')
+    if database:
+        from urllib.parse import urlsplit
+        if not urlsplit(database).path.startswith('/agent_test_'):
+            raise ValueError('外部验收数据库必须使用 agent_test_ 前缀。')
+        db = tasks = database
     init_database(db)
     init_labeling(db)
     init_workbench(db)
@@ -55,5 +60,11 @@ def create_fixture(root: Path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--database-env', help='可选的隔离 PostgreSQL 测试库环境变量名')
     args = parser.parse_args()
-    print(json.dumps(create_fixture(args.output.resolve())))
+    import os
+    result = create_fixture(args.output.resolve(), os.environ[args.database_env] if args.database_env else None)
+    from data_analysis_agent.core.database import database_identity
+    result['db'] = database_identity(result['db'])
+    result['task_db'] = database_identity(result['task_db'])
+    print(json.dumps(result))

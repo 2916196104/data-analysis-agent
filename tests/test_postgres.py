@@ -17,22 +17,22 @@ from urllib.parse import urlsplit, urlunsplit
 import psycopg
 from psycopg import sql
 
-from data_analysis_agent.database import (DatabaseError, PostgresConnection, _parameters,
+from data_analysis_agent.core.database import (DatabaseError, PostgresConnection, _parameters,
                                           database_argument, database_identity, table_names)
-from data_analysis_agent.review_api import create_app
-from data_analysis_agent.review_api_cli import default_task_database
-from data_analysis_agent.review_analytics import compare_products, get_evidence, get_top_issues, get_trend
-from data_analysis_agent.review_catalog import list_products
-from data_analysis_agent.review_label_store import init_labeling, labeling_status, pending_reviews, save_annotation
-from data_analysis_agent.review_migrate import migrate_sqlite
-from data_analysis_agent.review_loader import ReviewDataError
-from data_analysis_agent.review_monitor import replay_monthly, run_analysis
-from data_analysis_agent.review_monitor_store import get_analysis_run, init_monitoring, list_alerts, set_alert_status
-from data_analysis_agent.review_store import connect_review_database, get_quality_summary, import_amazon_jsonl, init_database
-from data_analysis_agent.review_task_store import (TaskConflict, claim_task, enqueue, finish_task, get_task,
+from data_analysis_agent.api.app import create_app
+from data_analysis_agent.cli.server import default_task_database
+from data_analysis_agent.reviews.analytics import compare_products, get_evidence, get_top_issues, get_trend
+from data_analysis_agent.reviews.catalog import list_products
+from data_analysis_agent.reviews.label_store import init_labeling, labeling_status, pending_reviews, save_annotation
+from data_analysis_agent.cli.migrate import migrate_sqlite
+from data_analysis_agent.reviews.loader import ReviewDataError
+from data_analysis_agent.reviews.monitoring import replay_monthly, run_analysis
+from data_analysis_agent.reviews.monitor_store import get_analysis_run, init_monitoring, list_alerts, set_alert_status
+from data_analysis_agent.reviews.store import connect_review_database, get_quality_summary, import_amazon_jsonl, init_database
+from data_analysis_agent.jobs.store import (TaskConflict, claim_task, enqueue, finish_task, get_task,
                                                  init_tasks, queue_health, worker_started)
-from data_analysis_agent.review_task_worker import TaskWorker, WorkerLock
-from data_analysis_agent.review_workbench_store import (ReviewConflict, init_workbench, list_reviews,
+from data_analysis_agent.jobs.worker import TaskWorker, WorkerLock
+from data_analysis_agent.reviews.human_review import (ReviewConflict, init_workbench, list_reviews,
                                                        review_detail, save_human_review, workbench_options)
 import test_review_monitor as monitor_fixture
 
@@ -207,7 +207,7 @@ class PostgresTests(unittest.TestCase):
 
     def test_http_and_cli_use_postgres_without_exposing_dsn(self):
         from fastapi.testclient import TestClient
-        from data_analysis_agent.review_cli import main
+        from data_analysis_agent.cli.reviews import main
 
         self.migrate()
         app = create_app(self.target, self.target, import_root=self.fixture.root, embedded_worker=False)

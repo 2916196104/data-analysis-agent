@@ -1,4 +1,4 @@
-"""Check public import compatibility, canonical entry points and packaged assets."""
+"""Check canonical imports, entry points and packaged assets."""
 
 import ast
 import importlib
@@ -32,14 +32,14 @@ MODULES = {
 
 
 class PackageLayoutTests(unittest.TestCase):
-    def test_legacy_imports_are_the_canonical_modules(self):
+    def test_canonical_modules_replace_root_level_forwarders(self):
         for old, new in MODULES.items():
             with self.subTest(module=old):
-                canonical = importlib.import_module("data_analysis_agent." + new)
-                self.assertIs(importlib.import_module("data_analysis_agent." + old), canonical)
+                self.assertFalse((PACKAGE / f"{old}.py").exists())
+                self.assertIsNotNone(importlib.import_module("data_analysis_agent." + new))
         labeling = importlib.import_module("data_analysis_agent.reviews.labeling")
         replacement = object()
-        with patch("data_analysis_agent.review_labeler.OpenAI", replacement):
+        with patch("data_analysis_agent.reviews.labeling.OpenAI", replacement):
             self.assertIs(labeling.OpenAI, replacement)
 
     def test_implementation_imports_do_not_go_through_legacy_modules(self):

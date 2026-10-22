@@ -13,17 +13,17 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from data_analysis_agent import review_monitor as monitor
-from data_analysis_agent.review_analytics import get_trend
-from data_analysis_agent.review_label_store import init_labeling, pending_reviews, save_annotation
-from data_analysis_agent.review_labeler import validate_opinions
-from data_analysis_agent.review_loader import ReviewDataError
-from data_analysis_agent.review_monitor_cli import main
-from data_analysis_agent.review_monitor_store import (
+from data_analysis_agent.reviews import monitoring as monitor
+from data_analysis_agent.reviews.analytics import get_trend
+from data_analysis_agent.reviews.label_store import init_labeling, pending_reviews, save_annotation
+from data_analysis_agent.reviews.labeling import validate_opinions
+from data_analysis_agent.reviews.loader import ReviewDataError
+from data_analysis_agent.cli.monitoring import main
+from data_analysis_agent.reviews.monitor_store import (
     get_alert, get_analysis_run, init_monitoring, list_alerts, list_analysis_runs, set_alert_status,
 )
-from data_analysis_agent.review_store import import_amazon_jsonl, init_database
-from data_analysis_agent.review_workbench_store import init_workbench, save_human_review
+from data_analysis_agent.reviews.store import import_amazon_jsonl, init_database
+from data_analysis_agent.reviews.human_review import init_workbench, save_human_review
 
 IDENTITY = {"model": "SIMULATED", "base_url": "https://offline.invalid/v1", "prompt_version": "test-v1"}
 RULES = {"min_samples": 2, "min_coverage": 0.8, "min_negative_count": 2, "min_increase_pp": 20,
@@ -143,8 +143,8 @@ class MonitorTests(unittest.TestCase):
                 patch.object(monitor, "get_top_issues", wraps=monitor.get_top_issues) as issues, \
                 patch.object(monitor, "compare_products", wraps=monitor.compare_products) as compare, \
                 patch.object(monitor, "get_evidence", wraps=monitor.get_evidence) as evidence, \
-                patch("data_analysis_agent.review_labeler.OpenAI", side_effect=AssertionError("no model")), \
-                patch("data_analysis_agent.review_labeler.read_settings", side_effect=AssertionError("no .env")):
+                patch("data_analysis_agent.reviews.labeling.OpenAI", side_effect=AssertionError("no model")), \
+                patch("data_analysis_agent.reviews.labeling.read_settings", side_effect=AssertionError("no .env")):
             receipt = self.run_monitor(product_ids=["P1", "P2"])
             self.assertTrue(all(tool.called for tool in (trend, issues, compare, evidence)))
             connections = [call.args[0] for tool in (trend, issues, compare, evidence) for call in tool.call_args_list]
@@ -477,9 +477,9 @@ class MonitorTests(unittest.TestCase):
             with self.assertRaises(SystemExit) as exc:
                 main()
             self.assertEqual(exc.exception.code, 2)
-        with patch("data_analysis_agent.review_monitor_cli.replay_monthly", return_value={"complete": False, "runs": []}):
+        with patch("data_analysis_agent.cli.monitoring.replay_monthly", return_value={"complete": False, "runs": []}):
             self.assertEqual(cli("replay", *common, "--month-from", "2020-01", "--month-to", "2020-02")[0], 1)
-        child = subprocess.run([sys.executable, "-m", "data_analysis_agent.review_monitor_cli", "alerts",
+        child = subprocess.run([sys.executable, "-m", "data_analysis_agent.cli.monitoring", "alerts",
                                 "--db", str(self.db), "--status", "ignored"],
                                capture_output=True, text=True, encoding="utf-8", timeout=20)
         self.assertEqual(child.returncode, 0, child.stderr)

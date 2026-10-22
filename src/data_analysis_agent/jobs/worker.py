@@ -3,6 +3,7 @@
 import logging
 import os
 import threading
+import time
 import uuid
 from pathlib import Path
 
@@ -110,6 +111,7 @@ class TaskWorker:
         self.lock.acquire()
         try:
             worker_started(self.task_db, self.worker_id)
+            logger.info("后台执行器启动 worker_id=%s", self.worker_id)
             self.thread = threading.Thread(target=self._loop, name="review-task-worker")
             self.thread.start()
         except Exception:
@@ -153,14 +155,26 @@ class TaskWorker:
                 heartbeat(self.task_db, self.worker_id, stopped=True)
             finally:
                 self.lock.release()
+                logger.info("后台执行器停止 worker_id=%s", self.worker_id)
 
     def _execute(self, task):
+        started = time.monotonic()
+        logger.info("任务开始 task_id=%s kind=%s", task["task_id"], task["kind"])
+
         def progress(value):
             if isinstance(self.lock.handle, PostgresConnection):
                 self.lock.handle.execute("SELECT 1")
             if self.stop_requested.is_set():
                 raise TaskInterrupted()
             update_progress(self.task_db, task["task_id"], self.worker_id, value)
+            if value["stage"] == "labeling":
+                logger.info("标注进度 task_id=%s %s/%s 成功=%s 失败=%s 模型调用=%s",
+                            task["task_id"], value["completed"], value["total"],
+                            value.get("successful_reviews", 0), value.get("failed_reviews", 0), value.get("model_calls", 0))
+            else:
+                logger.info("任务进度 task_id=%s stage=%s 已处理=%s/%s unit=%s",
+                            task["task_id"], value["stage"], value["completed"],
+                            value["total"] if value["total"] is not None else "未知", value["unit"])
 
         try:
             progress({"stage": "starting", "completed": 0, "total": None, "unit": "items"})
@@ -192,6 +206,14 @@ class TaskWorker:
             finish_task(self.task_db, task["task_id"], self.worker_id,
                         status="partial" if partial else "succeeded", result=result,
                         error={"code": "partial_result", "message": "部分记录或月份未完成，请查看 result 后显式重试。"} if partial else None)
+            for item in result.get("imports", []):
+                logger.info("导入结果 task_id=%s kind=%s 新增=%s 重复=%s 无效=%s",
+                            task["task_id"], item["kind"], item["inserted_records"],
+                            item["duplicate_records"], item["invalid_records"])
+            logger.log(logging.WARNING if partial else logging.INFO,
+                       "任务结束 task_id=%s kind=%s status=%s 耗时=%.2fs stopped_reason=%s",
+                       task["task_id"], task["kind"], "partial" if partial else "succeeded",
+                       time.monotonic() - started, result.get("stopped_reason") or "-")
         except Exception as exc:
             if isinstance(exc, TaskInterrupted):
                 error = {"code": "worker_interrupted", "message": "worker 正在停止；已提交的业务结果保留，请核查后显式重试。"}
@@ -206,5 +228,6 @@ class TaskWorker:
                 error = {"code": "validation_error", "message": "已保存的任务参数不符合当前版本，请重新提交任务。"}
             else:
                 error = {"code": "execution_error", "message": "任务执行失败，请检查文件、数据库及服务配置后重试。"}
-            logger.warning("Task %s failed (%s)", task["task_id"], type(exc).__name__)
             finish_task(self.task_db, task["task_id"], self.worker_id, status="failed", error=error)
+            logger.warning("任务失败 task_id=%s kind=%s error_code=%s exception=%s 耗时=%.2fs",
+                           task["task_id"], task["kind"], error["code"], type(exc).__name__, time.monotonic() - started)

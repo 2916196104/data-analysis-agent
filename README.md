@@ -13,8 +13,8 @@ All_Beauty 的完整真实文件已下载到 `data/private/amazon_reviews_2023/r
 新增 [评论标注工作台](docs/review-workbench.md)：本机网页支持商品、UTC 日期、维度、情感、模型处理状态及人工复核状态筛选；分页查看原文、观点与模型版本；人工确认、纠错及历史回查；按商品查看标注进度。人工记录另存，保留模型原始结果。无需新增依赖或模型配置，**数据库升级仍由你执行**，请先按说明备份：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_workbench init --db data/private/reviews.sqlite3
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_workbench serve --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.api.workbench init --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.api.workbench serve --db data/private/reviews.sqlite3
 ```
 
 浏览器打开 `http://127.0.0.1:8765`。页面不会自动升级数据库或调用模型，原有销售分析入口继续使用。
@@ -22,42 +22,42 @@ All_Beauty 的完整真实文件已下载到 `data/private/amazon_reviews_2023/r
 已新增 [六维度评论观点标注](docs/review-labeling.md)：复用现有模型配置，保存维度、情感、原文片段及位置、模型和提示词版本；支持增量跳过、失败重试与只读进度查询。业务库检查已确认导入及去重正确，可标注正文 4,939 条。观点表初始化和环境配置仍由你执行：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli init --db data/private/reviews.sqlite3
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli run --db data/private/reviews.sqlite3 --limit 20
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli status --db data/private/reviews.sqlite3
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli evidence --db data/private/reviews.sqlite3 --review-id 1
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling init --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling run --db data/private/reviews.sqlite3 --limit 20
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling status --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling evidence --db data/private/reviews.sqlite3 --review-id 1
 ```
 
 标注 `run` 与进度 `status` 现可使用相同的商品、UTC 起止日期及 `--as-of` 回放范围。新增只读 `query` 命令，按明确的模型、服务地址与提示词版本返回有效观点，优先采用最新人工复核快照。无需升级数据库，完整参数、示例和时间口径见 [按范围查询评论](docs/review-query-scope.md)。
 
-新增 [评论统计与证据工具](docs/review-analytics.md)：`get_trend`、`get_top_issues`、`compare_products`、`get_evidence` 共用上述范围与人工有效观点规则，按去重评论计算数量、覆盖率和负面占比。命令行 `python -m data_analysis_agent.review_analysis_cli` 提供趋势、基线变化、商品对比、证据查询及 JSON 导出；无需前端、数据库升级或线上模型调用。
+新增 [评论统计与证据工具](docs/review-analytics.md)：`get_trend`、`get_top_issues`、`compare_products`、`get_evidence` 共用上述范围与人工有效观点规则，按去重评论计算数量、覆盖率和负面占比。命令行 `python -m data_analysis_agent.cli.analytics` 提供趋势、基线变化、商品对比、证据查询及 JSON 导出；无需前端、数据库升级或线上模型调用。
 
-新增 [分析记录、月度回放与规则告警](docs/review-monitoring.md)：`python -m data_analysis_agent.review_monitor_cli` 保存本次分析输入、人工观点和统计证据；按 UTC 月末回放，检查样本量、覆盖率、负面数量及占比增长；支持冷却去重、告警查询、确认和忽略。首次使用须显式执行该入口的 `init --db`，只新增监控表。命令不调用模型，样本不足会记录“无法判断”。
+新增 [分析记录、月度回放与规则告警](docs/review-monitoring.md)：`python -m data_analysis_agent.cli.monitoring` 保存本次分析输入、人工观点和统计证据；按 UTC 月末回放，检查样本量、覆盖率、负面数量及占比增长；支持冷却去重、告警查询、确认和忽略。首次使用须显式执行该入口的 `init --db`，只新增监控表。命令不调用模型，样本不足会记录“无法判断”。
 
 `run` 会向配置的模型端点发送评论正文；默认每批最多 20 条。重复执行继续下一批，成功结果不重复调用模型；`--retry-failed` 可显式纳入失败项。可用 `--limit 200 --workers 4` 同时处理最多 4 条评论的模型请求，并在终端逐条查看进度；默认单路。用[观点标注说明](docs/review-labeling.md)中的人工复核方法比较模型准确率。开发联调仅用模拟样本请求线上接口；业务库中的真实标注由你执行。已有观点表时无需重复初始化。
 
 ```powershell
 New-Item -ItemType Directory -Force data/private | Out-Null
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli init --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews init --db data/private/reviews.sqlite3
 # 本机真实文件已准备好；仅导入选定的 4 款商品。
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli import --db data/private/reviews.sqlite3 --reviews data/private/amazon_reviews_2023/raw/All_Beauty.jsonl.gz --meta data/private/amazon_reviews_2023/raw/meta_All_Beauty.jsonl.gz --product-id B00R1TAN7I --product-id B019GBG0IE --product-id B01M1OFZOG --product-id B01N4885PD
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli summary --db data/private/reviews.sqlite3
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli evidence --db data/private/reviews.sqlite3 --review-id 1
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews import --db data/private/reviews.sqlite3 --reviews data/private/amazon_reviews_2023/raw/All_Beauty.jsonl.gz --meta data/private/amazon_reviews_2023/raw/meta_All_Beauty.jsonl.gz --product-id B00R1TAN7I --product-id B019GBG0IE --product-id B01M1OFZOG --product-id B01N4885PD
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews summary --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews evidence --db data/private/reviews.sqlite3 --review-id 1
 ```
 
 导入不会自动创建数据库或调用模型。有坏记录时保留合法记录及错误明细，退出码为 3；文件损坏等整体失败会回滚本次导入。评论工作台、模型标注、评论统计、规则监控与销售 Agent 使用各自入口，后续再增加评论问答。
 
 ## 运行
 
-新增 [统一 HTTP API 与后台任务](docs/review-http-api.md)：商品评论、人工复核、四个分析工具、运行记录与告警统一通过 `/api/v1` 调用。导入、标注、分析、回放使用独立 SQLite 任务库持久化，支持进度查询、幂等提交、显式重试和中断恢复。原有 CLI 保留，本次未新增或运行测试，验证由你进行。首次按文档安装依赖并显式初始化后启动。
+新增 [统一 HTTP API 与后台任务](docs/review-http-api.md)：商品评论、人工复核、四个分析工具、运行记录与告警统一通过 `/api/v1` 调用。导入、标注、分析、回放使用 SQLite / PostgreSQL 任务表持久化，支持进度查询、幂等提交、显式重试和中断恢复。原有 CLI 保留。首次按文档安装依赖并显式初始化后启动。
 
 已提供 **44 个 IDEA 运行配置**，保存于 [.run](.run/)。评论业务配置统一使用 `--db env:DATABASE_URL` 连接 PostgreSQL。在顶部运行配置列表选择 **03 查看评论库摘要** 即可开始；脚本路径、工作目录、业务参数均已填好。**05 自定义数量导入亚马逊评论** 可在运行时输入新增评论上限，**18 亚马逊并发标注200条** 可在 4 路并发下继续增量标注。已迁移的本机直接使用 **71** 或 **77** 启动 HTTP 服务；新环境安装、建库后再使用 **69 → 70 → 71**。完整用途、历史回放范围与推荐顺序见 [IDEA 一键运行说明](docs/idea-running.md)。
 
-**在 IntelliJ IDEA 中直接点击运行：** `review_cli.py`、`review_label_cli.py`、`review_analysis_cli.py`、`review_monitor_cli.py`、`review_workbench.py`、`agent_cli.py`、`main.py` 和 `__main__.py` 均支持按文件运行，无需改为模块模式。选择项目的 `.venv` Python 解释器；首次未填写参数时显示帮助并正常退出，不执行业务操作。
+**在 IntelliJ IDEA 中直接点击运行：** `cli/reviews.py`、`cli/labeling.py`、`cli/analytics.py`、`cli/monitoring.py`、`api/workbench.py`、`cli/agent.py`、`sales/workflow.py` 和 `__main__.py` 均支持按文件运行，无需改为模块模式。选择项目的 `.venv` Python 解释器；首次未填写参数时显示帮助并正常退出，不执行业务操作。
 
-例如，右键 `src/data_analysis_agent/review_cli.py` 选择运行。要查看评论库摘要，在该运行配置的“脚本参数 / Parameters”中填写 `summary --db env:DATABASE_URL`，再点击绿色运行按钮，即可输出 JSON。标注入口可以填写 `status --db env:DATABASE_URL` 查看进度。工作目录设为项目根目录，从 `.env` 读取 PostgreSQL 地址。需要导入、标注或回放时，按各入口帮助填写对应子命令与参数。
+例如，右键 `src/data_analysis_agent/cli/reviews.py` 选择运行。要查看评论库摘要，在该运行配置的“脚本参数 / Parameters”中填写 `summary --db env:DATABASE_URL`，再点击绿色运行按钮，即可输出 JSON。标注入口可以填写 `status --db env:DATABASE_URL` 查看进度。工作目录设为项目根目录，从 `.env` 读取 PostgreSQL 地址。需要导入、标注或回放时，按各入口帮助填写对应子命令与参数。
 
-使用相对路径时，将运行配置的工作目录设置为实际项目根目录（本机为 `E:\AllProject\data-analysis-agent`）。入口不会自动修改工作目录；业务实现文件（例如 `reviews/store.py`）由入口调用，根目录的 `review_store.py` 保留为兼容转发。原有 `python -m ...` 和安装后的命令行入口仍按原有规则执行。
+使用相对路径时，将运行配置的工作目录设置为实际项目根目录（本机为 `E:\AllProject\data-analysis-agent`）。入口不会自动修改工作目录；直接使用 `cli/`、`sales/` 或 `api/` 中的入口。安装后的命令行名称保持不变。
 
 要求 Python 3.12 或 3.13（`>=3.12,<3.14`，与固定的 HelloAgents 1.0.1 一致）。以下命令在 PowerShell 中执行，复用已有 `.venv`；目录内已有 IDE 文件和虚拟环境均保留。
 
@@ -116,9 +116,9 @@ if (!(Test-Path .env)) { Copy-Item .env.example .env }
 在 `.env` 中填写 `LLM_MODEL_ID`、`LLM_API_KEY`、`LLM_BASE_URL`。服务必须支持原生工具调用；密钥不进入 Git。配置完整后执行：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --question "总销售额是多少？"
-.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --input data/samples/sales_mock.csv --question "按商品汇总并生成图表和报告。"
-.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --question "计算利润率。"
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.agent --question "总销售额是多少？"
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.agent --input data/samples/sales_mock.csv --question "按商品汇总并生成图表和报告。"
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.agent --question "计算利润率。"
 ```
 
 前两个问题预期为 `status=ok`，结果来自工具计算；利润率问题预期为 `status=unsupported` 并说明缺少成本指标。新入口成功退出 0、配置/数据/模型失败退出 1、参数错误退出 2、不支持的请求退出 3。安装后的 `sales-agent` 命令对应同一入口。
@@ -137,7 +137,7 @@ if (!(Test-Path .env)) { Copy-Item .env.example .env }
 
 ```powershell
 .\.venv\Scripts\python.exe -m data_analysis_agent --input data/private/my_sales.xlsx --sheet "销售明细" --output-dir outputs/my_excel_check
-.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --input data/private/my_sales.xlsx --sheet "销售明细" --question "按商品汇总并生成图表和报告。" --output-dir outputs/my_excel
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.agent --input data/private/my_sales.xlsx --sheet "销售明细" --question "按商品汇总并生成图表和报告。" --output-dir outputs/my_excel
 ```
 
 其他表头可通过 `--column-map` 指定 UTF-8 JSON 文件，映射方向为“标准字段 → 原始表头”；参考 [映射示例](docs/column-map.example.json)。CSV 也支持中文表头和相同的映射选项。公式单元格需先粘贴为值，旧 `.xls` 需另存为 `.xlsx`。工作表、实际字段映射和文件指纹会记录到结果和报告中。
@@ -198,7 +198,8 @@ data-analysis-agent/
 │   │   ├── store.py             # 导入、去重、质量统计与原文证据
 │   │   ├── catalog.py           # 商品目录
 │   │   ├── opinions.py          # 共享观点模型、枚举与原文证据校验
-│   │   ├── labeling.py          # 提示词、模型调用与批量标注编排
+│   │   ├── prompts.py           # 标注提示词、长度限制与版本身份
+│   │   ├── labeling.py          # 模型调用与批量标注编排
 │   │   ├── label_store.py       # 标注历史和增量查询
 │   │   ├── scope.py             # 日期、版本和有效观点口径
 │   │   ├── parameters.py        # 共享业务参数、监控规则与月份校验
@@ -208,8 +209,9 @@ data-analysis-agent/
 │   │   └── human_review.py      # 人工复核、筛选分页和商品进度
 │   ├── jobs/                    # 后台任务
 │   │   ├── parameters.py        # 四类任务载荷契约，不依赖 HTTP
+│   │   ├── submission.py        # 入队准备、导入目录检查与重试身份检查
 │   │   ├── store.py             # 队列持久化与状态管理
-│   │   └── worker.py            # 执行、重试、心跳与互斥锁
+│   │   └── worker.py            # 后台执行、心跳与互斥锁
 │   ├── api/                     # HTTP 接口与原生工作台
 │   │   ├── app.py               # 应用组装、生命周期与统一请求策略
 │   │   ├── routes/              # 按业务拆分的路由
@@ -230,12 +232,11 @@ data-analysis-agent/
 │   │   ├── database.py          # SQLite/PostgreSQL 连接创建与适配
 │   │   ├── errors.py            # 共享校验异常
 │   │   ├── clock.py             # UTC 时间戳
-│   │   ├── serialization.py     # 严格 JSON、稳定序列化与摘要
+│   │   ├── serialization.py     # 严格 JSON、稳定摘要与脱敏产物写入
 │   │   └── validation.py        # 通用输入模型、整数与文本校验
 │   ├── __main__.py              # 保留 python -m data_analysis_agent
 │   ├── _cli_bootstrap.py        # IDE 直接运行支持
-│   └── 原有根目录模块            # 兼容转发，不再存放业务实现
-├── tests/                       # 后端业务、接口、数据库与入口兼容测试
+├── tests/                       # 后端业务、接口、数据库与入口测试
 ├── scripts/                     # 辅助脚本与测试数据生成
 ├── .run/                        # 保留现有 IDEA 运行配置
 ├── docs/                        # 功能说明与使用指南
@@ -245,13 +246,13 @@ data-analysis-agent/
 └── README.md
 ```
 
-新增业务代码放入对应子包，内部导入使用新路径。根目录旧模块保留为兼容转发，例如 `review_store` 对应 `reviews.store`、`agent` 对应 `agents.sales`、`review_task_worker` 对应 `jobs.worker`。新旧导入指向同一模块对象，避免重复状态或旧路径的测试替换失效。
+业务代码放入对应子包，内部导入直接使用这些路径。根目录仅保留包入口和 IDE 直接运行所需的引导代码；原先只做转发的模块已移除。
 
-现有 9 个命令名称、`python -m data_analysis_agent`、旧模块的 `python -m` 用法和 IDEA 脚本入口保持可用。新入口也可使用，例如 `python -m data_analysis_agent.cli.server --help`；直接运行 `src/data_analysis_agent/cli/server.py` 且不传参数时显示帮助。安装包中的命令注册已指向 `cli/`。
+现有 9 个命令名称与 `python -m data_analysis_agent` 保持可用；IDEA 配置已指向实际入口。可使用 `python -m data_analysis_agent.cli.server --help`，或直接运行 `src/data_analysis_agent/cli/server.py`；不传参数时显示帮助。安装包中的命令注册指向 `cli/`。
 
 目录分区后已继续整理依赖：数据库驱动连接统一由 `core.database.connect_database` 创建，评论库和任务库分别通过公开接口校验结构；`jobs.parameters` 定义任务载荷，`api.schemas` 负责 HTTP 查询与请求封装；跨模块调用统一使用公开接口。`core` 不再依赖评论模块，任务执行器可以在不导入 HTTP 层的情况下加载。
 
-职责拆分后，共享观点模型与原文校验放在 `reviews.opinions`，`reviews.labeling` 负责模型调用与标注编排；23 个 API 端点中的 22 个业务端点移入四个路由模块，健康检查保留在应用组装处。命令行解析统一放在 `cli/`，原销售流程与工作台中的 `main()` 只保留兼容转发。接口参数、提示词版本、数据库结构与原有命令保持兼容，具体调用约定见 [依赖与公开接口说明](docs/dependencies.md)。
+职责拆分后，共享观点模型与原文校验放在 `reviews.opinions`，提示词与版本放在 `reviews.prompts`，`reviews.labeling` 负责模型调用与标注编排；任务提交与重试检查由 `jobs.submission` 负责，worker 在实际执行标注时才加载模型 SDK。23 个 API 端点中的 22 个业务端点移入四个路由模块，健康检查保留在应用组装处。命令行解析统一放在 `cli/`，原销售流程与工作台中的 `main()` 只保留兼容转发。接口参数、提示词版本、数据库结构与原有命令保持兼容，具体调用约定见 [依赖与公开接口说明](docs/dependencies.md)。
 
 | 函数 | 作用 / 返回值 |
 | --- | --- |

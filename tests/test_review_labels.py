@@ -16,16 +16,16 @@ from unittest.mock import patch
 import httpx
 from openai import OpenAI
 
-from data_analysis_agent.config import AgentSettings
-from data_analysis_agent.review_label_cli import main
-from data_analysis_agent.review_label_store import (
+from data_analysis_agent.core.config import AgentSettings
+from data_analysis_agent.cli.labeling import main
+from data_analysis_agent.reviews.label_store import (
     init_labeling, labeling_status, opinion_evidence, pending_reviews, save_annotation,
 )
-from data_analysis_agent.review_labeler import (
+from data_analysis_agent.reviews.labeling import (
     MAX_TEXT_CHARS, PROMPT_VERSION, OpinionValidationError, run_labeling, validate_opinions,
 )
-from data_analysis_agent.review_loader import ReviewDataError
-from data_analysis_agent.review_store import get_quality_summary, import_amazon_jsonl, init_database
+from data_analysis_agent.reviews.loader import ReviewDataError
+from data_analysis_agent.reviews.store import get_quality_summary, import_amazon_jsonl, init_database
 
 FAKE_KEY = "offline-label-test-not-a-real-key"
 SETTINGS = AgentSettings("label-model", FAKE_KEY, "https://offline.invalid/v1", max_retries=1)
@@ -85,7 +85,7 @@ class ReviewLabelTests(unittest.TestCase):
             self.assertEqual(kwargs["timeout"], 30)
             return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handler)))
 
-        return patch("data_analysis_agent.review_labeler.OpenAI", side_effect=client)
+        return patch("data_analysis_agent.reviews.labeling.OpenAI", side_effect=client)
 
     def run_script(self, sequence, **kwargs):
         requests = []
@@ -96,7 +96,7 @@ class ReviewLabelTests(unittest.TestCase):
 
     def test_explicit_setup_preserves_sales_review_data_and_is_idempotent(self):
         before = get_quality_summary(self.db)
-        with patch("data_analysis_agent.review_labeler.OpenAI") as model:
+        with patch("data_analysis_agent.reviews.labeling.OpenAI") as model:
             with self.assertRaisesRegex(ReviewDataError, "初始化"):
                 run_labeling(self.db, settings=SETTINGS)
             model.assert_not_called()
@@ -152,7 +152,7 @@ class ReviewLabelTests(unittest.TestCase):
         result, requests = self.run_script(script)
         self.assertEqual((result["successful_reviews"], result["opinion_count"], result["model_calls"]), (2, 6, 2))
         self.assertEqual(len(requests), 2)
-        with patch("data_analysis_agent.review_labeler.OpenAI") as model:
+        with patch("data_analysis_agent.reviews.labeling.OpenAI") as model:
             self.assertEqual(run_labeling(self.db, settings=SETTINGS)["selected_reviews"], 0)
             model.assert_not_called()
         progress = labeling_status(self.db)
@@ -212,7 +212,7 @@ class ReviewLabelTests(unittest.TestCase):
         self.run_script([response([]), response([])])
         self.run_script([response([]), response([])], settings=replace(SETTINGS, model="new-model"))
         self.run_script([response([]), response([])], settings=replace(SETTINGS, base_url="https://other.invalid/v1"))
-        with patch("data_analysis_agent.review_labeler.PROMPT_VERSION", "changed-prompt"):
+        with patch("data_analysis_agent.reviews.labeling.PROMPT_VERSION", "changed-prompt"):
             self.run_script([response([]), response([])])
         profiles = labeling_status(self.db)["profiles"]
         self.assertEqual(len(profiles), 4)
@@ -340,15 +340,15 @@ class ReviewLabelTests(unittest.TestCase):
             return code, json.loads(output.getvalue())
 
         self.assertEqual(cli("init", "--db", str(self.db))[0], 0)
-        with patch("data_analysis_agent.review_labeler.read_settings", return_value={}):
+        with patch("data_analysis_agent.reviews.labeling.read_settings", return_value={}):
             code, output = cli("run", "--db", str(self.db))
         self.assertEqual(code, 1)
         requests = []
-        with patch("data_analysis_agent.review_labeler.read_settings", return_value={
+        with patch("data_analysis_agent.reviews.labeling.read_settings", return_value={
             "LLM_MODEL_ID": SETTINGS.model, "LLM_API_KEY": FAKE_KEY, "LLM_BASE_URL": SETTINGS.base_url,
         }), self.mock_model([response([opinion(quote="fabricated")]), response([])], requests):
             self.assertEqual(cli("run", "--db", str(self.db))[0], 3)
-        with patch("data_analysis_agent.review_labeler.read_settings", side_effect=AssertionError("must not load .env")):
+        with patch("data_analysis_agent.reviews.labeling.read_settings", side_effect=AssertionError("must not load .env")):
             self.assertEqual(cli("status", "--db", str(self.db))[0], 0)
             self.assertEqual(cli("evidence", "--db", str(self.db), "--review-id", "1")[0], 0)
 
@@ -374,7 +374,7 @@ class ReviewLabelTests(unittest.TestCase):
             return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handler)))
 
         updates = []
-        with patch("data_analysis_agent.review_labeler.OpenAI", side_effect=client):
+        with patch("data_analysis_agent.reviews.labeling.OpenAI", side_effect=client):
             result = run_labeling(self.db, settings=SETTINGS, workers=4, progress=updates.append)
         self.assertEqual(maximum, 4)
         self.assertEqual((result["selected_reviews"], result["successful_reviews"], result["model_calls"]),
@@ -402,7 +402,7 @@ class ReviewLabelTests(unittest.TestCase):
         def client(**kwargs):
             return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handler)))
 
-        with patch("data_analysis_agent.review_labeler.OpenAI", side_effect=client):
+        with patch("data_analysis_agent.reviews.labeling.OpenAI", side_effect=client):
             result = run_labeling(self.db, settings=SETTINGS, workers=4)
         self.assertEqual((seen, result["processed_reviews"], result["model_calls"]), (4, 4, 4))
         self.assertEqual(result["stopped_reason"], "authentication_error")
@@ -412,7 +412,7 @@ class ReviewLabelTests(unittest.TestCase):
         init_labeling(self.db)
         output, progress = io.StringIO(), io.StringIO()
         with patch.object(sys, "argv", ["review-label", "run", "--db", str(self.db), "--workers", "2"]), \
-                patch("data_analysis_agent.review_labeler.read_settings", return_value={
+                patch("data_analysis_agent.reviews.labeling.read_settings", return_value={
                     "LLM_MODEL_ID": SETTINGS.model, "LLM_API_KEY": FAKE_KEY, "LLM_BASE_URL": SETTINGS.base_url,
                 }), self.mock_model([response([]), response([])], []), \
                 redirect_stdout(output), redirect_stderr(progress):

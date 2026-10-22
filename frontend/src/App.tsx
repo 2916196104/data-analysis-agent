@@ -4,11 +4,12 @@ import { ArrowLeftOutlined, BarChartOutlined, CheckOutlined, DatabaseOutlined, D
 import { api, API_BASE, errorMessage } from './api';
 import Composer, { datasetKey } from './Composer';
 import DataPreview from './DataPreview';
+import LabelForm from './LabelForm';
 import ResultCards from './ResultCards';
 import { exportResult, readHistory, writeHistory } from './local-history';
 import { canRetry, isActive, kindLabels, progressPercent, stageLabels, statusLabels } from './task-state';
 import { useTask } from './useTask';
-import type { AnalysisParameters, Health, ImportParameters, Options, Page, Quality, TaskInput, TaskSummary } from './types';
+import type { AnalysisParameters, Health, Identity, ImportParameters, Options, Page, Quality, TaskInput, TaskSummary } from './types';
 
 const emptyOptions: Options = { profiles: [], selected_profile_id: null, products: [], aspects: {}, sentiments: {}, processing_statuses: {}, human_statuses: {} };
 const dateLabel = (value: string) => new Date(value).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -33,6 +34,7 @@ export default function App() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [detail, setDetail] = useState<{ title: string; value: unknown }>();
   const [importOpen, setImportOpen] = useState(false);
+  const [labelDefaults, setLabelDefaults] = useState<{ dataset: string; products: string[]; limit?: number; workers?: number }>();
   const [importForm] = Form.useForm<ImportParameters>();
   const submissionKey = useRef<{ fingerprint: string; key: string } | undefined>(undefined);
   const retryKey = useRef<{ id: string; key: string } | undefined>(undefined);
@@ -81,7 +83,7 @@ export default function App() {
   }, []);
   useEffect(() => { setStorageError(!writeHistory(local)); }, [local]);
   useEffect(() => {
-    if (task?.kind === 'import' && !isActive(task.status)) void load();
+    if ((task?.kind === 'import' || task?.kind === 'label') && !isActive(task.status)) void load();
   }, [task?.task_id, task?.status, task?.kind, load]);
 
   const selectTask = (id: string | null) => {
@@ -96,7 +98,7 @@ export default function App() {
       const result = await api.submit(input, submissionKey.current.key);
       setLocal(previous => ({ selected: result.task.task_id, notes: { ...previous.notes, [result.task.task_id]: note } }));
       submissionKey.current = undefined;
-      setImportOpen(false); setPage(1); void fetchHistory();
+      setImportOpen(false); setLabelDefaults(undefined); setPage(1); void fetchHistory();
     } catch (error) { setSubmitError(errorMessage(error)); }
     finally { setBusy(false); }
   }
@@ -121,12 +123,31 @@ export default function App() {
     return datasetKey(product) === dataset && (!productIds.length || productIds.includes(product.product_id));
   });
   const title = task ? local.notes[task.task_id] || `${kindLabels[task.kind]} · ${dateLabel(task.created_at)}` : '';
-  const previewProfile = task ? options.profiles.find(p => p.requested_model === task.parameters.model && p.base_url === task.parameters.base_url && p.prompt_version === task.parameters.prompt_version)?.profile_id : profileId;
+  const openLabel = () => {
+    const scoped = task?.kind === 'import' || task?.kind === 'label';
+    setSubmitError(''); setNavOpen(false);
+    setLabelDefaults({
+      dataset: scoped ? JSON.stringify([task.parameters.source || 'amazon_reviews_2023', task.parameters.dataset_version]) : dataset,
+      products: scoped ? (task.parameters.product_ids as string[] || []) : productIds,
+      limit: task?.kind === 'label' ? task.parameters.limit as number : undefined,
+      workers: task?.kind === 'label' ? task.parameters.workers as number : undefined,
+    });
+  };
+  const taskIdentity = task?.kind === 'label' ? task.parameters.model_identity as Identity | undefined : task?.parameters;
+  const previewProfile = task ? options.profiles.find(p => p.requested_model === taskIdentity?.model && p.base_url === taskIdentity?.base_url && p.prompt_version === taskIdentity?.prompt_version)?.profile_id : profileId;
+  const analyzeLabeled = () => {
+    if (!task) return;
+    setDataset(JSON.stringify([task.parameters.source, task.parameters.dataset_version]));
+    setProductIds(task.parameters.product_ids as string[] || []);
+    setProfileId(previewProfile);
+    selectTask(null);
+  };
   const showDetail = (value: unknown, title: string) => setDetail({ title, value });
   const side = <>
     <div className="brand"><div className="brand-mark"><BarChartOutlined /></div><div><strong>观数</strong><span>评论分析工作台</span></div></div>
     <Button aria-label="新建分析" className="new-button" type="primary" block icon={<PlusOutlined />} onClick={() => selectTask(null)}>新建分析</Button>
-    <div className="nav-caption"><HistoryOutlined /> 分析历史 <span>后端任务</span></div>
+    <Button block icon={<CheckOutlined />} onClick={openLabel}>模型标注</Button>
+    <div className="nav-caption"><HistoryOutlined /> 任务历史 <span>后端任务</span></div>
     <div className="history-list">
       {historyError && <Alert type="warning" message="历史暂不可用" description={historyError} action={<Button size="small" onClick={() => void fetchHistory()}>重试</Button>} />}
       {!history?.items.length && !historyError && <div className="history-empty">还没有分析记录<br /><span>开始一次分析，结果将在这里保留</span></div>}
@@ -153,8 +174,8 @@ export default function App() {
         {connectionError && <Alert className="spaced-bottom" type="error" showIcon message="无法完整加载工作空间" description={<>{connectionError}<div className="api-address">API：{API_BASE}</div></>} action={<Button onClick={() => void load()}>重新连接</Button>} />}
         {storageError && <Alert className="spaced-bottom" type="warning" showIcon message="浏览器存储不可用，问题备注和当前选择在刷新后可能丢失；后端任务仍会保留。" />}
         {health && !health.worker_available && <Alert className="spaced-bottom" type="warning" showIcon message="后台执行器离线" description="可以提交任务，但任务会留在队列中，直到后端 worker 启动。" />}
-        {submitError && !importOpen && <Alert className="spaced-bottom" type="error" showIcon message="请求未完成" description={submitError} />}
-        {!local.selected ? loading && !options.products.length ? <Skeleton active paragraph={{ rows: 10 }} /> : <Composer options={options} quality={quality} dataset={dataset} setDataset={setDataset} productIds={productIds} setProductIds={setProductIds} profileId={profileId} setProfileId={setProfileId} busy={busy} onSubmit={(parameters: AnalysisParameters, question: string) => void submit({ kind: 'analysis', parameters }, question)} onPreview={() => setPreviewOpen(true)} onImport={() => setImportOpen(true)} /> : <>
+        {submitError && !importOpen && !labelDefaults && <Alert className="spaced-bottom" type="error" showIcon message="请求未完成" description={submitError} />}
+        {!local.selected ? loading && !options.products.length ? <Skeleton active paragraph={{ rows: 10 }} /> : <Composer options={options} quality={quality} dataset={dataset} setDataset={setDataset} productIds={productIds} setProductIds={setProductIds} profileId={profileId} setProfileId={setProfileId} busy={busy} onSubmit={(parameters: AnalysisParameters, question: string) => void submit({ kind: 'analysis', parameters }, question)} onPreview={() => setPreviewOpen(true)} onImport={() => setImportOpen(true)} onLabel={openLabel} /> : <>
           <Button className="back-button" type="text" icon={<ArrowLeftOutlined />} onClick={() => selectTask(null)}>新建另一项分析</Button>
           {taskState.loading && !task && <Skeleton active paragraph={{ rows: 5 }} />}
           {taskState.error && <Alert className="spaced-bottom" type="error" showIcon message="任务连接异常" description={<>{taskState.error}<div>保留最后一次已知状态，正在尝试重新连接。</div></>} action={<Button onClick={taskState.refresh}>立即重连</Button>} />}
@@ -164,10 +185,22 @@ export default function App() {
             <Card className="progress-card" aria-live="polite">
               <div className="progress-heading"><span>{isActive(task.status) ? <Spin size="small" /> : task.status === 'succeeded' ? <CheckOutlined className="success-icon" /> : <Badge status={task.status === 'failed' ? 'error' : 'warning'} />}<strong>{statusLabels[task.status]}</strong></span><span className="muted">{stageLabels[task.progress.stage] || task.progress.stage}</span></div>
               {progressPercent(task.progress) !== undefined ? <Progress percent={progressPercent(task.progress)} status={task.status === 'failed' ? 'exception' : task.status === 'succeeded' ? 'success' : isActive(task.status) ? 'active' : 'normal'} size="small" /> : <p className="muted">{task.status === 'queued' ? '等待后台执行器领取任务。' : `已处理 ${task.progress.completed}，当前阶段总量未知。`}</p>}
+              {task.kind === 'label' && <>
+                <Space wrap aria-label="标注进度">
+                  <span>标注进度 {task.progress.completed}/{task.progress.total ?? '待确定'}</span>
+                  <span>成功 {Number(task.progress.successful_reviews ?? 0)}</span>
+                  <span>失败 {Number(task.progress.failed_reviews ?? 0)}</span>
+                  <span>模型调用 {Number(task.progress.model_calls ?? 0)}</span>
+                </Space>
+                {task.status === 'running' && task.progress.completed === 0 && <p className="muted">正在准备或等待首条模型响应，收到结果后会自动更新进度。</p>}
+                {task.status === 'succeeded' && task.progress.total === 0 && <p>所选范围内没有需要标注的评论。可更换商品，或勾选重试失败评论。</p>}
+              </>}
               {task.error && <Alert className="spaced" type="error" showIcon message={task.error.message} description={`错误码：${task.error.code}`} />}
               {task.status === 'partial' && <Alert className="spaced" type="warning" showIcon message="任务部分完成" description="请先查看返回结果中的错误与已完成记录，再决定是否重试。" />}
               <div className="task-actions">{canRetry(task.status) && <Button aria-label="重试任务" loading={busy} icon={<ReloadOutlined />} onClick={() => void retry()}>重试任务</Button>}<Button size="small" type="text" onClick={() => showDetail(task, '任务详情')}>执行详情</Button>{task.parent_task_id && <Button type="link" size="small" onClick={() => selectTask(task.parent_task_id)}>查看原任务</Button>}</div>
             </Card>
+            {task.kind === 'import' && (task.status === 'succeeded' || task.status === 'partial') && <Card className="spaced" title="下一步：模型标注"><p>导入的评论已可用于标注。选择商品并设置本次处理数量，完成后再进行分析。</p><Button type="primary" onClick={openLabel}>标注已导入的数据</Button></Card>}
+            {task.kind === 'label' && !isActive(task.status) && <Space className="spaced" wrap><Button onClick={openLabel}>继续标注下一批</Button><Button disabled={loading || !previewProfile} onClick={analyzeLabeled}>前往分析</Button></Space>}
             {run && <ResultCards run={run} question={title} onDetail={showDetail} />}
             {task.result && task.kind !== 'analysis' && <Card className="spaced" title={`${kindLabels[task.kind]}结果`} extra={<Button icon={<DownloadOutlined />} onClick={() => exportResult(task.result, `task-${task.task_id}`)}>下载 JSON</Button>}><p className="muted">以下为后端返回的实际结果。</p><pre className="json-view">{JSON.stringify(task.result, null, 2)}</pre></Card>}
             {task.kind === 'analysis' && task.status === 'succeeded' && !run && !taskState.error && <div className="loading-result"><Spin /> 正在读取分析快照…</div>}
@@ -178,6 +211,12 @@ export default function App() {
     </div>
     <Drawer title="数据详情" width={620} open={previewOpen} onClose={() => setPreviewOpen(false)} destroyOnHidden><DataPreview products={currentProducts} options={options} profileId={previewProfile} onDetail={showDetail} /></Drawer>
     <Drawer title={detail?.title} width={650} open={!!detail} onClose={() => setDetail(undefined)} extra={<Button icon={<DownloadOutlined />} onClick={() => exportResult(detail?.value, 'analysis-detail')}>下载 JSON</Button>}><pre className="json-view">{JSON.stringify(detail?.value, null, 2)}</pre></Drawer>
+    <Modal title="模型标注" open={!!labelDefaults} onCancel={() => { if (!busy) setLabelDefaults(undefined); }} footer={null} destroyOnHidden>
+      {submitError && <Alert className="spaced-bottom" type="error" showIcon message="标注任务未提交" description={submitError} />}
+      {labelDefaults && <LabelForm options={options} initialDataset={labelDefaults.dataset} initialProducts={labelDefaults.products}
+        initialLimit={labelDefaults.limit} initialWorkers={labelDefaults.workers} busy={busy}
+        onSubmit={parameters => void submit({ kind: 'label', parameters }, `模型标注 · 最多 ${parameters.limit} 条 · 并发 ${parameters.workers}`)} />}
+    </Modal>
     <Modal title="从服务端目录导入" open={importOpen} onCancel={() => { if (!busy) setImportOpen(false); }} footer={null} destroyOnHidden>
       <p className="muted">文件须已放在后端的 import-root 目录内。支持 Amazon 格式评论或商品元数据 JSONL / JSONL.gz，评论时间为 1996—2023 年；当前接口没有浏览器上传能力。</p>
       {submitError && <Alert className="spaced-bottom" type="error" showIcon message={submitError} />}

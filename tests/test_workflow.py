@@ -3,10 +3,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from data_analysis_agent.analysis import get_data_overview, summarize_sales_by_product
-from data_analysis_agent.data_loader import SalesDataError, load_sales_csv
-from data_analysis_agent.main import run_analysis
-from data_analysis_agent.reporting import generate_sales_chart, write_markdown_report
+from data_analysis_agent.sales.analysis import get_data_overview, summarize_sales_by_product
+from data_analysis_agent.sales.loader import SalesDataError, load_sales_csv
+from data_analysis_agent.sales.workflow import run_analysis
+from data_analysis_agent.sales.reporting import generate_sales_chart, write_markdown_report
 
 SAMPLE = Path(__file__).resolve().parents[1] / "data/samples/sales_mock.csv"
 HEADER = "date,product,sales_amount\n"

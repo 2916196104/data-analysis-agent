@@ -34,7 +34,7 @@
 
 ```powershell
 Set-Location E:\AllProject\data-analysis-agent
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli init --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling init --db data/private/reviews.sqlite3
 ```
 
 此命令只在现有评论库中增加观点表和索引，保留商品、评论、原文、导入历史及原有数据库版本。重复执行返回 `created=false`。库不存在时不会自动创建，`run` 也不会自动初始化观点表。
@@ -44,7 +44,7 @@ Set-Location E:\AllProject\data-analysis-agent
 复用现有 `.env`，先处理最多 20 条未处理且有正文的评论：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli run --db data/private/reviews.sqlite3 --limit 20
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling run --db data/private/reviews.sqlite3 --limit 20
 ```
 
 该命令会调用你配置的模型服务，可能产生模型调用费用；每条评论最多一次逻辑模型调用，HTTP 层重试次数沿用 `LLM_MAX_RETRIES`。不使用销售 Agent 的多轮工具调用流程。
@@ -52,7 +52,7 @@ Set-Location E:\AllProject\data-analysis-agent
 也可以只处理一款商品：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli run --db data/private/reviews.sqlite3 --limit 20 --product-id B00R1TAN7I
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling run --db data/private/reviews.sqlite3 --limit 20 --product-id B00R1TAN7I
 ```
 
 `--product-id` 可重复传入，`--env-file` 可以指定另一个由你配置的文件。`--limit` 默认 20，允许 1—1000；程序不会自动连续跑完整库。
@@ -62,7 +62,7 @@ Set-Location E:\AllProject\data-analysis-agent
 旧版标注每次只等待一条模型响应，且 CLI 直到批次结束才输出结果。现在可以保持相同模型及提示词，设置 `--workers 2` 或 `--workers 4`，让不同评论的模型请求同时进行；默认仍为 1。SQLite 写入仍由主线程逐条完成，每条成功结果立即提交，终端会实时显示已完成、成功、失败及模型调用数。一次 `run` 的 `--limit` 仍是整批最多处理的评论数，不是每个 worker 的数量。
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli run --db data/private/reviews.sqlite3 --source amazon_reviews_2023 --dataset-version amazon-reviews-2023 --limit 200 --workers 4
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling run --db data/private/reviews.sqlite3 --source amazon_reviews_2023 --dataset-version amazon-reviews-2023 --limit 200 --workers 4
 ```
 
 IDEA 可选 **18 亚马逊并发标注200条（调用模型）**，此配置不限定商品或日期。先用少量评论比较 `--workers 2` 与 `4`；服务端限流、并发配额和单条评论长度会影响实际速度。认证、限流及其他不可恢复的模型 API 错误会停批；单次超时、连接中断或服务端 5xx 会记录失败后继续，连续 3 次这类错误才停批。最多 4 条已在途的请求会保存结果后结束。失败项仍需要显式 `--retry-failed`。不要同时运行两个标注进程，避免重复发送相同评论。并发不会减少总模型调用量或直接提高标签准确率。
@@ -74,8 +74,8 @@ IDEA 可选 **18 亚马逊并发标注200条（调用模型）**，此配置不�
 ### 3. 查看进度和原文观点
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli status --db data/private/reviews.sqlite3
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli evidence --db data/private/reviews.sqlite3 --review-id 1
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling status --db data/private/reviews.sqlite3
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling evidence --db data/private/reviews.sqlite3 --review-id 1
 ```
 
 这两个命令只读访问数据库，无需 `.env` 或 API 密钥。`evidence` 返回正文、商品 ID、原始文件位置、全部标注尝试和成功观点；观点含原文片段、起止位置及对应模型版本。
@@ -99,7 +99,7 @@ IDEA 可选 **18 亚马逊并发标注200条（调用模型）**，此配置不�
 默认也跳过已有失败记录，避免反复请求同一错误。处理失败原因后，用下面命令把失败项也纳入选择：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli run --db data/private/reviews.sqlite3 --limit 20 --retry-failed
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling run --db data/private/reviews.sqlite3 --limit 20 --retry-failed
 ```
 
 `--retry-failed` 同时选择未处理和已失败评论，仍跳过成功结果。零条可选记录不一定代表全部成功，应一起检查 `failed_reviews` 和 `unprocessed_reviews`。

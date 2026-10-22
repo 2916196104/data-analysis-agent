@@ -45,8 +45,17 @@ export interface ImportParameters {
   product_ids: string[];
   max_reviews?: number | null;
 }
+export interface LabelParameters {
+  source: string;
+  dataset_version: string;
+  product_ids: string[];
+  limit: number;
+  workers: number;
+  retry_failed: boolean;
+}
 export type TaskInput = { kind: 'analysis'; parameters: AnalysisParameters }
-  | { kind: 'import'; parameters: ImportParameters };
+  | { kind: 'import'; parameters: ImportParameters }
+  | { kind: 'label'; parameters: LabelParameters };
 export interface Task extends TaskSummary {
   parameters: Record<string, unknown>;
   result: ({ run_id?: string; [key: string]: unknown }) | null;

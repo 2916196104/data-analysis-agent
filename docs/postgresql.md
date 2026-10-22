@@ -63,8 +63,8 @@ PostgreSQL 默认将任务表放在同一数据库，**无需额外配置 `--tas
 先等待任务结束，再停止所有业务进程。在原数据库上查看剩余任务：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli tasks --db data/private/reviews.sqlite3 --status queued
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli tasks --db data/private/reviews.sqlite3 --status running
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server tasks --db data/private/reviews.sqlite3 --status queued
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server tasks --db data/private/reviews.sqlite3 --status running
 ```
 
 如果原任务库未初始化，可跳过任务查询及任务历史迁移。若需迁移历史，两种状态都必须为空。异常退出留下的 `running` 任务，可以先用旧 SQLite 启动方式恢复 worker，让它按现有规则记录中断，再检查队列并停止；不要同时启动两套业务服务。
@@ -101,13 +101,13 @@ print(backup)
 迁移业务数据及已结束的任务历史：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_migrate --source data/private/reviews.sqlite3 --source-tasks data/private/reviews.tasks.sqlite3 --target env:DATABASE_URL
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.migrate --source data/private/reviews.sqlite3 --source-tasks data/private/reviews.tasks.sqlite3 --target env:DATABASE_URL
 ```
 
 只迁移业务数据、使用新的空任务历史：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_migrate --source data/private/reviews.sqlite3 --target env:DATABASE_URL
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.migrate --source data/private/reviews.sqlite3 --target env:DATABASE_URL
 ```
 
 迁移行为：
@@ -125,9 +125,9 @@ print(backup)
 ### 核对迁移结果
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_cli summary --db env:DATABASE_URL
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli status --db env:DATABASE_URL
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli tasks --db env:DATABASE_URL
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews summary --db env:DATABASE_URL
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling status --db env:DATABASE_URL
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server tasks --db env:DATABASE_URL
 ```
 
 将质量摘要和标注统计与同样命令使用 `--db data/private/reviews.sqlite3` 的输出比较；任务历史迁移后也应能按原任务 ID 查询。`verified_tables` 已逐字段校验所有复制数据，质量摘要用于人工复查。
@@ -137,7 +137,7 @@ print(backup)
 迁移成功后直接启动，不需要再次初始化：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli serve --db env:DATABASE_URL --port 8000 --import-root data/private --env-file .env --allow-origin http://127.0.0.1:5173
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server serve --db env:DATABASE_URL --port 8000 --import-root data/private --env-file .env --allow-origin http://127.0.0.1:5173
 ```
 
 另开终端，前端继续使用现有 API 配置：
@@ -152,11 +152,11 @@ npm run dev
 独立 worker 模式分别运行：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli worker --db env:DATABASE_URL --import-root data/private --env-file .env
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server worker --db env:DATABASE_URL --import-root data/private --env-file .env
 ```
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli serve --db env:DATABASE_URL --no-worker --port 8000 --allow-origin http://127.0.0.1:5173
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server serve --db env:DATABASE_URL --no-worker --port 8000 --allow-origin http://127.0.0.1:5173
 ```
 
 仍然是每个业务库一个串行 worker。PostgreSQL 使用会话 advisory lock 防止不同进程或主机重复启动 worker；需要直连或会话池连接，不能通过事务池模式复用该连接。导入/复核等原有读后写事务使用事务锁串行化，保留现有冲突与幂等规则。读取事务使用可重复读快照。数据库改造不会自动启用多 worker 或解除 HTTP 本机 Host 限制。
@@ -166,7 +166,7 @@ npm run dev
 仅在不需要迁移旧数据时运行：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli init --db env:DATABASE_URL
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server init --db env:DATABASE_URL
 ```
 
 该命令只建项目表，不负责创建 PostgreSQL 服务器、角色或数据库。然后按第 4 步启动，并用原来的 JSONL 导入入口导入真实数据。
@@ -176,7 +176,7 @@ npm run dev
 迁移失败时源文件保留，可继续用原 SQLite 启动命令。切换成功后如需回退，先停止 PostgreSQL 后端和 worker，再用原库启动：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli serve --db data/private/reviews.sqlite3 --port 8000 --allow-origin http://127.0.0.1:5173
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server serve --db data/private/reviews.sqlite3 --port 8000 --allow-origin http://127.0.0.1:5173
 ```
 
 切换到 PostgreSQL 后产生的新数据不会自动同步回旧 SQLite。不要同时对两套库开展业务写入；需要保留切换后的新增内容时，应先规划单独的数据回迁。

@@ -68,7 +68,7 @@ Stop-Process -Id $localServices.api_listener_pid, $localServices.frontend_listen
 也可以在项目根目录用终端启动后端：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_api_cli serve --db env:DATABASE_URL --port 8000 --import-root data/private --env-file .env --allow-origin http://127.0.0.1:5173
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.server serve --db env:DATABASE_URL --port 8000 --import-root data/private --env-file .env --allow-origin http://127.0.0.1:5173
 ```
 
 另开终端启动前端：

@@ -23,14 +23,14 @@ IDEA 支持将运行配置保存为项目文件并从运行菜单选择，见 [J
 | --- | --- |
 | 解释器 | `$PROJECT_DIR$/.venv/Scripts/python.exe` |
 | 工作目录 | `$PROJECT_DIR$`，本机展开为 `E:\AllProject\data-analysis-agent` |
-| 业务脚本 | `$PROJECT_DIR$/src/data_analysis_agent/<对应入口>.py`，使用脚本模式 |
+| 业务脚本 | `$PROJECT_DIR$/src/data_analysis_agent/<子包>/<对应入口>.py`，使用脚本模式 |
 | 数据库参数 | `--db env:DATABASE_URL`，业务表和任务表默认共用 PostgreSQL 数据库 |
 | 字符编码 | `PYTHONUTF8=1`、`PYTHONIOENCODING=utf-8` |
 | 包搜索路径 | `PYTHONPATH=$PROJECT_DIR$/src`，同时启用源码根 |
 | 图形缓存 | `$PROJECT_DIR$/.cache/matplotlib` |
 | 模型和数据库配置 | 项目根目录 `.env`；运行配置不包含 API 密钥或数据库密码 |
 
-例外：90 使用标准库模块 `unittest`，参数为 `discover -s tests -v`；91 使用 `$PROJECT_DIR$/scripts/validate_review_import.py`。这两个开发验证配置仍使用隔离的临时数据库，不连接旧 SQLite 业务库，也不写入 PostgreSQL 业务库。60、61 的销售入口和 69 的依赖安装配置保持原样。所有配置工作目录相同。包入口 `__main__.py` 与 `main.py` 调用同一销售流程，因此由 60 覆盖，不重复创建相同业务配置。
+例外：90 使用标准库模块 `unittest`，参数为 `discover -s tests -v`；91 使用 `$PROJECT_DIR$/scripts/validate_review_import.py`。这两个开发验证配置仍使用隔离的临时数据库，不连接旧 SQLite 业务库，也不写入 PostgreSQL 业务库。60、61 的销售入口和 69 的依赖安装配置保持原样。所有配置工作目录相同。包入口 `__main__.py` 与 `sales/workflow.py` 调用同一销售流程，因此由 60 覆盖，不重复创建相同业务配置。
 
 没有填写 `DATABASE_URL` 时会明确报配置错误，不会回退到 SQLite。IDEA 若尚未刷新配置，请重新打开项目；本地临时配置的工作目录也已统一为项目根目录，以便正确读取 `.env`。
 
@@ -60,48 +60,48 @@ IDEA 支持将运行配置保存为项目文件并从运行菜单选择，见 [J
 
 | 配置名称 | 脚本 / 模块 | 用途与默认参数说明 |
 | --- | --- | --- |
-| 01 初始化评论库 | `review_cli.py` | 新库首次使用；已有库返回未新建，不清空数据。 |
-| 02 导入四款商品评论 | `review_cli.py` | 扫描已有 gzip 文件，导入指定四款商品；重复运行去重，但新增导入历史。 |
-| 03 查看评论库摘要 | `review_cli.py` | 查看商品数、评论数和数据质量；建议先运行此项。 |
-| 04 查看评论原文 | `review_cli.py` | 输入评论 ID，查询原文和来源位置；默认示例 ID 为 1。 |
-| 05 自定义数量导入亚马逊评论 | `review_cli.py` | 默认筛选现有四款商品；弹窗输入本次最多新增评论数（正整数，默认 1000）。重复记录不占额度，达到数量后停止解析评论；元数据不受上限限制。已有评论不会重复新增，扩大商品范围需编辑 `--product-id`。 |
-| 10 初始化标注表 | `review_label_cli.py` | 首次增加模型标注表。 |
-| 11 增量标注20条（调用模型） | `review_label_cli.py` | 标注 2015-12 至 2016-03，覆盖回放基线；每次最多 20 条，读取 .env。 |
-| 12 标注含失败重试20条（调用模型） | `review_label_cli.py` | 同一范围内选择待标注及失败记录，合计最多 20 条；成功记录跳过。 |
-| 13 查看回放范围标注进度 | `review_label_cli.py` | 查看与配置 11 相同范围、指定模型版本的进度。 |
-| 14 查看全库标注进度 | `review_label_cli.py` | 查看全库所有模型版本的进度，用于确认模型身份。 |
-| 15 查询有效观点 | `review_label_cli.py` | 查询 2016 年一季度观点，按现有规则优先人工有效结果。 |
-| 16 查看标注与人工证据 | `review_label_cli.py` | 输入评论 ID，查看原文、观点及模型版本。 |
-| 17 亚马逊全时段增量标注100条（调用模型） | `review_label_cli.py` | 标注现有四款亚马逊商品，不限制日期或回放截止时间；每次最多 100 条，读取 .env，跳过成功和已有失败记录。每批结束后可重复运行，失败项需另行显式重试。 |
-| 18 亚马逊并发标注200条（调用模型） | `review_label_cli.py` | 当前亚马逊数据集全部商品与日期；每批最多 200 条，4 路同时请求模型，终端逐条显示进度。已成功记录自动跳过，失败项需另行显式重试。 |
-| 20 初始化人工复核表 | `review_workbench.py` | 首次增加已有工作台所需的人工复核表。 |
-| 21 启动人工复核工作台 | `review_workbench.py` | 启动已有本机工作台 http://127.0.0.1:8765；持续运行，结束时点击停止。 |
-| 30 查看月度趋势 | `review_analysis_cli.py` | 查询 2016 年一季度的月评论量、标注覆盖率和各维度负面占比。 |
-| 31 查看每日趋势 | `review_analysis_cli.py` | 相同范围按日统计；JSON 输出较长。 |
-| 32 查看主要问题与基线变化 | `review_analysis_cli.py` | 对比 2016 年 3 月与 2 月的负面问题变化。 |
-| 33 对比四款商品 | `review_analysis_cli.py` | 同一季度、来源和模型口径下对比四款商品。 |
-| 34 查询负面观点证据 | `review_analysis_cli.py` | 分页查询负面片段、评论 ID、原文位置和来源。 |
-| 40 初始化监控表 | `review_monitor_cli.py` | 首次增加分析运行、规则告警和处理历史表。 |
-| 41 保存三月分析并检测告警 | `review_monitor_cli.py` | 写入 2016 年 3 月分析记录，使用 2 月基线并检测规则告警。 |
-| 42 按月回放一季度并检测告警 | `review_monitor_cli.py` | 按时间顺序保存 3 个月的分析及告警；每月以前一月为基线。 |
-| 43 查询分析运行记录 | `review_monitor_cli.py` | 列出最近分析记录，复制 run_id 后可运行 44。 |
-| 44 查看分析运行详情 | `review_monitor_cli.py` | 从 43 的结果复制完整 run_id，查看冻结的输入、统计与证据。 |
-| 45 查询待处理告警 | `review_monitor_cli.py` | 列出待核查告警；参数删除 --status pending 可查全部状态。 |
-| 46 查看告警详情 | `review_monitor_cli.py` | 输入 45 返回的告警 id，查看命中证据和处理历史。 |
-| 47 确认告警（写入处理记录） | `review_monitor_cli.py` | 核查后填写告警 ID、实际处理人和备注，确认该告警。 |
-| 48 忽略告警（写入处理记录） | `review_monitor_cli.py` | 核查后填写告警 ID、实际处理人和忽略理由；与 47 按结论择一。 |
-| 60 销售固定流程（模拟数据） | `main.py` | 独立销售流程，无需模型；输出图表和 Markdown，重跑覆盖同名产物。 |
-| 61 销售问答Agent（调用模型） | `agent_cli.py` | 独立销售 Agent 示例，读取 .env 调用模型；每次独立输出目录。 |
+| 01 初始化评论库 | `cli/reviews.py` | 新库首次使用；已有库返回未新建，不清空数据。 |
+| 02 导入四款商品评论 | `cli/reviews.py` | 扫描已有 gzip 文件，导入指定四款商品；重复运行去重，但新增导入历史。 |
+| 03 查看评论库摘要 | `cli/reviews.py` | 查看商品数、评论数和数据质量；建议先运行此项。 |
+| 04 查看评论原文 | `cli/reviews.py` | 输入评论 ID，查询原文和来源位置；默认示例 ID 为 1。 |
+| 05 自定义数量导入亚马逊评论 | `cli/reviews.py` | 默认筛选现有四款商品；弹窗输入本次最多新增评论数（正整数，默认 1000）。重复记录不占额度，达到数量后停止解析评论；元数据不受上限限制。已有评论不会重复新增，扩大商品范围需编辑 `--product-id`。 |
+| 10 初始化标注表 | `cli/labeling.py` | 首次增加模型标注表。 |
+| 11 增量标注20条（调用模型） | `cli/labeling.py` | 标注 2015-12 至 2016-03，覆盖回放基线；每次最多 20 条，读取 .env。 |
+| 12 标注含失败重试20条（调用模型） | `cli/labeling.py` | 同一范围内选择待标注及失败记录，合计最多 20 条；成功记录跳过。 |
+| 13 查看回放范围标注进度 | `cli/labeling.py` | 查看与配置 11 相同范围、指定模型版本的进度。 |
+| 14 查看全库标注进度 | `cli/labeling.py` | 查看全库所有模型版本的进度，用于确认模型身份。 |
+| 15 查询有效观点 | `cli/labeling.py` | 查询 2016 年一季度观点，按现有规则优先人工有效结果。 |
+| 16 查看标注与人工证据 | `cli/labeling.py` | 输入评论 ID，查看原文、观点及模型版本。 |
+| 17 亚马逊全时段增量标注100条（调用模型） | `cli/labeling.py` | 标注现有四款亚马逊商品，不限制日期或回放截止时间；每次最多 100 条，读取 .env，跳过成功和已有失败记录。每批结束后可重复运行，失败项需另行显式重试。 |
+| 18 亚马逊并发标注200条（调用模型） | `cli/labeling.py` | 当前亚马逊数据集全部商品与日期；每批最多 200 条，4 路同时请求模型，终端逐条显示进度。已成功记录自动跳过，失败项需另行显式重试。 |
+| 20 初始化人工复核表 | `api/workbench.py` | 首次增加已有工作台所需的人工复核表。 |
+| 21 启动人工复核工作台 | `api/workbench.py` | 启动已有本机工作台 http://127.0.0.1:8765；持续运行，结束时点击停止。 |
+| 30 查看月度趋势 | `cli/analytics.py` | 查询 2016 年一季度的月评论量、标注覆盖率和各维度负面占比。 |
+| 31 查看每日趋势 | `cli/analytics.py` | 相同范围按日统计；JSON 输出较长。 |
+| 32 查看主要问题与基线变化 | `cli/analytics.py` | 对比 2016 年 3 月与 2 月的负面问题变化。 |
+| 33 对比四款商品 | `cli/analytics.py` | 同一季度、来源和模型口径下对比四款商品。 |
+| 34 查询负面观点证据 | `cli/analytics.py` | 分页查询负面片段、评论 ID、原文位置和来源。 |
+| 40 初始化监控表 | `cli/monitoring.py` | 首次增加分析运行、规则告警和处理历史表。 |
+| 41 保存三月分析并检测告警 | `cli/monitoring.py` | 写入 2016 年 3 月分析记录，使用 2 月基线并检测规则告警。 |
+| 42 按月回放一季度并检测告警 | `cli/monitoring.py` | 按时间顺序保存 3 个月的分析及告警；每月以前一月为基线。 |
+| 43 查询分析运行记录 | `cli/monitoring.py` | 列出最近分析记录，复制 run_id 后可运行 44。 |
+| 44 查看分析运行详情 | `cli/monitoring.py` | 从 43 的结果复制完整 run_id，查看冻结的输入、统计与证据。 |
+| 45 查询待处理告警 | `cli/monitoring.py` | 列出待核查告警；参数删除 --status pending 可查全部状态。 |
+| 46 查看告警详情 | `cli/monitoring.py` | 输入 45 返回的告警 id，查看命中证据和处理历史。 |
+| 47 确认告警（写入处理记录） | `cli/monitoring.py` | 核查后填写告警 ID、实际处理人和备注，确认该告警。 |
+| 48 忽略告警（写入处理记录） | `cli/monitoring.py` | 核查后填写告警 ID、实际处理人和忽略理由；与 47 按结论择一。 |
+| 60 销售固定流程（模拟数据） | `sales/workflow.py` | 独立销售流程，无需模型；输出图表和 Markdown，重跑覆盖同名产物。 |
+| 61 销售问答Agent（调用模型） | `cli/agent.py` | 独立销售 Agent 示例，读取 .env 调用模型；每次独立输出目录。 |
 | 69 安装项目与HTTP依赖（首次） | `pip` | 安装当前项目及 FastAPI、Uvicorn 依赖。 |
-| 70 初始化HTTP与任务库 | `review_api_cli.py` | 显式初始化 PostgreSQL 业务表和任务表，不清空已有数据；本机迁移完成后无需重跑。 |
-| 71 启动HTTP API与后台任务 | `review_api_cli.py` | 默认模式，启动 8000 端口的 API 与串行 worker。 |
-| 72 启动独立后台worker | `review_api_cli.py` | 可选，配合 73 执行后台任务。 |
-| 73 仅启动HTTP API（独立worker模式） | `review_api_cli.py` | 可选，使用 --no-worker 与 72 配合。 |
-| 74 查询后台任务列表 | `review_api_cli.py` | 只读查看任务列表。 |
-| 75 查询后台任务详情 | `review_api_cli.py` | 弹窗填写 task_id，查看进度、结果与错误。 |
-| 76 重试失败或部分完成任务 | `review_api_cli.py` | 弹窗填写 task_id，创建关联重试任务。 |
-| 77 PostgreSQL启动HTTP与后台任务 | `review_api_cli.py` | 与 71 相同，保留为显式标明 PostgreSQL 的启动别名；两者不要同时启动。 |
-| 78 PostgreSQL查看评论摘要 | `review_cli.py` | 与 03 相同，读取 `.env` 中的 PostgreSQL 配置。 |
+| 70 初始化HTTP与任务库 | `cli/server.py` | 显式初始化 PostgreSQL 业务表和任务表，不清空已有数据；本机迁移完成后无需重跑。 |
+| 71 启动HTTP API与后台任务 | `cli/server.py` | 默认模式，启动 8000 端口的 API 与串行 worker。 |
+| 72 启动独立后台worker | `cli/server.py` | 可选，配合 73 执行后台任务。 |
+| 73 仅启动HTTP API（独立worker模式） | `cli/server.py` | 可选，使用 --no-worker 与 72 配合。 |
+| 74 查询后台任务列表 | `cli/server.py` | 只读查看任务列表。 |
+| 75 查询后台任务详情 | `cli/server.py` | 弹窗填写 task_id，查看进度、结果与错误。 |
+| 76 重试失败或部分完成任务 | `cli/server.py` | 弹窗填写 task_id，创建关联重试任务。 |
+| 77 PostgreSQL启动HTTP与后台任务 | `cli/server.py` | 与 71 相同，保留为显式标明 PostgreSQL 的启动别名；两者不要同时启动。 |
+| 78 PostgreSQL查看评论摘要 | `cli/reviews.py` | 与 03 相同，读取 `.env` 中的 PostgreSQL 配置。 |
 | 90 运行全部离线测试 | `unittest` | 运行全套测试，使用临时模拟数据；含本机 HTTP 测试，不调用外部模型。 |
 | 91 验证真实文件导入与去重（临时库） | `validate_review_import.py` | 完整扫描真实输入、两次导入临时库并核对原文；耗时较长，报告重跑覆盖。 |
 

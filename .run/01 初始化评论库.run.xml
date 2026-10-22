@@ -20,7 +20,7 @@
     <option name="DEBUG_JUST_MY_CODE" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="RUN_TOOL" value="" />
-    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/data_analysis_agent/review_cli.py" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/data_analysis_agent/cli/reviews.py" />
     <option name="PARAMETERS" value="init --db env:DATABASE_URL" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />

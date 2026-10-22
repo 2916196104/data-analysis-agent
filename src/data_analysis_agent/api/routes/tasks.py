@@ -1,5 +1,6 @@
 """HTTP endpoints for tasks; business operations stay in their services."""
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Header, Path, Query, Response
@@ -8,6 +9,8 @@ from data_analysis_agent.api.responses import Result, ok_result
 from data_analysis_agent.api.schemas import TaskInput, TaskQuery
 from data_analysis_agent.jobs.store import enqueue, get_task, list_tasks
 from data_analysis_agent.jobs.submission import prepare_parameters, retry_task
+
+logger = logging.getLogger(__name__)
 
 
 def create_router(task_db, *, import_root, env_file):
@@ -19,6 +22,10 @@ def create_router(task_db, *, import_root, env_file):
                     idempotency_key: Annotated[str | None, Header(max_length=200)] = None):
         parameters = prepare_parameters(body.kind, body.parameters.model_dump(), import_root=import_root, env_file=env_file)
         result = enqueue(task_db, body.kind, parameters, idempotency_key=idempotency_key)
+        logger.info("任务提交 task_id=%s kind=%s reused=%s 商品数=%s limit=%s workers=%s",
+                    result["task"]["task_id"], body.kind, result["reused"],
+                    len(parameters.get("product_ids", [])) or "全部",
+                    parameters.get("limit", parameters.get("max_reviews", "不限")), parameters.get("workers", "-"))
         response.headers["Location"] = "/api/v1/tasks/" + result["task"]["task_id"]
         return ok_result(result)
 
@@ -35,6 +42,9 @@ def create_router(task_db, *, import_root, env_file):
               idempotency_key: Annotated[str | None, Header(max_length=200)] = None):
         result = retry_task(task_db, task_id, import_root=import_root, env_file=env_file,
                             idempotency_key=idempotency_key)
+        logger.info("任务重试 task_id=%s parent_task_id=%s kind=%s reused=%s",
+                    result["task"]["task_id"], result["task"]["parent_task_id"],
+                    result["task"]["kind"], result["reused"])
         response.headers["Location"] = "/api/v1/tasks/" + result["task"]["task_id"]
         return ok_result(result)
 

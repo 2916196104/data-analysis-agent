@@ -12,10 +12,10 @@ from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
-from data_analysis_agent.review_loader import (
+from data_analysis_agent.reviews.loader import (
     ReviewDataError, file_sha256, iter_jsonl, normalize_product, normalize_review,
 )
-from data_analysis_agent.review_store import (
+from data_analysis_agent.reviews.store import (
     get_quality_summary, get_review_evidence, import_amazon_jsonl, init_database,
 )
 
@@ -233,7 +233,7 @@ class ReviewImportTests(unittest.TestCase):
                 import_amazon_jsonl(self.db, reviews_path=path, max_reviews=invalid)
         with self.assertRaises(ReviewDataError):
             import_amazon_jsonl(self.db, meta_path=path, max_reviews=1)
-        with patch("data_analysis_agent.review_store.file_sha256", side_effect=[file_sha256(path), "changed"]):
+        with patch("data_analysis_agent.reviews.store.file_sha256", side_effect=[file_sha256(path), "changed"]):
             with self.assertRaisesRegex(ReviewDataError, "回滚"):
                 import_amazon_jsonl(self.db, reviews_path=path, max_reviews=1)
         self.assertEqual(get_quality_summary(self.db)["import_count"], 0)
@@ -255,7 +255,7 @@ class ReviewImportTests(unittest.TestCase):
         metadata = self.write_jsonl("meta.jsonl", [product()])
         reviews = self.write_jsonl("new.jsonl", [review()])
         hashes = [file_sha256(metadata), file_sha256(metadata), file_sha256(reviews), "changed"]
-        with patch("data_analysis_agent.review_store.file_sha256", side_effect=hashes):
+        with patch("data_analysis_agent.reviews.store.file_sha256", side_effect=hashes):
             with self.assertRaisesRegex(ReviewDataError, "回滚"):
                 import_amazon_jsonl(self.db, reviews_path=reviews, meta_path=metadata)
         quality = get_quality_summary(self.db)
@@ -321,7 +321,7 @@ class ReviewImportTests(unittest.TestCase):
         self.assertEqual(get_review_evidence(self.db, 1)["product_id"], "P1")
 
     def run_cli(self, *arguments):
-        result = subprocess.run([sys.executable, "-m", "data_analysis_agent.review_cli", *arguments],
+        result = subprocess.run([sys.executable, "-m", "data_analysis_agent.cli.reviews", *arguments],
                                 capture_output=True, text=True, encoding="utf-8", timeout=20)
         return result
 
@@ -369,9 +369,9 @@ class ReviewImportTests(unittest.TestCase):
 
     def test_task_worker_preserves_review_limit_and_schema_rejects_invalid_values(self):
         from pydantic import ValidationError
-        from data_analysis_agent.review_api_schemas import ImportParameters
-        from data_analysis_agent.review_task_store import init_tasks, enqueue, worker_started, claim_task, get_task
-        from data_analysis_agent.review_task_worker import TaskWorker, prepare_parameters
+        from data_analysis_agent.api.schemas import ImportParameters
+        from data_analysis_agent.jobs.store import init_tasks, enqueue, worker_started, claim_task, get_task
+        from data_analysis_agent.jobs.worker import TaskWorker, prepare_parameters
 
         init_database(self.db)
         path = self.write_jsonl("reviews.jsonl", [review(user_id=f"U{i}") for i in range(3)])

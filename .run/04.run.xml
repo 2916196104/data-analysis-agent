@@ -9,7 +9,7 @@
     <option name="IS_MODULE_SDK" value="false" />
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
-    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/data_analysis_agent/review_cli.py" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/data_analysis_agent/cli/reviews.py" />
     <option name="PARAMETERS" value="evidence --db env:DATABASE_URL --review-id $Prompt:评论ID:1$" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />

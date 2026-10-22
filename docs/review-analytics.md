@@ -7,7 +7,7 @@
 在项目根目录 PowerShell 选择一组已有模型配置，并明确指定分析范围。示例选择配置列表第一组；有多个模型或提示词时请核对选中的身份。
 
 ```powershell
-$progress = .\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli status --db data/private/reviews.sqlite3 | ConvertFrom-Json
+$progress = .\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling status --db data/private/reviews.sqlite3 | ConvertFrom-Json
 $progress.profiles | Select-Object requested_model, base_url, prompt_version
 $profile = @($progress.profiles)[0]
 if ($null -eq $profile) { throw '尚无标注配置，请先完成一小批标注。' }
@@ -22,10 +22,10 @@ $analysisArgs = @(
   '--source', 'amazon_reviews_2023',
   '--dataset-version', 'amazon-reviews-2023'
 )
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_analysis_cli trend @analysisArgs --period month
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_analysis_cli top-issues @analysisArgs --baseline-from 2015-10-01 --baseline-to 2015-12-31
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_analysis_cli compare-products @analysisArgs
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_analysis_cli evidence @analysisArgs --aspect packaging --page-size 10
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.analytics trend @analysisArgs --period month
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.analytics top-issues @analysisArgs --baseline-from 2015-10-01 --baseline-to 2015-12-31
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.analytics compare-products @analysisArgs
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.analytics evidence @analysisArgs --aspect packaging --page-size 10
 ```
 
 增加 `--product-id B00R1TAN7I` 可以限定单款商品；参数可重复指定多款。省略时统计所选数据来源和数据集版本下的全部商品。尚未成功标注的区间仍可查询评论量和覆盖率，负面占比会返回 `null`；工具不会自动补做标注。
@@ -35,7 +35,7 @@ $analysisArgs = @(
 ## 保存 JSON
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_analysis_cli trend @analysisArgs --period month --output outputs/review-analysis/trend-2016-q1.json
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.analytics trend @analysisArgs --period month --output outputs/review-analysis/trend-2016-q1.json
 ```
 
 命令仍向标准输出返回完整 JSON，同时创建输出父目录和新文件。已有文件不会覆盖；重复保存时换一个文件名或省略 `--output`。数据库及其 `-wal`、`-shm`、`-journal` 辅助文件禁止作为输出路径。证据 JSON 含评论正文，应保存在被 Git 忽略的 `outputs/` 下。
@@ -101,8 +101,8 @@ $analysisArgs = @(
 `evidence` 默认筛选负面观点。可以使用：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_analysis_cli evidence @analysisArgs --aspect quality --sentiment negative
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_analysis_cli evidence @analysisArgs --sentiment all --page 1 --page-size 20
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.analytics evidence @analysisArgs --aspect quality --sentiment negative
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.analytics evidence @analysisArgs --sentiment all --page 1 --page-size 20
 ```
 
 `--aspect` 限六个维度；`--sentiment` 支持 `positive/negative/neutral/unknown/all`。维度和情感须匹配同一条观点。`--review-id` 可进一步指定一条评论。
@@ -118,7 +118,7 @@ $analysisArgs = @(
 
 ## 从后端或 Agent 调用
 
-函数位于 `data_analysis_agent.review_analytics`：`get_trend`、`get_top_issues`、`compare_products`、`get_evidence`。命令行直接调用这些函数，后续 API 和 Agent 可复用同一入口。
+函数位于 `data_analysis_agent.reviews.analytics`：`get_trend`、`get_top_issues`、`compare_products`、`get_evidence`。命令行直接调用这些函数，后续 API 和 Agent 可复用同一入口。
 
 公共关键字参数与 CLI 同名，Python 商品参数为 `product_ids` 列表。`get_trend` 使用 `period='day'/'month'`；`get_top_issues` 要求 `baseline_from`、`baseline_to`；`get_evidence` 可用 `sentiment=None` 表示全部情感。
 

@@ -5,12 +5,15 @@
 ```mermaid
 flowchart TD
     A[API / CLI] --> B[任务执行 jobs.worker]
+    A --> S[任务准备与重试 jobs.submission]
     A --> C[评论业务 reviews]
     A --> D[任务参数 jobs.parameters]
+    S --> D
+    S --> F[任务存储 jobs.store]
     B --> D
     D --> E[业务参数 reviews.parameters]
     B --> C
-    B --> F[任务存储 jobs.store]
+    B --> F
     F --> G[评论存储 reviews.store]
     C --> G
     E --> H[公共能力 core]
@@ -19,6 +22,29 @@ flowchart TD
 ```
 
 `core` 只依赖自身与第三方库；`reviews` 和 `jobs` 不导入 `api`。任务库初始化会通过评论存储的公开接口验证所绑定的业务库，因此保留 `jobs.store → reviews.store` 的业务依赖。
+
+## 当前分区与清理结果
+
+按本机使用、每个业务库一个 worker 的现有运行方式检查，当前分区如下：
+
+| 分区 | 负责的事情 | 依赖边界 |
+| --- | --- | --- |
+| `agents` | 销售自然语言编排、工具预算与结果引用 | 调用 `sales` 和 `core`，不参与评论任务队列 |
+| `sales` | 销售数据读取、统计、绘图与报告 | 固定流程独立运行；旧 `main()` 仅在调用时转发到 CLI |
+| `reviews` | 评论导入、标注、有效观点、人工复核、统计与监控 | 依赖 `core` 和本业务模块，不依赖 API、任务队列或销售 Agent |
+| `jobs` | 任务参数、提交准备、队列状态、后台执行 | 调用评论公开接口；提交准备不依赖 worker 或模型 SDK |
+| `api` | HTTP 参数、路由、统一响应、服务生命周期 | 路由调用业务接口，任务路由通过 `jobs.submission` 准备参数 |
+| `cli` | 参数解析、命令输出、显式初始化与迁移命令 | 调用业务接口；只读标注命令不加载模型执行代码 |
+| `core` | 数据库驱动、配置、校验、时钟、序列化 | 不依赖业务模块 |
+| `frontend` | 页面、任务轮询、结果展示与浏览器备注 | 通过 HTTP 访问后端，统计与任务执行仍在后端 |
+
+本轮删除了人工复核中的 `_integer`、任务存储中的 `_json`，其他相同范围的整数检查改用 `core.validation.validate_integer`，任务 JSON 和幂等哈希改用 `core.serialization`。商品目录补齐同样的分页检查，直接调用时也会拒绝布尔值、零、负数或越界分页。
+
+`safe_json` 和 `write_json` 从配置模块移到序列化模块，销售 Agent 直接引用新位置；`core.config` 保留原名称的重导出。情感选项统一引用 `reviews.opinions.SENTIMENTS`，监控模型的默认值引用 `DEFAULT_RULES`，任务存储与命令行选项使用任务类型契约，不再各写一份列表。重复的启动导入也已删除。
+
+API 启动时在一个业务连接内检查人工复核和监控结构，避免先后建立两个业务连接。数据库初始化、提交幂等、执行时的文件复查和事务保护继续由原有接口负责。
+
+根目录原有的模块转发文件已移除，调用方直接使用各子包中的实现。原生标注工作台和 React 分析工作台服务不同操作，接口契约也不同，两个功能入口均保留。HTTP 与业务层分别校验输入，以及入队、重试、执行时分别复查文件，均保留各自边界检查。
 
 ## 打开与关闭数据库
 
@@ -76,7 +102,9 @@ print(parameters.model_dump())  # 只校验参数，不读取文件或提交任�
 | 模块 | 职责 | 新代码如何使用 |
 | --- | --- | --- |
 | `reviews.opinions` | 六个观点维度、情感类型、`Opinion` / `Extraction` 模型及逐字原文定位 | 统计、人工复核、HTTP 参数模型直接导入此模块 |
-| `reviews.labeling` | 提示词与版本、SDK 调用、并发批量标注与失败处理 | 只有需要执行模型标注的调用方依赖它 |
+| `reviews.prompts` | 提示词、输入长度限制和提示词版本 | 查询版本、冻结入队身份时使用，不导入模型 SDK |
+| `reviews.labeling` | SDK 调用、并发批量标注与失败处理 | 执行标注时加载；旧提示词和观点导入保留重导出 |
+| `jobs.submission` | 导入文件目录校验、模型身份冻结、重试检查 | API 和 CLI 直接调用；不导入 worker 或模型执行模块 |
 | `api.routes.reviews` | 商品、评论、标注查询和人工复核 | 添加这些业务对应的 HTTP 端点 |
 | `api.routes.analytics` | 趋势、问题、商品对比、统计证据 | 调用已有只读统计接口 |
 | `api.routes.monitoring` | 分析记录与告警查询、告警处理 | 调用监控存储接口 |
@@ -97,11 +125,13 @@ assert result[0]["quote_start"] == 1
 assert result[0]["quote_end"] == 5
 ```
 
-`reviews.labeling` 和旧的 `review_labeler` 仍重导出 `Opinion`、`Extraction`、`ASPECTS`、`OpinionValidationError` 与 `validate_opinions`，旧调用方继续得到相同对象。拆分没有改变观点 JSON Schema 或 `PROMPT_VERSION`，因此不会仅因这次重构改变增量标注身份。
+`reviews.labeling` 仍重导出 `Opinion`、`Extraction`、`ASPECTS`、`OpinionValidationError` 与 `validate_opinions`，调用方直接使用该模块。拆分没有改变观点 JSON Schema 或 `PROMPT_VERSION`，因此不会仅因这次重构改变增量标注身份。
+
+`jobs.worker` 继续重导出原任务准备与重试函数，但新调用方使用 `jobs.submission`。worker 只在处理标注任务时导入 `reviews.labeling`；API 导入、普通查询和标注状态命令不需要加载 OpenAI SDK。标注失败、模型配置变化和重试行为继续由同一组执行与入队规则控制。
 
 每个路由模块提供 `create_router(...)`，显式接收本应用的数据库和任务配置；不用全局变量保存这些配置。应用工厂统一挂载 `/api/v1` 前缀、错误响应和请求策略，23 个端点的路径、方法、状态码和标签保持一致。健康检查保留在 `api.app`；其余 22 个业务端点归属四个路由模块。
 
-旧的 `sales.workflow.main()`、`api.workbench.main()` 和根目录入口继续转发到 `cli`；参数解析只有一份实现。按文件运行和 `python -m` 的既有规则保持兼容，工作台静态资源仍由 `api.workbench` 提供。
+`sales.workflow.main()` 和 `api.workbench.main()` 继续转发到 `cli`；参数解析只有一份实现。IDEA 配置和文档已改为直接使用子包中的文件或 `python -m` 模块入口，工作台静态资源仍由 `api.workbench` 提供。
 
 ## 使用公开接口
 
@@ -120,6 +150,9 @@ assert result[0]["quote_end"] == 5
 | `analytics._scope` / `scope._day` | `reviews.scope.analysis_scope` / `parse_day` | 统一统计范围与日期校验 |
 | `monitoring._rules` / `_month` / `_shift_month` | `reviews.parameters.validate_rules` / `parse_month` / `shift_month` | 规则与月份校验 |
 | JSON 私有解析钩子 | `core.serialization.strict_json_loads` | 拒绝重复键和 NaN/Infinity 常量 |
+| `jobs.store._json` | `core.serialization.canonical_json` | 任务参数、进度和结果使用同一稳定 JSON 编码 |
+| `core.config.safe_json` / `write_json` | `core.serialization` 中的同名接口 | 脱敏及运行产物写入，原配置模块保留重导出 |
+| `human_review._integer` | `core.validation.validate_integer` | 复用有界整数检查，继续拒绝布尔值 |
 | `monitor_store._json` / `_digest` | `core.serialization.canonical_json` / `content_sha256` | 稳定序列化与内容摘要 |
 | `monitor_store._integer` / `_text` | `core.validation.validate_integer` / `validate_text` | 通用数值与文本校验 |
 | `reviews.store._now` | `core.clock.utc_now` | 统一毫秒精度 UTC 时间戳 |
@@ -138,6 +171,8 @@ assert result[0]["quote_end"] == 5
 
 新增测试检查跨模块私有导入、连接创建位置、底层依赖方向，以及在阻止导入 HTTP 层时加载 worker。行为测试覆盖缺失数据库不被创建、只读保护、外键与等待时间、结构校验失败后的连接关闭、任务参数往返与拒绝非法输入。现有监控回滚测试改为在公开告警写入接口注入失败，继续验证分析与告警一起回滚。
 
-职责拆分测试进一步覆盖：阻止导入模型 SDK 时使用观点/统计/人工复核模块、旧观点导入对象与提示词版本兼容、四个路由组的读写接口、多应用的数据库/队列/导入目录隔离，以及新旧销售命令的实际输出一致性。路由失败仍按统一策略返回错误，保留参数校验、来源限制、幂等键和任务 `Location` 响应头。
+职责拆分测试进一步覆盖：阻止导入模型 SDK 时使用观点/统计/人工复核模块、观点对象与提示词版本兼容、四个路由组的读写接口、多应用的数据库/队列/导入目录隔离，以及销售固定流程与 CLI 入口的实际输出一致性。路由失败仍按统一策略返回错误，保留参数校验、来源限制、幂等键和任务 `Location` 响应头。
+
+本轮新增测试还验证了 API/任务准备/worker 导入时不加载模型执行代码、重试时拒绝变化的模型配置和目录外文件、任务 JSON 与旧幂等哈希一致，以及商品目录在打开数据库前拒绝非法分页。
 
 本次验收另对比了重构前后的 OpenAPI 描述，结果一致。PostgreSQL 集成测试通过独立临时实例运行；前端端到端测试继续使用模拟数据，检查实际 API 与 worker 的完整流程。

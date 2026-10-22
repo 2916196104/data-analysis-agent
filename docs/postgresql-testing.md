@@ -84,7 +84,7 @@ Invoke-RestMethod "$pgApiBase/health" | ConvertTo-Json -Depth 8
 
 ```powershell
 $pgPython = '.\.venv\Scripts\python.exe'
-$pgLabelProgress = & $pgPython -m data_analysis_agent.review_label_cli status --db env:DATABASE_URL | ConvertFrom-Json
+$pgLabelProgress = & $pgPython -m data_analysis_agent.cli.labeling status --db env:DATABASE_URL | ConvertFrom-Json
 $pgAnalysisProfile = $pgLabelProgress.profiles |
     Where-Object {
         $_.requested_model -eq 'Pro/deepseek-ai/DeepSeek-V3.2' -and
@@ -105,25 +105,25 @@ $pgQueryArgs = @(
 按月趋势：
 
 ```powershell
-& $pgPython -m data_analysis_agent.review_analysis_cli trend @pgQueryArgs --date-from 2016-01-01 --date-to 2016-03-31 --period month
+& $pgPython -m data_analysis_agent.cli.analytics trend @pgQueryArgs --date-from 2016-01-01 --date-to 2016-03-31 --period month
 ```
 
 四款商品对比：
 
 ```powershell
-& $pgPython -m data_analysis_agent.review_analysis_cli compare-products @pgQueryArgs --date-from 2016-01-01 --date-to 2016-03-31
+& $pgPython -m data_analysis_agent.cli.analytics compare-products @pgQueryArgs --date-from 2016-01-01 --date-to 2016-03-31
 ```
 
 当前 3 月与基线 2 月的问题变化：
 
 ```powershell
-& $pgPython -m data_analysis_agent.review_analysis_cli top-issues @pgQueryArgs --date-from 2016-03-01 --date-to 2016-03-31 --baseline-from 2016-02-01 --baseline-to 2016-02-29
+& $pgPython -m data_analysis_agent.cli.analytics top-issues @pgQueryArgs --date-from 2016-03-01 --date-to 2016-03-31 --baseline-from 2016-02-01 --baseline-to 2016-02-29
 ```
 
 原文证据：
 
 ```powershell
-& $pgPython -m data_analysis_agent.review_analysis_cli evidence @pgQueryArgs --date-from 2016-01-01 --date-to 2016-03-31 --sentiment all --page-size 5
+& $pgPython -m data_analysis_agent.cli.analytics evidence @pgQueryArgs --date-from 2016-01-01 --date-to 2016-03-31 --sentiment all --page-size 5
 ```
 
 验收标准：退出码 0，`status=ok`；返回的 `scope.model` 是选定的 V3.2；趋势月份、商品、评论原文和引用位置对应；这四个查询不增加标注、分析快照或任务记录。
@@ -178,11 +178,11 @@ LIMIT 10;
 本阶段会发送评论正文到 `.env` 配置的模型服务，消耗模型额度并写入标注结果。先记录下面同范围的进度，再只处理最多 5 条。共享变量需先按第 4 步设置：
 
 ```powershell
-& $pgPython -m data_analysis_agent.review_label_cli status @pgQueryArgs --date-from 2015-12-01 --date-to 2016-03-31 --as-of 2016-03-31
+& $pgPython -m data_analysis_agent.cli.labeling status @pgQueryArgs --date-from 2015-12-01 --date-to 2016-03-31 --as-of 2016-03-31
 ```
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli run --db env:DATABASE_URL --source amazon_reviews_2023 --dataset-version amazon-reviews-2023 --date-from 2015-12-01 --date-to 2016-03-31 --as-of 2016-03-31 --limit 5 --workers 1 --env-file .env
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling run --db env:DATABASE_URL --source amazon_reviews_2023 --dataset-version amazon-reviews-2023 --date-from 2015-12-01 --date-to 2016-03-31 --as-of 2016-03-31 --limit 5 --workers 1 --env-file .env
 ```
 
 运行后再次执行上面的同范围进度命令；**14** 用于补充检查全库进度。成功结果会增量跳过，重复执行会继续下一批。若该范围已经没有待处理项，模型调用为 0 属于正常结果；可选择另一个实际存在、尚未标注的时间窗。
@@ -234,13 +234,13 @@ LIMIT 10;
 然后可保存一次 3 月监控分析，写入快照并按默认规则判断告警：
 
 ```powershell
-& $pgPython -m data_analysis_agent.review_monitor_cli run @pgQueryArgs --date-from 2016-03-01 --date-to 2016-03-31 --baseline-from 2016-02-01 --baseline-to 2016-02-29
+& $pgPython -m data_analysis_agent.cli.monitoring run @pgQueryArgs --date-from 2016-03-01 --date-to 2016-03-31 --baseline-from 2016-02-01 --baseline-to 2016-02-29
 ```
 
 验证逐月回放：
 
 ```powershell
-& $pgPython -m data_analysis_agent.review_monitor_cli replay @pgQueryArgs --month-from 2016-01 --month-to 2016-03 --baseline-months 1
+& $pgPython -m data_analysis_agent.cli.monitoring replay @pgQueryArgs --month-from 2016-01 --month-to 2016-03 --baseline-months 1
 ```
 
 之后运行 **43 → 44** 查看保存的快照，运行 **45** 查询告警。只有实际出现告警时，才继续 **46 → 47 或 48** 核查并处理；这些编号的查询不依赖预设模型参数。
@@ -280,7 +280,7 @@ TEST_POSTGRES_ADMIN_URL=postgresql://TEST_ADMIN:URL_ENCODED_PASSWORD@127.0.0.1:5
 @'
 import os
 import unittest
-from data_analysis_agent.config import read_settings
+from data_analysis_agent.core.config import read_settings
 
 url = read_settings().get('TEST_POSTGRES_ADMIN_URL')
 if not url:

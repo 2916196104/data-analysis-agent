@@ -18,7 +18,7 @@ $reviewScopeArgs = @(
   '--date-to', '2016-03-31',
   '--as-of', '2016-03-31'
 )
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli status @reviewScopeArgs
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling status @reviewScopeArgs
 ```
 
 返回 `review_count`、`eligible_text_reviews`、`empty_text_reviews`、规范化后的 `scope` 和按模型配置分组的 `profiles`。同一范围的模型进度与待标注选择使用相同评论集合；`status` 的总数还包括空正文，`run` 只选择非空正文。
@@ -30,8 +30,8 @@ $reviewScopeArgs = @(
 沿用上面的 `$reviewScopeArgs`：
 
 ```powershell
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli run @reviewScopeArgs --limit 20
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli status @reviewScopeArgs
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling run @reviewScopeArgs --limit 20
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling status @reviewScopeArgs
 ```
 
 成功结果仍按“评论 ID＋当前正文指纹＋模型 ID＋服务地址＋提示词版本”跳过。默认跳过失败项；`run @reviewScopeArgs --limit 20 --retry-failed` 会在同一范围内选择待处理和失败评论。空正文不调用模型。筛选不改变原有按评论 ID 选取批次的顺序，也不删除范围外结果。
@@ -43,11 +43,11 @@ $reviewScopeArgs = @(
 `query` 要求明确提供 `--model`、`--base-url`、`--prompt-version`，全程只读。先从已有标注配置中选择一组，再应用同样的范围：
 
 ```powershell
-$allProgress = .\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli status --db data/private/reviews.sqlite3 | ConvertFrom-Json
+$allProgress = .\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling status --db data/private/reviews.sqlite3 | ConvertFrom-Json
 $allProgress.profiles | Select-Object requested_model, base_url, prompt_version
 $profile = @($allProgress.profiles)[0]
 if ($null -eq $profile) { throw '尚无模型标注记录，请先完成一小批标注。' }
-.\.venv\Scripts\python.exe -m data_analysis_agent.review_label_cli query @reviewScopeArgs --model $profile.requested_model --base-url $profile.base_url --prompt-version $profile.prompt_version --page-size 20
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling query @reviewScopeArgs --model $profile.requested_model --base-url $profile.base_url --prompt-version $profile.prompt_version --page-size 20
 ```
 
 示例明确选择列表第一组配置；有多组时应按实际目标选择。某组配置在该时间范围内没有处理记录时，评论显示为待处理，观点为空，不混入其他配置的结果。

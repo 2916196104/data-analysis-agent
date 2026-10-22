@@ -11,11 +11,11 @@ from unittest.mock import patch
 import test_review_labels as label_tests
 from test_review_workbench import IDENTITY, WorkbenchFixture, opinion
 
-from data_analysis_agent.review_label_cli import main
-from data_analysis_agent.review_label_store import labeling_status, pending_reviews, query_review_opinions
-from data_analysis_agent.review_labeler import PROMPT_VERSION, run_labeling
-from data_analysis_agent.review_loader import ReviewDataError
-from data_analysis_agent.review_store import import_amazon_jsonl
+from data_analysis_agent.cli.labeling import main
+from data_analysis_agent.reviews.label_store import labeling_status, pending_reviews, query_review_opinions
+from data_analysis_agent.reviews.labeling import PROMPT_VERSION, run_labeling
+from data_analysis_agent.reviews.loader import ReviewDataError
+from data_analysis_agent.reviews.store import import_amazon_jsonl
 
 
 class ReviewScopeTests(WorkbenchFixture, unittest.TestCase):
@@ -69,7 +69,7 @@ class ReviewScopeTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(status["profiles"][0]["successful_reviews"], 2)
         self.assertEqual(status["profiles"][0]["unprocessed_reviews"], 0)
         self.assertEqual(result["scope"], {k: v for k, v in status["scope"].items() if k not in identity})
-        with patch("data_analysis_agent.review_labeler.OpenAI") as client:
+        with patch("data_analysis_agent.reviews.labeling.OpenAI") as client:
             self.assertEqual(run_labeling(self.db, settings=label_tests.SETTINGS, **filters)["model_calls"], 0)
             client.assert_not_called()
 
@@ -92,7 +92,7 @@ class ReviewScopeTests(WorkbenchFixture, unittest.TestCase):
         with label_tests.ReviewLabelTests.mock_model(self, [label_tests.response(content="invalid")], requests):
             first = run_labeling(self.db, settings=label_tests.SETTINGS, **filters)
         self.assertEqual(first["failed_reviews"], 1)
-        with patch("data_analysis_agent.review_labeler.OpenAI") as client:
+        with patch("data_analysis_agent.reviews.labeling.OpenAI") as client:
             self.assertEqual(run_labeling(self.db, settings=label_tests.SETTINGS, **filters)["selected_reviews"], 0)
             client.assert_not_called()
         with label_tests.ReviewLabelTests.mock_model(self, [label_tests.response([])], requests):
@@ -172,8 +172,8 @@ class ReviewScopeTests(WorkbenchFixture, unittest.TestCase):
                {"as_of": "2023-01-02T12:00:00+00:60"}, {"as_of": "2023-01-02T12:00:00+24:00"},
                {"as_of": "9999-12-31"}, {"as_of": True}, {"product_ids": "P1"},
                {"product_ids": [""]}, {"source": ""}, {"dataset_version": 1}]
-        with patch("data_analysis_agent.review_labeler.read_settings", side_effect=AssertionError("must not read .env")), \
-                patch("data_analysis_agent.review_labeler.OpenAI", side_effect=AssertionError("must not call model")):
+        with patch("data_analysis_agent.reviews.labeling.read_settings", side_effect=AssertionError("must not read .env")), \
+                patch("data_analysis_agent.reviews.labeling.OpenAI", side_effect=AssertionError("must not call model")):
             for filters in bad:
                 with self.subTest(filters=filters):
                     for call in (self.query, self.progress, lambda **kw: run_labeling(self.db, **kw)):
@@ -198,7 +198,7 @@ class ReviewScopeTests(WorkbenchFixture, unittest.TestCase):
         model = ["--model", IDENTITY["model"], "--base-url", IDENTITY["base_url"],
                  "--prompt-version", IDENTITY["prompt_version"]]
         before = self.db.read_bytes()
-        with patch("data_analysis_agent.review_labeler.read_settings", side_effect=AssertionError("must not read .env")):
+        with patch("data_analysis_agent.reviews.labeling.read_settings", side_effect=AssertionError("must not read .env")):
             code, status = cli("status", *args, *model)
             self.assertEqual((code, status["review_count"]), (0, 1))
             code, query = cli("query", *args, *model)
@@ -208,7 +208,7 @@ class ReviewScopeTests(WorkbenchFixture, unittest.TestCase):
             self.assertEqual(cli("run", *args, "--date-to", "invalid")[0], 1)
         self.assertEqual(self.db.read_bytes(), before)
         requests = []
-        with patch("data_analysis_agent.review_labeler.read_settings", return_value={
+        with patch("data_analysis_agent.reviews.labeling.read_settings", return_value={
             "LLM_MODEL_ID": label_tests.SETTINGS.model, "LLM_API_KEY": label_tests.FAKE_KEY,
             "LLM_BASE_URL": label_tests.SETTINGS.base_url,
         }), label_tests.ReviewLabelTests.mock_model(self, [label_tests.response([])], requests):

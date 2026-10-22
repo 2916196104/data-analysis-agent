@@ -20,7 +20,7 @@
     <option name="DEBUG_JUST_MY_CODE" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="RUN_TOOL" value="" />
-    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/data_analysis_agent/main.py" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/data_analysis_agent/sales/workflow.py" />
     <option name="PARAMETERS" value="--input data/samples/sales_mock.csv --output-dir outputs/idea_sales" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />

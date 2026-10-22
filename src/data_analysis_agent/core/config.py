@@ -1,4 +1,4 @@
-"""Explicit local configuration and secret-safe artifact serialization."""
+"""Explicit local model configuration."""
 
 import math
 import os

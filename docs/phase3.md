@@ -14,7 +14,7 @@ CSV 和 Excel 共用 `load_sales_data()`，返回包含 `records` 和 `source` �
 
 ```powershell
 .\.venv\Scripts\python.exe -m data_analysis_agent --input data/private/my_sales.xlsx --sheet "销售明细" --output-dir outputs/my_excel_check
-.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --input data/private/my_sales.xlsx --sheet "销售明细" --question "按商品汇总并生成图表和报告。" --output-dir outputs/my_excel
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.agent --input data/private/my_sales.xlsx --sheet "销售明细" --question "按商品汇总并生成图表和报告。" --output-dir outputs/my_excel
 ```
 
 命令中的文件名和工作表名需要与实际文件一致。固定流程不调用模型，成功退出 0；Agent 使用现有 `.env`，成功退出 0、不支持的指标退出 3、数据或模型错误退出 1。
@@ -53,7 +53,7 @@ if (!(Test-Path data/private/column_map.json)) { Copy-Item docs/column-map.examp
 
 ```powershell
 .\.venv\Scripts\python.exe -m data_analysis_agent --input data/private/my_sales.xlsx --sheet "销售明细" --column-map data/private/column_map.json --output-dir outputs/my_excel_check
-.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --input data/private/my_sales.xlsx --sheet "销售明细" --column-map data/private/column_map.json --question "总销售额是多少？" --output-dir outputs/my_excel
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.agent --input data/private/my_sales.xlsx --sheet "销售明细" --column-map data/private/column_map.json --question "总销售额是多少？" --output-dir outputs/my_excel
 ```
 
 CSV 也支持相同的自动识别和 `--column-map` 参数。模型不能选择路径、工作表或映射；这些选项由命令行或应用调用方确定。
@@ -74,8 +74,8 @@ CSV 也支持相同的自动识别和 `--column-map` 参数。模型不能选择
 `source` 包含实际文件名、绝对路径、SHA-256、格式、选定工作表和实际字段映射。固定流程将其放入返回 JSON 和报告；Agent 的 `request.json`、各结果 JSON、报告中也记录这些信息。文件指纹不同或工作表不同，来源记录会明确区分，统计结果仍按相同口径计算。
 
 ```python
-from data_analysis_agent.data_loader import load_sales_data, load_sales_csv, load_sales_xlsx
-from data_analysis_agent.main import run_analysis
+from data_analysis_agent.sales.loader import load_sales_data, load_sales_csv, load_sales_xlsx
+from data_analysis_agent.sales.workflow import run_analysis
 
 dataset = load_sales_data("data/private/my_sales.xlsx", sheet="销售明细")
 records = dataset.records
@@ -107,7 +107,7 @@ result = run_analysis("data/private/my_sales.xlsx", "outputs/my_excel_check", sh
 ```powershell
 .\.venv\Scripts\python.exe -m data_analysis_agent --input outputs/phase3/fixtures/sales_mock.xlsx --sheet "销售明细" --output-dir outputs/phase3/manual_excel
 .\.venv\Scripts\python.exe -m data_analysis_agent --input outputs/phase3/fixtures/sales_mock.xlsx --sheet "自定义表头" --column-map docs/column-map.example.json --output-dir outputs/phase3/manual_custom
-.\.venv\Scripts\python.exe -m data_analysis_agent.agent_cli --input outputs/phase3/fixtures/sales_mock.xlsx --sheet "销售明细" --question "按商品汇总并生成图表和报告。" --output-dir outputs/phase3/manual_agent
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.agent --input outputs/phase3/fixtures/sales_mock.xlsx --sheet "销售明细" --question "按商品汇总并生成图表和报告。" --output-dir outputs/phase3/manual_agent
 ```
 
 900.00 对应 Coffee 400.00、Juice 250.00、Tea 250.00。已实际核对三种来源的统计和 PNG 字节一致，报告中的统计表一致，来源信息分别记录；真实模型调用汇总、图表和报告工具并返回 `ok`。完整记录见本机 [验证结果](../outputs/phase3/verification.json)。这些运行产物由 Git 忽略；新检出项目请使用自己的 Excel，自动化测试会独立生成临时验证文件。
