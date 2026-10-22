@@ -1,18 +1,15 @@
 """Command-line entry for sales.workflow."""
 
-if __name__ == "__main__" and not __package__:
-    import sys
-    from pathlib import Path
-
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from data_analysis_agent._cli_bootstrap import prepare_direct_run
-
-    __package__ = prepare_direct_run(__file__)
-
 import argparse
 import json
 import sys
 from pathlib import Path
+
+if __name__ == "__main__" and not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from data_analysis_agent._cli_bootstrap import prepare_direct_run
+
+    __package__ = prepare_direct_run(__file__)
 
 from data_analysis_agent.sales.loader import SalesDataError
 from data_analysis_agent.sales.workflow import run_analysis

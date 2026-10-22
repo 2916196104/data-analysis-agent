@@ -5,6 +5,7 @@ from pathlib import Path
 
 from data_analysis_agent.core.clock import utc_now
 from data_analysis_agent.core.database import insert_id, table_names
+from data_analysis_agent.core.validation import validate_integer
 
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.reviews.scope import current_reviews_sql, model_identity, review_scope
@@ -78,8 +79,7 @@ def pending_reviews(db_path, *, model, base_url, prompt_version, limit, retry_fa
     identity = model_identity(model, base_url, prompt_version, required=True)
     where, filters, _ = review_scope(product_ids=product_ids, date_from=date_from, date_to=date_to,
                                     as_of=as_of, source=source, dataset_version=dataset_version)
-    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
-        raise ReviewDataError("limit 必须是 1—1000 的整数。")
+    validate_integer(limit, "limit", maximum=1000)
     if not isinstance(retry_failed, bool):
         raise ReviewDataError("retry_failed 必须是布尔值。")
     with closing(connect_review_database(db_path, readonly=True)) as connection:
@@ -196,8 +196,7 @@ def query_review_opinions(db_path, *, model, base_url, prompt_version, product_i
     where, filters, scope = review_scope(product_ids=product_ids, date_from=date_from, date_to=date_to,
                                         as_of=as_of, source=source, dataset_version=dataset_version, alias="c")
     for name, value, maximum in (("page", page, 1000000), ("page_size", page_size, 100)):
-        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= maximum:
-            raise ReviewDataError(f"{name} 必须是 1—{maximum} 的整数。")
+        validate_integer(value, name, maximum=maximum)
     with closing(connect_review_database(db_path, readonly=True)) as connection, connection:
         check_labeling_schema(connection)
         connection.execute("BEGIN")

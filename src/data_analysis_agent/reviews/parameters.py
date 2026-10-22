@@ -98,12 +98,12 @@ class BaselineScope(AnalysisScope):
 
 
 class Rules(Input):
-    name: str = "negative-rate-growth"
-    min_samples: int = Field(default=20, strict=True)
-    min_coverage: float = Field(default=0.8, strict=True)
-    min_negative_count: int = Field(default=3, strict=True)
-    min_increase_pp: float = Field(default=10.0, strict=True)
-    cooldown_days: int = Field(default=30, strict=True)
+    name: str = DEFAULT_RULES["name"]
+    min_samples: int = Field(default=DEFAULT_RULES["min_samples"], strict=True)
+    min_coverage: float = Field(default=DEFAULT_RULES["min_coverage"], strict=True)
+    min_negative_count: int = Field(default=DEFAULT_RULES["min_negative_count"], strict=True)
+    min_increase_pp: float = Field(default=DEFAULT_RULES["min_increase_pp"], strict=True)
+    cooldown_days: int = Field(default=DEFAULT_RULES["cooldown_days"], strict=True)
 
     @model_validator(mode="after")
     def valid_rules(self):

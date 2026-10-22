@@ -1,10 +1,12 @@
 """HTTP endpoints for analytics; business operations stay in their services."""
 
 from typing import Annotated
+
 from fastapi import APIRouter, Query
+
+from data_analysis_agent.api.responses import Result, ok_result
 from data_analysis_agent.api.schemas import AnalysisQuery, EvidenceQuery, IssueQuery, TrendQuery
 from data_analysis_agent.reviews.analytics import compare_products, get_evidence, get_top_issues, get_trend
-from data_analysis_agent.api.responses import Result, ok_result
 
 
 def create_router(db):

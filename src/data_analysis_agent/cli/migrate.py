@@ -9,7 +9,6 @@ from pathlib import Path
 
 if __name__ == "__main__" and not __package__:
     import sys
-    from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from data_analysis_agent._cli_bootstrap import prepare_direct_run

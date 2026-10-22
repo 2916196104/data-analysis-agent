@@ -9,7 +9,8 @@ from pathlib import Path
 from time import perf_counter
 from uuid import uuid4
 
-from data_analysis_agent.core.config import AgentSettings, ConfigurationError, read_settings, safe_json, write_json
+from data_analysis_agent.core.config import AgentSettings, ConfigurationError, read_settings
+from data_analysis_agent.core.serialization import safe_json, write_json
 from data_analysis_agent.sales.loader import ColumnMap, SalesDataError, load_sales_data
 
 SYSTEM_PROMPT = """你是本地销售数据分析助手，只有应用选定的这一份销售数据。

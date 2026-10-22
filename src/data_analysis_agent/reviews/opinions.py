@@ -12,6 +12,8 @@ Sentiment = Literal["positive", "negative", "neutral", "unknown"]
 
 ASPECTS = {"quality": "商品质量", "effectiveness": "使用效果", "price": "价格",
            "packaging": "包装", "logistics": "物流", "service": "客服"}
+SENTIMENTS = {"positive": "正向", "negative": "负向", "neutral": "中性", "unknown": "未知"}
+
 
 class Opinion(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -26,12 +28,15 @@ class Opinion(BaseModel):
             raise ValueError("原文片段不能为空白。")
         return value
 
+
 class Extraction(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     opinions: list[Opinion] = Field(max_length=30)
 
+
 class OpinionValidationError(ValueError):
     """A model response has no verifiable, schema-conforming interpretation."""
+
 
 def validate_opinions(response_text, review_text):
     """Parse opinion JSON and return deduplicated, exact character spans in the source."""

@@ -1,16 +1,19 @@
-"""Versioned local HTTP API; routes delegate to the existing review services."""
-
+"""Assemble the local API, lifecycle, common error handling and request policy."""
 
 import logging
 import sqlite3
 from contextlib import asynccontextmanager, closing
 from datetime import datetime, timezone
 from pathlib import Path as FilePath
+
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
+
+from data_analysis_agent.api.responses import ErrorBody, ErrorResult, Result, error_response, ok_result
+from data_analysis_agent.api.routes import analytics, monitoring, reviews, tasks
 from data_analysis_agent.core.config import ConfigurationError
 from data_analysis_agent.core.database import DatabaseError, database_target
 from data_analysis_agent.core.errors import ReviewDataError
@@ -18,16 +21,14 @@ from data_analysis_agent.reviews.monitor_store import check_monitoring_schema
 from data_analysis_agent.reviews.store import connect_review_database
 from data_analysis_agent.jobs.store import TaskConflict, TaskNotFound, check_task_database, queue_health
 from data_analysis_agent.jobs.worker import TaskWorker
-from data_analysis_agent.reviews.human_review import ReviewConflict, ReviewNotFound, check_workbench
-from data_analysis_agent.api.responses import ErrorBody, ErrorResult, Result, error_response, ok_result
-from data_analysis_agent.api.routes import analytics, monitoring, reviews, tasks
+from data_analysis_agent.reviews.human_review import ReviewConflict, ReviewNotFound, check_workbench_schema
 
 logger = logging.getLogger(__name__)
 
 
 def check_business_database(db):
-    check_workbench(db)
     with closing(connect_review_database(db, readonly=True)) as connection:
+        check_workbench_schema(connection)
         check_monitoring_schema(connection)
 
 
@@ -117,7 +118,6 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
         available = bool(info and not info["stopped_at"] and
                          (datetime.now(timezone.utc) - datetime.fromisoformat(info["heartbeat_at"])).total_seconds() < 30)
         return ok_result({"business_database": "ok", "queue": queue, "worker_available": available})
-
 
     router.include_router(reviews.create_router(db))
     router.include_router(analytics.create_router(db))

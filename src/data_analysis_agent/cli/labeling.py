@@ -6,8 +6,6 @@ import sys
 from pathlib import Path
 
 if __name__ == "__main__" and not __package__:
-    import sys
-    from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from data_analysis_agent._cli_bootstrap import prepare_direct_run
@@ -16,7 +14,7 @@ if __name__ == "__main__" and not __package__:
 
 from data_analysis_agent.core.config import ConfigurationError
 from data_analysis_agent.reviews.label_store import init_labeling, labeling_status, opinion_evidence, query_review_opinions
-from data_analysis_agent.reviews.labeling import PROMPT_VERSION, run_labeling
+from data_analysis_agent.reviews.prompts import PROMPT_VERSION
 from data_analysis_agent.core.database import DATABASE_ERRORS, database_argument
 from data_analysis_agent.core.errors import ReviewDataError
 
@@ -60,6 +58,8 @@ def main():
         if args.command == "init":
             result = {"status": "ok", **init_labeling(args.db)}
         elif args.command == "run":
+            from data_analysis_agent.reviews.labeling import run_labeling
+
             def show_progress(value):
                 print(f"标注进度 {value['completed']}/{value['total']}，成功 {value['successful_reviews']}，"
                       f"失败 {value['failed_reviews']}，模型调用 {value['model_calls']}",

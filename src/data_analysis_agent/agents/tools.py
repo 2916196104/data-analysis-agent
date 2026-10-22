@@ -10,7 +10,7 @@ from time import perf_counter
 from hello_agents.tools import Tool, ToolParameter, ToolRegistry, ToolResponse
 
 from data_analysis_agent.sales.analysis import get_data_overview, summarize_sales_by_product
-from data_analysis_agent.core.config import safe_json, write_json
+from data_analysis_agent.core.serialization import safe_json, write_json
 from data_analysis_agent.sales.loader import REQUIRED_FIELDS, SalesRecord
 from data_analysis_agent.sales.reporting import generate_sales_chart, write_markdown_report
 

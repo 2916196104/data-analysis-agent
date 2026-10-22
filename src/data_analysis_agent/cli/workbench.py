@@ -1,5 +1,8 @@
 """Command-line entry for api.workbench."""
 
+import argparse
+import json
+
 if __name__ == "__main__" and not __package__:
     import sys
     from pathlib import Path
@@ -8,9 +11,6 @@ if __name__ == "__main__" and not __package__:
     from data_analysis_agent._cli_bootstrap import prepare_direct_run
 
     __package__ = prepare_direct_run(__file__)
-
-import argparse
-import json
 
 from data_analysis_agent.core.database import DATABASE_ERRORS, database_argument
 from data_analysis_agent.core.errors import ReviewDataError

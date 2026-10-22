@@ -6,11 +6,13 @@ from contextlib import closing
 from pathlib import Path
 
 from data_analysis_agent.core.clock import utc_now
+from data_analysis_agent.core.errors import ReviewDataError
+from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.core.database import (PostgresConnection, check_postgres_schema, connect_database, database_identity,
                        database_target, init_postgres, insert_id, is_postgres)
 
 from data_analysis_agent.reviews.loader import (
-    DATASET_VERSION, SOURCE, ReviewDataError, content_sha256, file_sha256,
+    DATASET_VERSION, SOURCE, file_sha256,
     iter_jsonl, normalize_product, normalize_review,
 )
 

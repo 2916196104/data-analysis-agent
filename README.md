@@ -197,7 +197,8 @@ data-analysis-agent/
 │   │   ├── loader.py            # JSONL/gzip 流式解析
 │   │   ├── store.py             # 导入、去重、质量统计与原文证据
 │   │   ├── catalog.py           # 商品目录
-│   │   ├── labeling.py          # 模型标注、结构化输出和证据校验
+│   │   ├── opinions.py          # 共享观点模型、枚举与原文证据校验
+│   │   ├── labeling.py          # 提示词、模型调用与批量标注编排
 │   │   ├── label_store.py       # 标注历史和增量查询
 │   │   ├── scope.py             # 日期、版本和有效观点口径
 │   │   ├── parameters.py        # 共享业务参数、监控规则与月份校验
@@ -210,8 +211,14 @@ data-analysis-agent/
 │   │   ├── store.py             # 队列持久化与状态管理
 │   │   └── worker.py            # 执行、重试、心跳与互斥锁
 │   ├── api/                     # HTTP 接口与原生工作台
-│   │   ├── app.py               # FastAPI 应用与路由
+│   │   ├── app.py               # 应用组装、生命周期与统一请求策略
+│   │   ├── routes/              # 按业务拆分的路由
+│   │   │   ├── reviews.py       # 商品、评论、标注查询与人工复核
+│   │   │   ├── analytics.py     # 趋势、问题、对比与统计证据
+│   │   │   ├── monitoring.py    # 分析运行记录与告警处理
+│   │   │   └── tasks.py         # 任务提交、查询与重试
 │   │   ├── schemas.py           # HTTP 查询参数与请求封装
+│   │   ├── responses.py         # 统一成功/错误响应结构
 │   │   ├── workbench.py         # 原生工作台 HTTP 服务
 │   │   └── workbench_assets/    # 原生工作台 HTML/CSS/JavaScript
 │   ├── cli/                     # 命令行入口
@@ -242,7 +249,9 @@ data-analysis-agent/
 
 现有 9 个命令名称、`python -m data_analysis_agent`、旧模块的 `python -m` 用法和 IDEA 脚本入口保持可用。新入口也可使用，例如 `python -m data_analysis_agent.cli.server --help`；直接运行 `src/data_analysis_agent/cli/server.py` 且不传参数时显示帮助。安装包中的命令注册已指向 `cli/`。
 
-目录分区后已继续整理依赖：数据库驱动连接统一由 `core.database.connect_database` 创建，评论库和任务库分别通过公开接口校验结构；`jobs.parameters` 定义任务载荷，`api.schemas` 负责 HTTP 查询与请求封装；跨模块调用统一使用公开接口。`core` 不再依赖评论模块，任务执行器可以在不导入 HTTP 层的情况下加载。接口参数、数据库结构与原有命令保持兼容，具体调用约定见 [依赖与公开接口说明](docs/dependencies.md)。部分业务模块仍含 CLI 函数，评论模型标注保留在 `reviews.labeling`，销售 Agent 编排集中在 `agents/`。
+目录分区后已继续整理依赖：数据库驱动连接统一由 `core.database.connect_database` 创建，评论库和任务库分别通过公开接口校验结构；`jobs.parameters` 定义任务载荷，`api.schemas` 负责 HTTP 查询与请求封装；跨模块调用统一使用公开接口。`core` 不再依赖评论模块，任务执行器可以在不导入 HTTP 层的情况下加载。
+
+职责拆分后，共享观点模型与原文校验放在 `reviews.opinions`，`reviews.labeling` 负责模型调用与标注编排；23 个 API 端点中的 22 个业务端点移入四个路由模块，健康检查保留在应用组装处。命令行解析统一放在 `cli/`，原销售流程与工作台中的 `main()` 只保留兼容转发。接口参数、提示词版本、数据库结构与原有命令保持兼容，具体调用约定见 [依赖与公开接口说明](docs/dependencies.md)。
 
 | 函数 | 作用 / 返回值 |
 | --- | --- |

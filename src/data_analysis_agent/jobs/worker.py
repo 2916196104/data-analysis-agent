@@ -8,15 +8,16 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from data_analysis_agent.core.config import AgentSettings, ConfigurationError, read_settings
+from data_analysis_agent.core.config import ConfigurationError
 from data_analysis_agent.core.database import DATABASE_ERRORS, PostgresConnection, connect_database, database_target, is_postgres
 from data_analysis_agent.jobs.parameters import PARAMETERS
-from data_analysis_agent.reviews.labeling import PROMPT_VERSION, run_labeling
+# Keep previous task-worker imports available without loading the model SDK.
+from data_analysis_agent.jobs.submission import configured_identity, import_path, prepare_parameters, retry_task
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.reviews.monitoring import replay_monthly, run_analysis
 from data_analysis_agent.reviews.store import import_amazon_jsonl
 from data_analysis_agent.jobs.store import (
-    TaskConflict, check_task_database, claim_task, enqueue, finish_task, get_task,
+    TaskConflict, check_task_database, claim_task, finish_task,
     heartbeat, update_progress, worker_started,
 )
 
@@ -25,51 +26,6 @@ logger = logging.getLogger(__name__)
 
 class TaskInterrupted(RuntimeError):
     pass
-
-
-def import_path(value, root):
-    """Queued imports can only use files inside the configured import directory."""
-    root = Path(root).resolve()
-    candidate = Path(value)
-    path = (candidate if candidate.is_absolute() else root / candidate).resolve()
-    if not path.is_relative_to(root) or not path.is_file():
-        raise ReviewDataError("导入文件不存在或不在服务配置的 import-root 内。")
-    if not (path.name.endswith(".jsonl") or path.name.endswith(".jsonl.gz")):
-        raise ReviewDataError("只支持 .jsonl 或 .jsonl.gz 导入文件。")
-    return str(path)
-
-
-def configured_identity(env_file):
-    settings = AgentSettings.from_values(read_settings(env_file))
-    return settings, {"model": settings.model, "base_url": settings.base_url, "prompt_version": PROMPT_VERSION}
-
-
-def prepare_parameters(kind, parameters, *, import_root, env_file):
-    values = PARAMETERS[kind].model_validate(parameters).model_dump()
-    if kind == "import":
-        for name in ("reviews_path", "meta_path"):
-            if values[name] is not None:
-                values[name] = import_path(values[name], import_root)
-    elif kind == "label":
-        _, values["model_identity"] = configured_identity(env_file)
-    return values
-
-
-def retry_task(task_db, task_id, *, import_root, env_file, idempotency_key=None):
-    task = get_task(task_db, task_id)
-    if task["status"] not in ("failed", "partial"):
-        raise TaskConflict("只能重试失败或部分完成的任务。")
-    parameters = dict(task["parameters"])
-    if task["kind"] == "label":
-        _, identity = configured_identity(env_file)
-        if parameters["model_identity"] != identity:
-            raise TaskConflict("模型配置已变化，请使用新配置提交新标注任务。")
-    elif task["kind"] == "import":
-        for name in ("reviews_path", "meta_path"):
-            if parameters.get(name) is not None:
-                import_path(parameters[name], import_root)
-    return enqueue(task_db, task["kind"], parameters,
-                   idempotency_key=idempotency_key, parent_task_id=task_id)
 
 
 class WorkerLock:
@@ -217,6 +173,8 @@ class TaskWorker:
                         values[name] = import_path(values[name], self.import_root)
                 result = import_amazon_jsonl(self.business_db, **values, progress=progress)
             elif task["kind"] == "label":
+                from data_analysis_agent.reviews.labeling import run_labeling
+
                 settings, current_identity = configured_identity(self.env_file)
                 if identity != current_identity:
                     raise ConfigurationError("模型配置与入队时不同，任务未调用模型；请重新提交标注任务。")

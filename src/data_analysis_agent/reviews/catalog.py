@@ -2,10 +2,13 @@
 
 from contextlib import closing
 
+from data_analysis_agent.core.validation import validate_integer
 from data_analysis_agent.reviews.store import connect_review_database
 
 
 def list_products(db_path, *, page=1, page_size=20, source=None, dataset_version=None):
+    validate_integer(page, "page", maximum=1000000)
+    validate_integer(page_size, "page_size", maximum=100)
     conditions, values = ["TRUE"], []
     for name, value in (("source", source), ("dataset_version", dataset_version)):
         if value is not None:

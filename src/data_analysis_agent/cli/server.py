@@ -7,7 +7,6 @@ from urllib.parse import urlsplit
 
 if __name__ == "__main__" and not __package__:
     import sys
-    from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from data_analysis_agent._cli_bootstrap import prepare_direct_run
@@ -20,8 +19,9 @@ from data_analysis_agent.core.database import DATABASE_ERRORS, database_argument
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.reviews.monitor_store import init_monitoring
 from data_analysis_agent.reviews.store import init_database
-from data_analysis_agent.jobs.store import check_task_database, get_task, init_tasks, list_tasks
-from data_analysis_agent.jobs.worker import TaskWorker, retry_task
+from data_analysis_agent.jobs.store import KINDS, STATUSES, check_task_database, get_task, init_tasks, list_tasks
+from data_analysis_agent.jobs.submission import retry_task
+from data_analysis_agent.jobs.worker import TaskWorker
 from data_analysis_agent.reviews.human_review import init_workbench
 
 
@@ -51,8 +51,8 @@ def main():
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--no-worker", action="store_true", help="只运行 API，由独立 worker 消费任务")
     serve.add_argument("--allow-origin", action="append", default=[], help="可重复，仅允许指定 HTTP(S) Origin")
-    tasks.add_argument("--status", choices=("queued", "running", "succeeded", "partial", "failed"))
-    tasks.add_argument("--kind", choices=("import", "label", "analysis", "replay"))
+    tasks.add_argument("--status", choices=STATUSES)
+    tasks.add_argument("--kind", choices=KINDS)
     tasks.add_argument("--page", type=int, default=1)
     tasks.add_argument("--page-size", type=int, default=20)
     for command in (task, retry):

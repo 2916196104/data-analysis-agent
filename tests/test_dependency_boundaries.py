@@ -28,7 +28,7 @@ PACKAGE = ROOT / "src/data_analysis_agent"
 
 class DependencyBoundaryTests(unittest.TestCase):
     def test_implementation_uses_public_interfaces_and_one_connection_factory(self):
-        for path in PACKAGE.glob("*/*.py"):
+        for path in PACKAGE.rglob("*.py"):
             with self.subTest(module=str(path.relative_to(PACKAGE))):
                 tree = ast.parse(path.read_text(encoding="utf-8"))
                 for node in ast.walk(tree):
@@ -38,6 +38,8 @@ class DependencyBoundaryTests(unittest.TestCase):
                             self.assertTrue(node.module.startswith("data_analysis_agent.core"), node.module)
                         if path.parent.name in {"jobs", "reviews"}:
                             self.assertFalse(node.module.startswith("data_analysis_agent.api"), node.module)
+                        if path.parent.name == "routes":
+                            self.assertNotEqual(node.module, "data_analysis_agent.api.app")
                     if isinstance(node, ast.Call) and path != PACKAGE / "core/database.py":
                         self.assertNotIn(ast.unparse(node.func),
                                          {"sqlite3.connect", "psycopg.connect", "PostgresConnection"})
@@ -46,7 +48,19 @@ class DependencyBoundaryTests(unittest.TestCase):
         cases = [
             ("data_analysis_agent.core.database", ["data_analysis_agent." + name for name in
               ("reviews", "jobs", "api", "agents", "sales", "cli")]),
-            ("data_analysis_agent.jobs.worker", ["data_analysis_agent.api", "fastapi", "starlette"]),
+            ("data_analysis_agent.jobs.worker", ["data_analysis_agent.api", "fastapi", "starlette", "openai",
+                                                "data_analysis_agent.reviews.labeling"]),
+            ("data_analysis_agent.jobs.submission", ["openai", "data_analysis_agent.jobs.worker",
+                                                    "data_analysis_agent.reviews.labeling"]),
+            ("data_analysis_agent.api.routes.tasks", ["openai", "data_analysis_agent.jobs.worker",
+                                                     "data_analysis_agent.reviews.labeling"]),
+            ("data_analysis_agent.api.app", ["openai", "data_analysis_agent.reviews.labeling"]),
+            ("data_analysis_agent.cli.labeling", ["openai", "data_analysis_agent.reviews.labeling"]),
+            ("data_analysis_agent.core.serialization", ["dotenv", "data_analysis_agent.core.config"]),
+            ("data_analysis_agent.reviews.opinions", ["openai", "data_analysis_agent.reviews.labeling",
+                                                     "data_analysis_agent.core.config"]),
+            ("data_analysis_agent.reviews.analytics", ["openai", "data_analysis_agent.reviews.labeling"]),
+            ("data_analysis_agent.reviews.human_review", ["openai", "data_analysis_agent.reviews.labeling"]),
         ]
         for module, blocked in cases:
             with self.subTest(module=module):

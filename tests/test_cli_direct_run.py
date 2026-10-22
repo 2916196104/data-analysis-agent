@@ -60,6 +60,21 @@ class DirectRunTests(unittest.TestCase):
                 self.assertNotIn("ImportError", result.stderr)
         self.assertEqual(list(self.directory.iterdir()), [])
 
+    def test_sales_legacy_and_canonical_entries_produce_the_same_result(self):
+        arguments = ("--input", str(ROOT / "data/samples/sales_mock.csv"),
+                     "--output-dir", str(self.directory / "results"))
+        expected = None
+        for entry, module in (("main", True), ("cli.sales", True), ("cli/sales", False)):
+            with self.subTest(entry=entry):
+                result = self.run_cli(entry, *arguments, module=module)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                actual = json.loads(result.stdout)
+                if expected is None:
+                    expected = actual
+                self.assertEqual(actual, expected)
+                self.assertTrue(Path(actual["report_path"]).is_file())
+                self.assertTrue(Path(actual["chart_path"]).is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

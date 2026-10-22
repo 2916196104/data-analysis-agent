@@ -71,6 +71,38 @@ print(parameters.model_dump())  # 只校验参数，不读取文件或提交任�
 
 任务载荷不接受 `page`、`page_size`、`kind` 等 HTTP 字段；`model_identity` 由服务端为标注任务补充，不接受客户端填写。非法范围、未知字段及原有严格整数约束继续生效。旧的 `api.schemas.ImportParameters` 等导入保留为重导出，内部任务代码直接引用 `jobs.parameters`。
 
+## 放置共享观点模型与业务路由
+
+| 模块 | 职责 | 新代码如何使用 |
+| --- | --- | --- |
+| `reviews.opinions` | 六个观点维度、情感类型、`Opinion` / `Extraction` 模型及逐字原文定位 | 统计、人工复核、HTTP 参数模型直接导入此模块 |
+| `reviews.labeling` | 提示词与版本、SDK 调用、并发批量标注与失败处理 | 只有需要执行模型标注的调用方依赖它 |
+| `api.routes.reviews` | 商品、评论、标注查询和人工复核 | 添加这些业务对应的 HTTP 端点 |
+| `api.routes.analytics` | 趋势、问题、商品对比、统计证据 | 调用已有只读统计接口 |
+| `api.routes.monitoring` | 分析记录与告警查询、告警处理 | 调用监控存储接口 |
+| `api.routes.tasks` | 任务提交、状态查询、幂等与重试 | 复用任务参数、队列和任务执行层校验 |
+| `api.app` / `api.responses` | 应用组装、生命周期、统一安全与异常处理 / 成功和错误响应 | 路由依赖响应模块，不反向导入应用工厂 |
+| `cli.sales` / `cli.workbench` | 销售分析与原生工作台的命令行解析 | 使用原有命令名称，也可直接执行这些新模块 |
+
+共享观点模块仅依赖 Pydantic 和严格 JSON 解析，不加载模型 SDK、配置或数据库。人工复核与模型输出使用同一原文校验；重复观点去重、Unicode 字符位置、未知情感和六维度约束继续使用原口径。
+
+```python
+from data_analysis_agent.reviews.opinions import validate_opinions
+
+result = validate_opinions(
+    '{"opinions":[{"aspect":"packaging","sentiment":"negative","quote":"包装破了"}]}',
+    "🙂包装破了。",
+)
+assert result[0]["quote_start"] == 1
+assert result[0]["quote_end"] == 5
+```
+
+`reviews.labeling` 和旧的 `review_labeler` 仍重导出 `Opinion`、`Extraction`、`ASPECTS`、`OpinionValidationError` 与 `validate_opinions`，旧调用方继续得到相同对象。拆分没有改变观点 JSON Schema 或 `PROMPT_VERSION`，因此不会仅因这次重构改变增量标注身份。
+
+每个路由模块提供 `create_router(...)`，显式接收本应用的数据库和任务配置；不用全局变量保存这些配置。应用工厂统一挂载 `/api/v1` 前缀、错误响应和请求策略，23 个端点的路径、方法、状态码和标签保持一致。健康检查保留在 `api.app`；其余 22 个业务端点归属四个路由模块。
+
+旧的 `sales.workflow.main()`、`api.workbench.main()` 和根目录入口继续转发到 `cli`；参数解析只有一份实现。按文件运行和 `python -m` 的既有规则保持兼容，工作台静态资源仍由 `api.workbench` 提供。
+
 ## 使用公开接口
 
 以下名称均相对 `data_analysis_agent` 包：
@@ -105,5 +137,7 @@ print(parameters.model_dump())  # 只校验参数，不读取文件或提交任�
 ```
 
 新增测试检查跨模块私有导入、连接创建位置、底层依赖方向，以及在阻止导入 HTTP 层时加载 worker。行为测试覆盖缺失数据库不被创建、只读保护、外键与等待时间、结构校验失败后的连接关闭、任务参数往返与拒绝非法输入。现有监控回滚测试改为在公开告警写入接口注入失败，继续验证分析与告警一起回滚。
+
+职责拆分测试进一步覆盖：阻止导入模型 SDK 时使用观点/统计/人工复核模块、旧观点导入对象与提示词版本兼容、四个路由组的读写接口、多应用的数据库/队列/导入目录隔离，以及新旧销售命令的实际输出一致性。路由失败仍按统一策略返回错误，保留参数校验、来源限制、幂等键和任务 `Location` 响应头。
 
 本次验收另对比了重构前后的 OpenAPI 描述，结果一致。PostgreSQL 集成测试通过独立临时实例运行；前端端到端测试继续使用模拟数据，检查实际 API 与 worker 的完整流程。

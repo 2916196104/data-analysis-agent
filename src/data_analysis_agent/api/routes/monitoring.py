@@ -1,12 +1,16 @@
 """HTTP endpoints for monitoring; business operations stay in their services."""
 
 from typing import Annotated
+
 from fastapi import APIRouter, Path, Query
+
+from data_analysis_agent.api.responses import Result, ok_result
 from data_analysis_agent.api.schemas import AlertAction, AlertQuery, Page
 from data_analysis_agent.core.errors import ReviewDataError
-from data_analysis_agent.reviews.monitor_store import get_alert, get_analysis_run, list_alerts, list_analysis_runs, set_alert_status
+from data_analysis_agent.reviews.monitor_store import (
+    get_alert, get_analysis_run, list_alerts, list_analysis_runs, set_alert_status,
+)
 from data_analysis_agent.jobs.store import TaskNotFound
-from data_analysis_agent.api.responses import Result, ok_result
 
 
 def create_router(db):

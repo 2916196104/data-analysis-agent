@@ -8,8 +8,9 @@ import sqlite3
 from data_analysis_agent.core.database import PostgresConnection
 
 from data_analysis_agent.reviews.label_store import check_labeling_schema
-from data_analysis_agent.reviews.opinions import ASPECTS
+from data_analysis_agent.reviews.opinions import ASPECTS, SENTIMENTS
 from data_analysis_agent.core.errors import ReviewDataError
+from data_analysis_agent.core.validation import validate_integer
 from data_analysis_agent.reviews.scope import analysis_scope, current_reviews_sql, parse_day
 from data_analysis_agent.reviews.store import connect_review_database
 
@@ -122,8 +123,7 @@ def get_top_issues(db_path, *, model, base_url, prompt_version, date_from, date_
                    baseline_from, baseline_to, product_ids=None, as_of=None,
                    source=None, dataset_version=None, top_n=6):
     """Rank current negative aspects and compare a caller-selected, strictly earlier baseline."""
-    if isinstance(top_n, bool) or not isinstance(top_n, int) or not 1 <= top_n <= len(ASPECTS):
-        raise ReviewDataError("top_n 必须是 1—6 的整数。")
+    validate_integer(top_n, "top_n", maximum=len(ASPECTS))
     common = dict(model=model, base_url=base_url, prompt_version=prompt_version,
                   product_ids=product_ids, as_of=as_of, source=source, dataset_version=dataset_version)
     identity, where, filters, scope = analysis_scope(date_from=date_from, date_to=date_to, **common)
@@ -175,14 +175,13 @@ def get_evidence(db_path, *, model, base_url, prompt_version, date_from, date_to
         product_ids=product_ids, as_of=as_of, source=source, dataset_version=dataset_version)
     if aspect is not None and (not isinstance(aspect, str) or aspect not in ASPECTS):
         raise ReviewDataError("aspect 必须是六个有效维度之一。")
-    if sentiment is not None and sentiment not in ("positive", "negative", "neutral", "unknown"):
+    if sentiment is not None and sentiment not in SENTIMENTS:
         raise ReviewDataError("sentiment 必须是有效情感或 None。")
     for name, value, maximum in (("page", page, 1000000), ("page_size", page_size, 100),
                                   ("review_id", review_id, 2147483647)):
         if name == "review_id" and value is None:
             continue
-        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= maximum:
-            raise ReviewDataError(f"{name} 必须是 1—{maximum} 的整数。")
+        validate_integer(value, name, maximum=maximum)
     opinion_where, opinion_filters = ["TRUE"], []
     for field, value in (("aspect", aspect), ("sentiment", sentiment)):
         if value is not None:

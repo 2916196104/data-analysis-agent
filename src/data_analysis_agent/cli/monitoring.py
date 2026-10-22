@@ -6,7 +6,6 @@ from pathlib import Path
 
 if __name__ == "__main__" and not __package__:
     import sys
-    from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from data_analysis_agent._cli_bootstrap import prepare_direct_run
@@ -16,7 +15,8 @@ if __name__ == "__main__" and not __package__:
 from data_analysis_agent.reviews.opinions import ASPECTS
 from data_analysis_agent.core.database import DATABASE_ERRORS, database_argument
 from data_analysis_agent.core.errors import ReviewDataError
-from data_analysis_agent.reviews.monitoring import DEFAULT_RULES, replay_monthly, run_analysis
+from data_analysis_agent.reviews.monitoring import replay_monthly, run_analysis
+from data_analysis_agent.reviews.parameters import DEFAULT_RULES
 from data_analysis_agent.reviews.monitor_store import (
     get_alert, get_analysis_run, init_monitoring, list_alerts, list_analysis_runs, set_alert_status,
 )

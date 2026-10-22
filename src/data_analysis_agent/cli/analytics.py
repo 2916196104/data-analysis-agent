@@ -6,7 +6,6 @@ from pathlib import Path
 
 if __name__ == "__main__" and not __package__:
     import sys
-    from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from data_analysis_agent._cli_bootstrap import prepare_direct_run
@@ -14,7 +13,7 @@ if __name__ == "__main__" and not __package__:
     __package__ = prepare_direct_run(__file__)
 
 from data_analysis_agent.reviews.analytics import compare_products, get_evidence, get_top_issues, get_trend
-from data_analysis_agent.reviews.opinions import ASPECTS
+from data_analysis_agent.reviews.opinions import ASPECTS, SENTIMENTS
 from data_analysis_agent.core.database import DATABASE_ERRORS, database_argument, is_postgres
 from data_analysis_agent.core.errors import ReviewDataError
 
@@ -43,7 +42,7 @@ def main():
     issues.add_argument("--baseline-to", required=True, help="基线 UTC 结束日期，须早于当前窗口")
     issues.add_argument("--top-n", type=int, default=6)
     evidence.add_argument("--aspect", choices=tuple(ASPECTS))
-    evidence.add_argument("--sentiment", choices=("positive", "negative", "neutral", "unknown", "all"), default="negative")
+    evidence.add_argument("--sentiment", choices=(*SENTIMENTS, "all"), default="negative")
     evidence.add_argument("--review-id", type=int)
     evidence.add_argument("--page", type=int, default=1)
     evidence.add_argument("--page-size", type=int, default=20)

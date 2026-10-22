@@ -1,6 +1,5 @@
 """Explicit local configuration and secret-safe artifact serialization."""
 
-import json
 import math
 import os
 from dataclasses import dataclass, field
@@ -8,6 +7,9 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
+
+# Keep the previous public imports available.
+from data_analysis_agent.core.serialization import safe_json, write_json
 
 
 class ConfigurationError(ValueError):
@@ -75,23 +77,3 @@ class AgentSettings:
             timeout_seconds=timeout,
             max_retries=integer("LLM_MAX_RETRIES", 1, 0, 3),
         )
-
-
-def safe_json(value: object, secret: str = "", *, indent: int | None = 2) -> str:
-    """Redact string values before serialization, preserving JSON schema and numbers."""
-    def scrub(item):
-        if isinstance(item, str):
-            return item.replace(secret, "[REDACTED]") if secret else item
-        if isinstance(item, dict):
-            return {key: scrub(child) for key, child in item.items()}
-        if isinstance(item, (list, tuple)):
-            return [scrub(child) for child in item]
-        return item
-
-    return json.dumps(scrub(value), ensure_ascii=False, indent=indent)
-
-
-def write_json(path: Path, value: object, secret: str = "") -> None:
-    """Write a secret-redacted UTF-8 run artifact."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(safe_json(value, secret) + "\n", encoding="utf-8")

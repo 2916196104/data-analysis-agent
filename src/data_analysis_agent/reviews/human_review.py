@@ -5,14 +5,14 @@ from contextlib import closing
 
 from data_analysis_agent.core.clock import utc_now
 from data_analysis_agent.core.database import insert_id, table_names
+from data_analysis_agent.core.validation import validate_integer
 
 from data_analysis_agent.reviews.label_store import check_labeling_schema
-from data_analysis_agent.reviews.opinions import ASPECTS, OpinionValidationError, validate_opinions
+from data_analysis_agent.reviews.opinions import ASPECTS, SENTIMENTS, OpinionValidationError, validate_opinions
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.reviews.scope import current_reviews_sql, review_scope
 from data_analysis_agent.reviews.store import connect_review_database
 
-SENTIMENTS = {"positive": "正向", "negative": "负向", "neutral": "中性", "unknown": "未知"}
 PROCESSING_STATUSES = {"pending": "待标注", "success": "标注成功", "failed": "标注失败", "empty": "空正文"}
 HUMAN_STATUSES = {"unreviewed": "待复核", "confirmed": "已确认", "corrected": "已纠正"}
 SCHEMA = """
@@ -82,15 +82,9 @@ def check_workbench(db_path):
         check_workbench_schema(connection)
 
 
-def _integer(value, name, minimum=1, maximum=2147483647):
-    if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
-        raise ReviewDataError(f"{name} 必须是 {minimum}—{maximum} 的整数。")
-    return value
-
-
 def _profile(connection, profile_id):
     if profile_id is not None:
-        _integer(profile_id, "profile_id")
+        validate_integer(profile_id, "profile_id")
         row = connection.execute("SELECT requested_model, base_url, prompt_version "
                                  "FROM review_annotations WHERE id=?", (profile_id,)).fetchone()
         if row is None:
@@ -166,8 +160,8 @@ def _filters(product_key, date_from, date_to, aspect, sentiment, processing_stat
 
 def list_reviews(db_path, *, profile_id=None, product_key=None, date_from=None, date_to=None,
                  aspect=None, sentiment=None, processing_status=None, human_status=None, page=1, page_size=20):
-    _integer(page, "page", maximum=1000000)
-    _integer(page_size, "page_size", maximum=100)
+    validate_integer(page, "page", maximum=1000000)
+    validate_integer(page_size, "page_size", maximum=100)
     where, filters = _filters(product_key, date_from, date_to, aspect, sentiment, processing_status, human_status)
     with closing(connect_review_database(db_path, readonly=True)) as connection:
         check_workbench_schema(connection)
@@ -203,7 +197,7 @@ def _opinions(connection, table, foreign_key, value):
 
 
 def review_detail(db_path, review_id, profile_id=None):
-    _integer(review_id, "review_id")
+    validate_integer(review_id, "review_id")
     with closing(connect_review_database(db_path, readonly=True)) as connection:
         check_workbench_schema(connection)
         with connection:
@@ -253,10 +247,10 @@ def _human_text(value, name, maximum, required=False):
 
 def save_human_review(db_path, review_id, *, annotation_id, expected_revision_id, action,
                       reviewer, note="", opinions=None):
-    _integer(review_id, "review_id")
-    _integer(annotation_id, "annotation_id")
+    validate_integer(review_id, "review_id")
+    validate_integer(annotation_id, "annotation_id")
     if expected_revision_id is not None:
-        _integer(expected_revision_id, "expected_revision_id")
+        validate_integer(expected_revision_id, "expected_revision_id")
     if action not in ("confirmed", "corrected"):
         raise ReviewDataError("人工操作仅支持 confirmed 或 corrected。")
     reviewer = _human_text(reviewer, "复核人", 80, required=True)

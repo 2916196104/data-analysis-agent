@@ -1,21 +1,24 @@
 """Durable single-worker queue in explicitly initialized SQLite/PostgreSQL tables."""
 
-import hashlib
 import json
 import uuid
 from contextlib import closing
 from pathlib import Path
+from typing import get_args
 
 from data_analysis_agent.core.clock import utc_now
 from data_analysis_agent.core.database import (PostgresConnection, check_postgres_schema, connect_database, database_identity,
                        database_target, init_postgres, is_postgres)
 
 from data_analysis_agent.core.errors import ReviewDataError
+from data_analysis_agent.core.serialization import canonical_json, content_sha256
+from data_analysis_agent.core.validation import validate_integer
+from data_analysis_agent.jobs.parameters import TaskKind, TaskStatus
 from data_analysis_agent.reviews.store import connect_review_database as business_connection
 
 APPLICATION_ID = 0x52544B31
-STATUSES = ("queued", "running", "succeeded", "partial", "failed")
-KINDS = ("import", "label", "analysis", "replay")
+STATUSES = get_args(TaskStatus)
+KINDS = get_args(TaskKind)
 SCHEMA = """
 CREATE TABLE task_context (business_path TEXT NOT NULL);
 CREATE TABLE tasks (
@@ -54,10 +57,6 @@ class TaskNotFound(ReviewDataError):
 
 class TaskConflict(ReviewDataError):
     pass
-
-
-def _json(value):
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 
 def check_task_schema(connection):
@@ -145,9 +144,8 @@ def get_task(path, task_id):
 
 
 def list_tasks(path, *, status=None, kind=None, page=1, page_size=20):
-    if (isinstance(page, bool) or not isinstance(page, int) or not 1 <= page <= 1000000
-            or isinstance(page_size, bool) or not isinstance(page_size, int) or not 1 <= page_size <= 100):
-        raise ReviewDataError("任务分页参数无效。")
+    validate_integer(page, "page", maximum=1000000)
+    validate_integer(page_size, "page_size", maximum=100)
     conditions, values = ["TRUE"], []
     for name, value, choices in (("status", status, STATUSES), ("kind", kind, KINDS)):
         if value is not None:
@@ -173,8 +171,8 @@ def enqueue(path, kind, parameters, *, idempotency_key=None, parent_task_id=None
                                        or not 1 <= len(idempotency_key) <= 200
                                        or not idempotency_key.isascii() or not idempotency_key.strip()):
         raise ReviewDataError("Idempotency-Key 必须是 1—200 字符的非空 ASCII 文本。")
-    encoded = _json(parameters)
-    digest = hashlib.sha256(_json([kind, parameters, parent_task_id]).encode("utf-8")).hexdigest()
+    encoded = canonical_json(parameters)
+    digest = content_sha256([kind, parameters, parent_task_id])
     with closing(connect_task_database(path)) as connection, connection:
         connection.execute("BEGIN IMMEDIATE")
         if idempotency_key is not None:
@@ -197,14 +195,14 @@ def enqueue(path, kind, parameters, *, idempotency_key=None, parent_task_id=None
         connection.execute("""INSERT INTO tasks(task_id,kind,status,parameters_json,request_hash,idempotency_key,
             parent_task_id,created_at,updated_at,progress_json) VALUES (?,?,'queued',?,?,?,?,?,?,?)""",
             (task_id, kind, encoded, digest, idempotency_key, parent_task_id, now, now,
-             _json({"stage": "queued", "completed": 0, "total": None, "unit": "items"})))
+             canonical_json({"stage": "queued", "completed": 0, "total": None, "unit": "items"})))
         return {"task": _task(_read(connection, task_id)), "reused": False}
 
 
 def worker_started(path, worker_id):
     """Call only while holding the OS worker lock: no old worker can still execute."""
     now = utc_now()
-    error = _json({"code": "worker_interrupted", "message": "执行进程已中断；已完成的业务写入保留，请核查后显式重试。"})
+    error = canonical_json({"code": "worker_interrupted", "message": "执行进程已中断；已完成的业务写入保留，请核查后显式重试。"})
     with closing(connect_task_database(path)) as connection, connection:
         connection.execute("BEGIN IMMEDIATE")
         connection.execute("UPDATE tasks SET status='failed',finished_at=?,updated_at=?,error_json=? WHERE status='running'",
@@ -238,7 +236,7 @@ def update_progress(path, task_id, worker_id, progress):
     with closing(connect_task_database(path)) as connection, connection:
         changed = connection.execute("UPDATE tasks SET progress_json=?,updated_at=? "
                                      "WHERE task_id=? AND status='running' AND worker_id=?",
-                                     (_json(progress), utc_now(), task_id, worker_id)).rowcount
+                                     (canonical_json(progress), utc_now(), task_id, worker_id)).rowcount
         if not changed:
             raise TaskConflict("任务执行权已失效。")
 
@@ -250,8 +248,8 @@ def finish_task(path, task_id, worker_id, *, status, result=None, error=None):
     with closing(connect_task_database(path)) as connection, connection:
         changed = connection.execute("UPDATE tasks SET status=?,result_json=?,error_json=?,finished_at=?,updated_at=? "
                                      "WHERE task_id=? AND status='running' AND worker_id=?",
-                                     (status, _json(result) if result is not None else None,
-                                      _json(error) if error else None, now, now, task_id, worker_id)).rowcount
+                                     (status, canonical_json(result) if result is not None else None,
+                                      canonical_json(error) if error else None, now, now, task_id, worker_id)).rowcount
         if not changed:
             raise TaskConflict("任务执行权已失效，结果没有覆盖原记录。")
 
