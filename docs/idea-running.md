@@ -1,6 +1,6 @@
 # 在 IntelliJ IDEA 中选择配置并运行
 
-项目的 42 个运行配置已保存到 [.run](../.run/)。日常直接选择带编号的配置，然后点击绿色运行按钮。配置包含脚本路径、项目根工作目录、参数及项目虚拟环境，不需要逐个手填。新增 HTTP API 使用 **69 → 70 → 71**，完整接口和后台任务用法见 [HTTP API 说明](review-http-api.md)。
+项目的 44 个运行配置已保存到 [.run](../.run/)。其中 39 个评论业务配置已统一使用 **`--db env:DATABASE_URL`**，从项目根目录 `.env` 读取 PostgreSQL 地址；本机已有的 3 个临时评论配置也已同步。日常直接选择带编号的配置，然后点击绿色运行按钮。配置包含脚本路径、项目根工作目录、参数及项目虚拟环境，不需要逐个手填。当前库已完成迁移，启动 HTTP API 直接运行 **71** 或 **77** 即可，二者选择一个。首次准备新环境才需要 **69 → 70 → 71**，数据库准备见 [PostgreSQL 配置与迁移](postgresql.md)，接口用法见 [HTTP API 说明](review-http-api.md)。
 
 名称带“调用模型”的 11、12、17、18、61 会读取本地 `.env` 并向配置的模型服务发出请求；11、12 每次最多处理 20 条评论，18 每次最多处理 200 条。17 的批次可在运行配置参数中自行修改。47、48 会保存你的告警处理决定。这里只配置入口，没有自动执行这些业务操作。
 
@@ -22,17 +22,19 @@ IDEA 支持将运行配置保存为项目文件并从运行菜单选择，见 [J
 | 解释器 | `$PROJECT_DIR$/.venv/Scripts/python.exe` |
 | 工作目录 | `$PROJECT_DIR$`，本机展开为 `E:\AllProject\data-analysis-agent` |
 | 业务脚本 | `$PROJECT_DIR$/src/data_analysis_agent/<对应入口>.py`，使用脚本模式 |
-| 数据库参数 | `--db data/private/reviews.sqlite3` |
+| 数据库参数 | `--db env:DATABASE_URL`，业务表和任务表默认共用 PostgreSQL 数据库 |
 | 字符编码 | `PYTHONUTF8=1`、`PYTHONIOENCODING=utf-8` |
 | 包搜索路径 | `PYTHONPATH=$PROJECT_DIR$/src`，同时启用源码根 |
 | 图形缓存 | `$PROJECT_DIR$/.cache/matplotlib` |
-| 模型配置 | 需要调用模型的入口显式读取 `.env`；运行配置不包含 API 密钥 |
+| 模型和数据库配置 | 项目根目录 `.env`；运行配置不包含 API 密钥或数据库密码 |
 
-例外：90 使用标准库模块 `unittest`，参数为 `discover -s tests -v`；91 使用 `$PROJECT_DIR$/scripts/validate_review_import.py`。所有配置工作目录相同。包入口 `__main__.py` 与 `main.py` 调用同一销售流程，因此由 60 覆盖，不重复创建相同业务配置。
+例外：90 使用标准库模块 `unittest`，参数为 `discover -s tests -v`；91 使用 `$PROJECT_DIR$/scripts/validate_review_import.py`。这两个开发验证配置仍使用隔离的临时数据库，不连接旧 SQLite 业务库，也不写入 PostgreSQL 业务库。60、61 的销售入口和 69 的依赖安装配置保持原样。所有配置工作目录相同。包入口 `__main__.py` 与 `main.py` 调用同一销售流程，因此由 60 覆盖，不重复创建相同业务配置。
+
+没有填写 `DATABASE_URL` 时会明确报配置错误，不会回退到 SQLite。IDEA 若尚未刷新配置，请重新打开项目；本地临时配置的工作目录也已统一为项目根目录，以便正确读取 `.env`。
 
 ## 当前数据与预设范围
 
-2026-10-21 只读检查确认：业务库已经导入评论，模型标注表、人工复核表、监控表均已存在；全库成功标注 23 条，有 1 条失败记录，尚无分析运行记录和告警。状态会随着你后续执行而变化。
+本机评论业务库已迁移到 PostgreSQL，包含 4 款商品、4,941 条评论，模型标注表、人工复核表、监控表均已存在。标注、分析和任务数量会随操作变化，以 03、14、74 的当前查询结果为准；迁移和启动验收见 [本机运行记录](local-postgresql-running.md)。
 
 | 项目 | 预设 |
 | --- | --- |
@@ -89,13 +91,15 @@ IDEA 支持将运行配置保存为项目文件并从运行菜单选择，见 [J
 | 60 销售固定流程（模拟数据） | `main.py` | 独立销售流程，无需模型；输出图表和 Markdown，重跑覆盖同名产物。 |
 | 61 销售问答Agent（调用模型） | `agent_cli.py` | 独立销售 Agent 示例，读取 .env 调用模型；每次独立输出目录。 |
 | 69 安装项目与HTTP依赖（首次） | `pip` | 安装当前项目及 FastAPI、Uvicorn 依赖。 |
-| 70 初始化HTTP与任务库 | `review_api_cli.py` | 显式初始化业务表和独立 SQLite 任务库，不清空已有数据。 |
+| 70 初始化HTTP与任务库 | `review_api_cli.py` | 显式初始化 PostgreSQL 业务表和任务表，不清空已有数据；本机迁移完成后无需重跑。 |
 | 71 启动HTTP API与后台任务 | `review_api_cli.py` | 默认模式，启动 8000 端口的 API 与串行 worker。 |
 | 72 启动独立后台worker | `review_api_cli.py` | 可选，配合 73 执行后台任务。 |
 | 73 仅启动HTTP API（独立worker模式） | `review_api_cli.py` | 可选，使用 --no-worker 与 72 配合。 |
 | 74 查询后台任务列表 | `review_api_cli.py` | 只读查看任务列表。 |
 | 75 查询后台任务详情 | `review_api_cli.py` | 弹窗填写 task_id，查看进度、结果与错误。 |
 | 76 重试失败或部分完成任务 | `review_api_cli.py` | 弹窗填写 task_id，创建关联重试任务。 |
+| 77 PostgreSQL启动HTTP与后台任务 | `review_api_cli.py` | 与 71 相同，保留为显式标明 PostgreSQL 的启动别名；两者不要同时启动。 |
+| 78 PostgreSQL查看评论摘要 | `review_cli.py` | 与 03 相同，读取 `.env` 中的 PostgreSQL 配置。 |
 | 90 运行全部离线测试 | `unittest` | 运行全套测试，使用临时模拟数据；含本机 HTTP 测试，不调用外部模型。 |
 | 91 验证真实文件导入与去重（临时库） | `validate_review_import.py` | 完整扫描真实输入、两次导入临时库并核对原文；耗时较长，报告重跑覆盖。 |
 
@@ -114,7 +118,7 @@ IDEA 支持将运行配置保存为项目文件并从运行菜单选择，见 [J
 
 ## 从空库开始时的顺序
 
-新环境首次运行：**01 → 02 → 10 → 20 → 40**，然后按上面的 **11 → 13 → 分析 → 回放 → 告警处理** 推进。初始化不会清空已有数据；导入会扫描完整 gzip 文件，耗时比查询长。当前原始文件路径已存在；换电脑时需自行准备对应数据和 `.env`。
+新环境需先创建专用 PostgreSQL 数据库并在 `.env` 填写 `DATABASE_URL`，再运行 **01 → 02 → 10 → 20 → 40**，然后按上面的 **11 → 13 → 分析 → 回放 → 告警处理** 推进。初始化只建表，不创建数据库，也不会清空已有数据；导入会扫描完整 gzip 文件，耗时比查询长。当前原始文件路径已存在；换电脑时需自行准备对应数据和 `.env`。
 
 60、61 是独立销售分析示例，不属于评论业务链。60 写入 `outputs/idea_sales/`；61 每次写入 `outputs/idea_sales_agent/` 下的独立运行目录。90 用于开发回归检查；91 用临时库核对完整真实数据导入，不修改业务库，报告保存在 `outputs/idea_import_validation/report.json`。
 
@@ -129,7 +133,13 @@ IDEA 支持将运行配置保存为项目文件并从运行菜单选择，见 [J
 - 21 提示端口被占用：停止已经运行的工作台，或修改 `--port` 后访问相应地址。
 - 普通业务操作结束返回退出码 0；标注部分失败可能返回 3，查看 JSON 中的失败信息后决定是否重试。
 
-## 本次验证
+## PostgreSQL 配置切换验证
+
+2026-10-22 已检查 44 个共享配置的 XML，39 个评论业务配置与本机 3 个临时评论配置均使用 `--db env:DATABASE_URL` 和项目根工作目录，没有残留的旧 SQLite 业务库路径；5 个销售、依赖安装和开发验证配置保持原样。71、73、77 均允许现有前端 Origin `http://127.0.0.1:5173`。
+
+按 03、14、30、43、74 的实际参数执行 PostgreSQL 只读查询，5 项全部成功，旧业务 SQLite 和任务 SQLite 的文件 SHA-256 均未改变。本次没有执行导入、付费标注、人工处理或初始化等写操作，也没有重启现有后台服务。结果保存在本机 `.cache/idea-postgresql-config-changes.json`。
+
+## 历史验证
 
 以下是新增 HTTP API 之前的入口验证记录。HTTP API 和后台任务本次按你的要求没有新增或运行测试，需由你按 [HTTP API 说明](review-http-api.md) 自行验证。
 

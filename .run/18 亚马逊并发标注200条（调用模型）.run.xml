@@ -21,7 +21,7 @@
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="RUN_TOOL" value="" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/data_analysis_agent/review_label_cli.py" />
-    <option name="PARAMETERS" value="run --db data/private/reviews.sqlite3 --source amazon_reviews_2023 --dataset-version amazon-reviews-2023 --limit 200 --workers 4 --env-file .env" />
+    <option name="PARAMETERS" value="run --db env:DATABASE_URL --source amazon_reviews_2023 --dataset-version amazon-reviews-2023 --limit 200 --workers 4 --env-file .env" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

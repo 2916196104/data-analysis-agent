@@ -21,7 +21,7 @@
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="RUN_TOOL" value="" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/data_analysis_agent/review_cli.py" />
-    <option name="PARAMETERS" value="import --db data/private/reviews.sqlite3 --reviews data/private/amazon_reviews_2023/raw/All_Beauty.jsonl.gz --meta data/private/amazon_reviews_2023/raw/meta_All_Beauty.jsonl.gz --product-id B00R1TAN7I --product-id B019GBG0IE --product-id B01M1OFZOG --product-id B01N4885PD" />
+    <option name="PARAMETERS" value="import --db env:DATABASE_URL --reviews data/private/amazon_reviews_2023/raw/All_Beauty.jsonl.gz --meta data/private/amazon_reviews_2023/raw/meta_All_Beauty.jsonl.gz --product-id B00R1TAN7I --product-id B019GBG0IE --product-id B01M1OFZOG --product-id B01N4885PD" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

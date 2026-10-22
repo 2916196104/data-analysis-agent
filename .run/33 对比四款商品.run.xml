@@ -21,7 +21,7 @@
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="RUN_TOOL" value="" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/data_analysis_agent/review_analysis_cli.py" />
-    <option name="PARAMETERS" value="compare-products --db data/private/reviews.sqlite3 --product-id B00R1TAN7I --product-id B019GBG0IE --product-id B01M1OFZOG --product-id B01N4885PD --model deepseek-ai/DeepSeek-V4-Flash --base-url https://api.siliconflow.cn/v1 --prompt-version review-opinions-v1-e61de599683cba6703c2f61e85125d0be4627c2763440486aa717e4bc884036e --source amazon_reviews_2023 --dataset-version amazon-reviews-2023 --date-from 2016-01-01 --date-to 2016-03-31 --as-of 2016-03-31" />
+    <option name="PARAMETERS" value="compare-products --db env:DATABASE_URL --product-id B00R1TAN7I --product-id B019GBG0IE --product-id B01M1OFZOG --product-id B01N4885PD --model deepseek-ai/DeepSeek-V4-Flash --base-url https://api.siliconflow.cn/v1 --prompt-version review-opinions-v1-e61de599683cba6703c2f61e85125d0be4627c2763440486aa717e4bc884036e --source amazon_reviews_2023 --dataset-version amazon-reviews-2023 --date-from 2016-01-01 --date-to 2016-03-31 --as-of 2016-03-31" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

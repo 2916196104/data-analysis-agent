@@ -10,10 +10,12 @@
 | 地址 | `127.0.0.1:5432` |
 | 数据库 | `reviews`，UTF-8 |
 | 应用账号 | `review_agent`，无超级用户、创建数据库或创建角色权限 |
-| 应用连接配置 | 项目根目录 `.env` 的 `DATABASE_URL`，当前第 13 行 |
+| 应用连接配置 | 项目根目录 `.env` 的 `DATABASE_URL` |
 | 任务存储 | 与评论业务表共用 PostgreSQL 数据库 |
 
-应用账号密码已自动生成并写入 `.env`，无需再填写。安装时的 postgres 管理员密码只用于创建专用角色和数据库；临时 `POSTGRES_ADMIN_PASSWORD` 配置项已经移除，管理员账号本身的密码没有修改。保留原模型配置，前端配置中没有数据库凭据。
+应用账号密码已于 2026-10-22 改为你自行填写的新密码，数据库与 `.env` 的 `DATABASE_URL` 已同步，并通过新连接及后端重启验证。URL 中的特殊字符已自动编码；DataGrip 的 Password 字段填写你设置的原始密码。临时 `POSTGRES_NEW_PASSWORD` 配置项已经移除。
+
+安装时的 postgres 管理员密码只用于创建专用角色和数据库；临时 `POSTGRES_ADMIN_PASSWORD` 配置项已经移除，管理员账号本身的密码没有修改。保留原模型配置，前端配置中没有数据库凭据。
 
 `.env` 被 Git 忽略。不要将其内容放入聊天、截图或提交到仓库。若以后修改应用账号密码，同步更新 `DATABASE_URL` 并重启后端；修改 `.env` 本身不会改变数据库服务器上的密码。
 
@@ -61,7 +63,7 @@ Stop-Process -Id $localServices.api_listener_pid, $localServices.frontend_listen
 
 这条命令用于本次运行期间。电脑重启或服务已经退出后，不要依据旧的进程号停止其他程序。
 
-之后可在 IDEA 选择新增运行配置 **77 PostgreSQL启动HTTP与后台任务**。**78 PostgreSQL查看评论摘要** 用于只读检查。原来的 SQLite 配置保留作回退。
+之后可在 IDEA 选择 **71 启动HTTP API与后台任务** 或 **77 PostgreSQL启动HTTP与后台任务**，二者使用相同 PostgreSQL 配置，选择一个启动即可。**03 查看评论库摘要** 或 **78 PostgreSQL查看评论摘要** 用于只读检查。所有评论业务运行配置及本机临时评论配置均已切换到 `env:DATABASE_URL`，工作目录统一为项目根目录；不再保留指向旧 SQLite 业务库的 IDEA 配置。具体配置用途见 [IDEA 运行说明](idea-running.md)。
 
 也可以在项目根目录用终端启动后端：
 
