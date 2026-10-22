@@ -2,7 +2,6 @@
 
 import argparse
 import json
-import sqlite3
 from pathlib import Path
 
 if __name__ == "__main__" and not __package__:
@@ -12,6 +11,7 @@ if __name__ == "__main__" and not __package__:
 
 from .review_analytics import compare_products, get_evidence, get_top_issues, get_trend
 from .review_labeler import ASPECTS
+from .database import DATABASE_ERRORS, database_argument, is_postgres
 from .review_loader import ReviewDataError
 
 
@@ -23,7 +23,7 @@ def main():
     compare = commands.add_parser("compare-products", help="相同口径下对比商品")
     evidence = commands.add_parser("evidence", help="分页查询观点原文及来源")
     for command in (trend, issues, compare, evidence):
-        command.add_argument("--db", required=True, type=Path)
+        command.add_argument("--db", required=True, type=database_argument)
         command.add_argument("--model", required=True, help="标注时配置的模型 ID")
         command.add_argument("--base-url", required=True, help="标注时使用的模型服务地址")
         command.add_argument("--prompt-version", required=True, help="完整提示词版本")
@@ -45,8 +45,8 @@ def main():
     evidence.add_argument("--page-size", type=int, default=20)
     args = parser.parse_args()
     try:
-        if args.output:
-            database = args.db.resolve()
+        if args.output and not is_postgres(args.db):
+            database = Path(args.db).resolve()
             protected = {database, *(Path(str(database) + suffix) for suffix in ("-wal", "-shm", "-journal"))}
             if args.output.resolve() in protected:
                 raise ReviewDataError("输出路径不能是数据库或数据库辅助文件。")
@@ -69,7 +69,7 @@ def main():
             args.output.parent.mkdir(parents=True, exist_ok=True)
             with args.output.open("x", encoding="utf-8") as handle:
                 handle.write(payload + "\n")
-    except (ReviewDataError, OSError, sqlite3.Error) as exc:
+    except (ReviewDataError, OSError, *DATABASE_ERRORS) as exc:
         print(json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False))
         return 1
     print(payload)

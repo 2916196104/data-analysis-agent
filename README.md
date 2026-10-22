@@ -1,5 +1,7 @@
 # 数据分析 Agent：销售分析与评论标注工作台
 
+评论业务库和后台任务现支持 **PostgreSQL / SQLite**。PostgreSQL 默认将业务表、任务表放在同一专用数据库的 `public` schema；原 SQLite 参数继续可用。安装、`.env` 配置、已有数据的原子迁移、校验和回退步骤见 [PostgreSQL 配置与迁移](docs/postgresql.md)。迁移只接受尚未初始化的目标，**迁移已有数据前不要执行目标库的 `init`**。
+
 一个独立 Python 项目，支持本地销售 CSV/Excel 的读取、字段映射、校验、统计、绘图和 Markdown 报告，并接入 HelloAgents 单 Agent 的自然语言工具调用。应用统一通过 `load_sales_data` 读取数据，原有 `load_sales_csv` 接口继续保留。固定流程无需 API 密钥；自然语言流程使用支持原生 Function Calling 的 OpenAI 兼容模型服务。
 
 新增独立的 [React 评论分析工作台](frontend/README.md)，使用 TypeScript、Vite、Ant Design 和 ECharts。支持选择已有评论数据、服务端路径导入、提交结构化分析、真实任务进度、历史恢复、原文证据和 JSON 导出。启动与后端 Origin 配置、接口映射及现有能力边界见前端说明。

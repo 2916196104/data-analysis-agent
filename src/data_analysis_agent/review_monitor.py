@@ -2,7 +2,8 @@
 
 import math
 import re
-import sqlite3
+
+from .database import DATABASE_ERRORS
 import uuid
 from contextlib import closing
 from datetime import date, timedelta
@@ -209,7 +210,7 @@ def replay_monthly(db_path, *, month_from, month_to, baseline_months=1, model, b
                 baseline_from=_shift_month(current, -baseline_months).isoformat(),
                 baseline_to=(current - timedelta(days=1)).isoformat(), product_ids=product_ids,
                 source=source, dataset_version=dataset_version, rules=rules)
-        except (ReviewDataError, sqlite3.Error, OSError) as exc:
+        except (ReviewDataError, *DATABASE_ERRORS, OSError) as exc:
             return {"complete": False, "month_from": month_from, "month_to": month_to,
                     "baseline_months": baseline_months, "runs": runs, "failed_month": current.isoformat()[:7],
                     "error": str(exc)}

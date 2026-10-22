@@ -2,7 +2,6 @@
 
 import argparse
 import json
-import sqlite3
 from pathlib import Path
 
 if __name__ == "__main__" and not __package__:
@@ -11,6 +10,7 @@ if __name__ == "__main__" and not __package__:
     __package__ = prepare_direct_run(__file__)
 
 from .review_labeler import ASPECTS
+from .database import DATABASE_ERRORS, database_argument
 from .review_loader import ReviewDataError
 from .review_monitor import DEFAULT_RULES, replay_monthly, run_analysis
 from .review_monitor_store import (
@@ -28,7 +28,7 @@ def main():
         ("confirm", "确认告警"), ("ignore", "忽略告警"),
     )}
     for command in parsers.values():
-        command.add_argument("--db", type=Path, required=True)
+        command.add_argument("--db", type=database_argument, required=True)
     for name in ("run", "replay"):
         command = parsers[name]
         for option in ("model", "base-url", "prompt-version"):
@@ -93,7 +93,7 @@ def main():
         print(json.dumps({"status": "partial" if partial else "ok", "result": result},
                          ensure_ascii=False, indent=2, allow_nan=False))
         return 1 if partial else 0
-    except (ReviewDataError, OSError, sqlite3.Error) as exc:
+    except (ReviewDataError, OSError, *DATABASE_ERRORS) as exc:
         print(json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False))
         return 1
 

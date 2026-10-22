@@ -15,6 +15,7 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from .config import ConfigurationError
+from .database import DatabaseError, database_target
 from .review_api_schemas import (
     AlertAction, AlertQuery, AnalysisQuery, EvidenceQuery, HumanReview, IssueQuery,
     OpinionQuery, Page, ProductQuery, ReviewQuery, StatusQuery, TaskInput, TaskQuery, TrendQuery,
@@ -71,7 +72,7 @@ def check_business_database(db):
 
 def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".env",
                embedded_worker=True, allowed_origins=()):
-    db, task_db = FilePath(db_path).resolve(), FilePath(task_db_path).resolve()
+    db, task_db = database_target(db_path), database_target(task_db_path)
     import_root, env_file = FilePath(import_root).resolve(), FilePath(env_file).resolve()
     origins = set(allowed_origins)
     worker = TaskWorker(db, task_db, import_root=import_root, env_file=env_file) if embedded_worker else None
@@ -91,7 +92,7 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
                 worker.stop()
 
     app = FastAPI(title="商品口碑监控 API", version="1.0.0", lifespan=lifespan,
-                  description="复用现有评论业务函数。长任务持久化到 SQLite，由串行 worker 执行。")
+                  description="复用现有评论业务函数。长任务持久化到 SQLite / PostgreSQL，由串行 worker 执行。")
     if origins:
         app.add_middleware(CORSMiddleware, allow_origins=sorted(origins), allow_methods=["GET", "POST"],
                            allow_headers=["Content-Type", "Idempotency-Key"], expose_headers=["Location"])
@@ -134,6 +135,7 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
         return _error(503, "configuration_error", str(exc))
 
     @app.exception_handler(sqlite3.Error)
+    @app.exception_handler(DatabaseError)
     async def database_error(request, exc):
         return _error(503, "database_error", "数据库暂不可用，请稍后重试。")
 

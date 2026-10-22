@@ -1,4 +1,4 @@
-"""Durable single-worker queue in a separate, explicitly initialized SQLite file."""
+"""Durable single-worker queue in explicitly initialized SQLite/PostgreSQL tables."""
 
 import hashlib
 import json
@@ -6,6 +6,9 @@ import sqlite3
 import uuid
 from contextlib import closing
 from pathlib import Path
+
+from .database import (PostgresConnection, check_postgres_schema, database_identity,
+                       database_target, init_postgres, is_postgres)
 
 from .review_loader import ReviewDataError
 from .review_store import _connect as business_connection, _now
@@ -22,7 +25,7 @@ CREATE TABLE tasks (
     parameters_json TEXT NOT NULL,
     request_hash TEXT NOT NULL,
     idempotency_key TEXT UNIQUE,
-    parent_task_id TEXT REFERENCES tasks(task_id),
+    parent_task_id TEXT REFERENCES tasks(task_id) DEFERRABLE INITIALLY DEFERRED,
     worker_id TEXT,
     created_at TEXT NOT NULL,
     started_at TEXT,
@@ -58,12 +61,23 @@ def _json(value):
 
 
 def _check(connection):
+    if isinstance(connection, PostgresConnection):
+        check_postgres_schema(connection, "tasks")
+        return
     if (connection.execute("PRAGMA application_id").fetchone()[0] != APPLICATION_ID
             or connection.execute("PRAGMA user_version").fetchone()[0] != 1):
         raise ReviewDataError("任务库不是受支持的任务数据库，请执行 review_api_cli init。")
 
 
 def _connect(path, *, readonly=False):
+    if is_postgres(path):
+        connection = PostgresConnection(path, readonly=readonly, namespace="tasks")
+        try:
+            _check(connection)
+        except Exception:
+            connection.close()
+            raise
+        return connection
     path = Path(path).resolve()
     if not path.is_file():
         raise ReviewDataError("任务库不存在，请先执行 review_api_cli init。")
@@ -81,14 +95,18 @@ def _connect(path, *, readonly=False):
 def check_task_database(path, business_path):
     with closing(_connect(path, readonly=True)) as connection:
         rows = connection.execute("SELECT business_path FROM task_context").fetchall()
-        if len(rows) != 1 or Path(rows[0][0]) != Path(business_path).resolve():
+        if len(rows) != 1 or rows[0][0] != database_identity(business_path):
             raise ReviewDataError("任务库绑定的业务数据库不匹配，请使用原业务库或新任务库。")
 
 
 def init_tasks(path, business_path):
-    path, business_path = Path(path).resolve(), Path(business_path).resolve()
+    path, business_path = database_target(path), database_target(business_path)
     with closing(business_connection(business_path, readonly=True)):
         pass
+    if is_postgres(path):
+        created = init_postgres(path, SCHEMA, namespace="tasks", context=database_identity(business_path))
+        check_task_database(path, business_path)
+        return {"created": created, "task_database": database_identity(path), "task_schema_version": 1}
     if path in {business_path, *(Path(str(business_path) + s) for s in ("-wal", "-shm", "-journal"))}:
         raise ReviewDataError("任务库必须与业务库及其辅助文件使用不同路径。")
     if not path.parent.is_dir():
@@ -102,7 +120,7 @@ def init_tasks(path, business_path):
         connection.execute("PRAGMA journal_mode=WAL")
         try:
             connection.executescript("BEGIN IMMEDIATE;\n" + SCHEMA)
-            connection.execute("INSERT INTO task_context VALUES (?)", (str(business_path),))
+            connection.execute("INSERT INTO task_context VALUES (?)", (database_identity(business_path),))
             connection.execute(f"PRAGMA application_id={APPLICATION_ID}")
             connection.execute("PRAGMA user_version=1")
             connection.commit()
@@ -139,7 +157,7 @@ def list_tasks(path, *, status=None, kind=None, page=1, page_size=20):
     if (isinstance(page, bool) or not isinstance(page, int) or not 1 <= page <= 1000000
             or isinstance(page_size, bool) or not isinstance(page_size, int) or not 1 <= page_size <= 100):
         raise ReviewDataError("任务分页参数无效。")
-    conditions, values = ["1"], []
+    conditions, values = ["TRUE"], []
     for name, value, choices in (("status", status, STATUSES), ("kind", kind, KINDS)):
         if value is not None:
             if value not in choices:
@@ -215,7 +233,8 @@ def heartbeat(path, worker_id, *, stopped=False):
 def claim_task(path, worker_id):
     with closing(_connect(path)) as connection, connection:
         connection.execute("BEGIN IMMEDIATE")
-        row = connection.execute("SELECT * FROM tasks WHERE status='queued' ORDER BY rowid LIMIT 1").fetchone()
+        order = "created_at,task_id" if isinstance(connection, PostgresConnection) else "rowid"
+        row = connection.execute("SELECT * FROM tasks WHERE status='queued' ORDER BY " + order + " LIMIT 1").fetchone()
         if row is None:
             return None
         now = _now()

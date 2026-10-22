@@ -5,6 +5,8 @@ from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 import sqlite3
 
+from .database import PostgresConnection
+
 from .review_label_store import _check_labels
 from .review_labeler import ASPECTS
 from .review_loader import ReviewDataError
@@ -24,7 +26,7 @@ DEFINITIONS = {
 @contextmanager
 def _snapshot(db_path):
     # Monitoring supplies its transaction so all four tools see the same snapshot.
-    if isinstance(db_path, sqlite3.Connection):
+    if isinstance(db_path, (sqlite3.Connection, PostgresConnection)):
         _check_labels(db_path)
         if not db_path.in_transaction:
             raise ReviewDataError("共享统计连接必须已有事务。")
@@ -77,7 +79,7 @@ def _summaries(connection, identity, where, filters, group=None):
     select, grouping = groups[group]
     columns = []
     for name, condition in (
-        ("review_count", "1"), ("eligible_text_reviews", "c.has_text=1"),
+        ("review_count", "TRUE"), ("eligible_text_reviews", "c.has_text=1"),
         ("successful_reviews", "c.processing_status='success'"),
         ("failed_reviews", "c.processing_status='failed'"),
         ("unprocessed_reviews", "c.processing_status='pending'"),
@@ -189,7 +191,7 @@ def get_evidence(db_path, *, model, base_url, prompt_version, date_from, date_to
             continue
         if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= maximum:
             raise ReviewDataError(f"{name} 必须是 1—{maximum} 的整数。")
-    opinion_where, opinion_filters = ["1"], []
+    opinion_where, opinion_filters = ["TRUE"], []
     for field, value in (("aspect", aspect), ("sentiment", sentiment)):
         if value is not None:
             opinion_where.append(f"o.{field}=?")

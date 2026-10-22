@@ -2,7 +2,6 @@
 
 import argparse
 import json
-import sqlite3
 import sys
 from pathlib import Path
 
@@ -14,6 +13,7 @@ if __name__ == "__main__" and not __package__:
 from .config import ConfigurationError
 from .review_label_store import init_labeling, labeling_status, opinion_evidence, query_review_opinions
 from .review_labeler import PROMPT_VERSION, run_labeling
+from .database import DATABASE_ERRORS, database_argument
 from .review_loader import ReviewDataError
 
 
@@ -26,7 +26,7 @@ def main():
     evidence = commands.add_parser("evidence", help="查看评论原文、观点和模型版本")
     query = commands.add_parser("query", help="按明确版本和时间范围查询当前有效观点，不调用模型")
     for command in (setup, run, status, evidence, query):
-        command.add_argument("--db", required=True, type=Path)
+        command.add_argument("--db", required=True, type=database_argument)
     for command in (run, status, query):
         command.add_argument("--product-id", action="append", help="指定商品 ID，可重复")
         command.add_argument("--date-from", help="评论 UTC 开始日期，YYYY-MM-DD，含当天")
@@ -71,7 +71,7 @@ def main():
                 args.db, **scope, **identity, page=args.page, page_size=args.page_size)}
         else:
             result = {"status": "ok", "evidence": opinion_evidence(args.db, args.review_id)}
-    except (ReviewDataError, ConfigurationError, OSError, sqlite3.Error) as exc:
+    except (ReviewDataError, ConfigurationError, OSError, *DATABASE_ERRORS) as exc:
         print(json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False))
         return 1
     print(json.dumps(result, ensure_ascii=False, indent=2))

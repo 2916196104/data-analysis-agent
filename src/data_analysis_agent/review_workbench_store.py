@@ -3,6 +3,8 @@
 import json
 from contextlib import closing
 
+from .database import insert_id, table_names
+
 from .review_label_store import _check_labels
 from .review_labeler import ASPECTS, OpinionValidationError, validate_opinions
 from .review_loader import ReviewDataError
@@ -49,10 +51,7 @@ class ReviewNotFound(ReviewDataError):
 
 def _check_workbench(connection):
     _check_labels(connection)
-    names = {row[0] for row in connection.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name IN "
-        "('review_workbench_schema','review_human_reviews','review_human_opinions')"
-    )}
+    names = table_names(connection) & {"review_workbench_schema", "review_human_reviews", "review_human_opinions"}
     if len(names) != 3:
         raise ReviewDataError("工作台表未初始化，请由你执行 review_workbench init --db 指定路径。")
     versions = connection.execute("SELECT version FROM review_workbench_schema").fetchall()
@@ -64,8 +63,8 @@ def init_workbench(db_path):
     """Only this explicit command changes the schema; existing tables stay intact."""
     with closing(_connect(db_path)) as connection:
         _check_labels(connection)
-        if connection.execute("SELECT 1 FROM sqlite_master WHERE name LIKE 'review_human_%' "
-                              "OR name='review_workbench_schema'").fetchone():
+        if any(name.startswith("review_human_") or name == "review_workbench_schema"
+               for name in table_names(connection)):
             _check_workbench(connection)
             return {"created": False, "workbench_schema_version": 1}
         try:
@@ -118,10 +117,10 @@ def workbench_options(db_path, profile_id=None):
                              if (p["requested_model"], p["base_url"], p["prompt_version"]) == scope), None)
             products = [dict(row) for row in connection.execute(cte + """
                 SELECT source, dataset_version, product_id, product_title, COUNT(*) review_count,
-                    SUM(has_text=1) eligible_count, SUM(processing_status='empty') empty_count,
-                    SUM(processing_status='pending') pending_count, SUM(processing_status='success') success_count,
-                    SUM(processing_status='failed') failed_count, SUM(human_status<>'unreviewed') reviewed_count
-                FROM current GROUP BY source, dataset_version, product_id ORDER BY product_id, source, dataset_version
+                    SUM(CASE WHEN has_text=1 THEN 1 ELSE 0 END) eligible_count, SUM(CASE WHEN processing_status='empty' THEN 1 ELSE 0 END) empty_count,
+                    SUM(CASE WHEN processing_status='pending' THEN 1 ELSE 0 END) pending_count, SUM(CASE WHEN processing_status='success' THEN 1 ELSE 0 END) success_count,
+                    SUM(CASE WHEN processing_status='failed' THEN 1 ELSE 0 END) failed_count, SUM(CASE WHEN human_status<>'unreviewed' THEN 1 ELSE 0 END) reviewed_count
+                FROM current GROUP BY source, dataset_version, product_id, product_title ORDER BY product_id, source, dataset_version
             """, scope)]
             for product in products:
                 product["key"] = json.dumps([product["source"], product["dataset_version"], product["product_id"]])
@@ -160,7 +159,7 @@ def _filters(product_key, date_from, date_to, aspect, sentiment, processing_stat
                 parts.append(f"o.{field}=?")
                 values.append(value)
         conditions.append("EXISTS (SELECT 1 FROM effective_opinions o WHERE " + " AND ".join(parts) + ")")
-    return " AND ".join(conditions) or "1", values
+    return " AND ".join(conditions) or "TRUE", values
 
 
 def list_reviews(db_path, *, profile_id=None, product_key=None, date_from=None, date_to=None,
@@ -286,10 +285,10 @@ def save_human_review(db_path, review_id, *, annotation_id, expected_revision_id
                     snapshot = validate_opinions(json.dumps({"opinions": opinions}), row["text"])
                 except (OpinionValidationError, TypeError, ValueError) as exc:
                     raise ReviewDataError("纠正未保存：维度、情感须有效，引用必须逐字存在于正文。") from exc
-            revision_id = connection.execute(
+            revision_id = insert_id(connection,
                 "INSERT INTO review_human_reviews(annotation_id, previous_id, action, reviewer, note, created_at) "
                 "VALUES (?,?,?,?,?,?)", (annotation_id, latest, action, reviewer, note, _now())
-            ).lastrowid
+            )
             connection.executemany("INSERT INTO review_human_opinions "
                                    "(human_review_id, aspect, sentiment, quote, quote_start, quote_end) VALUES (?,?,?,?,?,?)",
                                    [(revision_id, p["aspect"], p["sentiment"], p["quote"], p["quote_start"], p["quote_end"])

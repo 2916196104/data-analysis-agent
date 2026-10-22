@@ -2,7 +2,6 @@
 
 import argparse
 import json
-import sqlite3
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -13,6 +12,7 @@ if __name__ == "__main__" and not __package__:
 
 from .config import ConfigurationError
 from .review_label_store import init_labeling
+from .database import DATABASE_ERRORS, database_argument, is_postgres
 from .review_loader import ReviewDataError
 from .review_monitor_store import init_monitoring
 from .review_store import init_database
@@ -22,22 +22,24 @@ from .review_workbench_store import init_workbench
 
 
 def default_task_database(db):
+    if is_postgres(db):
+        return db
     db = Path(db).resolve()
     return db.with_name(db.stem + ".tasks.sqlite3")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="商品口碑统一 HTTP API 与 SQLite 后台任务")
+    parser = argparse.ArgumentParser(description="商品口碑统一 HTTP API 与 SQLite / PostgreSQL 后台任务")
     commands = parser.add_subparsers(dest="command", required=True)
-    setup = commands.add_parser("init", help="显式初始化已有业务表和独立任务库，不清空数据")
+    setup = commands.add_parser("init", help="显式初始化业务表和任务表，不清空数据")
     serve = commands.add_parser("serve", help="启动本机 HTTP API，默认同时启动串行 worker")
     worker_command = commands.add_parser("worker", help="仅启动独立 worker，配合 serve --no-worker")
     tasks = commands.add_parser("tasks", help="查询任务列表，不执行任务")
     task = commands.add_parser("task", help="查询单个任务进度、结果与错误")
     retry = commands.add_parser("retry", help="显式重试失败或部分完成的任务，创建关联的新任务")
     for command in (setup, serve, worker_command, tasks, task, retry):
-        command.add_argument("--db", type=Path, required=True)
-        command.add_argument("--task-db", type=Path, help="默认与业务库同目录的 <库名>.tasks.sqlite3")
+        command.add_argument("--db", type=database_argument, required=True)
+        command.add_argument("--task-db", type=database_argument, help="SQLite 默认同目录任务库；PostgreSQL 默认与业务表同库")
     for command in (serve, worker_command, retry):
         command.add_argument("--import-root", type=Path, default=Path("data/private"))
         command.add_argument("--env-file", type=Path, default=Path(".env"))
@@ -100,7 +102,7 @@ def main():
                                 idempotency_key=args.idempotency_key)
         print(json.dumps({"status": "ok", "result": result}, ensure_ascii=False, indent=2, allow_nan=False))
         return 0
-    except (ReviewDataError, ConfigurationError, OSError, sqlite3.Error, ValueError) as exc:
+    except (ReviewDataError, ConfigurationError, OSError, *DATABASE_ERRORS, ValueError) as exc:
         print(json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False))
         return 1
 

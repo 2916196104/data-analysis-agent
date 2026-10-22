@@ -3,6 +3,8 @@
 from contextlib import closing
 from pathlib import Path
 
+from .database import insert_id, table_names
+
 from .review_loader import ReviewDataError
 from .review_scope import current_reviews_sql, model_identity, review_scope
 from .review_store import _connect, _now
@@ -46,10 +48,7 @@ CREATE TABLE review_opinions (
 
 
 def _check_labels(connection):
-    tables = {row[0] for row in connection.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name IN "
-        "('review_labeling_schema','review_annotations','review_opinions')"
-    )}
+    tables = table_names(connection) & {"review_labeling_schema", "review_annotations", "review_opinions"}
     if len(tables) != 3:
         raise ReviewDataError("观点表未初始化，请由你执行 review_label_cli init --db 指定路径。")
     rows = connection.execute("SELECT version FROM review_labeling_schema").fetchall()
@@ -60,10 +59,7 @@ def _check_labels(connection):
 def init_labeling(db_path: str | Path) -> dict:
     """User-invoked setup on an existing review DB; never migrate automatically."""
     with closing(_connect(db_path)) as connection:
-        tables = connection.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name IN "
-            "('review_labeling_schema','review_annotations','review_opinions')"
-        ).fetchall()
+        tables = table_names(connection) & {"review_labeling_schema", "review_annotations", "review_opinions"}
         if tables:
             _check_labels(connection)
             return {"created": False, "label_schema_version": LABEL_SCHEMA_VERSION}
@@ -119,14 +115,14 @@ def save_annotation(db_path, review, *, model, base_url, prompt_version, status,
                     raise ReviewDataError("观点原文位置与正文不一致，结果未保存。")
             if status == "failed" and opinions:
                 raise ReviewDataError("失败的标注不能保存观点。")
-            annotation_id = connection.execute(
+            annotation_id = insert_id(connection,
                 """INSERT INTO review_annotations
                 (review_id, content_sha256, requested_model, base_url, prompt_version, status,
                  model_version, response_id, error_code, input_tokens, output_tokens, total_tokens,
                  elapsed_ms, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (*key, status, model_version, response_id, error_code, usage.get("input_tokens"),
                  usage.get("output_tokens"), usage.get("total_tokens"), elapsed_ms, _now()),
-            ).lastrowid
+            )
             connection.executemany(
                 """INSERT INTO review_opinions
                 (annotation_id, aspect, sentiment, quote, quote_start, quote_end) VALUES (?,?,?,?,?,?)""",
@@ -146,13 +142,13 @@ def labeling_status(db_path, *, product_ids=None, date_from=None, date_to=None, 
         _check_labels(connection)
         with connection:
             connection.execute("BEGIN")
-            total = connection.execute("SELECT COUNT(*), COALESCE(SUM(r.has_text=1),0) FROM reviews r WHERE "
+            total = connection.execute("SELECT COUNT(*), COALESCE(SUM(CASE WHEN r.has_text=1 THEN 1 ELSE 0 END),0) FROM reviews r WHERE "
                                        + where, filters).fetchone()
             profiles = []
             profile_filter = " AND a.requested_model=? AND a.base_url=? AND a.prompt_version=?" if identity else ""
             rows = connection.execute(
                 """SELECT a.requested_model, a.base_url, a.prompt_version,
-                SUM(a.status='success') AS successful_attempts, SUM(a.status='failed') AS failed_attempts,
+                SUM(CASE WHEN a.status='success' THEN 1 ELSE 0 END) AS successful_attempts, SUM(CASE WHEN a.status='failed' THEN 1 ELSE 0 END) AS failed_attempts,
                 COUNT(*) AS attempts FROM review_annotations a JOIN reviews r ON r.id=a.review_id WHERE """
                 + where + profile_filter + " GROUP BY a.requested_model, a.base_url, a.prompt_version "
                 "ORDER BY a.requested_model, a.base_url, a.prompt_version", (*filters, *(identity or ()))
@@ -161,14 +157,16 @@ def labeling_status(db_path, *, product_ids=None, date_from=None, date_to=None, 
                 rows = [{"requested_model": identity[0], "base_url": identity[1], "prompt_version": identity[2],
                          "successful_attempts": 0, "failed_attempts": 0, "attempts": 0}]
             current_where, current_filters, _ = review_scope(**{k: v for k, v in scope.items() if k != "timezone"}, alias="c")
-            for profile in rows:
+            # Keep API order independent of the database's locale/collation.
+            for profile in sorted(rows, key=lambda row: tuple(row[key] for key in (
+                    "requested_model", "base_url", "prompt_version"))):
                 item = dict(profile)
                 profile_identity = (item["requested_model"], item["base_url"], item["prompt_version"])
                 cte, parameters = current_reviews_sql(connection, profile_identity)
                 counts = connection.execute(
-                    cte + """SELECT COALESCE(SUM(processing_status='success'),0),
-                    COALESCE(SUM(processing_status='failed'),0), COALESCE(SUM(processing_status='pending'),0),
-                    COALESCE(SUM(revision_id IS NOT NULL),0) FROM current c WHERE """ + current_where,
+                    cte + """SELECT COALESCE(SUM(CASE WHEN processing_status='success' THEN 1 ELSE 0 END),0),
+                    COALESCE(SUM(CASE WHEN processing_status='failed' THEN 1 ELSE 0 END),0), COALESCE(SUM(CASE WHEN processing_status='pending' THEN 1 ELSE 0 END),0),
+                    COALESCE(SUM(CASE WHEN revision_id IS NOT NULL THEN 1 ELSE 0 END),0) FROM current c WHERE """ + current_where,
                     (*parameters, *current_filters)
                 ).fetchone()
                 item["successful_reviews"], item["failed_reviews"], item["unprocessed_reviews"], item["reviewed_reviews"] = counts

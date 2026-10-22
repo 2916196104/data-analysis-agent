@@ -3,6 +3,8 @@
 import re
 from datetime import date, datetime, timedelta, timezone
 
+from .database import table_names
+
 from .review_loader import ReviewDataError
 
 
@@ -69,7 +71,7 @@ def review_scope(*, product_ids=None, date_from=None, date_to=None, as_of=None,
         values.append(timestamp)
     scope = {"product_ids": products, "source": source, "dataset_version": dataset_version,
              "date_from": date_from, "date_to": date_to, "as_of": cutoff, "timezone": "UTC"}
-    return " AND ".join(conditions) or "1", values, scope
+    return " AND ".join(conditions) or "TRUE", values, scope
 
 
 def model_identity(model, base_url, prompt_version, *, required=False):
@@ -84,8 +86,7 @@ def model_identity(model, base_url, prompt_version, *, required=False):
 def current_reviews_sql(connection, identity):
     """Use current content and one profile; an empty human snapshot stays empty."""
     expected = {"review_workbench_schema", "review_human_reviews", "review_human_opinions"}
-    names = {row[0] for row in connection.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name IN (?,?,?)", tuple(expected))}
+    names = table_names(connection) & expected
     if names:
         if names != expected:
             raise ReviewDataError("人工复核表不完整，请检查工作台数据库结构。")

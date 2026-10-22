@@ -4,7 +4,6 @@ import argparse
 import json
 import re
 import secrets
-import sqlite3
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -14,6 +13,7 @@ if __name__ == "__main__" and not __package__:
 
     __package__ = prepare_direct_run(__file__)
 
+from .database import DATABASE_ERRORS, database_argument, database_target
 from .review_loader import ReviewDataError, _unique_object, _reject_constant
 from .review_workbench_store import (
     ReviewConflict, ReviewNotFound, check_workbench, init_workbench, list_reviews,
@@ -118,7 +118,7 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             self._send(404, {"error": str(exc)})
         except (ReviewDataError, ValueError, UnicodeError, RecursionError) as exc:
             self._send(400, {"error": str(exc) if isinstance(exc, ReviewDataError) else "请求格式错误。"})
-        except sqlite3.Error:
+        except DATABASE_ERRORS:
             self._send(503, {"error": "数据库暂不可用，请稍后重试；若持续出现，请检查数据库结构。"})
         except OSError:
             self._send(500, {"error": "工作台文件读取失败。"})
@@ -133,7 +133,7 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
 def create_server(db_path, port=8765):
     check_workbench(db_path)
     server = ThreadingHTTPServer(("127.0.0.1", port), WorkbenchHandler)
-    server.db_path = Path(db_path).resolve()
+    server.db_path = database_target(db_path)
     server.csrf_token = secrets.token_urlsafe(32)
     return server
 
@@ -144,7 +144,7 @@ def main():
     setup = commands.add_parser("init", help="由你显式增加工作台表，保留已有模型记录")
     serve = commands.add_parser("serve", help="启动本机网页，不会升级数据库或调用模型")
     for command in (setup, serve):
-        command.add_argument("--db", required=True, type=Path)
+        command.add_argument("--db", required=True, type=database_argument)
     serve.add_argument("--port", default=8765, type=int)
     args = parser.parse_args()
     if args.command == "serve" and not 1 <= args.port <= 65535:
@@ -158,7 +158,7 @@ def main():
                 server.serve_forever()
     except KeyboardInterrupt:
         return 0
-    except (ReviewDataError, sqlite3.Error, OSError) as exc:
+    except (ReviewDataError, *DATABASE_ERRORS, OSError) as exc:
         print(json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False))
         return 1
     return 0

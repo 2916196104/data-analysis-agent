@@ -2,7 +2,6 @@
 
 import logging
 import os
-import sqlite3
 import threading
 import uuid
 from pathlib import Path
@@ -10,6 +9,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from .config import AgentSettings, ConfigurationError, read_settings
+from .database import DATABASE_ERRORS, PostgresConnection, database_target, is_postgres
 from .review_api_schemas import AnalysisParameters, ImportParameters, LabelParameters, ReplayParameters
 from .review_labeler import PROMPT_VERSION, run_labeling
 from .review_loader import ReviewDataError
@@ -75,13 +75,25 @@ def retry_task(task_db, task_id, *, import_root, env_file, idempotency_key=None)
 
 
 class WorkerLock:
-    """OS locks are released on process death, without stealing a live worker's lease."""
+    """Hold an OS file lock or PostgreSQL session lock for the worker's lifetime."""
 
     def __init__(self, business_db):
-        self.path = Path(str(Path(business_db).resolve()) + ".worker.lock")
+        self.business_db = database_target(business_db)
+        self.path = None if is_postgres(business_db) else Path(str(self.business_db) + ".worker.lock")
         self.handle = None
 
     def acquire(self):
+        if is_postgres(self.business_db):
+            connection = PostgresConnection(self.business_db, namespace="worker")
+            try:
+                acquired = connection.execute("SELECT pg_try_advisory_lock(?)", (connection._lock_key(),)).fetchone()[0]
+                if not acquired:
+                    raise TaskConflict("该业务库已有后台 worker；请停止旧 worker，或用 serve --no-worker 连接它。")
+            except Exception:
+                connection.close()
+                raise
+            self.handle = connection
+            return
         handle = self.path.open("a+b")
         if handle.seek(0, os.SEEK_END) == 0:
             handle.write(b"0")
@@ -104,6 +116,10 @@ class WorkerLock:
     def release(self):
         if self.handle is not None:
             handle = self.handle
+            if isinstance(handle, PostgresConnection):
+                handle.close()
+                self.handle = None
+                return
             try:
                 handle.seek(0)
                 if os.name == "nt":
@@ -121,8 +137,8 @@ class WorkerLock:
 
 class TaskWorker:
     def __init__(self, business_db, task_db, *, import_root, env_file):
-        self.business_db = Path(business_db).resolve()
-        self.task_db = Path(task_db).resolve()
+        self.business_db = database_target(business_db)
+        self.task_db = database_target(task_db)
         self.import_root = Path(import_root).resolve()
         self.env_file = Path(env_file).resolve()
         self.worker_id = uuid.uuid4().hex
@@ -165,6 +181,8 @@ class TaskWorker:
         pulse.start()
         try:
             while not self.stop_requested.is_set():
+                if isinstance(self.lock.handle, PostgresConnection):
+                    self.lock.handle.execute("SELECT 1")
                 task = claim_task(self.task_db, self.worker_id)
                 if task is None:
                     self.stop_requested.wait(1)
@@ -184,6 +202,8 @@ class TaskWorker:
 
     def _execute(self, task):
         def progress(value):
+            if isinstance(self.lock.handle, PostgresConnection):
+                self.lock.handle.execute("SELECT 1")
             if self.stop_requested.is_set():
                 raise TaskInterrupted()
             update_progress(self.task_db, task["task_id"], self.worker_id, value)
@@ -222,7 +242,7 @@ class TaskWorker:
             elif isinstance(exc, (ConfigurationError, ReviewDataError)):
                 error = {"code": "configuration_error" if isinstance(exc, ConfigurationError) else "business_error",
                          "message": str(exc)}
-            elif isinstance(exc, sqlite3.Error):
+            elif isinstance(exc, DATABASE_ERRORS):
                 error = {"code": "database_error", "message": "数据库忙、结构不匹配或写入失败，请检查后重试。"}
             elif isinstance(exc, OSError):
                 error = {"code": "file_error", "message": "文件读写失败，请检查导入文件、磁盘和目录权限。"}

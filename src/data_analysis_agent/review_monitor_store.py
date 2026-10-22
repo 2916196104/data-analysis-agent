@@ -5,6 +5,8 @@ import json
 from contextlib import closing
 from datetime import datetime
 
+from .database import insert_id, table_names
+
 from .review_label_store import _check_labels
 from .review_labeler import ASPECTS
 from .review_loader import ReviewDataError
@@ -85,8 +87,7 @@ def _text(value, name, maximum=200, allow_empty=False):
 
 def _check_monitor(connection):
     _check_labels(connection)
-    names = {r[0] for r in connection.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name IN (?,?,?,?,?)", TABLES)}
+    names = table_names(connection) & set(TABLES)
     if names != set(TABLES):
         raise ReviewDataError("监控表未初始化或不完整，请执行 review_monitor_cli init 或检查数据库结构。")
     versions = connection.execute("SELECT version FROM review_monitor_schema").fetchall()
@@ -99,8 +100,7 @@ def init_monitoring(db_path):
     with closing(_connect(db_path)) as connection, connection:
         connection.execute("BEGIN IMMEDIATE")
         _check_labels(connection)
-        if connection.execute(
-                "SELECT 1 FROM sqlite_master WHERE name IN (?,?,?,?,?)", TABLES).fetchone():
+        if table_names(connection) & set(TABLES):
             _check_monitor(connection)
             return {"created": False, "monitor_schema_version": 1}
         for statement in SCHEMA.split(";"):
@@ -160,14 +160,14 @@ def _attach_alert(connection, *, run_id, as_of, request, product, evaluation):
     now = _now()
     if merge:
         alert_id = row["id"]
-        connection.execute("UPDATE review_alerts SET last_seen=MAX(last_seen,?),updated_at=? WHERE id=?",
-                           (as_of, now, alert_id))
+        connection.execute("UPDATE review_alerts SET last_seen=CASE WHEN last_seen>? THEN last_seen ELSE ? END,updated_at=? WHERE id=?",
+                           (as_of, as_of, now, alert_id))
     else:
-        alert_id = connection.execute(
+        alert_id = insert_id(connection,
             "INSERT INTO review_alerts(series_key,source,dataset_version,product_id,aspect,"
             "first_seen,last_seen,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'pending',?,?)",
             (series, product["source"], product["dataset_version"], product["product_id"],
-             evaluation["aspect"], as_of, as_of, now, now)).lastrowid
+             evaluation["aspect"], as_of, as_of, now, now))
     connection.execute(
         "INSERT INTO review_alert_occurrences(alert_id,run_id,series_key,detected_at,is_new_alert,details_json) "
         "VALUES (?,?,?,?,?,?)",
@@ -182,7 +182,7 @@ def list_alerts(db_path, *, status=None, product_id=None, aspect=None, source=No
         raise ReviewDataError("status 必须是 pending、confirmed 或 ignored。")
     if aspect is not None and (not isinstance(aspect, str) or aspect not in ASPECTS):
         raise ReviewDataError("aspect 必须是六个有效维度之一。")
-    clauses, values = ["1"], []
+    clauses, values = ["TRUE"], []
     for name, value in (("status", status), ("product_id", product_id), ("aspect", aspect),
                         ("source", source), ("dataset_version", dataset_version)):
         if value is not None:

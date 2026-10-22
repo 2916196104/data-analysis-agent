@@ -32,7 +32,8 @@ class DirectRunTests(unittest.TestCase):
 
     def test_all_direct_entries_without_arguments_show_help(self):
         for name in ("review_cli", "review_label_cli", "review_analysis_cli",
-                     "review_monitor_cli", "review_workbench", "agent_cli", "main", "__main__"):
+                     "review_monitor_cli", "review_workbench", "review_api_cli", "review_migrate",
+                     "agent_cli", "main", "__main__"):
             with self.subTest(entry=name):
                 result = self.run_cli(name)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

@@ -1,10 +1,13 @@
-"""Explicitly initialized SQLite storage, atomic imports and row-level evidence."""
+"""SQLite/PostgreSQL storage, explicit setup, atomic imports and row-level evidence."""
 
 import json
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
+
+from .database import (PostgresConnection, check_postgres_schema, database_identity,
+                       database_target, init_postgres, insert_id, is_postgres)
 
 from .review_loader import (
     DATASET_VERSION, SOURCE, ReviewDataError, content_sha256, file_sha256,
@@ -75,14 +78,25 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
 
-def _check_schema(connection: sqlite3.Connection) -> None:
+def _check_schema(connection: sqlite3.Connection | PostgresConnection) -> None:
+    if isinstance(connection, PostgresConnection):
+        check_postgres_schema(connection, "business")
+        return
     version = connection.execute("PRAGMA user_version").fetchone()[0]
     app_id = connection.execute("PRAGMA application_id").fetchone()[0]
     if version != SCHEMA_VERSION or app_id != APPLICATION_ID:
         raise ReviewDataError("数据库不是受支持的评论库；请使用 init 初始化专用数据库。")
 
 
-def _connect(db_path: str | Path, *, readonly: bool = False) -> sqlite3.Connection:
+def _connect(db_path: str | Path, *, readonly: bool = False) -> sqlite3.Connection | PostgresConnection:
+    if is_postgres(db_path):
+        connection = PostgresConnection(db_path, readonly=readonly)
+        try:
+            _check_schema(connection)
+        except Exception:
+            connection.close()
+            raise
+        return connection
     path = Path(db_path).resolve()
     if not path.is_file():
         raise ReviewDataError("评论数据库不存在，请先执行 init --db 指定路径。")
@@ -100,6 +114,9 @@ def _connect(db_path: str | Path, *, readonly: bool = False) -> sqlite3.Connecti
 
 def init_database(db_path: str | Path) -> dict:
     """Initialize a new, explicitly chosen database; refuse unrelated databases."""
+    if is_postgres(db_path):
+        return {"database": database_identity(db_path), "schema_version": SCHEMA_VERSION,
+                "created": init_postgres(db_path, SCHEMA)}
     path = Path(db_path).resolve()
     if not path.parent.is_dir():
         raise ReviewDataError("数据库父目录不存在，请先创建目录。")
@@ -181,10 +198,10 @@ def _import_file(connection, path, kind, version, product_ids, progress=None, ma
         progress({"stage": "hashing_" + kind, "completed": 0, "total": None, "unit": "lines"})
     fingerprint = file_sha256(path)
     started = _now()
-    run_id = connection.execute(
+    run_id = insert_id(connection,
         """INSERT INTO import_runs(source, dataset_version, kind, file_path, file_sha256, started_at)
         VALUES (?, ?, ?, ?, ?, ?)""", (SOURCE, version, kind, str(path), fingerprint, started),
-    ).lastrowid
+    )
     counts = {name: 0 for name in
               ("total_lines", "blank_lines", "filtered_records", "inserted_records", "duplicate_records",
                "invalid_records", "empty_text_records", "missing_rating_records", "missing_user_id_records")}
@@ -260,15 +277,15 @@ def _import_file(connection, path, kind, version, product_ids, progress=None, ma
 def _quality_summary(connection):
     reviews = dict(connection.execute(
         """SELECT COUNT(*) AS review_count,
-        COALESCE(SUM(has_text=0), 0) AS empty_text_count,
-        COALESCE(SUM(rating IS NULL), 0) AS missing_rating_count,
-        COALESCE(SUM(user_id=''), 0) AS missing_user_id_count,
+        COALESCE(SUM(CASE WHEN has_text=0 THEN 1 ELSE 0 END), 0) AS empty_text_count,
+        COALESCE(SUM(CASE WHEN rating IS NULL THEN 1 ELSE 0 END), 0) AS missing_rating_count,
+        COALESCE(SUM(CASE WHEN user_id='' THEN 1 ELSE 0 END), 0) AS missing_user_id_count,
         MIN(published_at) AS published_at_start, MAX(published_at) AS published_at_end FROM reviews"""
     ).fetchone())
     products = dict(connection.execute(
         """SELECT COUNT(*) AS product_count,
-        COALESCE(SUM(raw_json IS NULL), 0) AS products_without_metadata,
-        COALESCE(SUM(raw_json IS NOT NULL AND length(trim(title))=0), 0) AS metadata_without_title
+        COALESCE(SUM(CASE WHEN raw_json IS NULL THEN 1 ELSE 0 END), 0) AS products_without_metadata,
+        COALESCE(SUM(CASE WHEN raw_json IS NOT NULL AND length(trim(title))=0 THEN 1 ELSE 0 END), 0) AS metadata_without_title
         FROM products"""
     ).fetchone())
     missing_metadata = connection.execute(
@@ -282,7 +299,7 @@ def _quality_summary(connection):
         "rejected_record_count": connection.execute("SELECT COUNT(*) FROM import_errors").fetchone()[0],
         "product_sample": [dict(row) for row in connection.execute(
             """SELECT p.source, p.dataset_version, p.product_id, p.title,
-            (p.raw_json IS NOT NULL) AS has_metadata, COUNT(r.id) AS review_count,
+            CASE WHEN p.raw_json IS NOT NULL THEN 1 ELSE 0 END AS has_metadata, COUNT(r.id) AS review_count,
             MIN(r.published_at) AS published_at_start, MAX(r.published_at) AS published_at_end
             FROM products p LEFT JOIN reviews r ON
             (r.source=p.source AND r.dataset_version=p.dataset_version AND r.product_id=p.product_id)
@@ -311,9 +328,9 @@ def import_amazon_jsonl(db_path: str | Path, *, reviews_path: str | Path | None 
              if path is not None]
     if not files:
         raise ReviewDataError("至少指定一个评论文件或商品元数据文件。")
-    database = Path(db_path).resolve()
+    database = database_target(db_path)
     for _, path in files:
-        if path in {database, Path(str(database) + "-journal"), Path(str(database) + "-wal"),
+        if not is_postgres(database) and path in {database, Path(str(database) + "-journal"), Path(str(database) + "-wal"),
                     Path(str(database) + "-shm")}:
             raise ReviewDataError("输入路径不能与数据库及其辅助文件相同。")
         if not path.is_file():
@@ -327,7 +344,7 @@ def import_amazon_jsonl(db_path: str | Path, *, reviews_path: str | Path | None 
     if progress:
         progress({"stage": "imported", "completed": len(files), "total": len(files), "unit": "files"})
     return {"status": "partial" if any(item["status"] == "partial" for item in imports) else "ok",
-            "database": str(database), "imports": imports, "quality": quality}
+            "database": database_identity(database), "imports": imports, "quality": quality}
 
 
 def get_quality_summary(db_path: str | Path) -> dict:

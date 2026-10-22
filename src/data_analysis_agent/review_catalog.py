@@ -6,7 +6,7 @@ from .review_store import _connect
 
 
 def list_products(db_path, *, page=1, page_size=20, source=None, dataset_version=None):
-    conditions, values = ["1"], []
+    conditions, values = ["TRUE"], []
     for name, value in (("source", source), ("dataset_version", dataset_version)):
         if value is not None:
             conditions.append(f"p.{name}=?")

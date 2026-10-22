@@ -1,5 +1,7 @@
 # 观数 · 评论分析工作台
 
+后端现支持 SQLite / PostgreSQL，前端接口和配置保持一致。PostgreSQL 配置及旧数据迁移见 [数据库接入说明](../docs/postgresql.md)；后端启动示例中的 `--db data/private/reviews.sqlite3` 可改为 `--db env:DATABASE_URL`。数据库凭据只配置在后端。
+
 独立的 React + TypeScript + Vite + Ant Design + ECharts 前端，接入现有 `/api/v1` 评论服务，界面为简体中文。无需修改 Python 业务代码。
 
 目前 HTTP 服务支持结构化评论统计。问题输入是**本机任务备注**，不会交给模型理解。数据导入使用**服务端文件相对路径**；下载是浏览器对后端真实 JSON 的导出。没有伪造上传、聊天、进度或服务器文件下载接口。
