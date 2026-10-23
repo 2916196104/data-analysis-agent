@@ -101,7 +101,7 @@ outputs/<run_id>/
 │   └── report.json
 ├── sales_by_product.png         # 仅在相应工具执行后生成
 ├── report.md                    # 包含统计表、图表和来源结果引用
-└── outcome.json                 # ok / unsupported / error，已有结果和耗时
+└── outcome.json                 # 状态值：ok / unsupported / error，已有结果和耗时
 ```
 
 结果记录含 `source_sha256` 和 `source_result_ids`，因此能沿“报告 → 统计/图表结果 → 数据指纹 → 原文件”复核。`model_calls` 记录模型逻辑调用数，`model_responses` 记录返回的模型响应数；SDK 内部 HTTP 重试不单独计为模型调用。服务未返回用量时 `usage` 为 `null`，不将其报告为零消耗。轨迹不保存私有思考过程或原始模型异常正文。

@@ -6,7 +6,7 @@ import {
 import {
   ArrowLeftOutlined, BarChartOutlined, CheckOutlined, DatabaseOutlined, DownloadOutlined,
   FileTextOutlined, FolderOpenOutlined, HistoryOutlined, ImportOutlined, MenuOutlined,
-  PlusOutlined, ReloadOutlined,
+  MenuFoldOutlined, MenuUnfoldOutlined, PlusOutlined, ReloadOutlined,
 } from '@ant-design/icons';
 import { api, API_BASE, errorMessage } from './api';
 import Composer from './Composer';
@@ -68,6 +68,7 @@ export default function App() {
   const [storageError, setStorageError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [detail, setDetail] = useState<{ title: string; value: unknown }>();
   const [importOpen, setImportOpen] = useState(false);
@@ -303,27 +304,28 @@ export default function App() {
   };
   const showDetail = (value: unknown, title: string) => setDetail({ title, value });
   const side = <>
-    <div className="brand"><div className="brand-mark"><BarChartOutlined /></div><div><strong>观数</strong><span>评论分析工作台</span></div></div>
-    <Button aria-label="新建分析" className="new-button" type="primary" block icon={<PlusOutlined />} onClick={() => selectTask(null)}>分析工作台</Button>
-    <div className="nav-caption"><HistoryOutlined /> 最近任务</div>
+    <div className="brand"><div className="brand-mark"><BarChartOutlined /></div><div className="brand-copy"><strong>观数</strong><span>评论分析工作台</span></div><Button className="sidebar-toggle" type="text" aria-label={sidebarCollapsed ? '展开历史侧栏' : '收起历史侧栏'} title={sidebarCollapsed ? '展开历史侧栏' : '收起历史侧栏'} aria-expanded={!sidebarCollapsed} icon={sidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={() => setSidebarCollapsed(previous => !previous)} /></div>
+    <Button aria-label="新建分析" title="新建分析" className="new-button" type="primary" block icon={<PlusOutlined />} onClick={() => selectTask(null)}><span className="sidebar-label">新建分析</span></Button>
+    <Button className="history-shortcut" type="text" block aria-label="查看历史记录" title="查看历史记录" icon={<HistoryOutlined />} onClick={() => setSidebarCollapsed(false)} />
+    <div className="nav-caption"><HistoryOutlined /><span className="sidebar-label">最近任务</span></div>
     <div className="history-list">
       {historyError && <Alert type="warning" message="历史暂不可用" description={historyError} action={<Button size="small" onClick={() => void fetchHistory()}>重试</Button>} />}
       {!history?.items.length && !historyError && <div className="history-empty">还没有分析记录<br /><span>开始一次分析，结果将在这里保留</span></div>}
-      {history?.items.map(item => <button key={item.task_id} className={`history-item ${local.selected === item.task_id ? 'selected' : ''}`} onClick={() => selectTask(item.task_id)}>
+      {history?.items.map(item => <button key={item.task_id} aria-current={local.selected === item.task_id ? 'page' : undefined} title={local.notes[item.task_id] || kindLabels[item.kind]} className={`history-item ${local.selected === item.task_id ? 'selected' : ''}`} onClick={() => selectTask(item.task_id)}>
         <div className="history-title"><FileTextOutlined /><span>{local.notes[item.task_id] || kindLabels[item.kind]}</span></div>
         <div className="history-meta"><span>{dateLabel(item.created_at)}</span><span className={`task-state ${item.status}`}>{statusLabels[item.status]}</span></div>
       </button>)}
     </div>
     {!!history?.total && history.total > 15 && <Pagination simple size="small" current={page} total={history.total} pageSize={15} onChange={setPage} />}
-    <div className="sidebar-bottom"><div className="nav-caption"><DatabaseOutlined /> 当前数据集</div>
-      <div className="dataset-tile"><div className="dataset-icon"><DatabaseOutlined /></div><div><strong>{productSummary(currentProducts, task?.parameters.dataset_version as string).split(' · ')[0]}</strong><span>{productSummary(currentProducts, task?.parameters.dataset_version as string).split(' · ').slice(1).join(' · ')}</span></div></div>
-      <Button aria-label="从服务端目录导入" block icon={<ImportOutlined />} onClick={() => { setSubmitError(''); setImportOpen(true); }}>从服务端目录导入</Button>
-      <Button className="spaced" block icon={<CheckOutlined />} onClick={openLabel}>准备数据</Button>
+    <div className="sidebar-bottom"><div className="nav-caption"><DatabaseOutlined /><span className="sidebar-label">当前数据集</span></div>
+      <div className="dataset-tile"><div className="dataset-icon"><DatabaseOutlined /></div><div className="sidebar-label"><strong>{productSummary(currentProducts, task?.parameters.dataset_version as string).split(' · ')[0]}</strong><span>{productSummary(currentProducts, task?.parameters.dataset_version as string).split(' · ').slice(1).join(' · ')}</span></div></div>
+      <Button aria-label="从服务端目录导入" title="从服务端目录导入" block icon={<ImportOutlined />} onClick={() => { setSubmitError(''); setNavOpen(false); setImportOpen(true); }}><span className="sidebar-label">从服务端目录导入</span></Button>
+      <Button aria-label="准备数据" title="准备数据" className="spaced" block icon={<CheckOutlined />} onClick={openLabel}><span className="sidebar-label">准备数据</span></Button>
       <p className="local-note"><span className="status-dot" /> 本机工作空间</p>
     </div>
   </>;
   return <div className="workbench">
-    <aside className="desktop-sidebar">{side}</aside>
+    <aside className={`desktop-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>{side}</aside>
     <Drawer title="工作空间" placement="left" width={280} open={navOpen} onClose={() => setNavOpen(false)} className="mobile-nav">{side}</Drawer>
     <div className="workspace-main">
       <header className="topbar"><div className="breadcrumb"><Button className="mobile-menu" type="text" aria-label="展开侧栏" icon={<MenuOutlined />} onClick={() => setNavOpen(true)} /><span>工作空间</span><span className="breadcrumb-slash">/</span><strong>分析工作台</strong></div>

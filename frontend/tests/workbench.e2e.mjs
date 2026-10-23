@@ -118,6 +118,22 @@ try {
   assert.equal(await page.getByRole('combobox', { name: '标注版本', exact: true }).isVisible(), false);
   const startBox = await page.getByRole('button', { name: '开始分析', exact: true }).boundingBox();
   assert.ok(startBox && startBox.y + startBox.height <= 768, 'main action must fit above the fold');
+  // History remains readable when expanded; collapsing frees space at both desktop widths.
+  const sidebar = page.locator('.desktop-sidebar');
+  await page.screenshot({ path: path.join(artifacts, 'sidebar-expanded.png'), animations: 'disabled' });
+  const expandedMain = await page.locator('.workspace-main').boundingBox();
+  await page.getByRole('button', { name: '收起历史侧栏', exact: true }).click();
+  await until(async () => (await sidebar.boundingBox()).width === 76, 'sidebar collapsed');
+  assert.ok((await page.locator('.workspace-main').boundingBox()).width > expandedMain.width);
+  assert.equal(await sidebar.locator('.history-list').isVisible(), false);
+  await page.screenshot({ path: path.join(artifacts, 'sidebar-collapsed.png'), animations: 'disabled' });
+  await page.setViewportSize({ width: 1024, height: 768 });
+  assert.equal((await sidebar.boundingBox()).width, 76);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'collapsed layout overflows');
+  await page.getByRole('button', { name: '查看历史记录', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await until(async () => (await sidebar.boundingBox()).width === 240, 'history restored by keyboard');
+  await page.setViewportSize({ width: 1366, height: 768 });
   await writeFile(path.join(artifacts, 'initial-ui.txt'), await page.locator('body').innerText());
   await page.screenshot({ path: path.join(artifacts, '01-workbench.png'), fullPage: true });
 
@@ -311,8 +327,11 @@ try {
     file_rows: 3, imported: importedRows, labeled: persisted, duplicate_import: { inserted: 0, duplicates: 2 }, model_calls: modelCalls, max_concurrency: maxConcurrentCalls }, null, 2));
 
   // Narrow layout has an accessible collapsible sidebar and no body overflow.
+  await page.getByRole('button', { name: '收起历史侧栏', exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: '展开侧栏', exact: true }).click();
+  await page.locator('.mobile-nav .history-item').first().waitFor();
+  await page.screenshot({ path: path.join(artifacts, 'sidebar-mobile.png'), animations: 'disabled' });
   await page.getByRole('button', { name: '新建分析', exact: true }).click();
   await page.getByRole('button', { name: '新建分析', exact: true }).waitFor({ state: 'hidden' });
   await page.getByRole('button', { name: '开始分析', exact: true }).waitFor();
@@ -335,7 +354,8 @@ try {
       'JSON download equality', 'reload recovery', 'network reconnect', 'worker failure', 'explicit retry', 'limited server file import',
       'label parameter validation', 'label product scope', 'label live progress', 'label concurrency', 'label reload recovery', 'label skip completed',
       'database import rows', 'database annotations and opinions', 'duplicate import', 'label to analysis scope', 'mobile sidebar', 'backend operation logs',
-      'advanced parameters collapsed', 'main action above fold at 1366x768', 'draft reload recovery', 'one click prepared analysis'],
+      'advanced parameters collapsed', 'main action above fold at 1366x768', 'draft reload recovery', 'one click prepared analysis',
+      'desktop sidebar collapse at 1366 and 1024', 'keyboard history expand', 'mobile history after desktop collapse'],
     browser_errors: browserErrors, artifacts };
   await writeFile(path.join(artifacts, 'acceptance.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
