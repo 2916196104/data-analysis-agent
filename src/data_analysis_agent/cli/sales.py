@@ -1,4 +1,4 @@
-"""Command-line entry for sales.workflow."""
+"""sales.workflow 的命令行入口。"""
 
 import argparse
 import json
@@ -16,7 +16,7 @@ from data_analysis_agent.sales.workflow import run_analysis
 
 
 def main() -> int:
-    """Run the CLI, returning zero on success and one for data or file errors."""
+    """运行 CLI；成功返回 0，数据或文件错误返回 1。"""
     parser = argparse.ArgumentParser(description="本地 CSV/Excel 销售数据分析")
     parser.add_argument(
         "--input", type=Path, default=Path("data/samples/sales_mock.csv"),

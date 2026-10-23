@@ -1,4 +1,4 @@
-"""JSON command-line entry for read-only review business tools."""
+"""只读评论业务工具的 JSON 命令行入口。"""
 
 import argparse
 import json

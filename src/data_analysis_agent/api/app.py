@@ -1,4 +1,4 @@
-"""Assemble the local API, lifecycle, common error handling and request policy."""
+"""组装本地 API、生命周期、通用错误处理和请求策略。"""
 
 import logging
 import sqlite3

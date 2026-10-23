@@ -1,4 +1,4 @@
-"""Streaming Amazon Reviews 2023 JSONL parsing and record validation."""
+"""Amazon Reviews 2023 JSONL 的流式解析和记录校验。"""
 
 import gzip
 import hashlib
@@ -26,7 +26,7 @@ class JsonlLine:
 
 
 def file_sha256(path: Path) -> str:
-    """Hash original file bytes, including compressed bytes for gzip inputs."""
+    """对原始文件字节计算哈希，gzip 输入还包括压缩后的字节。"""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -35,7 +35,7 @@ def file_sha256(path: Path) -> str:
 
 
 def iter_jsonl(path: str | Path) -> Iterator[JsonlLine]:
-    """Yield one physical line at a time, preserving bad lines for diagnostics.
+    """逐次产出一行物理行，并保留错误行用于诊断。
 
     A blank line has neither data nor error. JSON syntax/encoding failures are
     row errors; file and decompression errors propagate to roll back the import.
@@ -55,7 +55,7 @@ def iter_jsonl(path: str | Path) -> Iterator[JsonlLine]:
                 data = strict_json_loads(text)
                 if not isinstance(data, dict):
                     raise ValueError("每行必须是一个 JSON 对象。")
-                # Reject escaped lone surrogates and overflowing floats before SQLite encoding.
+                # 在 SQLite 编码前拒绝转义的孤立代理项和溢出浮点数。
                 json.dumps(data, ensure_ascii=False, allow_nan=False).encode("utf-8")
             except UnicodeError:
                 yield JsonlLine(number, raw, text, None, "记录必须使用 UTF-8 编码。")
@@ -73,7 +73,7 @@ def _text(data: dict, field: str, *, required: bool = False) -> str:
 
 
 def normalize_review(data: dict) -> dict:
-    """Preserve review text; normalize Amazon millisecond timestamps to UTC."""
+    """保留评论正文；将 Amazon 的毫秒时间戳规范化为 UTC。"""
     product_id = _text(data, "parent_asin", required=True).strip()
     text, title = _text(data, "text"), _text(data, "title")
     timestamp = data.get("timestamp", data.get("sort_timestamp"))

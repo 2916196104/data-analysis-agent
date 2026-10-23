@@ -1,4 +1,4 @@
-"""Offline opinion-labeling tests using the real SDK and scripted HTTP transport."""
+"""使用真实 SDK 和脚本化 HTTP 传输的离线观点标注测试。"""
 
 import io
 import json

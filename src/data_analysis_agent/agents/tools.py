@@ -1,4 +1,4 @@
-"""Four narrow HelloAgents tools bound to one application-selected dataset."""
+"""绑定到应用选定数据集的四个窄范围 HelloAgents 工具。"""
 
 from contextlib import redirect_stdout
 from copy import deepcopy
@@ -16,7 +16,7 @@ from data_analysis_agent.sales.reporting import generate_sales_chart, write_mark
 
 
 class SalesToolContext:
-    """Run-local data, stored results and fixed output paths; never model-supplied paths."""
+    """运行期间的数据、已保存结果和固定输出路径；绝不使用模型提供的路径。"""
 
     def __init__(self, records: list[SalesRecord], source: dict, run_dir: Path,
                  max_tool_calls: int = 12, secret: str = ""):
@@ -50,7 +50,7 @@ class SalesToolContext:
         return deepcopy(result)
 
     def inspect_dataset(self) -> dict:
-        """Return field names and a computed overview, without exposing raw sales rows."""
+        """返回字段名和计算后的概览，不暴露原始销售行。"""
         return self.save_result("overview", "overview", {
             "fields": list(REQUIRED_FIELDS),
             "overview": get_data_overview(self.records),
@@ -58,7 +58,7 @@ class SalesToolContext:
         })
 
     def summarize_sales(self) -> dict:
-        """Return exact product totals computed by the existing analysis functions."""
+        """返回现有分析函数计算出的精确商品汇总。"""
         totals = summarize_sales_by_product(self.records)
         overview = get_data_overview(self.records)
         if sum((Decimal(value) for value in totals.values()), Decimal(0)) != Decimal(overview["total_sales"]):
@@ -66,7 +66,7 @@ class SalesToolContext:
         return self.save_result("sales_by_product", "summary", {"sales_by_product": totals})
 
     def create_chart(self, result_id: str) -> dict:
-        """Create a PNG exclusively from a stored summary result."""
+        """仅根据已保存的汇总结果创建 PNG。"""
         summary = self.get_result(result_id, "summary")
         chart = generate_sales_chart(
             summary["data"]["sales_by_product"], self.run_dir / "sales_by_product.png"
@@ -74,7 +74,7 @@ class SalesToolContext:
         return self.save_result("chart", "chart", {"chart_path": chart}, (result_id,))
 
     def build_report(self, result_id: str, chart_id: str) -> dict:
-        """Create a deterministic report from matching stored summary and chart results."""
+        """根据匹配的已保存汇总和图表结果创建确定性报告。"""
         summary = self.get_result(result_id, "summary")
         chart = self.get_result(chart_id, "chart")
         if chart["source_result_ids"] != [result_id]:
@@ -100,7 +100,7 @@ class SalesToolContext:
 
 
 class SalesTool(Tool):
-    """A small framework adapter; business functions remain independently callable."""
+    """小型框架适配器；业务函数仍可独立调用。"""
 
     def __init__(self, context: SalesToolContext, name: str, description: str,
                  parameter_names: tuple[str, ...] = ()):
@@ -128,7 +128,7 @@ class SalesTool(Tool):
 
 
 class RecordingRegistry(ToolRegistry):
-    """Record actual dispatches, including invalid tools, and enforce a tool-call limit."""
+    """记录实际调度（包括无效工具），并强制执行工具调用上限。"""
 
     def __init__(self, context: SalesToolContext):
         super().__init__()
@@ -160,7 +160,7 @@ class RecordingRegistry(ToolRegistry):
         return self._record(name, input_text, response, started)
 
     async def aexecute_tool(self, name, input_text):
-        # SimpleAgent.run also dispatches through the asynchronous registry API.
+        # SimpleAgent.run 也会通过异步注册表 API 调度。
         started = perf_counter()
         response = self._check_limit()
         if response is None:
@@ -169,7 +169,7 @@ class RecordingRegistry(ToolRegistry):
 
 
 def create_tool_registry(context: SalesToolContext) -> RecordingRegistry:
-    """Register only the four sales tools; no general file, shell or code execution tools."""
+    """只注册四个销售工具；不提供通用文件、Shell 或代码执行工具。"""
     registry = RecordingRegistry(context)
     definitions = [
         ("inspect_dataset", "检查当前数据字段和概览，计算总销售额、记录数等；识别数据限制。", ()),

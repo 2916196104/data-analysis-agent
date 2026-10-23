@@ -1,4 +1,4 @@
-"""HTTP endpoints for tasks; business operations stay in their services."""
+"""任务 HTTP 端点；业务操作仍位于各自服务中。"""
 
 import logging
 from typing import Annotated
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_router(task_db, *, import_root, env_file):
-    """Build routes bound to this application, without global database state."""
+    """构建绑定到当前应用的路由，不使用全局数据库状态。"""
     router = APIRouter()
 
     @router.post("/tasks", response_model=Result, status_code=202, tags=["后台任务"])

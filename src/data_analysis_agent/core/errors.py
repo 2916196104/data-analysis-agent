@@ -1,5 +1,5 @@
-"""Shared validation errors for data inputs and database contracts."""
+"""数据输入和数据库契约共用的校验错误。"""
 
 
 class ReviewDataError(ValueError):
-    """A review input or database does not satisfy the application contract."""
+    """评论输入或数据库不符合应用契约。"""

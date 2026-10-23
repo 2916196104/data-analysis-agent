@@ -1,4 +1,4 @@
-"""Regression checks for dependency direction and shared connection/input contracts."""
+"""依赖方向及共享连接/输入契约的回归检查。"""
 
 import ast
 import importlib

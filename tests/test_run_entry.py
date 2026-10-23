@@ -1,4 +1,4 @@
-"""Checks for the unified development launcher and owned-process cleanup."""
+"""统一开发启动器及其进程清理的检查。"""
 
 import os
 import signal

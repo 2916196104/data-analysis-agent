@@ -1,1 +1,1 @@
-"""Independent local analysis functions for a future single HelloAgents agent."""
+"""面向未来单个 HelloAgents Agent 的独立本地分析函数。"""

@@ -25,7 +25,7 @@ export function taskReducer(state: TaskState, action: TaskAction): TaskState {
   if (action.type === 'select') return action.id && action.id === state.id
     ? { ...state, loading: !state.task, error: null }
     : { ...emptyTaskState, id: action.id, loading: !!action.id };
-  // A late response from a previously selected task must never replace the current result.
+  // 此前选中任务的延迟响应绝不能替换当前结果。
   if (action.id !== state.id) return state;
   if (action.type === 'task') return { ...state, task: action.task, loading: false, error: null };
   if (action.type === 'run') return { ...state, run: action.run, loading: false, error: null };

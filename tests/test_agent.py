@@ -1,4 +1,4 @@
-"""Offline integration tests: real HelloAgents/SDK, scripted HTTP transport, no API calls."""
+"""离线集成测试：使用真实 HelloAgents/SDK 和脚本化 HTTP 传输，不发起 API 调用。"""
 
 import json
 import os

@@ -1,1 +1,1 @@
-"""Shared configuration and database adapters."""
+"""共享配置和数据库适配器。"""

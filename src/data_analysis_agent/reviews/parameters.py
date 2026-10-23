@@ -1,4 +1,4 @@
-"""Review scope, identity and rule inputs shared across transports."""
+"""各传输层共用的评论范围、身份和规则输入。"""
 
 import math
 import re
@@ -22,7 +22,7 @@ DEFAULT_RULES = {
 
 
 def validate_rules(values=None):
-    """Return normalized monitoring rules or reject unsupported/invalid values."""
+    """返回规范化监控规则，或拒绝不支持/无效的值。"""
     if values is not None and not isinstance(values, dict):
         raise ReviewDataError("rules 必须是规则参数字典。")
     if values and set(values) - DEFAULT_RULES.keys():
@@ -42,7 +42,7 @@ def validate_rules(values=None):
 
 
 def parse_month(value, name):
-    """Parse a strict YYYY-MM month into its first calendar day."""
+    """将严格的 YYYY-MM 月份解析为该月第一天。"""
     if not isinstance(value, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}", value):
         raise ReviewDataError(f"{name} 请使用 YYYY-MM 月份。")
     try:
@@ -52,7 +52,7 @@ def parse_month(value, name):
 
 
 def shift_month(day, amount):
-    """Return the first day of an offset month, validating the calendar bounds."""
+    """返回偏移月份的第一天，并校验日历范围。"""
     year, month = divmod(day.year * 12 + day.month - 1 + amount, 12)
     try:
         return date(year, month + 1, 1)

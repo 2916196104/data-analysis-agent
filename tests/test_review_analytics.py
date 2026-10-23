@@ -1,4 +1,4 @@
-"""Business assertions against temporary review databases; no online model calls."""
+"""针对临时评论数据库的业务断言；不调用在线模型。"""
 
 import io
 import json

@@ -1,4 +1,4 @@
-"""Amazon JSONL import CLI, independent of sales and model configuration."""
+"""独立于销售和模型配置的 Amazon JSONL 导入 CLI。"""
 
 import argparse
 import json

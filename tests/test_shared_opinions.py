@@ -1,4 +1,4 @@
-"""The shared opinion contract must not invalidate existing labeling profiles."""
+"""共享观点契约不能使现有标注配置失效。"""
 
 import json
 import unittest

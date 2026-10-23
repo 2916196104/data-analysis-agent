@@ -1,146 +1,292 @@
-"""Validated six-aspect opinion labeling using the existing model configuration."""
+"""批量提取评论的六维度观点：并发请求模型，校验原文证据后串行保存结果。"""
 
 import json
+from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from pathlib import Path
 from time import perf_counter
 
-from openai import (APIConnectionError, APIError, APITimeoutError, AuthenticationError,
-                    InternalServerError, OpenAI, RateLimitError)
+from openai import (
+    APIConnectionError,
+    APIError,
+    APITimeoutError,
+    AuthenticationError,
+    InternalServerError,
+    OpenAI,
+    RateLimitError,
+)
 
 from data_analysis_agent.core.config import AgentSettings, read_settings
-from data_analysis_agent.reviews.label_store import pending_reviews, save_annotation
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.core.validation import validate_integer
-# Re-export the existing contract for callers of review_labeler/reviews.labeling.
-from data_analysis_agent.reviews.opinions import ASPECTS, Extraction, Opinion, OpinionValidationError, validate_opinions
-from data_analysis_agent.reviews.scope import review_scope
+from data_analysis_agent.reviews.label_store import pending_reviews, save_annotation
+# 保留这些导出，兼容从本模块导入观点定义和校验函数的调用方。
+from data_analysis_agent.reviews.opinions import (
+    ASPECTS, Extraction, Opinion, OpinionValidationError, validate_opinions,
+)
 from data_analysis_agent.reviews.prompts import MAX_TEXT_CHARS, PROMPT_VERSION, SYSTEM_PROMPT
+from data_analysis_agent.reviews.scope import review_scope
 
 TRANSIENT_ERROR_LIMIT = 3
 TRANSIENT_ERRORS = {"model_timeout", "model_connection_error", "model_server_error"}
 
 
+def _metadata(response, secret: str) -> dict:
+    """提取模型版本和用量；响应中的文本字段在保存前移除密钥。"""
+    def redact_text(value):
+        if isinstance(value, str):
+            return value.replace(secret, "[REDACTED]")
+        return None
 
-
-def _metadata(response, secret):
-    def clean(value):
-        return value.replace(secret, "[REDACTED]") if isinstance(value, str) else None
-
-    usage = {}
+    token_usage = {}
     if response.usage is not None:
-        for public, field in (("input_tokens", "prompt_tokens"), ("output_tokens", "completion_tokens"),
-                              ("total_tokens", "total_tokens")):
-            value = getattr(response.usage, field, None)
+        usage_fields = (
+            ("input_tokens", "prompt_tokens"),
+            ("output_tokens", "completion_tokens"),
+            ("total_tokens", "total_tokens"),
+        )
+        for result_field, response_field in usage_fields:
+            value = getattr(response.usage, response_field, None)
+            # bool 也是 int 的子类，但不能作为合法的 token 数量保存。
             if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-                usage[public] = value
-    return {"model_version": clean(response.model), "response_id": clean(response.id), "usage": usage}
+                token_usage[result_field] = value
+
+    return {
+        "model_version": redact_text(response.model),
+        "response_id": redact_text(response.id),
+        "usage": token_usage,
+    }
 
 
-def _label_review(client, review, settings):
+def _label_review(
+    client: OpenAI, review: dict, settings: AgentSettings,
+) -> tuple[list[dict], dict, str | None, bool, bool, float]:
+    """处理单条评论，不写数据库；返回观点、元数据、错误码、停批标记、调用标记和耗时。"""
     started = perf_counter()
-    opinions, metadata, error, stop, called = [], {}, None, False, False
+    opinions = []
+    metadata = {}
+    error_code = None
+    should_stop = False
+    model_called = False
+
     if len(review["text"]) > MAX_TEXT_CHARS:
-        error = "input_too_long"
+        error_code = "input_too_long"
     else:
         try:
-            called = True
+            # 请求失败也计入模型调用次数；SDK 内部重试不另计。
+            model_called = True
             response = client.chat.completions.create(
-                model=settings.model, temperature=0, max_tokens=4096,
-                response_format={"type": "json_object"}, messages=[
+                model=settings.model,
+                temperature=0,
+                max_tokens=4096,
+                response_format={"type": "json_object"},
+                messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": json.dumps({"review_text": review["text"]}, ensure_ascii=False)},
+                    {
+                        "role": "user",
+                        "content": json.dumps({"review_text": review["text"]}, ensure_ascii=False),
+                    },
                 ],
             )
             metadata = _metadata(response, settings.api_key)
+
+            # 截断的输出不能作为完整标注；观点还必须能定位到评论原文。
             if not response.choices or response.choices[0].finish_reason != "stop":
                 raise OpinionValidationError("模型没有完整完成观点输出。")
             opinions = validate_opinions(response.choices[0].message.content, review["text"])
         except OpinionValidationError:
-            error = "invalid_output"
+            error_code = "invalid_output"
+        # 认证、限流及其他不可恢复的 API 错误会阻止后续评论继续派发。
         except AuthenticationError:
-            error, stop = "authentication_error", True
+            error_code = "authentication_error"
+            should_stop = True
         except RateLimitError:
-            error, stop = "rate_limit", True
+            error_code = "rate_limit"
+            should_stop = True
         except APITimeoutError:
-            error = "model_timeout"
+            error_code = "model_timeout"
         except APIConnectionError:
-            error = "model_connection_error"
+            error_code = "model_connection_error"
         except InternalServerError:
-            error = "model_server_error"
+            error_code = "model_server_error"
         except APIError:
-            error, stop = "model_api_error", True
-    return opinions, metadata, error, stop, called, round((perf_counter() - started) * 1000, 3)
+            error_code = "model_api_error"
+            should_stop = True
+
+    elapsed_ms = round((perf_counter() - started) * 1000, 3)
+    return opinions, metadata, error_code, should_stop, model_called, elapsed_ms
 
 
-def run_labeling(db_path, *, limit=20, retry_failed=False, product_ids=None, env_file=".env", settings=None,
-                 date_from=None, date_to=None, as_of=None, source=None, dataset_version=None, progress=None,
-                 workers=1):
+def run_labeling(
+    db_path: str | Path,
+    *,
+    limit: int = 20,
+    retry_failed: bool = False,
+    product_ids: list[str] | None = None,
+    env_file: str | Path = ".env",
+    settings: AgentSettings | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    as_of: str | None = None,
+    source: str | None = None,
+    dataset_version: str | None = None,
+    progress: Callable[[dict], None] | None = None,
+    workers: int = 1,
+) -> dict:
+    """按筛选范围标注一批评论，将结果写入已初始化的数据库并返回批次摘要。
+
+    limit 限制整批评论数，workers 控制模型请求并发数。成功记录自动跳过，
+    失败记录只有在 retry_failed=True 时才重新选取。未传 settings 时读取配置。
+    progress 在每条结果保存后接收进度，开始时也会收到一次初始进度。
+    """
+    # 先检查输入和筛选范围，避免无效参数触发模型请求。
     validate_integer(limit, "limit", maximum=1000)
     validate_integer(workers, "workers", maximum=4)
-    if product_ids is not None and (not isinstance(product_ids, list)
-                                  or any(not isinstance(item, str) or not item.strip() for item in product_ids)):
-        raise ReviewDataError("product_ids 必须是非空商品 ID 的列表。")
-    _, _, scope = review_scope(product_ids=product_ids, date_from=date_from, date_to=date_to,
-                              as_of=as_of, source=source, dataset_version=dataset_version)
-    settings = settings or AgentSettings.from_values(read_settings(env_file))
-    identity = {"model": settings.model, "base_url": settings.base_url, "prompt_version": PROMPT_VERSION}
-    reviews = pending_reviews(db_path, **identity, limit=limit, retry_failed=retry_failed,
-                              **{k: v for k, v in scope.items() if k != "timezone"})
-    result = {"status": "ok", **identity, "selected_reviews": len(reviews), "processed_reviews": 0,
-              "successful_reviews": 0, "failed_reviews": 0, "opinion_count": 0,
-              "already_completed": 0, "model_calls": 0, "stopped_reason": None, "results": [], "scope": scope}
-    def notify():
-        if progress:
-            progress({"stage": "labeling", "completed": result["processed_reviews"], "total": len(reviews),
-                      "unit": "reviews", "successful_reviews": result["successful_reviews"],
-                      "failed_reviews": result["failed_reviews"], "model_calls": result["model_calls"]})
+    if product_ids is not None:
+        if not isinstance(product_ids, list) or any(
+            not isinstance(product_id, str) or not product_id.strip()
+            for product_id in product_ids
+        ):
+            raise ReviewDataError("product_ids 必须是非空商品 ID 的列表。")
 
-    notify()
+    _, _, scope = review_scope(
+        product_ids=product_ids,
+        date_from=date_from,
+        date_to=date_to,
+        as_of=as_of,
+        source=source,
+        dataset_version=dataset_version,
+    )
+    settings = settings or AgentSettings.from_values(read_settings(env_file))
+
+    # 模型、服务地址和提示词版本共同决定哪些评论已经完成标注。
+    model_identity = {
+        "model": settings.model,
+        "base_url": settings.base_url,
+        "prompt_version": PROMPT_VERSION,
+    }
+    review_filters = {
+        name: value for name, value in scope.items() if name != "timezone"
+    }
+    reviews = pending_reviews(
+        db_path, **model_identity, limit=limit, retry_failed=retry_failed, **review_filters,
+    )
+    batch_result = {
+        "status": "ok",
+        **model_identity,
+        "selected_reviews": len(reviews),
+        "processed_reviews": 0,
+        "successful_reviews": 0,
+        "failed_reviews": 0,
+        "opinion_count": 0,
+        "already_completed": 0,
+        "model_calls": 0,
+        "stopped_reason": None,
+        "results": [],
+        "scope": scope,
+    }
+
+    def notify_progress() -> None:
+        if progress:
+            progress({
+                "stage": "labeling",
+                "completed": batch_result["processed_reviews"],
+                "total": len(reviews),
+                "unit": "reviews",
+                "successful_reviews": batch_result["successful_reviews"],
+                "failed_reviews": batch_result["failed_reviews"],
+                "model_calls": batch_result["model_calls"],
+            })
+
+    notify_progress()
     if not reviews:
-        return result
-    # One runner owns the batch; only model requests overlap, and SQLite writes stay on this thread.
-    with OpenAI(api_key=settings.api_key, base_url=settings.base_url, timeout=settings.timeout_seconds,
-                max_retries=settings.max_retries) as client, ThreadPoolExecutor(max_workers=workers) as pool:
-        remaining = iter(reviews)
-        pending = {}
+        return batch_result
+
+    # 工作线程只请求模型；数据库写入和批次计数留在当前线程，避免并发写入冲突。
+    with (
+        OpenAI(
+            api_key=settings.api_key,
+            base_url=settings.base_url,
+            timeout=settings.timeout_seconds,
+            max_retries=settings.max_retries,
+        ) as client,
+        ThreadPoolExecutor(max_workers=workers) as executor,
+    ):
+        remaining_reviews = iter(reviews)
+        pending_requests = {}
         for _ in range(min(workers, len(reviews))):
-            review = next(remaining)
-            pending[pool.submit(_label_review, client, review, settings)] = review
+            review = next(remaining_reviews)
+            future = executor.submit(_label_review, client, review, settings)
+            pending_requests[future] = review
+
         stopping = False
-        transient_errors = 0
-        while pending:
-            completed, _ = wait(pending, return_when=FIRST_COMPLETED)
-            for future in completed:
-                review = pending.pop(future)
-                opinions, metadata, error, stop, called, elapsed_ms = future.result()
-                result["model_calls"] += int(called)
+        consecutive_transient_errors = 0
+        while pending_requests:
+            completed_requests, _ = wait(pending_requests, return_when=FIRST_COMPLETED)
+            for future in completed_requests:
+                review = pending_requests.pop(future)
+                (
+                    opinions, metadata, error_code, should_stop, model_called, elapsed_ms,
+                ) = future.result()
+                batch_result["model_calls"] += int(model_called)
+
+                annotation_status = "failed" if error_code else "success"
                 annotation_id = save_annotation(
-                    db_path, review, **identity, status="failed" if error else "success", opinions=opinions,
-                    error_code=error, elapsed_ms=elapsed_ms, **metadata,
+                    db_path,
+                    review,
+                    **model_identity,
+                    status=annotation_status,
+                    opinions=opinions,
+                    error_code=error_code,
+                    elapsed_ms=elapsed_ms,
+                    **metadata,
                 )
-                result["processed_reviews"] += 1
+                batch_result["processed_reviews"] += 1
+
+                # 保存时若已有成功记录，存储层返回 None，不重复累计成功数和观点数。
                 if annotation_id is None:
-                    result["already_completed"] += 1
+                    batch_result["already_completed"] += 1
+                    review_status = "already_completed"
                 else:
-                    result["failed_reviews" if error else "successful_reviews"] += 1
-                    result["opinion_count"] += len(opinions)
-                result["results"].append({"review_id": review["id"], "annotation_id": annotation_id,
-                                          "status": "already_completed" if annotation_id is None else (
-                                              "failed" if error else "success"), "error_code": error,
-                                          "opinion_count": len(opinions)})
-                notify()
-                transient_errors = transient_errors + 1 if error in TRANSIENT_ERRORS else 0
-                if stop:
+                    if error_code:
+                        batch_result["failed_reviews"] += 1
+                    else:
+                        batch_result["successful_reviews"] += 1
+                    batch_result["opinion_count"] += len(opinions)
+                    review_status = annotation_status
+
+                batch_result["results"].append({
+                    "review_id": review["id"],
+                    "annotation_id": annotation_id,
+                    "status": review_status,
+                    "error_code": error_code,
+                    "opinion_count": len(opinions),
+                })
+                notify_progress()
+
+                # 按完成结果的处理顺序累计连续瞬时错误，其他结果会重置计数。
+                if error_code in TRANSIENT_ERRORS:
+                    consecutive_transient_errors += 1
+                else:
+                    consecutive_transient_errors = 0
+
+                if should_stop:
                     stopping = True
-                    result["stopped_reason"] = result["stopped_reason"] or error
-                elif transient_errors >= TRANSIENT_ERROR_LIMIT:
+                    batch_result["stopped_reason"] = batch_result["stopped_reason"] or error_code
+                elif consecutive_transient_errors >= TRANSIENT_ERROR_LIMIT:
                     stopping = True
-                    result["stopped_reason"] = result["stopped_reason"] or "repeated_model_api_errors"
-            while not stopping and len(pending) < workers:
-                next_review = next(remaining, None)
+                    batch_result["stopped_reason"] = (
+                        batch_result["stopped_reason"] or "repeated_model_api_errors"
+                    )
+
+            # 停批后只收尾已提交的请求；正常情况下补足空闲并发名额。
+            while not stopping and len(pending_requests) < workers:
+                next_review = next(remaining_reviews, None)
                 if next_review is None:
                     break
-                pending[pool.submit(_label_review, client, next_review, settings)] = next_review
-    if result["failed_reviews"] or result["stopped_reason"]:
-        result["status"] = "partial"
-    return result
+                future = executor.submit(_label_review, client, next_review, settings)
+                pending_requests[future] = next_review
+
+    if batch_result["failed_reviews"] or batch_result["stopped_reason"]:
+        batch_result["status"] = "partial"
+    return batch_result

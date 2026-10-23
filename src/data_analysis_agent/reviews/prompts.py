@@ -1,4 +1,4 @@
-"""Opinion labeling instructions and identity, independent of model execution."""
+"""独立于模型执行的观点标注指令和身份信息。"""
 
 import hashlib
 import json

@@ -1,4 +1,4 @@
-"""JSON commands for historical monitoring and local alert decisions."""
+"""用于历史监控和本地告警决策的 JSON 命令。"""
 
 import argparse
 import json

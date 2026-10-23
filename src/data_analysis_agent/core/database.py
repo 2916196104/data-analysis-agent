@@ -1,4 +1,4 @@
-"""Small DB-API bridge for the application's fixed SQLite/PostgreSQL queries."""
+"""为应用固定的 SQLite/PostgreSQL 查询提供小型 DB-API 桥接层。"""
 
 import hashlib
 import re
@@ -13,7 +13,7 @@ from data_analysis_agent.core.errors import ReviewDataError
 
 
 class DatabaseError(Exception):
-    """A database failure safe to display without credentials or SQL values."""
+    """可安全展示且不包含凭据或 SQL 值的数据库错误。"""
 
 
 DATABASE_ERRORS = (sqlite3.Error, DatabaseError)
@@ -24,12 +24,12 @@ def is_postgres(value):
 
 
 def database_target(value):
-    """Keep DSNs intact; resolve filesystem paths only for SQLite."""
+    """保持 DSN 完整；仅为 SQLite 解析文件系统路径。"""
     return value if is_postgres(value) else Path(value).resolve()
 
 
 def database_identity(value):
-    """Stable task binding and display value, independent of login/password."""
+    """与登录名和密码无关的稳定任务绑定值和展示值。"""
     if not is_postgres(value):
         return str(Path(value).resolve())
     try:
@@ -49,7 +49,7 @@ def database_identity(value):
 
 
 def database_argument(value):
-    """CLI: --db env:NAME avoids putting passwords in command lines."""
+    """CLI：使用 --db env:NAME，避免把密码放在命令行中。"""
     if value.startswith("env:"):
         from data_analysis_agent.core.config import read_settings
 
@@ -84,7 +84,7 @@ def _row_factory(cursor):
 
 
 def _parameters(query):
-    # Only application-owned SQL enters here. Preserve literals, including '?' and '%'.
+    # 这里只接收应用自有的 SQL。保留包括 '?' 和 '%' 在内的字面量。
     parts = re.split(r"('(?:[^']|'')*')", query)
     return "".join(part.replace("%", "%%").replace("?", "%s") if i % 2 == 0
                    else part.replace("%", "%%") for i, part in enumerate(parts))
@@ -97,7 +97,7 @@ def postgres_schema(statement):
 
 
 class PostgresConnection:
-    """Match the transaction/row subset used by the existing fixed SQL statements."""
+    """匹配现有固定 SQL 语句使用的事务和行对象子集。"""
 
     def __init__(self, target, *, readonly=False, namespace="business"):
         database_identity(target)
@@ -122,7 +122,7 @@ class PostgresConnection:
             command = query.strip().upper()
             if command == "BEGIN IMMEDIATE":
                 self.raw.execute("BEGIN")
-                # Preserve SQLite's serialized read-modify-write transactions across API processes.
+                # 在多个 API 进程之间保持 SQLite 序列化的读改写事务。
                 self.raw.execute("SELECT pg_advisory_xact_lock(%s)", (self._lock_key(),))
                 return self.raw.cursor()
             if command == "BEGIN":
@@ -140,7 +140,7 @@ class PostgresConnection:
                               "big", signed=True)
 
     def try_session_lock(self):
-        """Acquire this namespace's lock until close(); return False if already held."""
+        """持有此命名空间的锁直到 close()；如果已被占用则返回 False。"""
         return bool(self.execute("SELECT pg_try_advisory_lock(?)", (self._lock_key(),)).fetchone()[0])
 
     def executemany(self, query, rows):
@@ -184,7 +184,7 @@ class PostgresConnection:
 
 
 def connect_database(target, *, readonly=False, namespace="business", timeout=5):
-    """Open an existing database; the caller owns schema checks, transactions and close().
+    """打开已有数据库；数据表检查、事务和 close() 由调用方负责。
 
     SQLite files are never created implicitly. Explicit initializers create the
     empty file before calling this factory; PostgreSQL namespaces scope locks.

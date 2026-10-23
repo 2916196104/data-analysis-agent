@@ -1,4 +1,4 @@
-"""Single HelloAgents workflow with application-owned inputs and grounded output."""
+"""销售分析 Agent：应用控制输入，模型调度工具，最终答案必须引用工具结果。"""
 
 import json
 import re
@@ -31,11 +31,11 @@ result_ids 只引用已成功生成的结果，包含用户要求的图表/报�
 
 
 class AgentExecutionError(RuntimeError):
-    """The agent did not produce a verifiable result within the run limits."""
+    """Agent 未在调用预算内产出可核验的结果。"""
 
 
 class FinalResponseFormatError(AgentExecutionError):
-    """The final public response needs one bounded JSON-format correction."""
+    """模型最终响应需要一次受控的 JSON 格式纠正。"""
 
 
 def _new_llm(settings: AgentSettings):
@@ -48,8 +48,8 @@ def _new_llm(settings: AgentSettings):
         timeout=settings.timeout_seconds, temperature=0, max_tokens=2048,
         provider="openai", budget=RunBudget(max_calls=settings.max_steps),
     )
-    # Pinned 1.0.1 has no SDK-client injection option; retries belong to the SDK client,
-    # not completion kwargs. Keep this compatibility adjustment in one tested place.
+    # 当前固定版本没有注入 SDK client 的公开参数；重试必须交给 SDK client，
+    # 不能塞进 completion 参数，因此集中保留在这里。
     llm._adapter._client = OpenAI(
         api_key=settings.api_key, base_url=settings.base_url,
         timeout=settings.timeout_seconds, max_retries=settings.max_retries,
@@ -66,7 +66,7 @@ def _build_agent(settings: AgentSettings, context, llm):
 
     class LocalTokenCounter(TokenCounter):
         def _get_encoding(self):
-            # Use the framework's character estimate without a tokenizer download.
+            # 使用框架的字符估算，避免首次运行下载 tokenizer。
             return None
 
     config = Config(
@@ -166,10 +166,10 @@ def run_agent_analysis(
     *, env_file: str | Path = ".env", settings: AgentSettings | None = None,
     sheet: str | None = None, column_map: ColumnMap = None,
 ) -> dict:
-    """Run one agent task; return a safe JSON-compatible outcome and persist its evidence.
+    """运行一次 Agent 任务，保存证据并返回可安全序列化的结果。
 
-    Expected configuration, data and model failures return status='error'. Unsupported
-    questions return status='unsupported'. Neither status claims a completed analysis.
+    配置、数据和模型故障返回 status='error'；超出数据能力的问题返回
+    status='unsupported'。这两种状态都不会声称分析已经完成。
     """
     started = perf_counter()
     run_id = uuid4().hex
@@ -177,11 +177,15 @@ def run_agent_analysis(
     run_dir.mkdir(parents=True, exist_ok=False)
     (run_dir / "trace.jsonl").touch()
     result = {"run_id": run_id, "run_dir": str(run_dir), "status": "error"}
-    secret, context, agent, llm = "", None, None, None
-    model_responses, usage = 0, {}
+    secret = ""
+    context = None
+    agent = None
+    llm = None
+    model_responses = 0
+    usage = {}
     try:
-        values = read_settings(env_file) if settings is None else {}
-        secret = settings.api_key if settings else values.get("LLM_API_KEY", "").strip()
+        configured_values = read_settings(env_file) if settings is None else {}
+        secret = settings.api_key if settings else configured_values.get("LLM_API_KEY", "").strip()
         source_path = Path(input_path).resolve()
         request = {"run_id": run_id, "question": question, "input_path": str(source_path),
                    "sheet": sheet,
@@ -194,13 +198,13 @@ def run_agent_analysis(
         records, source = dataset.records, dataset.source
         request["source"] = source
         write_json(run_dir / "request.json", request, secret)
-        settings = settings or AgentSettings.from_values(values)
+        settings = settings or AgentSettings.from_values(configured_values)
         request.update(model=settings.model, limits={
             "max_steps": settings.max_steps, "max_tool_calls": settings.max_tool_calls,
             "timeout_seconds": settings.timeout_seconds, "max_retries": settings.max_retries,
         })
         write_json(run_dir / "request.json", request, secret)
-        # Third-party diagnostics are suppressed; only our redacted artifacts reach stdout/disk.
+        # 第三方诊断输出可能包含敏感内容，只允许脱敏后的本地证据落盘。
         with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
             from data_analysis_agent.agents.tools import SalesToolContext
 

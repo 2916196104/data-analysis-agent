@@ -1,4 +1,4 @@
-"""Compose sales loading, statistics and report generation."""
+"""组合销售数据加载、统计和报告生成。"""
 
 from pathlib import Path
 
@@ -17,10 +17,10 @@ from data_analysis_agent.sales.reporting import generate_sales_chart, write_mark
 
 def run_analysis(input_path: str | Path, output_dir: str | Path, *,
                  sheet: str | None = None, column_map: ColumnMap = None) -> dict[str, object]:
-    """Read, validate, summarize and export CSV/Excel; return JSON-compatible results.
+    """读取、校验、汇总并导出 CSV/Excel；返回兼容 JSON 的结果。
 
-    All reads go through load_sales_data. Output files with the same names in
-    output_dir are replaced on rerun. Invalid data is rejected before writing.
+    所有读取都通过 load_sales_data。重新运行时会替换 output_dir
+    中同名的输出文件。无效数据会在写入前被拒绝。
     """
     source = Path(input_path)
     destination = Path(output_dir).resolve()
@@ -46,7 +46,7 @@ def run_analysis(input_path: str | Path, output_dir: str | Path, *,
 
 
 def main():
-    """Compatibility entry; command parsing lives in cli/."""
+    """兼容入口；命令解析位于 cli/。"""
     from data_analysis_agent.cli.sales import main as cli_main
 
     return cli_main()

@@ -1,4 +1,4 @@
-"""Explicit monitoring schema, immutable runs and auditable alert decisions."""
+"""显式监控数据表结构、不可变运行记录和可审计告警决策。"""
 
 import json
 from contextlib import closing
@@ -68,7 +68,7 @@ CREATE TABLE review_alert_actions (
 
 
 def check_monitoring_schema(connection):
-    """Validate labeling and monitoring tables on the caller's connection."""
+    """在调用方连接上校验标注和监控数据表。"""
     check_labeling_schema(connection)
     names = table_names(connection) & set(TABLES)
     if names != set(TABLES):
@@ -79,7 +79,7 @@ def check_monitoring_schema(connection):
 
 
 def init_monitoring(db_path):
-    """Add monitoring tables explicitly, without changing review/label/human tables."""
+    """显式添加监控数据表，不修改评论、标注或人工复核数据表。"""
     with closing(connect_review_database(db_path)) as connection, connection:
         connection.execute("BEGIN IMMEDIATE")
         check_labeling_schema(connection)
@@ -98,7 +98,7 @@ def _run_summary(row):
 
 
 def read_analysis_run(connection, run_id):
-    """Read a run and its alert links within the caller's existing snapshot."""
+    """在调用方已有快照中读取一次运行记录及其告警关联。"""
     row = connection.execute("SELECT * FROM review_analysis_runs WHERE run_id=?", (run_id,)).fetchone()
     if row is None:
         raise ReviewDataError("分析运行记录不存在。")
@@ -132,9 +132,9 @@ def list_analysis_runs(db_path, *, page=1, page_size=20):
 
 
 def attach_alert_occurrence(connection, *, run_id, as_of, request, product, evaluation):
-    """Write an alert occurrence in the caller's transaction; never commit it here.
+    """在调用方事务中写入一次告警发生记录；此处绝不提交。
 
-    Same-instant hits merge; later hits within the first-hit cooldown share an alert.
+    同一时刻的命中会合并；首次命中冷却期内的后续命中共用同一告警。
     """
     identity = {key: request["scope"][key] for key in ("model", "base_url", "prompt_version")}
     series = content_sha256({"engine_version": request["engine_version"], "rules": request["rules"],
@@ -212,7 +212,7 @@ def get_alert(db_path, alert_id):
 
 
 def set_alert_status(db_path, alert_id, *, status, actor, note=""):
-    """Record explicit decisions; repeating the current status is an idempotent no-op."""
+    """记录显式决策；重复提交当前状态是幂等空操作。"""
     validate_integer(alert_id, "alert_id")
     if status not in ("confirmed", "ignored"):
         raise ReviewDataError("只能确认 confirmed 或忽略 ignored 告警。")

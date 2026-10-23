@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Badge, Button, Card, Drawer, Form, Input, InputNumber, Modal, Pagination, Progress, Skeleton, Space, Spin, Tag } from 'antd';
-import { ArrowLeftOutlined, BarChartOutlined, CheckOutlined, DatabaseOutlined, DownloadOutlined, FileTextOutlined, FolderOpenOutlined, HistoryOutlined, ImportOutlined, MenuOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import {
+  Alert, Badge, Button, Card, Drawer, Form, Input, InputNumber, Modal, Pagination,
+  Progress, Skeleton, Space, Spin, Tag,
+} from 'antd';
+import {
+  ArrowLeftOutlined, BarChartOutlined, CheckOutlined, DatabaseOutlined, DownloadOutlined,
+  FileTextOutlined, FolderOpenOutlined, HistoryOutlined, ImportOutlined, MenuOutlined,
+  PlusOutlined, ReloadOutlined,
+} from '@ant-design/icons';
 import { api, API_BASE, errorMessage } from './api';
 import Composer from './Composer';
 import { analysisDates, analysisParameters, datasetKey } from './analysis-draft';
@@ -10,11 +17,41 @@ import ResultCards from './ResultCards';
 import { exportResult, readHistory, writeHistory } from './local-history';
 import { canRetry, isActive, kindLabels, progressPercent, stageLabels, statusLabels } from './task-state';
 import { useTask } from './useTask';
-import type { AnalysisParameters, Health, Identity, ImportParameters, Options, Page, Quality, TaskInput, TaskSummary } from './types';
+import type {
+  AnalysisParameters, Health, Identity, ImportParameters, Options, Page, Quality,
+  TaskInput, TaskSummary,
+} from './types';
 
-const emptyOptions: Options = { profiles: [], selected_profile_id: null, products: [], aspects: {}, sentiments: {}, processing_statuses: {}, human_statuses: {} };
-const dateLabel = (value: string) => new Date(value).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+const emptyOptions: Options = {
+  profiles: [], selected_profile_id: null, products: [], aspects: {}, sentiments: {},
+  processing_statuses: {}, human_statuses: {},
+};
+const dateLabel = (value: string) => new Date(value).toLocaleString('zh-CN', {
+  month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+});
 
+function taskStepLabel(kind: TaskSummary['kind']): string {
+  if (kind === 'import') return '第 1 步 · 导入数据';
+  if (kind === 'label') return '第 2 步 · 准备数据';
+  return '分析结果';
+}
+
+function productSummary(products: Options['products'], fallbackDataset?: string): string {
+  const datasetCount = new Set(products.map(datasetKey)).size;
+  const dataset = datasetCount > 1
+    ? '多个数据集'
+    : products[0]?.dataset_version || fallbackDataset || '尚未选择';
+  const reviewCount = products.reduce((sum, product) => sum + product.review_count, 0);
+  return `${dataset} · ${products.length} 款商品 · ${reviewCount.toLocaleString()} 条评论`;
+}
+
+function progressStatus(task: TaskSummary['status']): 'exception' | 'success' | 'active' | 'normal' {
+  if (task === 'failed') return 'exception';
+  if (task === 'succeeded') return 'success';
+  return isActive(task) ? 'active' : 'normal';
+}
+
+/** 工作台页面：加载目录和任务历史，提交任务后轮询并展示冻结结果。 */
 export default function App() {
   const [local, setLocal] = useState(readHistory);
   const [options, setOptions] = useState<Options>(emptyOptions);
@@ -34,7 +71,12 @@ export default function App() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [detail, setDetail] = useState<{ title: string; value: unknown }>();
   const [importOpen, setImportOpen] = useState(false);
-  const [labelDefaults, setLabelDefaults] = useState<{ dataset: string; products: string[]; limit?: number; workers?: number }>();
+  const [labelDefaults, setLabelDefaults] = useState<{
+    dataset: string;
+    products: string[];
+    limit?: number;
+    workers?: number;
+  }>();
   const [importForm] = Form.useForm<ImportParameters>();
   const importAdvanced = useRef<HTMLDetailsElement>(null);
   const submissionKey = useRef<{ fingerprint: string; key: string } | undefined>(undefined);
@@ -48,8 +90,13 @@ export default function App() {
     const requestId = ++historyRequest.current;
     try {
       const next = await api.tasks(page);
-      if (requestId === historyRequest.current) { setHistory(next); setHistoryError(''); }
-    } catch (error) { if (requestId === historyRequest.current) setHistoryError(errorMessage(error)); }
+      if (requestId === historyRequest.current) {
+        setHistory(next);
+        setHistoryError('');
+      }
+    } catch (error) {
+      if (requestId === historyRequest.current) setHistoryError(errorMessage(error));
+    }
   }, [page]);
 
   const load = useCallback(async () => {
@@ -63,25 +110,57 @@ export default function App() {
       const next = optionResult.value;
       setOptions(next);
       setDraft(previous => {
-        const dataset = next.products.some(p => datasetKey(p) === previous.dataset) ? previous.dataset : next.products[0] ? datasetKey(next.products[0]) : '';
-        return { ...previous, dataset,
-          current: previous.current ?? (qualityResult.status === 'fulfilled' ? analysisDates(previous, qualityResult.value).current : undefined),
-          productIds: previous.productIds.filter(id => next.products.some(p => datasetKey(p) === dataset && p.product_id === id)),
-          profileId: next.profiles.some(p => p.profile_id === previous.profileId) ? previous.profileId : next.selected_profile_id ?? undefined };
+        const currentDatasetExists = next.products.some(
+          product => datasetKey(product) === previous.dataset,
+        );
+        const dataset = currentDatasetExists
+          ? previous.dataset
+          : next.products[0] ? datasetKey(next.products[0]) : '';
+        const current = qualityResult.status === 'fulfilled'
+          ? analysisDates(previous, qualityResult.value).current
+          : undefined;
+        const productIds = previous.productIds.filter(id => next.products.some(
+          product => datasetKey(product) === dataset && product.product_id === id,
+        ));
+        const profileExists = next.profiles.some(
+          profile => profile.profile_id === previous.profileId,
+        );
+        return {
+          ...previous,
+          dataset,
+          current: previous.current ?? current,
+          productIds,
+          profileId: profileExists
+            ? previous.profileId
+            : next.selected_profile_id ?? undefined,
+        };
       });
-    } else failures.push(errorMessage(optionResult.reason));
-    if (qualityResult.status === 'fulfilled') setQuality(qualityResult.value);
-    else failures.push(errorMessage(qualityResult.reason));
-    if (healthResult.status === 'fulfilled') setHealth(healthResult.value);
-    else { setHealth(undefined); failures.push(errorMessage(healthResult.reason)); }
+    } else {
+      failures.push(errorMessage(optionResult.reason));
+    }
+    if (qualityResult.status === 'fulfilled') {
+      setQuality(qualityResult.value);
+    } else {
+      failures.push(errorMessage(qualityResult.reason));
+    }
+    if (healthResult.status === 'fulfilled') {
+      setHealth(healthResult.value);
+    } else {
+      setHealth(undefined);
+      failures.push(errorMessage(healthResult.reason));
+    }
     setConnectionError([...new Set(failures)].join(' '));
     setLoading(false);
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
   useEffect(() => {
     void fetchHistory();
-    const timer = setInterval(() => { void fetchHistory(); }, 8000);
+    const timer = setInterval(() => {
+      void fetchHistory();
+    }, 8000);
     return () => clearInterval(timer);
   }, [fetchHistory, task?.status]);
   useEffect(() => {
@@ -90,38 +169,74 @@ export default function App() {
     }, 10_000);
     return () => clearInterval(timer);
   }, []);
-  useEffect(() => { setStorageError(!writeHistory({ ...local, draft })); }, [local, draft]);
   useEffect(() => {
-    if ((task?.kind === 'import' || task?.kind === 'label') && !isActive(task.status)) void load();
+    setStorageError(!writeHistory({ ...local, draft }));
+  }, [local, draft]);
+  useEffect(() => {
+    const dataPreparationFinished = task
+      && (task.kind === 'import' || task.kind === 'label')
+      && !isActive(task.status);
+    if (dataPreparationFinished) void load();
   }, [task?.task_id, task?.status, task?.kind, load]);
 
   const selectTask = (id: string | null) => {
     setLocal(previous => ({ ...previous, selected: id }));
-    setNavOpen(false); setSubmitError('');
+    setNavOpen(false);
+    setSubmitError('');
   };
+
   async function submit(input: TaskInput, note: string) {
     const fingerprint = JSON.stringify(input);
-    if (submissionKey.current?.fingerprint !== fingerprint) submissionKey.current = { fingerprint, key: crypto.randomUUID() };
-    setBusy(true); setSubmitError('');
+    if (submissionKey.current?.fingerprint !== fingerprint) {
+      submissionKey.current = { fingerprint, key: crypto.randomUUID() };
+    }
+    setBusy(true);
+    setSubmitError('');
     try {
       const result = await api.submit(input, submissionKey.current.key);
-      setLocal(previous => ({ ...previous, selected: result.task.task_id, notes: { ...previous.notes, [result.task.task_id]: note } }));
+      setLocal(previous => ({
+        ...previous,
+        selected: result.task.task_id,
+        notes: { ...previous.notes, [result.task.task_id]: note },
+      }));
       submissionKey.current = undefined;
-      setImportOpen(false); setLabelDefaults(undefined); setPage(1); void fetchHistory();
-    } catch (error) { setSubmitError(errorMessage(error)); }
-    finally { setBusy(false); }
+      setImportOpen(false);
+      setLabelDefaults(undefined);
+      setPage(1);
+      void fetchHistory();
+    } catch (error) {
+      setSubmitError(errorMessage(error));
+    } finally {
+      setBusy(false);
+    }
   }
+
   async function retry() {
     if (!task || !canRetry(task.status)) return;
-    if (retryKey.current?.id !== task.task_id) retryKey.current = { id: task.task_id, key: crypto.randomUUID() };
-    setBusy(true); setSubmitError('');
+    if (retryKey.current?.id !== task.task_id) {
+      retryKey.current = { id: task.task_id, key: crypto.randomUUID() };
+    }
+    setBusy(true);
+    setSubmitError('');
     try {
       const result = await api.retry(task.task_id, retryKey.current.key);
-      setLocal(previous => ({ ...previous, selected: result.task.task_id, notes: { ...previous.notes, [result.task.task_id]: previous.notes[task.task_id] || kindLabels[task.kind] } }));
-      retryKey.current = undefined; void fetchHistory();
-    } catch (error) { setSubmitError(errorMessage(error)); }
-    finally { setBusy(false); }
+      setLocal(previous => ({
+        ...previous,
+        selected: result.task.task_id,
+        notes: {
+          ...previous.notes,
+          [result.task.task_id]: previous.notes[task.task_id] || kindLabels[task.kind],
+        },
+      }));
+      retryKey.current = undefined;
+      void fetchHistory();
+    } catch (error) {
+      setSubmitError(errorMessage(error));
+    } finally {
+      setBusy(false);
+    }
   }
+
   const currentProducts = options.products.filter(product => {
     if (task) {
       const ids = task.parameters.product_ids as string[] | undefined;
@@ -131,28 +246,60 @@ export default function App() {
     }
     return datasetKey(product) === dataset && (!productIds.length || productIds.includes(product.product_id));
   });
-  const title = task ? local.notes[task.task_id] || `${kindLabels[task.kind]} · ${dateLabel(task.created_at)}` : '';
+  const title = task
+    ? local.notes[task.task_id] || `${kindLabels[task.kind]} · ${dateLabel(task.created_at)}`
+    : '';
+
   const openLabel = () => {
     const scoped = task?.kind === 'import' || task?.kind === 'label';
-    setSubmitError(''); setNavOpen(false);
+    setSubmitError('');
+    setNavOpen(false);
     setLabelDefaults({
-      dataset: scoped ? JSON.stringify([task.parameters.source || 'amazon_reviews_2023', task.parameters.dataset_version]) : dataset,
+      dataset: scoped
+        ? JSON.stringify([
+          task.parameters.source || 'amazon_reviews_2023',
+          task.parameters.dataset_version,
+        ])
+        : dataset,
       products: scoped ? (task.parameters.product_ids as string[] || []) : productIds,
       limit: task?.kind === 'label' ? task.parameters.limit as number : undefined,
       workers: task?.kind === 'label' ? task.parameters.workers as number : undefined,
     });
   };
-  const taskIdentity = task?.kind === 'label' ? task.parameters.model_identity as Identity | undefined : task?.parameters;
-  const previewProfile = task ? options.profiles.find(p => p.requested_model === taskIdentity?.model && p.base_url === taskIdentity?.base_url && p.prompt_version === taskIdentity?.prompt_version)?.profile_id : profileId;
-  const preparedDraft = { ...draft, dataset: task?.kind === 'label' ? JSON.stringify([task.parameters.source, task.parameters.dataset_version]) : dataset,
-    productIds: task?.kind === 'label' ? (task.parameters.product_ids as string[] || []) : productIds, profileId: previewProfile };
+
+  const taskIdentity = task?.kind === 'label'
+    ? task.parameters.model_identity as Identity | undefined
+    : task?.parameters;
+  const previewProfile = task
+    ? options.profiles.find(profile => (
+      profile.requested_model === taskIdentity?.model
+      && profile.base_url === taskIdentity?.base_url
+      && profile.prompt_version === taskIdentity?.prompt_version
+    ))?.profile_id
+    : profileId;
+  const preparedDraft = {
+    ...draft,
+    dataset: task?.kind === 'label'
+      ? JSON.stringify([task.parameters.source, task.parameters.dataset_version])
+      : dataset,
+    productIds: task?.kind === 'label'
+      ? (task.parameters.product_ids as string[] || [])
+      : productIds,
+    profileId: previewProfile,
+  };
   const preparedDates = analysisDates(preparedDraft, quality);
   const analyzeLabeled = (start: boolean) => {
     if (!task) return;
     setDraft(preparedDraft);
     const parameters = analysisParameters(preparedDraft, options, quality);
-    if (start && parameters) void submit({ kind: 'analysis', parameters }, draft.note.trim() || '评论趋势与负面问题分析');
-    else selectTask(null);
+    if (start && parameters) {
+      void submit(
+        { kind: 'analysis', parameters },
+        draft.note.trim() || '评论趋势与负面问题分析',
+      );
+    } else {
+      selectTask(null);
+    }
   };
   const showDetail = (value: unknown, title: string) => setDetail({ title, value });
   const side = <>
@@ -169,7 +316,7 @@ export default function App() {
     </div>
     {!!history?.total && history.total > 15 && <Pagination simple size="small" current={page} total={history.total} pageSize={15} onChange={setPage} />}
     <div className="sidebar-bottom"><div className="nav-caption"><DatabaseOutlined /> 当前数据集</div>
-      <div className="dataset-tile"><div className="dataset-icon"><DatabaseOutlined /></div><div><strong>{new Set(currentProducts.map(datasetKey)).size > 1 ? '多个数据集' : currentProducts[0]?.dataset_version || (task?.parameters.dataset_version as string) || '尚未选择'}</strong><span>{currentProducts.length} 款商品 · {currentProducts.reduce((sum, p) => sum + p.review_count, 0).toLocaleString()} 条评论</span></div></div>
+      <div className="dataset-tile"><div className="dataset-icon"><DatabaseOutlined /></div><div><strong>{productSummary(currentProducts, task?.parameters.dataset_version as string).split(' · ')[0]}</strong><span>{productSummary(currentProducts, task?.parameters.dataset_version as string).split(' · ').slice(1).join(' · ')}</span></div></div>
       <Button aria-label="从服务端目录导入" block icon={<ImportOutlined />} onClick={() => { setSubmitError(''); setImportOpen(true); }}>从服务端目录导入</Button>
       <Button className="spaced" block icon={<CheckOutlined />} onClick={openLabel}>准备数据</Button>
       <p className="local-note"><span className="status-dot" /> 本机工作空间</p>
@@ -192,11 +339,11 @@ export default function App() {
           {taskState.loading && !task && <Skeleton active paragraph={{ rows: 5 }} />}
           {taskState.error && <Alert className="spaced-bottom" type="error" showIcon message="任务连接异常" description={<>{taskState.error}<div>保留最后一次已知状态，正在尝试重新连接。</div></>} action={<Button onClick={taskState.refresh}>立即重连</Button>} />}
           {task && <>
-            <div className="task-heading"><span className="eyebrow">{task.kind === 'import' ? '第 1 步 · 导入数据' : task.kind === 'label' ? '第 2 步 · 准备数据' : '分析结果'}</span><h1>{title}</h1><p className="muted">创建于 {new Date(task.created_at).toLocaleString('zh-CN')}</p></div>
+            <div className="task-heading"><span className="eyebrow">{taskStepLabel(task.kind)}</span><h1>{title}</h1><p className="muted">创建于 {new Date(task.created_at).toLocaleString('zh-CN')}</p></div>
             <div className="scope-tags"><Tag icon={<DatabaseOutlined />}>{String(task.parameters.dataset_version || '全部版本')}</Tag><Tag>{(task.parameters.product_ids as string[] | undefined)?.join('、') || '全部商品'}</Tag>{!!task.parameters.date_from && <Tag>{String(task.parameters.date_from)} — {String(task.parameters.date_to)} · UTC</Tag>}<Button type="link" size="small" onClick={() => showDetail(task.parameters, '本次任务参数')}>查看参数</Button></div>
             <Card className="progress-card" aria-live="polite">
               <div className="progress-heading"><span>{isActive(task.status) ? <Spin size="small" /> : task.status === 'succeeded' ? <CheckOutlined className="success-icon" /> : <Badge status={task.status === 'failed' ? 'error' : 'warning'} />}<strong>{statusLabels[task.status]}</strong></span><span className="muted">{stageLabels[task.progress.stage] || task.progress.stage}</span></div>
-              {progressPercent(task.progress) !== undefined ? <Progress percent={progressPercent(task.progress)} status={task.status === 'failed' ? 'exception' : task.status === 'succeeded' ? 'success' : isActive(task.status) ? 'active' : 'normal'} size="small" /> : <p className="muted">{task.status === 'queued' ? '等待后台执行器领取任务。' : `已处理 ${task.progress.completed}，当前阶段总量未知。`}</p>}
+              {progressPercent(task.progress) !== undefined ? <Progress percent={progressPercent(task.progress)} status={progressStatus(task.status)} size="small" /> : <p className="muted">{task.status === 'queued' ? '等待后台执行器领取任务。' : `已处理 ${task.progress.completed}，当前阶段总量未知。`}</p>}
               {task.kind === 'label' && <>
                 <Space wrap aria-label="标注进度">
                   <span>标注进度 {task.progress.completed}/{task.progress.total ?? '待确定'}</span>

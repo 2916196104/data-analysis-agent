@@ -1,4 +1,4 @@
-"""Offline checks for shared labeling/query scope and effective opinions."""
+"""共享标注/查询范围及有效观点的离线检查。"""
 
 import io
 import json
@@ -49,7 +49,7 @@ class ReviewScopeTests(WorkbenchFixture, unittest.TestCase):
                 result = self.query(as_of=cutoff)
                 self.assertEqual([r["id"] for r in result["items"]], [6, 1])
                 self.assertEqual(self.progress(as_of=cutoff)["review_count"], 2)
-                # Labels were produced later; as_of is publication visibility, not processing time.
+                # 标注是在之后生成的；as_of 表示发布可见性，而不是处理时间。
                 self.assertTrue(all(r["processing_status"] == "success" for r in result["items"]))
         self.assertEqual([r["id"] for r in self.query(as_of="2023-01-02")["items"]], [2, 6, 1])
         self.assertEqual([r["id"] for r in self.query(as_of="2023-01-01T00:00:00Z")["items"]], [1])
@@ -74,7 +74,7 @@ class ReviewScopeTests(WorkbenchFixture, unittest.TestCase):
             client.assert_not_called()
 
     def test_failed_retry_remains_in_scope_and_version_isolation_is_preserved(self):
-        # Review 3 failed under IDENTITY; review 5 is pending under that identity.
+        # 评论 3 在该 IDENTITY 下失败；评论 5 在该身份下处于待处理状态。
         filters = {"product_ids": ["P1"], "date_from": "2023-01-03", "date_to": "2023-01-05"}
         self.assertEqual(pending_reviews(self.db, **IDENTITY, limit=20, **filters), [])
         retried = pending_reviews(self.db, **IDENTITY, limit=20, retry_failed=True, **filters)

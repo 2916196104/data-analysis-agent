@@ -1,4 +1,4 @@
-"""Monitoring acceptance tests on temporary simulated data, without external model calls."""
+"""基于临时模拟数据的监控验收测试，不调用外部模型。"""
 
 import io
 import json
@@ -157,7 +157,7 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(run["request"]["baseline_scope"]["date_from"], "2019-12-01")
         alert = get_alert(self.db, receipt["alert_occurrences"][0]["alert_id"])
         detail = alert["occurrences"][0]["details"]
-        self.assertEqual(detail["issue"]["negative_review_count"], 3)  # two quotes per review
+        self.assertEqual(detail["issue"]["negative_review_count"], 3)  # 每条评论两条引文
         self.assertEqual(detail["issue"]["negative_rate_change_pp"], 75.0)
         self.assertEqual((detail["evidence"]["total"], detail["evidence"]["total_opinions"]), (3, 6))
         for item in detail["evidence"]["items"]:
@@ -322,12 +322,12 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(within["alert_occurrences"][0]["alert_id"], alert_id)
         self.assertEqual(get_alert(self.db, alert_id)["status"], "ignored")
         boundary = self.run_monitor(as_of="2020-03-01")
-        self.assertEqual(boundary["new_alerts"], 1)  # exactly 30 days after first hit
+        self.assertEqual(boundary["new_alerts"], 1)  # 首次命中后整整 30 天
         newer = boundary["alert_occurrences"][0]["alert_id"]
         self.assertNotEqual(newer, alert_id)
         self.assertEqual(get_alert(self.db, newer)["status"], "pending")
         old = self.run_monitor(as_of="2020-01-30")
-        self.assertEqual(old["new_alerts"], 1)  # backfill never merges into a future alert
+        self.assertEqual(old["new_alerts"], 1)  # 回填永远不会合并到未来告警
         self.assertLess(old["as_of"], get_alert(self.db, alert_id)["first_seen"])
         self.assertEqual(get_alert(self.db, newer)["first_seen"], boundary["as_of"])
 

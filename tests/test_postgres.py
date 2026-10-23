@@ -1,4 +1,4 @@
-"""Opt-in integration checks; create/drop only uniquely named test databases."""
+"""可选集成检查；只创建和删除名称唯一的测试数据库。"""
 
 import hashlib
 import io
@@ -55,7 +55,7 @@ class PostgresTests(unittest.TestCase):
     def setUp(self):
         self.admin_url = os.environ["TEST_POSTGRES_ADMIN_URL"]
         self.target = self.new_database()
-        # Reuse the existing simulated review fixture, including every annotation.
+        # 复用现有的模拟评论夹具，包含全部标注。
         fixture = monitor_fixture.MonitorTests()
         fixture.setUp()
         self.addCleanup(fixture.doCleanups)

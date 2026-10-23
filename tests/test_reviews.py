@@ -1,4 +1,4 @@
-"""Offline Amazon import tests; every database and input is a temporary fixture."""
+"""离线 Amazon 导入测试；每个数据库和输入都是临时夹具。"""
 
 import gzip
 import hashlib

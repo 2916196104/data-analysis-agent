@@ -1,1 +1,1 @@
-"""Persistent task state and background execution."""
+"""持久化任务状态和后台执行。"""

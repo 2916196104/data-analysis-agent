@@ -1,4 +1,4 @@
-# Python / local development
+# Python / 本地开发
 .venv/
 venv/
 __pycache__/
@@ -13,7 +13,7 @@ htmlcov/
 .vscode/
 *.iml
 
-# Secrets: only the documented, empty example belongs in Git
+# 密钥：Git 中只保留文档化的空示例
 .env
 .env.*
 !.env.example
@@ -22,7 +22,7 @@ htmlcov/
 *.p12
 credentials*.json
 
-# Private data: the only permitted data file is the explicit mock fixture
+# 私有数据：唯一允许提交的数据文件是明确的模拟夹具
 data/*
 !data/samples/
 data/samples/*
@@ -40,14 +40,14 @@ data/samples/*
 *.db-*
 !data/samples/sales_mock.csv
 
-# Generated results may contain private data
+# 生成结果可能包含私有数据
 outputs/
 *.png
 *.log
 .cache/
 *.worker.lock
 
-# Independent frontend
+# 独立前端
 node_modules/
 .vite/
 *.tsbuildinfo

@@ -1,4 +1,4 @@
-"""HTTP endpoints for reviews; business operations stay in their services."""
+"""评论 HTTP 端点；业务操作仍位于各自服务中。"""
 
 from typing import Annotated
 
@@ -16,7 +16,7 @@ from data_analysis_agent.reviews.human_review import (
 
 
 def create_router(db):
-    """Build routes bound to this application, without global database state."""
+    """构建绑定到当前应用的路由，不使用全局数据库状态。"""
     router = APIRouter()
 
     @router.get("/quality", response_model=Result, tags=["商品与评论"])

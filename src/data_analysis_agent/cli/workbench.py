@@ -1,4 +1,4 @@
-"""Command-line entry for api.workbench."""
+"""api.workbench 的命令行入口。"""
 
 import argparse
 import json

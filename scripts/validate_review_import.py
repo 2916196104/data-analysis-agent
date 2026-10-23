@@ -1,4 +1,4 @@
-"""Verify real-data import/dedup/evidence in a disposable database only."""
+"""仅在临时数据库中验证真实数据导入、去重和证据链。"""
 
 import argparse
 import gzip
@@ -11,15 +11,19 @@ import tempfile
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from data_analysis_agent.reviews.loader import file_sha256
 from data_analysis_agent.reviews.store import get_review_evidence
 
 
-def run_cli(*arguments):
+def run_cli(*arguments: object) -> dict[str, Any]:
+    """调用评论 CLI，并把标准输出解析为 JSON。"""
     result = subprocess.run(
         [sys.executable, "-m", "data_analysis_agent.cli.reviews", *map(str, arguments)],
-        capture_output=True, text=True, encoding="utf-8",
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
         env={**os.environ, "PYTHONIOENCODING": "utf-8"},
     )
     if result.returncode not in (0, 3):
@@ -27,8 +31,8 @@ def run_cli(*arguments):
     return json.loads(result.stdout)
 
 
-def check_original_lines(connection, source_path, kind):
-    """Compare every stored raw JSON line directly against the original file."""
+def check_original_lines(connection: Any, source_path: Path, kind: str) -> int:
+    """逐行核对数据库中的原始 JSON，确保导入没有改写输入文件内容。"""
     table = "reviews" if kind == "reviews" else "products"
     cursor = connection.execute(f"SELECT line_number, raw_json FROM {table} ORDER BY line_number")
     expected = next(cursor, None)
@@ -47,7 +51,12 @@ def check_original_lines(connection, source_path, kind):
     return checked
 
 
-def validate_import(reviews_path, meta_path, product_ids):
+def validate_import(
+    reviews_path: str | Path,
+    meta_path: str | Path,
+    product_ids: list[str],
+) -> dict[str, Any]:
+    """在一次性 SQLite 数据库中执行导入、重复导入和证据一致性检查。"""
     reviews_path, meta_path = Path(reviews_path).resolve(), Path(meta_path).resolve()
     fingerprints = {"reviews": file_sha256(reviews_path), "meta": file_sha256(meta_path)}
     product_ids = sorted(set(product_ids))
@@ -70,8 +79,16 @@ def validate_import(reviews_path, meta_path, product_ids):
         assert first["quality"]["review_count"] == second["quality"]["review_count"]
         assert first["quality"]["product_count"] == second["quality"]["product_count"]
         for item in first["imports"] + second["imports"]:
-            assert item["total_lines"] == sum(item[key] for key in (
-                "blank_lines", "filtered_records", "inserted_records", "duplicate_records", "invalid_records"))
+            assert item["total_lines"] == sum(
+                item[key]
+                for key in (
+                    "blank_lines",
+                    "filtered_records",
+                    "inserted_records",
+                    "duplicate_records",
+                    "invalid_records",
+                )
+            )
             assert item["file_sha256"] == fingerprints[item["kind"]]
         with closing(sqlite3.connect(database)) as connection:
             connection.row_factory = sqlite3.Row
@@ -128,7 +145,7 @@ def validate_import(reviews_path, meta_path, product_ids):
     return report
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="仅使用临时数据库验证真实评论导入，不配置业务数据库")
     parser.add_argument("--reviews", required=True, type=Path)
     parser.add_argument("--meta", required=True, type=Path)
@@ -140,9 +157,18 @@ def main():
     report = validate_import(args.reviews, args.meta, args.product_id)
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps({"status": report["status"], "checks": report["checks"],
-                      "products": report["products"], "report": str(args.report.resolve())},
-                     ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "status": report["status"],
+                "checks": report["checks"],
+                "products": report["products"],
+                "report": str(args.report.resolve()),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

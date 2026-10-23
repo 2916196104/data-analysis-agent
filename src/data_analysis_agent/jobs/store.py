@@ -1,4 +1,4 @@
-"""Durable single-worker queue in explicitly initialized SQLite/PostgreSQL tables."""
+"""在显式初始化的 SQLite/PostgreSQL 数据表中实现持久化单 worker 队列。"""
 
 import json
 import uuid
@@ -60,7 +60,7 @@ class TaskConflict(ReviewDataError):
 
 
 def check_task_schema(connection):
-    """Validate the queue schema on an existing connection without changing it."""
+    """在不修改连接的情况下校验已有队列数据表结构。"""
     if isinstance(connection, PostgresConnection):
         check_postgres_schema(connection, "tasks")
         return
@@ -70,7 +70,7 @@ def check_task_schema(connection):
 
 
 def connect_task_database(path, *, readonly=False):
-    """Open a validated task database; the caller owns transactions and close()."""
+    """打开已校验的任务数据库；事务和 close() 由调用方负责。"""
     if not is_postgres(path) and not Path(path).is_file():
         raise ReviewDataError("任务库不存在，请先执行 review_api_cli init。")
     connection = connect_database(path, readonly=readonly, namespace="tasks", timeout=10)
@@ -200,7 +200,7 @@ def enqueue(path, kind, parameters, *, idempotency_key=None, parent_task_id=None
 
 
 def worker_started(path, worker_id):
-    """Call only while holding the OS worker lock: no old worker can still execute."""
+    """仅在持有操作系统 worker 锁时调用：此时旧 worker 不可能仍在执行。"""
     now = utc_now()
     error = canonical_json({"code": "worker_interrupted", "message": "执行进程已中断；已完成的业务写入保留，请核查后显式重试。"})
     with closing(connect_task_database(path)) as connection, connection:

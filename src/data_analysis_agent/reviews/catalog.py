@@ -1,4 +1,4 @@
-"""Paginated product catalog for the unified review service."""
+"""统一评论服务的分页商品目录。"""
 
 from contextlib import closing
 

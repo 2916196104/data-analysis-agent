@@ -1,4 +1,4 @@
-"""HTTP regression checks across business routers and independent app instances."""
+"""跨业务路由和独立应用实例的 HTTP 回归检查。"""
 
 import sqlite3
 import tempfile

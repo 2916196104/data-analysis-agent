@@ -1,4 +1,4 @@
-"""Shared HTTP response envelopes and error formatting."""
+"""共享的 HTTP 响应封装和错误格式化。"""
 
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel

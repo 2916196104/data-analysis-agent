@@ -1,4 +1,4 @@
-"""SQLite/PostgreSQL storage, explicit setup, atomic imports and row-level evidence."""
+"""SQLite/PostgreSQL 存储、显式初始化、原子导入和行级证据。"""
 
 import json
 import sqlite3
@@ -77,7 +77,7 @@ CREATE TABLE import_errors (
 
 
 def check_review_schema(connection: sqlite3.Connection | PostgresConnection) -> None:
-    """Check review schema identity/version without modifying the caller's connection."""
+    """在不修改调用方连接的情况下检查评论数据表身份和版本。"""
     if isinstance(connection, PostgresConnection):
         check_postgres_schema(connection, "business")
         return
@@ -88,7 +88,7 @@ def check_review_schema(connection: sqlite3.Connection | PostgresConnection) -> 
 
 
 def connect_review_database(db_path: str | Path, *, readonly: bool = False) -> sqlite3.Connection | PostgresConnection:
-    """Open a validated review database; the caller owns transactions and close()."""
+    """打开已校验的评论数据库；事务和 close() 由调用方负责。"""
     if not is_postgres(db_path) and not Path(db_path).is_file():
         raise ReviewDataError("评论数据库不存在，请先执行 init --db 指定路径。")
     connection = connect_database(db_path, readonly=readonly)
@@ -101,7 +101,7 @@ def connect_review_database(db_path: str | Path, *, readonly: bool = False) -> s
 
 
 def init_database(db_path: str | Path) -> dict:
-    """Initialize a new, explicitly chosen database; refuse unrelated databases."""
+    """初始化用户明确选择的新数据库；拒绝无关数据库。"""
     if is_postgres(db_path):
         return {"database": database_identity(db_path), "schema_version": SCHEMA_VERSION,
                 "created": init_postgres(db_path, SCHEMA)}
@@ -111,7 +111,7 @@ def init_database(db_path: str | Path) -> dict:
     if path.exists():
         with closing(connect_review_database(path, readonly=True)):
             return {"database": str(path), "schema_version": SCHEMA_VERSION, "created": False}
-    # Exclusive file creation prevents init from replacing an existing file.
+    # 独占创建文件可避免 init 替换已有文件。
     with path.open("xb"):
         pass
     with closing(connect_database(path)) as connection:
@@ -152,7 +152,7 @@ def _store_product(connection, record, raw_json, raw_data, run_id, line_number, 
 
 def _store_review(connection, record, raw_json, run_id, line_number, version, fingerprint, fetched_at,
                   known_products):
-    # Anonymous records have no safe cross-file identity; keep distinct locations.
+    # 匿名记录没有安全的跨文件身份；保留不同的位置。
     digest = content_sha256(record)
     record_id = digest if record["user_id"] else content_sha256({"file_sha256": fingerprint, "line": line_number})
     if connection.execute(
@@ -165,7 +165,7 @@ def _store_review(connection, record, raw_json, run_id, line_number, version, fi
             "INSERT INTO products(source, dataset_version, product_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
             (SOURCE, version, record["product_id"]),
         )
-        # Bound memory even when importing a category with millions of products.
+        # 即使导入包含数百万商品的类别，也要限制内存使用。
         if len(known_products) < 4096:
             known_products.add(record["product_id"])
     connection.execute(
@@ -208,7 +208,7 @@ def _import_file(connection, path, kind, version, product_ids, progress=None, ma
                 continue
             if reason is None:
                 try:
-                    # Filter by product before validating other fields, but report malformed JSON.
+                    # 先按商品筛选再校验其他字段，但仍报告格式错误的 JSON。
                     candidate = line.data.get("parent_asin")
                     if (product_ids and isinstance(candidate, str) and candidate.strip()
                             and candidate.strip() not in product_ids):
@@ -300,7 +300,7 @@ def _quality_summary(connection):
 def import_amazon_jsonl(db_path: str | Path, *, reviews_path: str | Path | None = None,
                         meta_path: str | Path | None = None, dataset_version: str = DATASET_VERSION,
                         product_ids: list[str] | None = None, progress=None, max_reviews: int | None = None) -> dict:
-    """Import both inputs in one transaction; row errors are retained, fatal errors roll back."""
+    """在一个事务中导入两个输入；保留行错误，致命错误则回滚。"""
     if not isinstance(dataset_version, str) or not dataset_version.strip():
         raise ReviewDataError("dataset_version 不能为空。")
     if max_reviews is not None:
@@ -343,7 +343,7 @@ def get_quality_summary(db_path: str | Path) -> dict:
 
 
 def get_review_evidence(db_path: str | Path, review_id: int) -> dict:
-    """Return stored original text even if the input file has since moved."""
+    """即使输入文件后来被移动，也返回已保存的原始正文。"""
     if isinstance(review_id, bool) or not isinstance(review_id, int) or review_id < 1:
         raise ReviewDataError("review_id 必须是正整数。")
     with closing(connect_review_database(db_path, readonly=True)) as connection:

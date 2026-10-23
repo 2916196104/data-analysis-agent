@@ -1,4 +1,4 @@
-"""CSV/Excel parity, sheet selection, explicit mapping and input failures."""
+"""CSV/Excel 一致性、工作表选择、显式映射和输入失败检查。"""
 
 import hashlib
 import json
@@ -22,7 +22,7 @@ CN_HEADERS = ["销售日期", "商品名称", "销售额"]
 
 
 def make_workbook(path, rows=None, headers=CN_HEADERS, *, extra_sheet=False):
-    """Small disposable test fixture; no user workbook is edited."""
+    """小型一次性测试夹具；不修改用户工作簿。"""
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "销售明细"

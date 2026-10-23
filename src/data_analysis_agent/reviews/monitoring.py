@@ -1,8 +1,9 @@
-"""Snapshot-based analysis, monthly historical replay and deterministic rule alerts."""
+"""保存分析快照，执行确定性告警规则，并支持按 UTC 月份回放。"""
 import uuid
 from contextlib import closing
 from datetime import timedelta
 from decimal import Decimal
+from typing import Any, Callable
 
 from data_analysis_agent.core.clock import utc_now
 from data_analysis_agent.core.database import DATABASE_ERRORS
@@ -20,8 +21,12 @@ from data_analysis_agent.reviews.store import connect_review_database
 ENGINE_VERSION = "review-monitor-v1"
 
 
-def _inputs(connection, identity, windows):
-    """Freeze all contributing inputs, including failed/unlabeled reviews and empty human snapshots."""
+def _inputs(
+    connection: Any,
+    identity: tuple[str, str, str],
+    windows: tuple[tuple[str, list[Any]], ...],
+) -> list[dict[str, Any]]:
+    """冻结全部输入，包括失败、未标注评论和人工确认的空观点快照。"""
     cte, parameters = current_reviews_sql(connection, identity)
     where = " OR ".join("(" + window[0] + ")" for window in windows)
     filters = [value for window in windows for value in window[1]]
@@ -43,29 +48,51 @@ def _inputs(connection, identity, windows):
     return rows
 
 
-def _evaluate(top, issue, rules):
+def _evaluate(
+    top: dict[str, Any],
+    issue: dict[str, Any],
+    rules: dict[str, Any],
+) -> dict[str, Any]:
+    """用精确计数检查单个问题是否满足样本、覆盖率和增长阈值。"""
     current, baseline = top["current"], top["baseline"]
     coverage = Decimal(str(rules["min_coverage"]))
     checks = {}
     for name, summary in (("current", current), ("baseline", baseline)):
         checks[name + "_samples"] = summary["successful_reviews"] >= rules["min_samples"]
-        checks[name + "_coverage"] = (summary["eligible_text_reviews"] > 0
-                                     and summary["successful_reviews"] >= coverage * summary["eligible_text_reviews"])
+        checks[name + "_coverage"] = (
+            summary["eligible_text_reviews"] > 0
+            and summary["successful_reviews"]
+            >= coverage * summary["eligible_text_reviews"]
+        )
     sufficient = all(checks.values())
     checks["negative_count"] = issue["negative_review_count"] >= rules["min_negative_count"]
     checks["rate_increase"] = False
     if current["successful_reviews"] and baseline["successful_reviews"]:
-        # Compare exact counts, not the tools' six-decimal display rates.
-        increase = (Decimal(issue["negative_review_count"]) / current["successful_reviews"]
-                    - Decimal(issue["baseline_negative_review_count"]) / baseline["successful_reviews"]) * 100
+        # 比较精确计数，不比较工具展示的六位小数比例。
+        increase = (
+            Decimal(issue["negative_review_count"]) / current["successful_reviews"]
+            - Decimal(issue["baseline_negative_review_count"])
+            / baseline["successful_reviews"]
+        ) * 100
         checks["rate_increase"] = increase >= Decimal(str(rules["min_increase_pp"]))
-    status = "insufficient_data" if not sufficient else ("triggered" if all(checks.values()) else "normal")
-    return {"aspect": issue["aspect"], "status": status, "checks": checks,
-            "reasons": [name for name, passed in checks.items() if not passed],
-            "issue": issue, "current": current, "baseline": baseline}
+    if not sufficient:
+        status = "insufficient_data"
+    elif all(checks.values()):
+        status = "triggered"
+    else:
+        status = "normal"
+    return {
+        "aspect": issue["aspect"],
+        "status": status,
+        "checks": checks,
+        "reasons": [name for name, passed in checks.items() if not passed],
+        "issue": issue,
+        "current": current,
+        "baseline": baseline,
+    }
 
 
-def _receipt(run, reused):
+def _receipt(run: dict[str, Any], reused: bool) -> dict[str, Any]:
     hits = run["alert_occurrences"]
     return {"run_id": run["run_id"], "reused": reused, "as_of": run["as_of"],
             "request": run["request"], "summary": run["results"]["summary"],
@@ -73,10 +100,23 @@ def _receipt(run, reused):
             "merged_alerts": 0 if reused else sum(not hit["is_new_alert"] for hit in hits), "alert_occurrences": hits}
 
 
-def run_analysis(db_path, *, model, base_url, prompt_version, date_from, date_to,
-                 baseline_from, baseline_to, product_ids=None, source=None, dataset_version=None,
-                 as_of=None, rules=None):
-    """Atomically save one analysis and its alerts; identical scoped inputs reuse the saved run."""
+def run_analysis(
+    db_path: str,
+    *,
+    model: str,
+    base_url: str,
+    prompt_version: str,
+    date_from: str,
+    date_to: str,
+    baseline_from: str,
+    baseline_to: str,
+    product_ids: list[str] | None = None,
+    source: str | None = None,
+    dataset_version: str | None = None,
+    as_of: str | None = None,
+    rules: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """原子保存一次分析及告警；范围和输入完全相同时复用已有结果。"""
     rules = validate_rules(rules)
     common = dict(model=model, base_url=base_url, prompt_version=prompt_version, product_ids=product_ids,
                   source=source, dataset_version=dataset_version, as_of=as_of if as_of is not None else date_to)
@@ -92,7 +132,7 @@ def run_analysis(db_path, *, model, base_url, prompt_version, date_from, date_to
     request = {"engine_version": ENGINE_VERSION, "scope": scope, "baseline_scope": baseline_scope, "rules": rules,
                "snapshot_policy": "current_labels_frozen_at_run; publication_cutoff"}
     with closing(connect_review_database(db_path)) as connection, connection:
-        # One short write transaction serializes retries and keeps every tool on the same snapshot.
+        # 一个短写事务会串行化重试，并让所有工具使用同一快照。
         connection.execute("BEGIN IMMEDIATE")
         check_monitoring_schema(connection)
         inputs = _inputs(connection, identity, ((where, filters), (before_where, before_filters)))
@@ -105,8 +145,11 @@ def run_analysis(db_path, *, model, base_url, prompt_version, date_from, date_to
         trend = get_trend(connection, **current_args, period="month")
         comparison = compare_products(connection, **current_args)
         baseline_comparison = compare_products(connection, **baseline_args)
-        products = {tuple(row[k] for k in ("source", "dataset_version", "product_id"))
-                    for row in comparison["products"] + baseline_comparison["products"]}
+        product_rows = comparison["products"] + baseline_comparison["products"]
+        products = {
+            tuple(row[key] for key in ("source", "dataset_version", "product_id"))
+            for row in product_rows
+        }
         results = {"trend": trend, "comparison": comparison, "baseline_comparison": baseline_comparison,
                    "products": [], "summary": {"input_reviews": len(inputs), "products": len(products),
                                               "triggered": 0, "normal": 0, "insufficient_data": 0}}
@@ -137,9 +180,22 @@ def run_analysis(db_path, *, model, base_url, prompt_version, date_from, date_to
         return _receipt(read_analysis_run(connection, run_id), reused=False)
 
 
-def replay_monthly(db_path, *, month_from, month_to, baseline_months=1, model, base_url, prompt_version,
-                   product_ids=None, source=None, dataset_version=None, rules=None, progress=None):
-    """Advance through whole UTC months; each month commits separately and can be resumed."""
+def replay_monthly(
+    db_path: str,
+    *,
+    month_from: str,
+    month_to: str,
+    baseline_months: int = 1,
+    model: str,
+    base_url: str,
+    prompt_version: str,
+    product_ids: list[str] | None = None,
+    source: str | None = None,
+    dataset_version: str | None = None,
+    rules: dict[str, Any] | None = None,
+    progress: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """按完整 UTC 月份推进；每个月单独提交并支持恢复。"""
     start, end = parse_month(month_from, "month_from"), parse_month(month_to, "month_to")
     count = (end.year - start.year) * 12 + end.month - start.month + 1
     if not 1 <= count <= 1200:
@@ -148,7 +204,7 @@ def replay_monthly(db_path, *, month_from, month_to, baseline_months=1, model, b
     rules = validate_rules(rules)
     shift_month(start, -baseline_months)
     shift_month(end, 1)
-    # Validate the shared configuration before any month is committed.
+    # 提交任何月份前先校验共享配置。
     analysis_scope(model=model, base_url=base_url, prompt_version=prompt_version,
            date_from=start.isoformat(), date_to=end.isoformat(), product_ids=product_ids,
            source=source, dataset_version=dataset_version)

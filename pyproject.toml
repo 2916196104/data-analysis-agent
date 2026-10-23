@@ -35,5 +35,9 @@ review-migrate = "data_analysis_agent.cli.migrate:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.setuptools.package-data]
-"data_analysis_agent.api" = ["workbench_assets/*.html", "workbench_assets/*.css", "workbench_assets/*.js"]
+[tool.setuptools.data-files]
+"share/data-analysis-agent/workbench" = [
+    "frontend/workbench/index.html",
+    "frontend/workbench/workbench.css",
+    "frontend/workbench/workbench.js",
+]

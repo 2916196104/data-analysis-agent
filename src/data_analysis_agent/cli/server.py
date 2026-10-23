@@ -1,4 +1,4 @@
-"""Explicit API setup, local server, standalone worker and task inspection CLI."""
+"""显式 API 初始化、本地服务器、独立 worker 和任务检查 CLI。"""
 
 import argparse
 import json

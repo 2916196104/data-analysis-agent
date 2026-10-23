@@ -1,15 +1,16 @@
-"""Shared UTC review filters and current model/human opinion selection."""
+"""统一评论筛选口径，并生成模型标注与人工复核共用的查询片段。"""
 
 import re
 from datetime import date, datetime, timedelta, timezone
+from typing import Any
 
 from data_analysis_agent.core.database import table_names
 
 from data_analysis_agent.core.errors import ReviewDataError
 
 
-def parse_day(value, name):
-    """Parse a strict calendar day, with the parameter name in validation errors."""
+def parse_day(value: object, name: str) -> date:
+    """解析严格的日历日期，并在错误中保留参数名。"""
     try:
         if not isinstance(value, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
             raise ValueError
@@ -18,14 +19,27 @@ def parse_day(value, name):
         raise ReviewDataError(f"{name} 请使用有效的 YYYY-MM-DD 日期。") from exc
 
 
-def review_scope(*, product_ids=None, date_from=None, date_to=None, as_of=None,
-                 source=None, dataset_version=None, alias="r"):
-    """Return SQL, parameters and normalized scope; date endpoints include the UTC day."""
+def review_scope(
+    *,
+    product_ids: list[str] | tuple[str, ...] | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    as_of: str | None = None,
+    source: str | None = None,
+    dataset_version: str | None = None,
+    alias: str = "r",
+) -> tuple[str, list[str], dict[str, Any]]:
+    """返回 SQL 条件、绑定值和规范化范围；日期边界包含完整 UTC 当天。"""
     if alias not in ("r", "c"):
         raise ValueError("Unsupported review alias")
-    if product_ids is not None and (not isinstance(product_ids, (list, tuple)) or any(
-            not isinstance(item, str) or not item.strip() for item in product_ids)):
-        raise ReviewDataError("product_ids 必须是非空商品 ID 的列表。")
+    if product_ids is not None:
+        invalid_products = not isinstance(product_ids, (list, tuple)) or any(
+            not isinstance(item, str) or not item.strip()
+            for item in product_ids
+        )
+        if invalid_products:
+            raise ReviewDataError("product_ids 必须是非空商品 ID 的列表。")
+
     products = sorted({item.strip() for item in product_ids or ()})
     conditions, values = [], []
     if products:
@@ -37,11 +51,13 @@ def review_scope(*, product_ids=None, date_from=None, date_to=None, as_of=None,
                 raise ReviewDataError(f"{name} 必须是非空文本。")
             conditions.append(f"{alias}.{name}=?")
             values.append(value)
-    start = parse_day(date_from, "date_from") if date_from is not None else None
-    end = parse_day(date_to, "date_to") if date_to is not None else None
-    if start and end and start > end:
+    start_day = parse_day(date_from, "date_from") if date_from is not None else None
+    end_day = parse_day(date_to, "date_to") if date_to is not None else None
+    if start_day and end_day and start_day > end_day:
         raise ReviewDataError("开始日期不能晚于结束日期。")
-    for day, operator in ((start, ">="), (end, "<")):
+
+    # 结束日期转换为次日开区间，避免依赖数据库的时间精度。
+    for day, operator in ((start_day, ">="), (end_day, "<")):
         if day is not None:
             try:
                 boundary = day if operator == ">=" else day + timedelta(days=1)
@@ -70,12 +86,25 @@ def review_scope(*, product_ids=None, date_from=None, date_to=None, as_of=None,
                 raise ReviewDataError("as_of 请使用 UTC 日期或带时区的 ISO 8601 时间。") from exc
         conditions.append(f"{alias}.published_at {operator} ?")
         values.append(timestamp)
-    scope = {"product_ids": products, "source": source, "dataset_version": dataset_version,
-             "date_from": date_from, "date_to": date_to, "as_of": cutoff, "timezone": "UTC"}
+    scope = {
+        "product_ids": products,
+        "source": source,
+        "dataset_version": dataset_version,
+        "date_from": date_from,
+        "date_to": date_to,
+        "as_of": cutoff,
+        "timezone": "UTC",
+    }
     return " AND ".join(conditions) or "TRUE", values, scope
 
 
-def model_identity(model, base_url, prompt_version, *, required=False):
+def model_identity(
+    model: str | None,
+    base_url: str | None,
+    prompt_version: str | None,
+    *,
+    required: bool = False,
+) -> tuple[str, str, str] | None:
     values = (model, base_url, prompt_version)
     if not required and all(value is None for value in values):
         return None
@@ -84,8 +113,11 @@ def model_identity(model, base_url, prompt_version, *, required=False):
     return tuple(value.strip() for value in values)
 
 
-def current_reviews_sql(connection, identity):
-    """Use current content and one profile; an empty human snapshot stays empty."""
+def current_reviews_sql(
+    connection: Any,
+    identity: tuple[str, str, str],
+) -> tuple[str, tuple[str, str, str]]:
+    """选择当前正文和指定模型版本；人工空快照仍代表有效的空结果。"""
     expected = {"review_workbench_schema", "review_human_reviews", "review_human_opinions"}
     names = table_names(connection) & expected
     if names:
@@ -94,14 +126,18 @@ def current_reviews_sql(connection, identity):
         versions = connection.execute("SELECT version FROM review_workbench_schema").fetchall()
         if len(versions) != 1 or versions[0][0] != 1:
             raise ReviewDataError("工作台表版本不支持。")
-    human_columns = "h.id revision_id, COALESCE(h.action,'unreviewed') human_status," if names else (
-        "NULL revision_id, 'unreviewed' human_status,")
-    human_join = """LEFT JOIN review_human_reviews h ON h.id=(
-        SELECT MAX(id) FROM review_human_reviews WHERE annotation_id=a.id)""" if names else ""
-    human_opinions = """UNION ALL
+    if names:
+        human_columns = "h.id revision_id, COALESCE(h.action,'unreviewed') human_status,"
+        human_join = """LEFT JOIN review_human_reviews h ON h.id=(
+        SELECT MAX(id) FROM review_human_reviews WHERE annotation_id=a.id)"""
+        human_opinions = """UNION ALL
         SELECT c.id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end
         FROM current c JOIN review_human_opinions o ON o.human_review_id=c.revision_id
-    """ if names else ""
+    """
+    else:
+        human_columns = "NULL revision_id, 'unreviewed' human_status,"
+        human_join = ""
+        human_opinions = ""
     return f"""WITH attempts AS (
         SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.review_id ORDER BY (a.status='success') DESC, a.id DESC) rn
         FROM review_annotations a JOIN reviews r ON r.id=a.review_id AND r.content_sha256=a.content_sha256
@@ -123,10 +159,24 @@ def current_reviews_sql(connection, identity):
     ) """, identity
 
 
-def analysis_scope(*, model, base_url, prompt_version, date_from, date_to, **filters):
-    """Return model identity, SQL filters/values and a normalized analysis scope."""
+def analysis_scope(
+    *,
+    model: str,
+    base_url: str,
+    prompt_version: str,
+    date_from: str | None,
+    date_to: str | None,
+    **filters: Any,
+) -> tuple[tuple[str, str, str], str, list[str], dict[str, Any]]:
+    """返回模型身份、SQL 筛选条件和规范化的分析范围。"""
     if date_from is None or date_to is None:
         raise ReviewDataError("统计查询必须指定 date_from 和 date_to。")
     identity = model_identity(model, base_url, prompt_version, required=True)
     where, values, scope = review_scope(date_from=date_from, date_to=date_to, **filters, alias="c")
-    return identity, where, values, {**scope, "model": identity[0], "base_url": identity[1], "prompt_version": identity[2]}
+    normalized_scope = {
+        **scope,
+        "model": identity[0],
+        "base_url": identity[1],
+        "prompt_version": identity[2],
+    }
+    return identity, where, values, normalized_scope

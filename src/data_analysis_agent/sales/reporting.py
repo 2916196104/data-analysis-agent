@@ -1,4 +1,4 @@
-"""Local chart and Markdown output, independent from the command-line entry."""
+"""独立于命令行入口的本地图表和 Markdown 输出。"""
 
 import html
 import os
@@ -9,7 +9,7 @@ from urllib.parse import quote
 
 
 def generate_sales_chart(totals: Mapping[str, str], output_path: str | Path) -> str:
-    """Write a headless PNG bar chart from product totals; return its absolute path."""
+    """根据商品汇总写入无界面 PNG 柱状图；返回绝对路径。"""
     if not totals:
         raise ValueError("图表需要至少一个商品的汇总结果。")
     from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -45,7 +45,7 @@ def write_markdown_report(
     source_name: str,
     *, source: Mapping | None = None,
 ) -> str:
-    """Write a UTF-8 report with an image link relative to the report directory."""
+    """写入 UTF-8 报告，图片链接相对于报告目录。"""
     path = Path(output_path).resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     relative_chart = Path(os.path.relpath(Path(chart_path).resolve(), path.parent)).as_posix()

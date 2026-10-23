@@ -1,4 +1,4 @@
-"""Temporary DB and real loopback HTTP checks; no model calls or business writes."""
+"""临时数据库和真实回环 HTTP 检查；不调用模型，也不写入业务数据。"""
 
 import hashlib
 import http.client
@@ -259,12 +259,15 @@ class WorkbenchHTTPTests(WorkbenchFixture, unittest.TestCase):
             return response.status,dict(response.getheaders()),response.read()
 
     def test_assets_filters_detail_and_no_cross_site_reads(self):
+        from data_analysis_agent.api.workbench import ASSET_DIR
+
         for path in ("/","/workbench.js","/workbench.css"):
             code,headers,body = self.request("GET",path)
             self.assertEqual(code,200)
             self.assertEqual(headers["Cache-Control"],"no-store")
             self.assertIn("frame-ancestors 'none'",headers["Content-Security-Policy"])
             self.assertTrue(body)
+            self.assertEqual(body, (ASSET_DIR / ("index.html" if path == "/" else path[1:])).read_bytes())
         code,_,body = self.request("GET","/api/options")
         self.assertEqual(code,200)
         self.assertIn("csrf_token",json.loads(body))

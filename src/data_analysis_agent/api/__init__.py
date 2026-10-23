@@ -1,1 +1,1 @@
-"""Local HTTP applications, transport models and workbench assets."""
+"""本地 HTTP 应用、传输模型和工作台资源。"""

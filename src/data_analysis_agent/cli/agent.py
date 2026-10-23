@@ -1,4 +1,4 @@
-"""Natural-language CLI; the original python -m data_analysis_agent stays unchanged."""
+"""自然语言 CLI；原有的 python -m data_analysis_agent 保持不变。"""
 
 import argparse
 import json

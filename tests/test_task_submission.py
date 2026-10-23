@@ -1,4 +1,4 @@
-"""Submission keeps persisted identities, request hashes and file boundaries stable."""
+"""提交过程保持持久化身份、请求哈希和文件边界稳定。"""
 
 import hashlib
 import json

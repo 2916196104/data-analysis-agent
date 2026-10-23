@@ -1,1 +1,1 @@
-"""Business route factories; each router captures only its application configuration."""
+"""业务路由工厂；每个路由器只捕获自身应用配置。"""

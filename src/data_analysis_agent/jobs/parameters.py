@@ -1,4 +1,4 @@
-"""Task payload contracts independent of HTTP queries and request envelopes."""
+"""独立于 HTTP 查询和请求封装的任务载荷契约。"""
 
 from typing import Literal
 

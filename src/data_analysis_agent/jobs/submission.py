@@ -1,4 +1,4 @@
-"""Validate queued files and model identity before submission or retry."""
+"""提交或重试前校验队列文件和模型身份。"""
 
 from pathlib import Path
 
@@ -10,7 +10,7 @@ from data_analysis_agent.reviews.prompts import PROMPT_VERSION
 
 
 def import_path(value, root):
-    """Queued imports can only use files inside the configured import directory."""
+    """队列中的导入只能使用配置导入目录内的文件。"""
     root = Path(root).resolve()
     candidate = Path(value)
     path = (candidate if candidate.is_absolute() else root / candidate).resolve()

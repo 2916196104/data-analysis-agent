@@ -1,4 +1,4 @@
-"""One durable task worker per business database; existing business functions do the work."""
+"""每个业务库只运行一个持久任务 worker，具体工作委托给现有业务函数。"""
 
 import logging
 import os
@@ -6,13 +6,20 @@ import threading
 import time
 import uuid
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
 
 from data_analysis_agent.core.config import ConfigurationError
-from data_analysis_agent.core.database import DATABASE_ERRORS, PostgresConnection, connect_database, database_target, is_postgres
+from data_analysis_agent.core.database import (
+    DATABASE_ERRORS,
+    PostgresConnection,
+    connect_database,
+    database_target,
+    is_postgres,
+)
 from data_analysis_agent.jobs.parameters import PARAMETERS
-# Keep previous task-worker imports available without loading the model SDK.
+# 保留这些导出，兼容旧入口；模型 SDK 仍只在真正执行标注任务时加载。
 from data_analysis_agent.jobs.submission import configured_identity, import_path, prepare_parameters, retry_task
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.reviews.monitoring import replay_monthly, run_analysis
@@ -26,24 +33,29 @@ logger = logging.getLogger(__name__)
 
 
 class TaskInterrupted(RuntimeError):
+    """worker 停止时中断当前任务的进度回调。"""
+
     pass
 
 
 class WorkerLock:
-    """Hold an OS file lock or PostgreSQL session lock for the worker's lifetime."""
+    """在 worker 整个生命周期内持有操作系统文件锁或 PostgreSQL 会话锁。"""
 
-    def __init__(self, business_db):
+    def __init__(self, business_db: str | Path):
         self.business_db = database_target(business_db)
         self.path = None if is_postgres(business_db) else Path(str(self.business_db) + ".worker.lock")
         self.handle = None
 
-    def acquire(self):
+    def acquire(self) -> None:
         if is_postgres(self.business_db):
             connection = connect_database(self.business_db, namespace="worker")
             try:
                 acquired = connection.try_session_lock()
                 if not acquired:
-                    raise TaskConflict("该业务库已有后台 worker；请停止旧 worker，或用 serve --no-worker 连接它。")
+                    raise TaskConflict(
+                        "该业务库已有后台 worker；请停止旧 worker，"
+                        "或用 serve --no-worker 连接它。"
+                    )
             except Exception:
                 connection.close()
                 raise
@@ -65,10 +77,13 @@ class WorkerLock:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as exc:
             handle.close()
-            raise TaskConflict("该业务库已有后台 worker；请停止旧 worker，或用 serve --no-worker 连接它。") from exc
+            raise TaskConflict(
+                "该业务库已有后台 worker；请停止旧 worker，"
+                "或用 serve --no-worker 连接它。"
+            ) from exc
         self.handle = handle
 
-    def release(self):
+    def release(self) -> None:
         if self.handle is not None:
             handle = self.handle
             if isinstance(handle, PostgresConnection):
@@ -91,7 +106,16 @@ class WorkerLock:
 
 
 class TaskWorker:
-    def __init__(self, business_db, task_db, *, import_root, env_file):
+    """串行领取持久任务，并维护 worker 心跳和任务最终状态。"""
+
+    def __init__(
+        self,
+        business_db: str | Path,
+        task_db: str | Path,
+        *,
+        import_root: str | Path,
+        env_file: str | Path,
+    ) -> None:
         self.business_db = database_target(business_db)
         self.task_db = database_target(task_db)
         self.import_root = Path(import_root).resolve()
@@ -102,7 +126,7 @@ class TaskWorker:
         self.heartbeat_stop = threading.Event()
         self.thread = None
 
-    def start(self):
+    def start(self) -> None:
         if self.thread is not None:
             raise TaskConflict("同一个 worker 实例只能启动一次。")
         if not self.import_root.is_dir():
@@ -118,12 +142,12 @@ class TaskWorker:
             self.lock.release()
             raise
 
-    def stop(self):
+    def stop(self) -> None:
         self.stop_requested.set()
         if self.thread is not None:
             self.thread.join()
 
-    def _heartbeat(self):
+    def _heartbeat(self) -> None:
         while not self.heartbeat_stop.wait(5):
             try:
                 heartbeat(self.task_db, self.worker_id)
@@ -132,7 +156,7 @@ class TaskWorker:
                 self.stop_requested.set()
                 return
 
-    def _loop(self):
+    def _loop(self) -> None:
         pulse = threading.Thread(target=self._heartbeat, name="review-task-heartbeat")
         pulse.start()
         try:
@@ -145,7 +169,7 @@ class TaskWorker:
                     continue
                 self._execute(task)
         except Exception as exc:
-            # Do not log exception text: model/provider errors may contain credentials.
+            # 不要记录异常文本：模型或服务商错误可能包含凭据。
             logger.error("Worker stopped unexpectedly (%s); restart to recover task state", type(exc).__name__)
         finally:
             self.stop_requested.set()
@@ -157,55 +181,85 @@ class TaskWorker:
                 self.lock.release()
                 logger.info("后台执行器停止 worker_id=%s", self.worker_id)
 
-    def _execute(self, task):
+    def _execute(self, task: dict[str, Any]) -> None:
+        """执行一个已领取任务；所有异常都转换成可持久化的稳定错误码。"""
         started = time.monotonic()
         logger.info("任务开始 task_id=%s kind=%s", task["task_id"], task["kind"])
 
-        def progress(value):
+        def report_progress(value: dict[str, Any]) -> None:
             if isinstance(self.lock.handle, PostgresConnection):
                 self.lock.handle.execute("SELECT 1")
             if self.stop_requested.is_set():
                 raise TaskInterrupted()
             update_progress(self.task_db, task["task_id"], self.worker_id, value)
             if value["stage"] == "labeling":
-                logger.info("标注进度 task_id=%s %s/%s 成功=%s 失败=%s 模型调用=%s",
-                            task["task_id"], value["completed"], value["total"],
-                            value.get("successful_reviews", 0), value.get("failed_reviews", 0), value.get("model_calls", 0))
+                logger.info(
+                    "标注进度 task_id=%s %s/%s 成功=%s 失败=%s 模型调用=%s",
+                    task["task_id"], value["completed"], value["total"],
+                    value.get("successful_reviews", 0), value.get("failed_reviews", 0),
+                    value.get("model_calls", 0),
+                )
             else:
-                logger.info("任务进度 task_id=%s stage=%s 已处理=%s/%s unit=%s",
-                            task["task_id"], value["stage"], value["completed"],
-                            value["total"] if value["total"] is not None else "未知", value["unit"])
+                total = value["total"] if value["total"] is not None else "未知"
+                logger.info(
+                    "任务进度 task_id=%s stage=%s 已处理=%s/%s unit=%s",
+                    task["task_id"], value["stage"], value["completed"], total, value["unit"],
+                )
 
         try:
-            progress({"stage": "starting", "completed": 0, "total": None, "unit": "items"})
-            values = dict(task["parameters"])
-            identity = values.pop("model_identity", None)
-            values = PARAMETERS[task["kind"]].model_validate(values).model_dump()
+            report_progress({"stage": "starting", "completed": 0, "total": None, "unit": "items"})
+            parameters = dict(task["parameters"])
+            queued_identity = parameters.pop("model_identity", None)
+            parameters = PARAMETERS[task["kind"]].model_validate(parameters).model_dump()
+
             if task["kind"] == "import":
                 for name in ("reviews_path", "meta_path"):
-                    if values[name] is not None:
-                        values[name] = import_path(values[name], self.import_root)
-                result = import_amazon_jsonl(self.business_db, **values, progress=progress)
+                    if parameters[name] is not None:
+                        parameters[name] = import_path(parameters[name], self.import_root)
+                result = import_amazon_jsonl(
+                    self.business_db, **parameters, progress=report_progress,
+                )
             elif task["kind"] == "label":
                 from data_analysis_agent.reviews.labeling import run_labeling
 
                 settings, current_identity = configured_identity(self.env_file)
-                if identity != current_identity:
+                if queued_identity != current_identity:
                     raise ConfigurationError("模型配置与入队时不同，任务未调用模型；请重新提交标注任务。")
                 if task["parent_task_id"] is not None:
-                    values["retry_failed"] = True
-                result = run_labeling(self.business_db, **values, settings=settings, progress=progress)
+                    parameters["retry_failed"] = True
+                result = run_labeling(
+                    self.business_db,
+                    **parameters,
+                    settings=settings,
+                    progress=report_progress,
+                )
             elif task["kind"] == "analysis":
-                progress({"stage": "analysis", "completed": 0, "total": 1, "unit": "windows"})
-                result = run_analysis(self.business_db, **values)
-                progress({"stage": "analysis", "completed": 1, "total": 1, "unit": "windows",
-                          "run_id": result["run_id"]})
+                report_progress({"stage": "analysis", "completed": 0, "total": 1, "unit": "windows"})
+                result = run_analysis(self.business_db, **parameters)
+                report_progress({
+                    "stage": "analysis", "completed": 1, "total": 1,
+                    "unit": "windows", "run_id": result["run_id"],
+                })
             else:
-                result = replay_monthly(self.business_db, **values, progress=progress)
+                result = replay_monthly(
+                    self.business_db, **parameters, progress=report_progress,
+                )
+
             partial = result.get("status") == "partial" or result.get("complete") is False
-            finish_task(self.task_db, task["task_id"], self.worker_id,
-                        status="partial" if partial else "succeeded", result=result,
-                        error={"code": "partial_result", "message": "部分记录或月份未完成，请查看 result 后显式重试。"} if partial else None)
+            partial_error = None
+            if partial:
+                partial_error = {
+                    "code": "partial_result",
+                    "message": "部分记录或月份未完成，请查看 result 后显式重试。",
+                }
+            finish_task(
+                self.task_db,
+                task["task_id"],
+                self.worker_id,
+                status="partial" if partial else "succeeded",
+                result=result,
+                error=partial_error,
+            )
             for item in result.get("imports", []):
                 logger.info("导入结果 task_id=%s kind=%s 新增=%s 重复=%s 无效=%s",
                             task["task_id"], item["kind"], item["inserted_records"],
@@ -218,8 +272,8 @@ class TaskWorker:
             if isinstance(exc, TaskInterrupted):
                 error = {"code": "worker_interrupted", "message": "worker 正在停止；已提交的业务结果保留，请核查后显式重试。"}
             elif isinstance(exc, (ConfigurationError, ReviewDataError)):
-                error = {"code": "configuration_error" if isinstance(exc, ConfigurationError) else "business_error",
-                         "message": str(exc)}
+                error_code = "configuration_error" if isinstance(exc, ConfigurationError) else "business_error"
+                error = {"code": error_code, "message": str(exc)}
             elif isinstance(exc, DATABASE_ERRORS):
                 error = {"code": "database_error", "message": "数据库忙、结构不匹配或写入失败，请检查后重试。"}
             elif isinstance(exc, OSError):

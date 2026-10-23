@@ -1,4 +1,4 @@
-"""Explicit opinion-table setup, append-only attempts and incremental queries."""
+"""显式初始化观点表、只追加尝试记录和增量查询。"""
 
 from contextlib import closing
 from pathlib import Path
@@ -50,7 +50,7 @@ CREATE TABLE review_opinions (
 
 
 def check_labeling_schema(connection):
-    """Validate annotation tables/version on the caller's connection."""
+    """在调用方连接上校验标注数据表和版本。"""
     tables = table_names(connection) & {"review_labeling_schema", "review_annotations", "review_opinions"}
     if len(tables) != 3:
         raise ReviewDataError("观点表未初始化，请由你执行 review_label_cli init --db 指定路径。")
@@ -60,7 +60,7 @@ def check_labeling_schema(connection):
 
 
 def init_labeling(db_path: str | Path) -> dict:
-    """User-invoked setup on an existing review DB; never migrate automatically."""
+    """用户在已有评论数据库上显式执行初始化；绝不自动迁移。"""
     with closing(connect_review_database(db_path)) as connection:
         tables = table_names(connection) & {"review_labeling_schema", "review_annotations", "review_opinions"}
         if tables:
@@ -97,7 +97,7 @@ def pending_reviews(db_path, *, model, base_url, prompt_version, limit, retry_fa
 def save_annotation(db_path, review, *, model, base_url, prompt_version, status,
                     opinions=(), model_version=None, response_id=None, error_code=None,
                     usage=None, elapsed_ms=0):
-    """Commit one complete attempt and its verified opinions atomically."""
+    """原子提交一次完整尝试及其已校验观点。"""
     usage = usage or {}
     key = (review["id"], review["content_sha256"], model, base_url, prompt_version)
     with closing(connect_review_database(db_path)) as connection:
@@ -136,7 +136,7 @@ def save_annotation(db_path, review, *, model, base_url, prompt_version, status,
 
 def labeling_status(db_path, *, product_ids=None, date_from=None, date_to=None, as_of=None,
                     source=None, dataset_version=None, model=None, base_url=None, prompt_version=None):
-    """Read scoped progress without credentials; preserve model counts and add effective counts."""
+    """在不读取凭据的情况下读取范围进度；保留模型计数并增加有效计数。"""
     where, filters, scope = review_scope(product_ids=product_ids, date_from=date_from, date_to=date_to,
                                         as_of=as_of, source=source, dataset_version=dataset_version)
     identity = model_identity(model, base_url, prompt_version)
@@ -159,7 +159,7 @@ def labeling_status(db_path, *, product_ids=None, date_from=None, date_to=None, 
                 rows = [{"requested_model": identity[0], "base_url": identity[1], "prompt_version": identity[2],
                          "successful_attempts": 0, "failed_attempts": 0, "attempts": 0}]
             current_where, current_filters, _ = review_scope(**{k: v for k, v in scope.items() if k != "timezone"}, alias="c")
-            # Keep API order independent of the database's locale/collation.
+            # 保持 API 顺序不受数据库区域设置/排序规则影响。
             for profile in sorted(rows, key=lambda row: tuple(row[key] for key in (
                     "requested_model", "base_url", "prompt_version"))):
                 item = dict(profile)
@@ -191,7 +191,7 @@ def labeling_status(db_path, *, product_ids=None, date_from=None, date_to=None, 
 def query_review_opinions(db_path, *, model, base_url, prompt_version, product_ids=None,
                           date_from=None, date_to=None, as_of=None, source=None, dataset_version=None,
                           page=1, page_size=20):
-    """Return a read-only, explicitly versioned page of current effective opinions and evidence."""
+    """返回当前有效观点和证据的只读、显式版本化分页结果。"""
     identity = model_identity(model, base_url, prompt_version, required=True)
     where, filters, scope = review_scope(product_ids=product_ids, date_from=date_from, date_to=date_to,
                                         as_of=as_of, source=source, dataset_version=dataset_version, alias="c")

@@ -225,8 +225,7 @@ data-analysis-agent/
 │   │   │   └── tasks.py         # 任务提交、查询与重试
 │   │   ├── schemas.py           # HTTP 查询参数与请求封装
 │   │   ├── responses.py         # 统一成功/错误响应结构
-│   │   ├── workbench.py         # 原生工作台 HTTP 服务
-│   │   └── workbench_assets/    # 原生工作台 HTML/CSS/JavaScript
+│   │   └── workbench.py         # 人工复核工作台 HTTP 服务，读取 frontend/workbench
 │   ├── cli/                     # 命令行入口
 │   │   ├── sales.py / agent.py
 │   │   ├── reviews.py / labeling.py / analytics.py / monitoring.py
@@ -240,6 +239,9 @@ data-analysis-agent/
 │   │   └── validation.py        # 通用输入模型、整数与文本校验
 │   ├── __main__.py              # 保留 python -m data_analysis_agent
 │   ├── _cli_bootstrap.py        # IDE 直接运行支持
+├── frontend/                    # 前端代码
+│   ├── src/                     # React 评论分析与模型标注界面
+│   └── workbench/               # 独立人工复核页面 HTML/CSS/JavaScript
 ├── tests/                       # 后端业务、接口、数据库与入口测试
 ├── scripts/                     # 辅助脚本与测试数据生成
 ├── .run/                        # 保留现有 IDEA 运行配置

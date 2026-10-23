@@ -1,4 +1,4 @@
-"""Exercise the same file-based invocation used by the IDE Run button."""
+"""验证与 IDE Run 按钮相同的基于文件的调用方式。"""
 
 import json
 import os

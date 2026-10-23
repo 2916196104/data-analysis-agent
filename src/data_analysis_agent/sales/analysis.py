@@ -1,4 +1,4 @@
-"""Pure sales statistics over normalized records from the unified data loader."""
+"""基于统一数据加载器规范化记录的纯销售统计。"""
 
 from collections import defaultdict
 from collections.abc import Sequence
@@ -8,9 +8,9 @@ from data_analysis_agent.sales.loader import SalesDataError, SalesRecord
 
 
 def get_data_overview(records: Sequence[SalesRecord]) -> dict[str, int | str]:
-    """Summarize validated rows; amounts are exact decimal strings for JSON.
+    """汇总已校验的行；金额以精确小数字符串供 JSON 使用。
 
-    Average sales is rounded to two decimal places using ROUND_HALF_UP.
+    平均销售额使用 ROUND_HALF_UP 四舍五入到两位小数。
     """
     if not records:
         raise SalesDataError("无法概览空数据。")
@@ -31,9 +31,9 @@ def get_data_overview(records: Sequence[SalesRecord]) -> dict[str, int | str]:
 
 
 def summarize_sales_by_product(records: Sequence[SalesRecord]) -> dict[str, str]:
-    """Sum validated rows by product; sort by sales descending, then name.
+    """按商品汇总已校验的行；先按销售额降序，再按名称排序。
 
-    Return {product: amount} with two-decimal strings, ready for tool JSON.
+    返回 {product: amount}，金额为两位小数字符串，可直接用于工具 JSON。
     """
     if not records:
         raise SalesDataError("无法汇总空数据。")

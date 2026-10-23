@@ -1,4 +1,4 @@
-"""Shared opinion schemas and exact-source evidence validation; no model calls."""
+"""共享观点结构和原文精确证据校验；不调用模型。"""
 
 import re
 from typing import Literal
@@ -35,11 +35,11 @@ class Extraction(BaseModel):
 
 
 class OpinionValidationError(ValueError):
-    """A model response has no verifiable, schema-conforming interpretation."""
+    """模型响应没有可校验且符合结构的解释。"""
 
 
 def validate_opinions(response_text, review_text):
-    """Parse opinion JSON and return deduplicated, exact character spans in the source."""
+    """解析观点 JSON，并返回原文中去重后的精确字符区间。"""
     if not isinstance(response_text, str) or len(response_text) > 100000:
         raise OpinionValidationError("模型输出不是受支持的 JSON 文本。")
     text = response_text.strip()

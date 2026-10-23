@@ -1,4 +1,4 @@
-"""Copy a stopped SQLite installation into an empty PostgreSQL database atomically."""
+"""将已停止使用的 SQLite 数据库原子复制到空的 PostgreSQL 数据库。"""
 
 import argparse
 import hashlib
@@ -67,7 +67,7 @@ def _copy_table(source, target, table):
         count += len(rows)
     copied_digest = hashlib.sha256()
     copied_count = 0
-    # A server cursor keeps verification memory bounded for large review archives.
+    # 服务器游标可将大型评论归档的校验内存限制在固定范围内。
     try:
         with target.raw.cursor(name="verify_" + table) as cursor:
             cursor.execute(f'SELECT {selected} FROM "{table}" ORDER BY {pg_order}')
@@ -86,7 +86,7 @@ def _copy_table(source, target, table):
 
 
 def migrate_sqlite(source_db, target_db, *, source_tasks=None):
-    """Never write source files, merge data, call models, or execute queued tasks."""
+    """绝不写入源文件、合并数据、调用模型或执行队列任务。"""
     if is_postgres(source_db) or not is_postgres(target_db):
         raise ReviewDataError("迁移方向必须是 SQLite 文件 → PostgreSQL URL。")
     with ExitStack() as stack:

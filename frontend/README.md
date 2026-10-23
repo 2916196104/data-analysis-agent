@@ -1,5 +1,7 @@
 # 观数 · 评论分析工作台
 
+前端目录包含两套界面：`src/` 是 React 分析与模型标注工作台；`workbench/` 是独立人工复核页面，提供进度统计、状态筛选、原文定位和人工修正。人工复核页面由 `python -m data_analysis_agent.cli.workbench serve --db env:DATABASE_URL` 提供服务（默认端口 8765），无须 Vite 构建；启动方式见[人工复核工作台说明](../docs/review-workbench.md)。页面资源已从后端包移到此处，后端只保留服务和接口。Python 安装包仍会携带这些资源，安装后无需保留源码目录。
+
 后端现支持 SQLite / PostgreSQL，前端接口和配置保持一致。PostgreSQL 配置及旧数据迁移见 [数据库接入说明](../docs/postgresql.md)；后端启动示例中的 `--db data/private/reviews.sqlite3` 可改为 `--db env:DATABASE_URL`。数据库凭据只配置在后端。
 
 独立的 React + TypeScript + Vite + Ant Design + ECharts 前端，接入现有 `/api/v1` 评论服务，界面为简体中文。无需修改 Python 业务代码。

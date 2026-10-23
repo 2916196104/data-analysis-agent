@@ -1,1 +1,1 @@
-"""Command-line entry points."""
+"""命令行入口。"""

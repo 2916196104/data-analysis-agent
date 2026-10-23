@@ -1,9 +1,10 @@
-"""Read-only review business tools shared by CLI and future API/Agent callers."""
+"""评论统计与证据查询；CLI、HTTP API 和后续 Agent 共用同一业务口径。"""
 
 from contextlib import closing, contextmanager
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 import sqlite3
+from typing import Any, Sequence
 
 from data_analysis_agent.core.database import PostgresConnection
 
@@ -26,7 +27,8 @@ DEFINITIONS = {
 
 @contextmanager
 def _snapshot(db_path):
-    # Monitoring supplies its transaction so all four tools see the same snapshot.
+    """复用监控事务，或为单次只读查询创建一致性快照。"""
+    # 监控流程传入已有事务，确保四个统计工具读取同一时刻的数据。
     if isinstance(db_path, (sqlite3.Connection, PostgresConnection)):
         check_labeling_schema(db_path)
         if not db_path.in_transaction:
@@ -39,35 +41,53 @@ def _snapshot(db_path):
         yield connection
 
 
-def _rounded(value):
+def _rounded(value: Decimal) -> float:
     return float(value.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP))
 
 
-def _rate(count, denominator):
-    return _rounded(Decimal(count) / denominator) if denominator else None
+def _rate(count: int, denominator: int) -> float | None:
+    if not denominator:
+        return None
+    return _rounded(Decimal(count) / denominator)
 
 
-def _summary(row=None):
+def _summary(row: Any = None) -> dict[str, Any]:
     raw = dict(row) if row is not None else {}
-    result = {name: raw.get(name, 0) for name in (
+    count_fields = (
         "review_count", "eligible_text_reviews", "successful_reviews", "failed_reviews",
-        "unprocessed_reviews", "empty_text_reviews", "reviewed_reviews", "negative_review_count")}
+        "unprocessed_reviews", "empty_text_reviews", "reviewed_reviews",
+        "negative_review_count",
+    )
+    result = {name: raw.get(name, 0) for name in count_fields}
     result["labeling_coverage"] = _rate(result["successful_reviews"], result["eligible_text_reviews"])
     result["negative_rate"] = _rate(result["negative_review_count"], result["successful_reviews"])
-    result["aspects"] = {aspect: {
-        "negative_review_count": raw.get("negative_" + aspect, 0),
-        "negative_rate": _rate(raw.get("negative_" + aspect, 0), result["successful_reviews"]),
-    } for aspect in ASPECTS}
+    result["aspects"] = {}
+    for aspect in ASPECTS:
+        negative_count = raw.get("negative_" + aspect, 0)
+        result["aspects"][aspect] = {
+            "negative_review_count": negative_count,
+            "negative_rate": _rate(negative_count, result["successful_reviews"]),
+        }
     return result
 
 
-def _summaries(connection, identity, where, filters, group=None):
+def _summaries(
+    connection: Any,
+    identity: tuple[str, str, str],
+    where: str,
+    filters: Sequence[Any],
+    group: str | None = None,
+) -> list[Any]:
+    """按指定维度聚合评论，并保留所有指标的统一分母。"""
     groups = {
         None: ("", ""),
         "day": ("substr(c.published_at,1,10) bucket, ", " GROUP BY bucket ORDER BY bucket"),
         "month": ("substr(c.published_at,1,7) bucket, ", " GROUP BY bucket ORDER BY bucket"),
-        "product": ("c.source, c.dataset_version, c.product_id, ",
-                    " GROUP BY c.source,c.dataset_version,c.product_id ORDER BY c.source,c.dataset_version,c.product_id"),
+        "product": (
+            "c.source, c.dataset_version, c.product_id, ",
+            " GROUP BY c.source,c.dataset_version,c.product_id "
+            "ORDER BY c.source,c.dataset_version,c.product_id",
+        ),
     }
     select, grouping = groups[group]
     columns = []
@@ -83,18 +103,28 @@ def _summaries(connection, identity, where, filters, group=None):
     ):
         columns.append(f"COUNT(DISTINCT CASE WHEN {condition} THEN c.id END) {name}")
     cte, parameters = current_reviews_sql(connection, identity)
-    return connection.execute(cte + "SELECT " + select + ", ".join(columns)
-                              + " FROM current c LEFT JOIN effective_opinions o ON o.review_id=c.id WHERE "
-                              + where + grouping, (*parameters, *filters)).fetchall()
+    query = (
+        cte
+        + "SELECT "
+        + select
+        + ", ".join(columns)
+        + " FROM current c LEFT JOIN effective_opinions o ON o.review_id=c.id WHERE "
+        + where
+        + grouping
+    )
+    return connection.execute(query, (*parameters, *filters)).fetchall()
 
 
-def _buckets(scope, period):
+def _buckets(scope: dict[str, Any], period: str) -> list[str]:
     start, end = parse_day(scope["date_from"], "date_from"), parse_day(scope["date_to"], "date_to")
     if scope["as_of"]:
         end = min(end, parse_day(scope["as_of"][:10], "as_of"))
     if end < start:
         return []
-    count = (end - start).days + 1 if period == "day" else (end.year - start.year) * 12 + end.month - start.month + 1
+    if period == "day":
+        count = (end - start).days + 1
+    else:
+        count = (end.year - start.year) * 12 + end.month - start.month + 1
     if count > 10000:
         raise ReviewDataError("统计区间超过 10000 个时间桶，请缩小区间或改用月度统计。")
     if period == "day":
@@ -103,29 +133,77 @@ def _buckets(scope, period):
     return [f"{(first + index) // 12:04d}-{(first + index) % 12 + 1:02d}" for index in range(count)]
 
 
-def get_trend(db_path, *, model, base_url, prompt_version, date_from, date_to,
-              product_ids=None, as_of=None, source=None, dataset_version=None, period="month"):
-    """Return UTC buckets, coverage and distinct negative-review counts; fill empty visible buckets."""
+def get_trend(
+    db_path: str,
+    *,
+    model: str,
+    base_url: str,
+    prompt_version: str,
+    date_from: str,
+    date_to: str,
+    product_ids: list[str] | None = None,
+    as_of: str | None = None,
+    source: str | None = None,
+    dataset_version: str | None = None,
+    period: str = "month",
+) -> dict[str, Any]:
+    """返回 UTC 时间桶、覆盖率和去重后的负面评论数，并补齐可见空桶。"""
     if period not in ("day", "month"):
         raise ReviewDataError("period 仅支持 day 或 month。")
     identity, where, filters, scope = analysis_scope(
-        model=model, base_url=base_url, prompt_version=prompt_version, date_from=date_from, date_to=date_to,
-        product_ids=product_ids, as_of=as_of, source=source, dataset_version=dataset_version)
+        model=model,
+        base_url=base_url,
+        prompt_version=prompt_version,
+        date_from=date_from,
+        date_to=date_to,
+        product_ids=product_ids,
+        as_of=as_of,
+        source=source,
+        dataset_version=dataset_version,
+    )
     keys = _buckets(scope, period)
     with _snapshot(db_path) as connection:
         summary = _summary(_summaries(connection, identity, where, filters)[0])
         grouped = {row["bucket"]: _summary(row) for row in _summaries(connection, identity, where, filters, period)}
-    return {"scope": scope, "definitions": dict(DEFINITIONS), "period": period, "summary": summary,
-            "buckets": [{"bucket": key, **(grouped[key] if key in grouped else _summary())} for key in keys]}
+    return {
+        "scope": scope,
+        "definitions": dict(DEFINITIONS),
+        "period": period,
+        "summary": summary,
+        "buckets": [
+            {"bucket": key, **(grouped[key] if key in grouped else _summary())}
+            for key in keys
+        ],
+    }
 
 
-def get_top_issues(db_path, *, model, base_url, prompt_version, date_from, date_to,
-                   baseline_from, baseline_to, product_ids=None, as_of=None,
-                   source=None, dataset_version=None, top_n=6):
-    """Rank current negative aspects and compare a caller-selected, strictly earlier baseline."""
+def get_top_issues(
+    db_path: str,
+    *,
+    model: str,
+    base_url: str,
+    prompt_version: str,
+    date_from: str,
+    date_to: str,
+    baseline_from: str,
+    baseline_to: str,
+    product_ids: list[str] | None = None,
+    as_of: str | None = None,
+    source: str | None = None,
+    dataset_version: str | None = None,
+    top_n: int = 6,
+) -> dict[str, Any]:
+    """按当前窗口的负面评论数排序，并与调用方指定的更早基线比较。"""
     validate_integer(top_n, "top_n", maximum=len(ASPECTS))
-    common = dict(model=model, base_url=base_url, prompt_version=prompt_version,
-                  product_ids=product_ids, as_of=as_of, source=source, dataset_version=dataset_version)
+    common = {
+        "model": model,
+        "base_url": base_url,
+        "prompt_version": prompt_version,
+        "product_ids": product_ids,
+        "as_of": as_of,
+        "source": source,
+        "dataset_version": dataset_version,
+    }
     identity, where, filters, scope = analysis_scope(date_from=date_from, date_to=date_to, **common)
     _, baseline_where, baseline_filters, baseline_scope = analysis_scope(
         date_from=baseline_from, date_to=baseline_to, **common)
@@ -134,26 +212,59 @@ def get_top_issues(db_path, *, model, base_url, prompt_version, date_from, date_
     with _snapshot(db_path) as connection:
         current = _summary(_summaries(connection, identity, where, filters)[0])
         baseline = _summary(_summaries(connection, identity, baseline_where, baseline_filters)[0])
-    ranked = sorted(ASPECTS, key=lambda aspect: (-current["aspects"][aspect]["negative_review_count"], aspect))
+    ranked = sorted(
+        ASPECTS,
+        key=lambda aspect: (
+            -current["aspects"][aspect]["negative_review_count"],
+            aspect,
+        ),
+    )
     issues = []
     for rank, aspect in enumerate(ranked[:top_n], 1):
         now, before = current["aspects"][aspect], baseline["aspects"][aspect]
         delta = None
         if current["successful_reviews"] and baseline["successful_reviews"]:
-            delta = _rounded((Decimal(now["negative_review_count"]) / current["successful_reviews"]
-                              - Decimal(before["negative_review_count"]) / baseline["successful_reviews"]) * 100)
-        issues.append({"rank": rank, "aspect": aspect, "aspect_label": ASPECTS[aspect], **now,
-                       "baseline_negative_review_count": before["negative_review_count"],
-                       "baseline_negative_rate": before["negative_rate"],
-                       "negative_review_count_change": now["negative_review_count"] - before["negative_review_count"],
-                       "negative_rate_change_pp": delta})
+            delta = _rounded(
+                (
+                    Decimal(now["negative_review_count"])
+                    / current["successful_reviews"]
+                    - Decimal(before["negative_review_count"])
+                    / baseline["successful_reviews"]
+                )
+                * 100
+            )
+        issues.append(
+            {
+                "rank": rank,
+                "aspect": aspect,
+                "aspect_label": ASPECTS[aspect],
+                **now,
+                "baseline_negative_review_count": before["negative_review_count"],
+                "baseline_negative_rate": before["negative_rate"],
+                "negative_review_count_change": (
+                    now["negative_review_count"] - before["negative_review_count"]
+                ),
+                "negative_rate_change_pp": delta,
+            }
+        )
     return {"scope": scope, "baseline_scope": baseline_scope, "definitions": dict(DEFINITIONS),
             "current": current, "baseline": baseline, "issues": issues}
 
 
-def compare_products(db_path, *, model, base_url, prompt_version, date_from, date_to,
-                     product_ids=None, as_of=None, source=None, dataset_version=None):
-    """Compare visible products without merging different sources or dataset versions."""
+def compare_products(
+    db_path: str,
+    *,
+    model: str,
+    base_url: str,
+    prompt_version: str,
+    date_from: str,
+    date_to: str,
+    product_ids: list[str] | None = None,
+    as_of: str | None = None,
+    source: str | None = None,
+    dataset_version: str | None = None,
+) -> dict[str, Any]:
+    """比较可见商品；不同来源和数据集版本始终分别统计。"""
     identity, where, filters, scope = analysis_scope(
         model=model, base_url=base_url, prompt_version=prompt_version, date_from=date_from, date_to=date_to,
         product_ids=product_ids, as_of=as_of, source=source, dataset_version=dataset_version)
@@ -166,10 +277,25 @@ def compare_products(db_path, *, model, base_url, prompt_version, date_from, dat
             "no_reviews_product_ids": [pid for pid in scope["product_ids"] if pid not in seen]}
 
 
-def get_evidence(db_path, *, model, base_url, prompt_version, date_from, date_to,
-                 product_ids=None, as_of=None, source=None, dataset_version=None, aspect=None,
-                 sentiment="negative", review_id=None, page=1, page_size=20):
-    """Page matching reviews with only matching opinion quotes and their original file locations."""
+def get_evidence(
+    db_path: str,
+    *,
+    model: str,
+    base_url: str,
+    prompt_version: str,
+    date_from: str,
+    date_to: str,
+    product_ids: list[str] | None = None,
+    as_of: str | None = None,
+    source: str | None = None,
+    dataset_version: str | None = None,
+    aspect: str | None = None,
+    sentiment: str | None = "negative",
+    review_id: int | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict[str, Any]:
+    """分页返回匹配评论、观点引用和原始文件位置，证据只来自当前快照。"""
     identity, where, filters, scope = analysis_scope(
         model=model, base_url=base_url, prompt_version=prompt_version, date_from=date_from, date_to=date_to,
         product_ids=product_ids, as_of=as_of, source=source, dataset_version=dataset_version)

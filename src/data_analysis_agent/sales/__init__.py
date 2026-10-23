@@ -1,1 +1,1 @@
-"""Sales loading, statistics, reports and the fixed workflow."""
+"""销售数据加载、统计、报告和固定工作流。"""

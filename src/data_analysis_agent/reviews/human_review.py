@@ -1,4 +1,4 @@
-"""Review browsing and append-only human decisions, separate from model output."""
+"""独立于模型输出的评论浏览和只追加人工决策。"""
 
 import json
 from contextlib import closing
@@ -43,15 +43,15 @@ CREATE INDEX human_opinions_review ON review_human_opinions(human_review_id);
 
 
 class ReviewConflict(ReviewDataError):
-    """The displayed decision or source text is no longer current."""
+    """当前展示的决策或原文已经不是最新版本。"""
 
 
 class ReviewNotFound(ReviewDataError):
-    """A requested review or model profile does not exist."""
+    """请求的评论或模型配置不存在。"""
 
 
 def check_workbench_schema(connection):
-    """Validate labeling and human-review tables on the caller's connection."""
+    """在调用方连接上校验标注和人工复核数据表。"""
     check_labeling_schema(connection)
     names = table_names(connection) & {"review_workbench_schema", "review_human_reviews", "review_human_opinions"}
     if len(names) != 3:
@@ -62,7 +62,7 @@ def check_workbench_schema(connection):
 
 
 def init_workbench(db_path):
-    """Only this explicit command changes the schema; existing tables stay intact."""
+    """只有此显式命令会修改数据表结构；现有数据表保持不变。"""
     with closing(connect_review_database(db_path)) as connection:
         check_labeling_schema(connection)
         if any(name.startswith("review_human_") or name == "review_workbench_schema"
@@ -208,7 +208,7 @@ def review_detail(db_path, review_id, profile_id=None):
                                      (*scope, review_id)).fetchone()
             if row is None:
                 raise ReviewNotFound("评论不存在。")
-            # User IDs and complete raw JSON are intentionally absent from the web response.
+            # 网页响应会有意省略用户 ID 和完整原始 JSON。
             review = {key: row[key] for key in ("id", "source", "dataset_version", "product_id", "product_title",
                       "title", "text", "rating", "published_at", "content_sha256", "processing_status", "human_status",
                       "revision_id", "annotation_id", "line_number", "file_path", "file_sha256")}

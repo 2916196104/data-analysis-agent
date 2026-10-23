@@ -1,1 +1,1 @@
-"""Product reviews, labeling, human review, analytics and monitoring."""
+"""商品评论、标注、人工复核、分析和监控。"""

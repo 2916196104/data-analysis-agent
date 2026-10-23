@@ -1,4 +1,4 @@
-"""Task logs expose outcomes and counters without dumping payloads or provider errors."""
+"""任务日志展示结果和计数，不转储载荷或服务商错误。"""
 
 import tempfile
 import unittest

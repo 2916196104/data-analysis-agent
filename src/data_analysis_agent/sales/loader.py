@@ -1,4 +1,4 @@
-"""Unified CSV/Excel loading, field mapping and validation for sales data."""
+"""销售数据的统一 CSV/Excel 加载、字段映射和校验。"""
 
 import csv
 import hashlib
@@ -29,7 +29,7 @@ class SalesRecord(TypedDict):
 
 
 class SalesDataError(ValueError):
-    """Input data does not meet the documented sales data contract."""
+    """输入数据不符合文档规定的销售数据契约。"""
 
 
 @dataclass(frozen=True)
@@ -39,7 +39,7 @@ class SalesDataset:
 
 
 def validate_sales_fields(fieldnames: Sequence[str] | None) -> None:
-    """Check canonical, nonempty and unique headers; allow extra columns."""
+    """检查规范、非空且唯一的表头；允许额外列。"""
     if not fieldnames:
         raise SalesDataError("数据缺少表头。")
     if any(not isinstance(name, str) or not name.strip() for name in fieldnames):
@@ -167,7 +167,7 @@ def _read_xlsx(input_path: str | Path, sheet: str | None, overrides: dict[str, s
         if sheet not in names:
             raise SalesDataError(f"工作表不存在：{sheet}；可用工作表：{', '.join(names)}。")
         worksheet = workbook[sheet]
-        # Worksheet dimension hints can be stale; inspect actual stored rows.
+        # 工作表维度提示可能过时；应检查实际存储的行。
         worksheet.reset_dimensions()
         rows = worksheet.iter_rows()
         header_cells = list(next(rows, ()))
@@ -197,19 +197,19 @@ def _read_xlsx(input_path: str | Path, sheet: str | None, overrides: dict[str, s
 
 
 def load_sales_csv(input_path: str | Path, *, column_map: ColumnMap = None) -> list[SalesRecord]:
-    """Preserved CSV API; return validated rows and normalized two-decimal amounts."""
+    """保留 CSV API；返回已校验的行和规范化的两位小数金额。"""
     return _read_csv(input_path, _read_column_map(column_map))[0]
 
 
 def load_sales_xlsx(input_path: str | Path, *, sheet: str | None = None,
                     column_map: ColumnMap = None) -> list[SalesRecord]:
-    """Read one Excel worksheet into the same record schema used by CSV."""
+    """读取一个 Excel 工作表，并转换为 CSV 使用的相同记录结构。"""
     return _read_xlsx(input_path, sheet, _read_column_map(column_map))[0]
 
 
 def load_sales_data(input_path: str | Path, *, sheet: str | None = None,
                    column_map: ColumnMap = None) -> SalesDataset:
-    """Application entry: validated rows plus fingerprint, sheet and actual mapping."""
+    """应用入口：返回已校验的行，以及指纹、工作表和实际映射。"""
     path = Path(input_path).resolve()
     fingerprint = hashlib.sha256(path.read_bytes()).hexdigest()
     overrides = _read_column_map(column_map)

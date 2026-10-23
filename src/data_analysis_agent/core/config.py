@@ -1,4 +1,4 @@
-"""Explicit local model configuration."""
+"""显式的本地模型配置。"""
 
 import math
 import os
@@ -8,16 +8,16 @@ from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
 
-# Keep the previous public imports available.
+# 保留之前的公共导入，以兼容现有调用。
 from data_analysis_agent.core.serialization import safe_json, write_json
 
 
 class ConfigurationError(ValueError):
-    """Required model settings are missing or invalid."""
+    """必需的模型设置缺失或无效。"""
 
 
 def read_settings(env_file: str | Path = ".env") -> dict[str, str]:
-    """Read only the specified dotenv file; process environment takes precedence."""
+    """只读取指定的 dotenv 文件；进程环境变量优先。"""
     try:
         values = {key: value for key, value in dotenv_values(env_file, interpolate=False).items()
                   if value is not None}
@@ -38,7 +38,7 @@ class AgentSettings:
 
     @classmethod
     def from_values(cls, values: dict[str, str]) -> "AgentSettings":
-        """Validate settings without including secret values in error messages."""
+        """校验设置时不在错误消息中包含密钥值。"""
         required = ("LLM_MODEL_ID", "LLM_API_KEY", "LLM_BASE_URL")
         missing = [name for name in required if not values.get(name, "").strip()]
         if missing:

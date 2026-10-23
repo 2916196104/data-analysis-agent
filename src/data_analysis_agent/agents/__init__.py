@@ -1,1 +1,1 @@
-"""Natural-language orchestration and tool adapters."""
+"""自然语言编排与工具适配器。"""

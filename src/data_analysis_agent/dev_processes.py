@@ -1,4 +1,4 @@
-"""Own only the development servers started by this launcher."""
+"""只管理此启动器启动的开发服务器。"""
 
 import ctypes
 import os
@@ -51,14 +51,14 @@ class _WindowsJob:
         if not self.handle:
             raise ctypes.WinError(ctypes.get_last_error())
         limits = _ExtendedLimits()
-        limits.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        limits.basic.flags = 0x2000  # 作业对象关闭时终止子进程（JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE）
         if not self.api.SetInformationJobObject(self.handle, 9, ctypes.byref(limits), ctypes.sizeof(limits)):
             error = ctypes.WinError(ctypes.get_last_error())
             self.close()
             raise error
 
     def assign_and_resume(self, process_id):
-        process = self.api.OpenProcess(0x0101, False, process_id)  # SET_QUOTA | TERMINATE
+        process = self.api.OpenProcess(0x0101, False, process_id)  # 设置配额并终止进程（SET_QUOTA | TERMINATE）
         if not process:
             raise ctypes.WinError(ctypes.get_last_error())
         try:
@@ -66,7 +66,7 @@ class _WindowsJob:
                 raise ctypes.WinError(ctypes.get_last_error())
         finally:
             self.api.CloseHandle(process)
-        snapshot = self.api.CreateToolhelp32Snapshot(4, 0)  # TH32CS_SNAPTHREAD
+        snapshot = self.api.CreateToolhelp32Snapshot(4, 0)  # 创建线程快照（TH32CS_SNAPTHREAD）
         if snapshot == wintypes.HANDLE(-1).value:
             raise ctypes.WinError(ctypes.get_last_error())
         try:
@@ -75,7 +75,7 @@ class _WindowsJob:
             found = self.api.Thread32First(snapshot, ctypes.byref(entry))
             while found:
                 if entry.process_id == process_id:
-                    thread = self.api.OpenThread(2, False, entry.thread_id)  # SUSPEND_RESUME
+                    thread = self.api.OpenThread(2, False, entry.thread_id)  # 挂起和恢复线程（SUSPEND_RESUME）
                     if not thread:
                         raise ctypes.WinError(ctypes.get_last_error())
                     try:
@@ -96,7 +96,7 @@ class _WindowsJob:
 
 
 class ProcessFamily:
-    """Windows also cleans descendants if IDEA forcefully kills the launcher."""
+    """如果 IDEA 强制终止启动器，Windows 也会清理其子进程。"""
 
     def __init__(self):
         self.processes = []
@@ -107,7 +107,7 @@ class ProcessFamily:
         process = subprocess.Popen(command, cwd=cwd, env=env, **options)
         self.processes.append(process)
         if self.job:
-            # Suspend until job assignment so no running descendant can escape ownership.
+            # 暂停到分配任务为止，避免正在运行的后代进程脱离管理。
             try:
                 self.job.assign_and_resume(process.pid)
             except BaseException:
@@ -133,7 +133,7 @@ class ProcessFamily:
             except subprocess.TimeoutExpired:
                 pass
         if self.job:
-            self.job.close()  # Covers Vite/esbuild and any remaining descendants as well.
+            self.job.close()  # 同时覆盖 Vite/esbuild 及任何剩余后代进程。
         else:
             for process in self.processes:
                 try:

@@ -1,4 +1,4 @@
-"""HTTP query parameters and request envelopes over shared task contracts."""
+"""基于共享任务契约的 HTTP 查询参数和请求封装。"""
 
 from typing import Literal
 

@@ -1,4 +1,4 @@
-"""Explicit setup, incremental opinion labeling, status and evidence CLI."""
+"""显式初始化、增量观点标注、状态和证据 CLI。"""
 
 import argparse
 import json

@@ -1,4 +1,4 @@
-"""Check canonical imports, entry points and packaged assets."""
+"""检查规范导入、入口和打包资源。"""
 
 import ast
 import importlib
@@ -8,7 +8,6 @@ import sys
 import tempfile
 import tomllib
 import unittest
-from importlib.resources import files
 from pathlib import Path
 from unittest.mock import patch
 
@@ -84,9 +83,12 @@ class PackageLayoutTests(unittest.TestCase):
         from data_analysis_agent.api.workbench import ASSET_DIR
         import xml.etree.ElementTree as ET
 
-        resources = files("data_analysis_agent.api").joinpath("workbench_assets")
+        self.assertEqual(ASSET_DIR, ROOT / "frontend/workbench")
+        self.assertFalse((PACKAGE / "api/workbench_assets").exists())
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        resources = project["tool"]["setuptools"]["data-files"]["share/data-analysis-agent/workbench"]
         for name in ("index.html", "workbench.js", "workbench.css"):
-            self.assertEqual(resources.joinpath(name).read_bytes(), (ASSET_DIR / name).read_bytes())
+            self.assertIn("frontend/workbench/" + name, resources)
             self.assertGreater(len((ASSET_DIR / name).read_bytes()), 0)
         for config in (ROOT / ".run").glob("*.xml"):
             for option in ET.parse(config).iter("option"):
@@ -94,6 +96,15 @@ class PackageLayoutTests(unittest.TestCase):
                 if option.get("name") == "SCRIPT_NAME" and value.startswith("$PROJECT_DIR$/src/"):
                     with self.subTest(configuration=config.name):
                         self.assertTrue((ROOT / value.removeprefix("$PROJECT_DIR$/")).is_file())
+
+    def test_installed_workbench_uses_shared_frontend_assets(self):
+        from data_analysis_agent.api import workbench
+
+        with tempfile.TemporaryDirectory() as directory:
+            prefix = Path(directory)
+            with patch.object(workbench, "__file__", str(prefix / "lib/site-packages/data_analysis_agent/api/workbench.py")), patch(
+                    "data_analysis_agent.api.workbench.sysconfig.get_path", return_value=str(prefix)):
+                self.assertEqual(workbench._asset_dir(), prefix / "share/data-analysis-agent/workbench")
 
 
 if __name__ == "__main__":
