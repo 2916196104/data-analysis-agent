@@ -4,9 +4,9 @@ import {
   Progress, Skeleton, Space, Spin, Tag,
 } from 'antd';
 import {
-  ArrowLeftOutlined, BarChartOutlined, CheckOutlined, DatabaseOutlined, DownloadOutlined,
-  FileTextOutlined, FolderOpenOutlined, HistoryOutlined, ImportOutlined, MenuOutlined,
-  MenuFoldOutlined, MenuUnfoldOutlined, PlusOutlined, ReloadOutlined,
+  ArrowRightOutlined, BarChartOutlined, CheckOutlined, DatabaseOutlined, DownloadOutlined,
+  FileTextOutlined, FolderOpenOutlined, HistoryOutlined, ImportOutlined,
+  PlusOutlined, ReloadOutlined,
 } from '@ant-design/icons';
 import { api, API_BASE, errorMessage } from './api';
 import Composer from './Composer';
@@ -27,7 +27,7 @@ const emptyOptions: Options = {
   processing_statuses: {}, human_statuses: {},
 };
 const dateLabel = (value: string) => new Date(value).toLocaleString('zh-CN', {
-  month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
 });
 
 function taskStepLabel(kind: TaskSummary['kind']): string {
@@ -67,8 +67,7 @@ export default function App() {
   const [submitError, setSubmitError] = useState('');
   const [storageError, setStorageError] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [detail, setDetail] = useState<{ title: string; value: unknown }>();
   const [importOpen, setImportOpen] = useState(false);
@@ -182,7 +181,7 @@ export default function App() {
 
   const selectTask = (id: string | null) => {
     setLocal(previous => ({ ...previous, selected: id }));
-    setNavOpen(false);
+    setHistoryOpen(false);
     setSubmitError('');
   };
 
@@ -254,7 +253,6 @@ export default function App() {
   const openLabel = () => {
     const scoped = task?.kind === 'import' || task?.kind === 'label';
     setSubmitError('');
-    setNavOpen(false);
     setLabelDefaults({
       dataset: scoped
         ? JSON.stringify([
@@ -303,41 +301,44 @@ export default function App() {
     }
   };
   const showDetail = (value: unknown, title: string) => setDetail({ title, value });
-  const side = <>
-    <div className="brand"><div className="brand-mark"><BarChartOutlined /></div><div className="brand-copy"><strong>观数</strong><span>评论分析工作台</span></div><Button className="sidebar-toggle" type="text" aria-label={sidebarCollapsed ? '展开历史侧栏' : '收起历史侧栏'} title={sidebarCollapsed ? '展开历史侧栏' : '收起历史侧栏'} aria-expanded={!sidebarCollapsed} icon={sidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={() => setSidebarCollapsed(previous => !previous)} /></div>
-    <Button aria-label="新建分析" title="新建分析" className="new-button" type="primary" block icon={<PlusOutlined />} onClick={() => selectTask(null)}><span className="sidebar-label">新建分析</span></Button>
-    <Button className="history-shortcut" type="text" block aria-label="查看历史记录" title="查看历史记录" icon={<HistoryOutlined />} onClick={() => setSidebarCollapsed(false)} />
-    <div className="nav-caption"><HistoryOutlined /><span className="sidebar-label">最近任务</span></div>
-    <div className="history-list">
-      {historyError && <Alert type="warning" message="历史暂不可用" description={historyError} action={<Button size="small" onClick={() => void fetchHistory()}>重试</Button>} />}
-      {!history?.items.length && !historyError && <div className="history-empty">还没有分析记录<br /><span>开始一次分析，结果将在这里保留</span></div>}
-      {history?.items.map(item => <button key={item.task_id} aria-current={local.selected === item.task_id ? 'page' : undefined} title={local.notes[item.task_id] || kindLabels[item.kind]} className={`history-item ${local.selected === item.task_id ? 'selected' : ''}`} onClick={() => selectTask(item.task_id)}>
-        <div className="history-title"><FileTextOutlined /><span>{local.notes[item.task_id] || kindLabels[item.kind]}</span></div>
-        <div className="history-meta"><span>{dateLabel(item.created_at)}</span><span className={`task-state ${item.status}`}>{statusLabels[item.status]}</span></div>
-      </button>)}
-    </div>
-    {!!history?.total && history.total > 15 && <Pagination simple size="small" current={page} total={history.total} pageSize={15} onChange={setPage} />}
-    <div className="sidebar-bottom"><div className="nav-caption"><DatabaseOutlined /><span className="sidebar-label">当前数据集</span></div>
-      <div className="dataset-tile"><div className="dataset-icon"><DatabaseOutlined /></div><div className="sidebar-label"><strong>{productSummary(currentProducts, task?.parameters.dataset_version as string).split(' · ')[0]}</strong><span>{productSummary(currentProducts, task?.parameters.dataset_version as string).split(' · ').slice(1).join(' · ')}</span></div></div>
-      <Button aria-label="从服务端目录导入" title="从服务端目录导入" block icon={<ImportOutlined />} onClick={() => { setSubmitError(''); setNavOpen(false); setImportOpen(true); }}><span className="sidebar-label">从服务端目录导入</span></Button>
-      <Button aria-label="准备数据" title="准备数据" className="spaced" block icon={<CheckOutlined />} onClick={openLabel}><span className="sidebar-label">准备数据</span></Button>
-      <p className="local-note"><span className="status-dot" /> 本机工作空间</p>
-    </div>
-  </>;
+  const datasetSummary = productSummary(currentProducts, task?.parameters.dataset_version as string);
   return <div className="workbench">
-    <aside className={`desktop-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>{side}</aside>
-    <Drawer title="工作空间" placement="left" width={280} open={navOpen} onClose={() => setNavOpen(false)} className="mobile-nav">{side}</Drawer>
+    <Drawer title="任务记录" placement="right" width="min(640px, 100vw)" open={historyOpen} onClose={() => setHistoryOpen(false)} closable={{ 'aria-label': '关闭任务记录' }} className="task-history"
+      footer={!!history?.total && <Pagination size="small" current={page} total={history.total} pageSize={15} showSizeChanger={false} showTotal={total => `共 ${total} 项任务`} onChange={setPage} />}>
+      <div className="history-intro"><div><h2>最近任务</h2><p>查看处理进度，或打开任务继续查看结果。</p></div><Button type="text" aria-label="刷新任务记录" icon={<ReloadOutlined />} onClick={() => void fetchHistory()} /></div>
+      {historyError && <Alert className="spaced-bottom" type="warning" showIcon message="任务记录暂不可用" description={historyError} action={<Button size="small" aria-label="重试任务记录" onClick={() => void fetchHistory()}>重试</Button>} />}
+      {!history && !historyError && <Skeleton active paragraph={{ rows: 5 }} />}
+      {history && !history.items.length && !historyError && <div className="history-empty"><HistoryOutlined /><h3>还没有任务记录</h3><p>导入、准备数据和分析的任务会自动保存在这里。</p><Button onClick={() => selectTask(null)}>开始一次分析</Button></div>}
+      <div className="history-list">
+        {history?.items.map(item => <button key={item.task_id} aria-current={local.selected === item.task_id ? 'true' : undefined} className={`history-item ${local.selected === item.task_id ? 'selected' : ''}`} onClick={() => selectTask(item.task_id)}>
+          <span className={`history-icon ${item.kind}`}>{item.kind === 'import' ? <ImportOutlined /> : item.kind === 'label' ? <CheckOutlined /> : <FileTextOutlined />}</span>
+          <span className="history-copy"><span className="history-title">{local.notes[item.task_id] || kindLabels[item.kind]}</span><span className="history-meta"><span>{kindLabels[item.kind]}</span><time dateTime={item.created_at}>{dateLabel(item.created_at)}</time>{local.selected === item.task_id && <span className="history-current">当前查看</span>}</span></span>
+          <span className={`task-state ${item.status}`}><span className="status-dot" />{statusLabels[item.status]}</span><ArrowRightOutlined className="history-arrow" />
+        </button>)}
+      </div>
+    </Drawer>
     <div className="workspace-main">
-      <header className="topbar"><div className="breadcrumb"><Button className="mobile-menu" type="text" aria-label="展开侧栏" icon={<MenuOutlined />} onClick={() => setNavOpen(true)} /><span>工作空间</span><span className="breadcrumb-slash">/</span><strong>分析工作台</strong></div>
-        <Space size={16}><span className="connection-label"><Badge status={!health ? 'error' : health.worker_available ? 'success' : 'warning'} text={!health ? '连接待确认' : health.worker_available ? '服务已连接' : '执行器离线'} /></span><Button type="text" icon={<ReloadOutlined />} aria-label="刷新数据" loading={loading} onClick={() => { void load(); void fetchHistory(); taskState.refresh(); }} /><Button icon={<FolderOpenOutlined />} disabled={!currentProducts.length} onClick={() => setPreviewOpen(true)}>数据详情</Button></Space>
+      <header className="topbar">
+        <div className="topbar-inner">
+          <div className="brand"><div className="brand-mark"><BarChartOutlined /></div><div className="brand-copy"><strong>观数</strong><span>评论分析工作台</span></div></div>
+          <div className="header-actions"><span className="connection-label"><Badge status={!health ? 'error' : health.worker_available ? 'success' : 'warning'} text={!health ? '连接待确认' : health.worker_available ? '服务已连接' : '执行器离线'} /></span><Button type="text" icon={<ReloadOutlined />} aria-label="刷新数据" title="刷新数据" loading={loading} onClick={() => { void load(); void fetchHistory(); taskState.refresh(); }} /><Button className="history-trigger" icon={<HistoryOutlined />} aria-label="任务记录" aria-expanded={historyOpen} onClick={() => { setHistoryOpen(true); void fetchHistory(); }}>任务记录{history?.total ? <span className="history-count">{history.total}</span> : null}</Button></div>
+        </div>
       </header>
+      <div className="workspace-toolbar">
+        <div className="workspace-context"><span className="context-icon"><DatabaseOutlined /></span><div><span className="context-caption">当前分析范围</span><span className="context-summary" title={datasetSummary}>{datasetSummary}</span></div></div>
+        <nav className="workspace-actions" aria-label="工作台操作">
+          <Button aria-label="从服务端目录导入" icon={<ImportOutlined />} onClick={() => { setSubmitError(''); setImportOpen(true); }}>导入数据</Button>
+          <Button aria-label="准备数据" icon={<CheckOutlined />} onClick={openLabel}>准备数据</Button>
+          <Button aria-label="数据详情" icon={<FolderOpenOutlined />} disabled={!currentProducts.length} onClick={() => setPreviewOpen(true)}>数据详情</Button>
+          <Button aria-label="新建分析" type={local.selected ? 'primary' : 'default'} icon={<PlusOutlined />} onClick={() => selectTask(null)}>新建分析</Button>
+        </nav>
+      </div>
       <main className="main-content">
         {connectionError && <Alert className="spaced-bottom" type="error" showIcon message="无法完整加载工作空间" description={<>{connectionError}<div className="api-address">API：{API_BASE}</div></>} action={<Button onClick={() => void load()}>重新连接</Button>} />}
         {storageError && <Alert className="spaced-bottom" type="warning" showIcon message="浏览器存储不可用，问题备注和当前选择在刷新后可能丢失；后端任务仍会保留。" />}
         {health && !health.worker_available && <Alert className="spaced-bottom" type="warning" showIcon message="后台执行器离线" description="可以提交任务，但任务会留在队列中，直到后端 worker 启动。" />}
         {submitError && !importOpen && !labelDefaults && <Alert className="spaced-bottom" type="error" showIcon message="请求未完成" description={submitError} />}
         {!local.selected ? loading && !options.products.length ? <Skeleton active paragraph={{ rows: 6 }} /> : <Composer key={dataset} options={options} quality={quality} draft={draft} setDraft={setDraft} busy={busy} onSubmit={(parameters: AnalysisParameters, question: string) => void submit({ kind: 'analysis', parameters }, question)} onPreview={() => setPreviewOpen(true)} onImport={() => setImportOpen(true)} onLabel={openLabel} /> : <>
-          <Button className="back-button" type="text" icon={<ArrowLeftOutlined />} onClick={() => selectTask(null)}>新建另一项分析</Button>
           {taskState.loading && !task && <Skeleton active paragraph={{ rows: 5 }} />}
           {taskState.error && <Alert className="spaced-bottom" type="error" showIcon message="任务连接异常" description={<>{taskState.error}<div>保留最后一次已知状态，正在尝试重新连接。</div></>} action={<Button onClick={taskState.refresh}>立即重连</Button>} />}
           {task && <>

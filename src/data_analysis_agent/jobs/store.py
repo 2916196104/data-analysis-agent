@@ -143,6 +143,44 @@ def get_task(path, task_id):
         return _task(_read(connection, task_id))
 
 
+def delete_task(path, task_id):
+    """删除任务及其重试子链；活动任务必须先结束。"""
+    with closing(connect_task_database(path)) as connection, connection:
+        connection.execute("BEGIN IMMEDIATE")
+        _read(connection, task_id)
+        ids = [task_id]
+        index = 0
+        while index < len(ids):
+            children = connection.execute(
+                "SELECT task_id FROM tasks WHERE parent_task_id=? ORDER BY created_at DESC, task_id DESC",
+                (ids[index],),
+            ).fetchall()
+            ids.extend(row[0] for row in children)
+            index += 1
+        active = connection.execute(
+            f"SELECT task_id FROM tasks WHERE task_id IN ({','.join('?' for _ in ids)}) "
+            "AND status IN ('queued','running') LIMIT 1", ids,
+        ).fetchone()
+        if active:
+            raise TaskConflict("运行中的任务不能删除，请等待任务结束后重试。")
+        for item in reversed(ids):
+            connection.execute("DELETE FROM tasks WHERE task_id=?", (item,))
+        return {"deleted_task_ids": ids, "deleted_tasks": len(ids)}
+
+
+def mark_import_data_deleted(path, task_id, deletion):
+    """在业务数据删除成功后给任务结果留下可恢复的删除标记。"""
+    with closing(connect_task_database(path)) as connection, connection:
+        connection.execute("BEGIN IMMEDIATE")
+        row = _read(connection, task_id)
+        result = json.loads(row["result_json"]) if row["result_json"] else {}
+        result["import_data_deleted"] = True
+        result["import_data_deletion"] = deletion
+        connection.execute("UPDATE tasks SET result_json=?,updated_at=? WHERE task_id=?",
+                           (canonical_json(result), utc_now(), task_id))
+        return _task(_read(connection, task_id))
+
+
 def list_tasks(path, *, status=None, kind=None, page=1, page_size=20):
     validate_integer(page, "page", maximum=1000000)
     validate_integer(page_size, "page_size", maximum=100)

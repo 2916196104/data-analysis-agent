@@ -4,7 +4,9 @@ import os
 import signal
 import socket
 import subprocess
+import sys
 import unittest
+from pathlib import Path
 from threading import Event
 from unittest.mock import MagicMock, patch
 
@@ -12,8 +14,45 @@ import run
 from data_analysis_agent.core.config import ConfigurationError
 from data_analysis_agent.dev_processes import ProcessFamily
 
+PROJECT_PYTHON = run.ROOT / ('.venv/Scripts/python.exe' if os.name == 'nt' else '.venv/bin/python')
+
 
 class RunEntryTests(unittest.TestCase):
+    @unittest.skipUnless(PROJECT_PYTHON.is_file(), 'requires project .venv')
+    def test_system_python_direct_run_uses_project_environment_from_another_directory(self):
+        environment = {**os.environ, 'PYTHONUTF8': '1'}
+        environment.pop('PYTHONPATH', None)
+        result = subprocess.run(
+            [sys._base_executable, '-I', str(run.ROOT / 'run.py'), '--help'],
+            cwd=run.ROOT.parent, env=environment, capture_output=True,
+            text=True, encoding='utf-8', timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('使用项目 Python', result.stdout)
+        self.assertIn('--api-port', result.stdout)
+        self.assertIn('--no-browser', result.stdout)
+
+    @unittest.skipUnless(PROJECT_PYTHON.is_file(), 'requires project .venv')
+    def test_project_environment_stays_in_current_process(self):
+        result = subprocess.run(
+            [str(PROJECT_PYTHON), str(run.ROOT / 'run.py'), '--help'], cwd=run.ROOT,
+            capture_output=True, text=True, encoding='utf-8', timeout=30,
+            env={**os.environ, 'PYTHONUTF8': '1'},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn('使用项目 Python', result.stdout)
+
+    def test_project_python_keeps_arguments_exit_code_and_cleanup(self):
+        process = MagicMock()
+        process.poll.return_value = 3
+        process.returncode = 3
+        with patch('run.ProcessFamily') as factory, patch('run.sys.argv', ['run.py', '--no-browser', '--api-port', '18001']):
+            family = factory.return_value.__enter__.return_value
+            family.start.return_value = process
+            self.assertEqual(run.run_with_project_python(Path('project-python')), 3)
+            self.assertEqual(family.start.call_args.args[0][-3:], ['--no-browser', '--api-port', '18001'])
+            factory.return_value.__exit__.assert_called_once()
+
     def test_occupied_port_fails_before_spawning_or_opening_browser(self):
         listener = MagicMock()
         listener.__enter__.return_value = listener

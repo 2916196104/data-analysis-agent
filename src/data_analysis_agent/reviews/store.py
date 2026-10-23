@@ -342,6 +342,81 @@ def get_quality_summary(db_path: str | Path) -> dict:
             return _quality_summary(connection)
 
 
+def delete_import_runs(db_path: str | Path, import_run_ids: list[int]) -> dict:
+    """删除指定导入批次及其评论依赖，保留被其他批次复用的商品记录。"""
+    if (not isinstance(import_run_ids, list) or not import_run_ids
+            or any(isinstance(item, bool) or not isinstance(item, int) or item < 1 for item in import_run_ids)):
+        raise ReviewDataError("import_run_ids 必须是正整数列表。")
+    ids = list(dict.fromkeys(import_run_ids))
+    database = database_target(db_path)
+    placeholders = ",".join("?" for _ in ids)
+    with closing(connect_review_database(database)) as connection, connection:
+        connection.execute("BEGIN IMMEDIATE")
+        runs = connection.execute(
+            f"SELECT id FROM import_runs WHERE id IN ({placeholders})", ids,
+        ).fetchall()
+        found = {row[0] for row in runs}
+        missing = sorted(set(ids) - found)
+        if missing:
+            raise ReviewDataError(f"导入批次不存在：{', '.join(map(str, missing))}。")
+        review_rows = connection.execute(
+            f"SELECT id FROM reviews WHERE import_run_id IN ({placeholders})", ids,
+        ).fetchall()
+        review_ids = [row[0] for row in review_rows]
+        annotation_ids: list[int] = []
+        human_review_ids: list[int] = []
+        if review_ids:
+            review_placeholders = ",".join("?" for _ in review_ids)
+            annotation_ids = [row[0] for row in connection.execute(
+                f"SELECT id FROM review_annotations WHERE review_id IN ({review_placeholders})", review_ids,
+            )]
+            if annotation_ids:
+                annotation_placeholders = ",".join("?" for _ in annotation_ids)
+                human_review_ids = [row[0] for row in connection.execute(
+                    f"SELECT id FROM review_human_reviews WHERE annotation_id IN ({annotation_placeholders})", annotation_ids,
+                )]
+                if human_review_ids:
+                    human_placeholders = ",".join("?" for _ in human_review_ids)
+                    connection.execute(
+                        f"DELETE FROM review_human_opinions WHERE human_review_id IN ({human_placeholders})",
+                        human_review_ids,
+                    )
+                    connection.execute(
+                        f"DELETE FROM review_human_reviews WHERE id IN ({human_placeholders})",
+                        human_review_ids,
+                    )
+                connection.execute(
+                    f"DELETE FROM review_opinions WHERE annotation_id IN ({annotation_placeholders})",
+                    annotation_ids,
+                )
+                connection.execute(
+                    f"DELETE FROM review_annotations WHERE id IN ({annotation_placeholders})",
+                    annotation_ids,
+                )
+        if review_ids:
+            connection.execute(
+                f"DELETE FROM reviews WHERE id IN ({','.join('?' for _ in review_ids)})", review_ids,
+            )
+        connection.execute(
+            f"DELETE FROM import_errors WHERE import_run_id IN ({placeholders})", ids,
+        )
+        # A product row may have been imported by this batch but later reused or
+        # still referenced by another review, so only remove unreferenced rows.
+        connection.execute(
+            f"DELETE FROM products WHERE import_run_id IN ({placeholders}) "
+            "AND NOT EXISTS (SELECT 1 FROM reviews r WHERE r.source=products.source "
+            "AND r.dataset_version=products.dataset_version AND r.product_id=products.product_id)", ids,
+        )
+        connection.execute(f"DELETE FROM import_runs WHERE id IN ({placeholders})", ids)
+        return {
+            "import_run_ids": ids,
+            "deleted_import_runs": len(ids),
+            "deleted_reviews": len(review_ids),
+            "deleted_annotations": len(annotation_ids),
+            "deleted_human_reviews": len(human_review_ids),
+        }
+
+
 def get_review_evidence(db_path: str | Path, review_id: int) -> dict:
     """即使输入文件后来被移动，也返回已保存的原始正文。"""
     if isinstance(review_id, bool) or not isinstance(review_id, int) or review_id < 1:

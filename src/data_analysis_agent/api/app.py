@@ -122,6 +122,6 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
     router.include_router(reviews.create_router(db))
     router.include_router(analytics.create_router(db))
     router.include_router(monitoring.create_router(db))
-    router.include_router(tasks.create_router(task_db, import_root=import_root, env_file=env_file))
+    router.include_router(tasks.create_router(task_db, db, import_root=import_root, env_file=env_file))
     app.include_router(router)
     return app

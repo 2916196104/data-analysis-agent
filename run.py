@@ -17,12 +17,46 @@ from threading import Event
 from typing import Sequence
 from urllib.parse import urlsplit
 
-from data_analysis_agent.core.config import ConfigurationError, read_settings
-from data_analysis_agent.core.database import database_argument
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / 'src'))
+
 from data_analysis_agent.dev_processes import ProcessFamily
 
 
-ROOT = Path(__file__).resolve().parent
+def run_with_project_python(python: Path) -> int:
+    """用项目环境运行，同时让启动器继续拥有完整进程树。"""
+    print(f'使用项目 Python：{python}', flush=True)
+    stop = Event()
+    previous_handlers = {}
+    for event in (signal.SIGINT, signal.SIGTERM, *([signal.SIGBREAK] if os.name == 'nt' else [])):
+        previous_handlers[event] = signal.signal(event, lambda *_: stop.set())
+    try:
+        with ProcessFamily() as family:
+            process = family.start(
+                [str(python), str(ROOT / 'run.py'), *sys.argv[1:]], cwd=ROOT,
+                env={**os.environ, 'PYTHONUTF8': '1', 'PYTHONUNBUFFERED': '1'},
+            )
+            while process.poll() is None:
+                if stop.wait(0.2):
+                    return 0
+            return process.returncode
+    finally:
+        for event, handler in previous_handlers.items():
+            signal.signal(event, handler)
+
+
+if __name__ == '__main__':
+    project_python = ROOT / ('.venv/Scripts/python.exe' if os.name == 'nt' else '.venv/bin/python')
+    if project_python.is_file() and Path(sys.prefix).resolve() != ROOT / '.venv':
+        try:
+            raise SystemExit(run_with_project_python(project_python))
+        except OSError as error:
+            print(f'启动项目 Python 失败：{error}', file=sys.stderr)
+            raise SystemExit(1)
+
+
+from data_analysis_agent.core.config import ConfigurationError, read_settings
+from data_analysis_agent.core.database import database_argument
 
 
 def check_port(port: int) -> None:
@@ -98,7 +132,10 @@ def launch(api_port: int = 8000, web_port: int = 5173, open_browser: bool = True
         raise RuntimeError('前端依赖未安装，请先在 frontend 目录运行 npm ci。')
     api_url = f'http://127.0.0.1:{api_port}'
     web_url = f'http://127.0.0.1:{web_port}'
-    environment = {**os.environ, 'PYTHONUTF8': '1', 'PYTHONUNBUFFERED': '1'}
+    environment = {
+        **os.environ, 'PYTHONUTF8': '1', 'PYTHONUNBUFFERED': '1',
+        'PYTHONPATH': os.pathsep.join(filter(None, [str(ROOT / 'src'), os.environ.get('PYTHONPATH')])),
+    }
     stop = Event()
     previous_handlers = {}
     for event in (signal.SIGINT, signal.SIGTERM, *([signal.SIGBREAK] if os.name == 'nt' else [])):
@@ -175,6 +212,7 @@ def main() -> int:
     parser.add_argument('--no-browser', action='store_true', help='启动后不自动打开浏览器')
     args = parser.parse_args()
     try:
+        print('正在检查启动环境与本地配置…', flush=True)
         return launch(args.api_port, args.web_port, not args.no_browser)
     except (OSError, ValueError, RuntimeError) as error:
         print(f'启动失败：{error}', file=sys.stderr)
