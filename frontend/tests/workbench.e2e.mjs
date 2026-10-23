@@ -107,13 +107,17 @@ try {
   assert.equal((await get('/options')).products.length, 2);
   await until(async () => (await fetch(webUrl)).ok, 'Vite ready');
   browser = await chromium.launch({ headless: true, channel: process.env.E2E_BROWSER_CHANNEL || 'chrome' });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'zh-CN', acceptDownloads: true });
+  const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, locale: 'zh-CN', acceptDownloads: true });
   page = await context.newPage();
   page.on('pageerror', error => browserErrors.push(error.message));
   await page.goto(webUrl);
   await writeFile(path.join(artifacts, 'page-title.txt'), await page.title());
   await page.getByRole('button', { name: '开始分析', exact: true }).waitFor();
   await page.getByText('SIMULATED-frontend', { exact: true }).first().waitFor();
+  assert.equal(await page.getByRole('textbox', { name: '分析问题备注' }).isVisible(), false);
+  assert.equal(await page.getByRole('combobox', { name: '标注版本', exact: true }).isVisible(), false);
+  const startBox = await page.getByRole('button', { name: '开始分析', exact: true }).boundingBox();
+  assert.ok(startBox && startBox.y + startBox.height <= 768, 'main action must fit above the fold');
   await writeFile(path.join(artifacts, 'initial-ui.txt'), await page.locator('body').innerText());
   await page.screenshot({ path: path.join(artifacts, '01-workbench.png'), fullPage: true });
 
@@ -125,13 +129,25 @@ try {
   await page.getByText('使用顺手，效果不错。', { exact: true }).first().waitFor();
   await page.keyboard.press('Escape');
   await page.getByRole('tab', { name: '数据预览', exact: true }).waitFor({ state: 'hidden' });
+  const analysisEnd = page.locator('.scope-card .ant-picker').first().locator('input').last();
+  await analysisEnd.fill('2023-02-28');
+  await analysisEnd.press('Enter');
   const question = '验收：DEMO-A 的负面问题有哪些变化？';
+  await page.locator('summary').filter({ hasText: '高级设置' }).click();
   await page.getByRole('textbox', { name: '分析问题备注' }).fill(question);
+  await page.locator('summary').filter({ hasText: '高级设置' }).click();
+  await page.reload();
+  await page.locator('.ant-select-selection-item').filter({ hasText: 'DEMO-A（48 条）' }).waitFor();
+  assert.equal(await page.locator('.scope-card .ant-picker').first().locator('input').last().inputValue(), '2023-02-28');
+  await page.locator('summary').filter({ hasText: '高级设置' }).click();
+  assert.equal(await page.getByRole('textbox', { name: '分析问题备注' }).inputValue(), question);
+  await page.locator('summary').filter({ hasText: '高级设置' }).click();
   const submitted = page.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
   await page.getByRole('button', { name: '开始分析', exact: true }).click();
   const submission = (await (await submitted).json()).result;
   const taskId = submission.task.task_id;
   assert.deepEqual(submission.task.parameters.product_ids, ['DEMO-A']);
+  assert.equal(submission.task.parameters.date_to, '2023-02-28');
   assert.equal(submission.task.parameters.question, undefined);
   await page.getByRole('heading', { name: '从评论中，看到变化' }).waitFor({ timeout: 30_000 });
   await page.getByRole('tabpanel', { name: '趋势图', exact: true }).locator('canvas').waitFor();
@@ -169,6 +185,7 @@ try {
 
   // A real corrupt gzip file reaches the worker and produces a persisted failure.
   await page.getByRole('button', { name: '从服务端目录导入', exact: true }).click();
+  assert.equal(await page.getByRole('textbox', { name: '数据集版本', exact: true }).isVisible(), false);
   await page.getByRole('textbox', { name: '评论文件相对路径', exact: true }).fill('broken.jsonl.gz');
   const failedSubmission = page.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
   await page.getByRole('button', { name: '提交导入任务', exact: true }).click();
@@ -219,6 +236,8 @@ try {
   await page.getByText('请输入 1–1000 的整数', { exact: true }).waitFor();
   assert.equal(modelCalls, 0);
   await page.getByRole('spinbutton', { name: '每批标注数量', exact: true }).fill('2');
+  assert.equal(await page.getByRole('spinbutton', { name: '并发数', exact: true }).isVisible(), false);
+  await page.locator('summary').filter({ hasText: '处理设置' }).click();
   await page.getByRole('spinbutton', { name: '并发数', exact: true }).fill('2');
   await page.getByRole('checkbox', { name: '同时重试此前标注失败的评论' }).check();
   const labelResponse = page.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
@@ -247,6 +266,8 @@ try {
   assert.ok(persisted.annotations.every(a => a.status === 'success' && a.aspect === 'packaging' && a.sentiment === 'negative' && a.quote === '包装破损'));
   await page.reload();
   await page.getByText('标注进度 2/2', { exact: true }).waitFor();
+  await until(() => page.getByRole('button', { name: '分析这些评论', exact: true }).isEnabled(), 'prepared analysis ready');
+  assert.equal(await page.locator('.json-view').isVisible(), false);
   await page.screenshot({ path: path.join(artifacts, '05-label-result.png'), fullPage: true });
   await page.getByRole('button', { name: '继续标注下一批', exact: true }).click();
   assert.equal(await page.getByRole('spinbutton', { name: '每批标注数量', exact: true }).inputValue(), '2');
@@ -254,10 +275,25 @@ try {
   await page.getByText('所选范围内没有需要标注的评论。可更换商品，或勾选重试失败评论。', { exact: true }).waitFor();
   assert.equal(modelCalls, 2, 'completed reviews must not call the model again');
   assert.deepEqual(await databaseEvidence(), persisted);
-  await page.getByRole('button', { name: '前往分析', exact: true }).click();
+  await page.getByRole('button', { name: '调整分析范围', exact: true }).click();
   await page.getByRole('combobox', { name: '分析商品', exact: true }).waitFor();
   await page.locator('.ant-select-selection-item').filter({ hasText: 'DEMO-C（2 条）' }).waitFor();
+  await page.locator('summary').filter({ hasText: '高级设置' }).click();
   await page.getByText(/SIMULATED-LABEL-MODEL · review-opinions/).first().waitFor();
+  await page.locator('summary').filter({ hasText: '高级设置' }).click();
+  // Return to the completed batch and start analysis without selecting the scope again.
+  await page.locator('.history-item').filter({ hasText: '准备数据 · 最多 2 条' }).first().click();
+  const quickResponse = page.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
+  await page.getByRole('button', { name: '分析这些评论', exact: true }).click();
+  const quickAnalysis = (await (await quickResponse).json()).result.task;
+  assert.equal(quickAnalysis.kind, 'analysis');
+  assert.deepEqual(quickAnalysis.parameters.product_ids, ['DEMO-C']);
+  assert.equal(quickAnalysis.parameters.model, 'SIMULATED-LABEL-MODEL');
+  assert.equal(quickAnalysis.parameters.date_from, submission.task.parameters.date_from);
+  assert.equal(quickAnalysis.parameters.date_to, '2023-02-28');
+  assert.equal(quickAnalysis.parameters.baseline_from, submission.task.parameters.baseline_from);
+  await page.getByRole('heading', { name: '从评论中，看到变化' }).waitFor();
+  assert.equal(modelCalls, 2, 'analysis must reuse labels without model calls');
 
   // Reimport the same two records through the UI, then read database rows independently.
   await writeFile(path.join(artifacts, 'duplicate.jsonl'), (await readFile(path.join(artifacts, 'limited.jsonl'), 'utf8')).trim().split('\n').slice(0, 2).join('\n') + '\n');
@@ -298,7 +334,8 @@ try {
     checks: ['product selection', 'data preview', 'question note', 'real task and worker', 'snapshot statistics', 'chart',
       'JSON download equality', 'reload recovery', 'network reconnect', 'worker failure', 'explicit retry', 'limited server file import',
       'label parameter validation', 'label product scope', 'label live progress', 'label concurrency', 'label reload recovery', 'label skip completed',
-      'database import rows', 'database annotations and opinions', 'duplicate import', 'label to analysis scope', 'mobile sidebar', 'backend operation logs'],
+      'database import rows', 'database annotations and opinions', 'duplicate import', 'label to analysis scope', 'mobile sidebar', 'backend operation logs',
+      'advanced parameters collapsed', 'main action above fold at 1366x768', 'draft reload recovery', 'one click prepared analysis'],
     browser_errors: browserErrors, artifacts };
   await writeFile(path.join(artifacts, 'acceptance.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
