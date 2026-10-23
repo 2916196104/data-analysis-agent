@@ -135,6 +135,8 @@ Set-Location E:\AllProject\data-analysis-agent
 | GET | `/tasks` | 按 `status/kind` 分页查询；列表不携带完整参数和结果 |
 | GET | `/tasks/{task_id}` | 完整参数、进度、结果、错误、起止时间和父任务 ID |
 | POST | `/tasks/{task_id}/retry` | 只允许失败或部分完成的任务，创建新的关联任务 |
+| DELETE | `/tasks/{task_id}/imported-data` | 删除导入任务对应的导入批次、评论、错误记录和关联标注；共享商品信息保留 |
+| DELETE | `/tasks/{task_id}` | 删除任务记录及其重试子链；运行中的任务返回 409，业务数据不受影响 |
 
 提交及重试可带 HTTP 头 `Idempotency-Key`（1—200 字符非空 ASCII）。同一个键和相同参数返回原任务；键已用于不同参数时返回 409。任务响应另带 `Location` 指向任务详情。
 

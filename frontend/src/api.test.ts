@@ -35,4 +35,15 @@ describe('统一 API 契约', () => {
     expect(url.searchParams.get('product_key')).toBe('["a&b","v","p"]');
     expect(url.searchParams.get('page')).toBe('2');
   });
+  it('支持删除任务记录和导入数据', async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok', result: { deleted_tasks: 1, deleted_task_ids: ['task-1'] } })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok', result: { task: {}, deletion: {}, reused: false } })));
+    vi.stubGlobal('fetch', fetcher);
+    await api.deleteTask('task/1');
+    await api.deleteImportedData('import-1');
+    expect(fetcher.mock.calls[0][0]).toContain('/tasks/task%2F1');
+    expect(fetcher.mock.calls[0][1].method).toBe('DELETE');
+    expect(fetcher.mock.calls[1][0]).toContain('/tasks/import-1/imported-data');
+  });
 });

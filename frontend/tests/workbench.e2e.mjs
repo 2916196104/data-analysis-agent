@@ -299,6 +299,8 @@ try {
   await page.getByRole('button', { name: '任务记录', exact: true }).click();
   await page.locator('.history-item').filter({ hasText: '准备数据 · 最多 2 条' }).last().click();
   await page.getByRole('dialog', { name: '任务记录', exact: true }).waitFor({ state: 'hidden' });
+  await page.reload();
+  await page.getByText('标注进度 2/2', { exact: true }).waitFor();
   await until(() => page.getByRole('button', { name: '分析这些评论', exact: true }).isEnabled(), 'restored label ready for analysis');
   const quickResponse = page.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
   await page.getByRole('button', { name: '分析这些评论', exact: true }).click();
@@ -326,6 +328,22 @@ try {
   assert.deepEqual(await databaseEvidence(), persisted);
   await writeFile(path.join(artifacts, 'database-evidence.json'), JSON.stringify({ database_kind: database ? 'postgresql' : 'sqlite',
     file_rows: 3, imported: importedRows, labeled: persisted, duplicate_import: { inserted: 0, duplicates: 2 }, model_calls: modelCalls, max_concurrency: maxConcurrentCalls }, null, 2));
+
+  // Delete the real limited import through the UI, then remove its task history.
+  await page.getByRole('button', { name: '任务记录', exact: true }).click();
+  await page.locator('.history-item').filter({ hasText: '导入 limited.jsonl' }).first().click();
+  await page.getByRole('dialog', { name: '任务记录', exact: true }).waitFor({ state: 'hidden' });
+  await page.getByText('删除导入数据', { exact: true }).click();
+  await page.getByText('会删除本次导入产生的评论、错误记录和关联标注；其他导入批次共用的商品信息会保留。此操作不可恢复。', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '删除导入数据', exact: true }).click();
+  await page.getByText('导入数据已删除', { exact: true }).waitFor();
+  assert.equal((await get('/quality')).review_count, 96);
+  const deletedImportTask = await get(`/tasks/${importId}`);
+  assert.equal(deletedImportTask.result.import_data_deleted, true);
+  await page.getByText('删除任务记录', { exact: true }).click();
+  await page.getByRole('button', { name: '删除记录', exact: true }).click();
+  await page.getByRole('button', { name: '开始分析', exact: true }).waitFor();
+  assert.equal((await fetch(`${apiUrl}/tasks/${importId}`)).status, 404);
 
   // History preserves pagination and restores a real result; test rows only replace the list API.
   const historyRoute = '**/api/v1/tasks?*';
@@ -395,7 +413,7 @@ try {
     checks: ['product selection', 'data preview', 'question note', 'real task and worker', 'snapshot statistics', 'chart',
       'JSON download equality', 'reload recovery', 'network reconnect', 'worker failure', 'explicit retry', 'limited server file import',
       'label parameter validation', 'label product scope', 'label live progress', 'label concurrency', 'label reload recovery', 'label skip completed',
-      'database import rows', 'database annotations and opinions', 'duplicate import', 'label to analysis scope', 'mobile workspace', 'backend operation logs',
+      'database import rows', 'database annotations and opinions', 'duplicate import', 'delete imported data', 'delete task history', 'label to analysis scope', 'mobile workspace', 'backend operation logs',
       'advanced parameters collapsed', 'main action above fold at 1366x768', 'draft reload recovery', 'one click prepared analysis',
       'full width workspace at 1366, 1024 and 768', 'keyboard history drawer and empty state', 'history pagination and result restore', 'mobile history drawer', 'history error recovery'],
     browser_errors: browserErrors, artifacts };

@@ -88,6 +88,12 @@ export const api = {
     `/tasks/${encodeURIComponent(id)}/retry`,
     { method: 'POST', headers: { 'Idempotency-Key': key } },
   ),
+  deleteTask: (id: string) => request<{ deleted_task_ids: string[]; deleted_tasks: number }>(
+    `/tasks/${encodeURIComponent(id)}`, { method: 'DELETE' },
+  ),
+  deleteImportedData: (id: string) => request<{ task: Task; deletion: Record<string, number | number[]>; reused: boolean }>(
+    `/tasks/${encodeURIComponent(id)}/imported-data`, { method: 'DELETE' },
+  ),
 };
 
 export function errorMessage(error: unknown): string {

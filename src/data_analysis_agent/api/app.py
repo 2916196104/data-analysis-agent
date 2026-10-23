@@ -56,7 +56,7 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
     app = FastAPI(title="商品口碑监控 API", version="1.0.0", lifespan=lifespan,
                   description="复用现有评论业务函数。长任务持久化到 SQLite / PostgreSQL，由串行 worker 执行。")
     if origins:
-        app.add_middleware(CORSMiddleware, allow_origins=sorted(origins), allow_methods=["GET", "POST"],
+        app.add_middleware(CORSMiddleware, allow_origins=sorted(origins), allow_methods=["GET", "POST", "DELETE"],
                            allow_headers=["Content-Type", "Idempotency-Key"], expose_headers=["Location"])
 
     @app.middleware("http")

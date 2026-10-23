@@ -4,8 +4,8 @@ import {
   Progress, Skeleton, Space, Spin, Tag,
 } from 'antd';
 import {
-  ArrowRightOutlined, BarChartOutlined, CheckOutlined, DatabaseOutlined, DownloadOutlined,
-  FileTextOutlined, FolderOpenOutlined, HistoryOutlined, ImportOutlined,
+  ArrowRightOutlined, BarChartOutlined, CheckOutlined, DatabaseOutlined, DeleteOutlined,
+  DownloadOutlined, FileTextOutlined, FolderOpenOutlined, HistoryOutlined, ImportOutlined,
   PlusOutlined, ReloadOutlined,
 } from '@ant-design/icons';
 import { api, API_BASE, errorMessage } from './api';
@@ -67,6 +67,10 @@ export default function App() {
   const [submitError, setSubmitError] = useState('');
   const [storageError, setStorageError] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{
+    kind: 'task' | 'data'; taskId: string; label: string;
+  }>();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [detail, setDetail] = useState<{ title: string; value: unknown }>();
@@ -237,6 +241,37 @@ export default function App() {
     }
   }
 
+  function confirmDeleteTask(taskId: string, label: string): void {
+    setPendingDelete({ kind: 'task', taskId, label });
+  }
+
+  function confirmDeleteImportedData(taskId: string): void {
+    setPendingDelete({ kind: 'data', taskId, label: '这次导入的数据' });
+  }
+
+  async function executeDelete(): Promise<void> {
+    if (!pendingDelete) return;
+    const current = pendingDelete;
+    setDeleteBusy(true);
+    setSubmitError('');
+    try {
+      if (current.kind === 'task') {
+        await api.deleteTask(current.taskId);
+        if (local.selected === current.taskId) selectTask(null);
+        else void fetchHistory();
+      } else {
+        await api.deleteImportedData(current.taskId);
+        await Promise.all([fetchHistory(), load()]);
+        taskState.refresh();
+      }
+      setPendingDelete(undefined);
+    } catch (error) {
+      setSubmitError(errorMessage(error));
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
   const currentProducts = options.products.filter(product => {
     if (task) {
       const ids = task.parameters.product_ids as string[] | undefined;
@@ -310,11 +345,11 @@ export default function App() {
       {!history && !historyError && <Skeleton active paragraph={{ rows: 5 }} />}
       {history && !history.items.length && !historyError && <div className="history-empty"><HistoryOutlined /><h3>还没有任务记录</h3><p>导入、准备数据和分析的任务会自动保存在这里。</p><Button onClick={() => selectTask(null)}>开始一次分析</Button></div>}
       <div className="history-list">
-        {history?.items.map(item => <button key={item.task_id} aria-current={local.selected === item.task_id ? 'true' : undefined} className={`history-item ${local.selected === item.task_id ? 'selected' : ''}`} onClick={() => selectTask(item.task_id)}>
+        {history?.items.map(item => <div key={item.task_id} role="button" tabIndex={0} aria-current={local.selected === item.task_id ? 'true' : undefined} className={`history-item ${local.selected === item.task_id ? 'selected' : ''}`} onClick={() => selectTask(item.task_id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectTask(item.task_id); } }}>
           <span className={`history-icon ${item.kind}`}>{item.kind === 'import' ? <ImportOutlined /> : item.kind === 'label' ? <CheckOutlined /> : <FileTextOutlined />}</span>
           <span className="history-copy"><span className="history-title">{local.notes[item.task_id] || kindLabels[item.kind]}</span><span className="history-meta"><span>{kindLabels[item.kind]}</span><time dateTime={item.created_at}>{dateLabel(item.created_at)}</time>{local.selected === item.task_id && <span className="history-current">当前查看</span>}</span></span>
-          <span className={`task-state ${item.status}`}><span className="status-dot" />{statusLabels[item.status]}</span><ArrowRightOutlined className="history-arrow" />
-        </button>)}
+          <span className={`task-state ${item.status}`}><span className="status-dot" />{statusLabels[item.status]}</span><Button className="history-delete" type="text" danger aria-label={`删除${local.notes[item.task_id] || kindLabels[item.kind]}`} icon={<DeleteOutlined />} loading={deleteBusy} onClick={event => { event.stopPropagation(); confirmDeleteTask(item.task_id, local.notes[item.task_id] || kindLabels[item.kind]); }} /><ArrowRightOutlined className="history-arrow" />
+        </div>)}
       </div>
     </Drawer>
     <div className="workspace-main">
@@ -359,11 +394,11 @@ export default function App() {
               </>}
               {task.error && <Alert className="spaced" type="error" showIcon message={task.error.message} description={`错误码：${task.error.code}`} />}
               {task.status === 'partial' && <Alert className="spaced" type="warning" showIcon message="任务部分完成" description="请先查看返回结果中的错误与已完成记录，再决定是否重试。" />}
-              <div className="task-actions">{canRetry(task.status) && <Button aria-label="重试任务" loading={busy} icon={<ReloadOutlined />} onClick={() => void retry()}>重试任务</Button>}<Button size="small" type="text" onClick={() => showDetail(task, '任务详情')}>执行详情</Button>{task.parent_task_id && <Button type="link" size="small" onClick={() => selectTask(task.parent_task_id)}>查看原任务</Button>}</div>
+              <div className="task-actions">{canRetry(task.status) && <Button aria-label="重试任务" loading={busy} icon={<ReloadOutlined />} onClick={() => void retry()}>重试任务</Button>}<Button size="small" type="text" onClick={() => showDetail(task, '任务详情')}>执行详情</Button>{task.parent_task_id && <Button type="link" size="small" onClick={() => selectTask(task.parent_task_id)}>查看原任务</Button>}{!isActive(task.status) && <Button danger loading={deleteBusy} icon={<DeleteOutlined />} onClick={() => confirmDeleteTask(task.task_id, title)}>删除任务记录</Button>}</div>
             </Card>
             {task.kind === 'import' && (task.status === 'succeeded' || task.status === 'partial') && <Card className="spaced" title="导入完成，继续准备数据">
               {Array.isArray(task.result?.imports) && task.result.imports.map((item, index) => <p key={index}>{item.kind === 'reviews' ? '评论' : '商品信息'}：新增 <strong>{item.inserted_records}</strong> 条，重复 {item.duplicate_records} 条{item.limit_reached ? '；已达到本次导入上限' : ''}。</p>)}
-              <p className="muted">已带入本次数据集。下一步确认商品和处理数量，提取评论观点。</p><Button type="primary" disabled={loading || !currentProducts.length} onClick={openLabel}>标注已导入的数据</Button></Card>}
+              <p className="muted">已带入本次数据集。下一步确认商品和处理数量，提取评论观点。</p><Space wrap><Button type="primary" disabled={loading || !currentProducts.length} onClick={openLabel}>标注已导入的数据</Button>{!Boolean(task.result?.import_data_deleted) && <Button danger loading={deleteBusy} icon={<DeleteOutlined />} onClick={() => confirmDeleteImportedData(task.task_id)}>删除导入数据</Button>}{Boolean(task.result?.import_data_deleted) && <Tag color="green">导入数据已删除</Tag>}</Space></Card>}
             {task.kind === 'label' && !isActive(task.status) && <Card className="spaced" title="继续分析">
               <p>分析 {preparedDates.current[0]} 至 {preparedDates.current[1]}，对比 {preparedDates.baseline[0]} 至 {preparedDates.baseline[1]}。</p>
               <p className="muted">沿用本次商品和标注版本。分析使用已有标注；未处理的评论会显示为覆盖率不足。</p>
@@ -380,6 +415,11 @@ export default function App() {
     </div>
     <Drawer title="数据详情" width={620} open={previewOpen} onClose={() => setPreviewOpen(false)} destroyOnHidden><DataPreview products={currentProducts} options={options} profileId={previewProfile} onDetail={showDetail} /></Drawer>
     <Drawer title={detail?.title} width={650} open={!!detail} onClose={() => setDetail(undefined)} extra={<Button icon={<DownloadOutlined />} onClick={() => exportResult(detail?.value, 'analysis-detail')}>下载 JSON</Button>}><pre className="json-view">{JSON.stringify(detail?.value, null, 2)}</pre></Drawer>
+    <Modal title={pendingDelete?.kind === 'data' ? '删除这次导入的数据？' : '删除任务记录？'} open={!!pendingDelete} onCancel={() => { if (!deleteBusy) setPendingDelete(undefined); }} onOk={() => void executeDelete()} okText={pendingDelete?.kind === 'data' ? '删除导入数据' : '删除记录'} cancelText="取消" okButtonProps={{ danger: true, loading: deleteBusy }} destroyOnHidden>
+      {pendingDelete?.kind === 'data'
+        ? '会删除本次导入产生的评论、错误记录和关联标注；其他导入批次共用的商品信息会保留。此操作不可恢复。'
+        : `将删除“${pendingDelete?.label}”及其重试记录。已导入的评论数据不会被删除。`}
+    </Modal>
     <Modal title="准备数据" open={!!labelDefaults} onCancel={() => { if (!busy) setLabelDefaults(undefined); }} footer={null} destroyOnHidden>
       {submitError && <Alert className="spaced-bottom" type="error" showIcon message="标注任务未提交" description={submitError} />}
       {labelDefaults && <LabelForm options={options} initialDataset={labelDefaults.dataset} initialProducts={labelDefaults.products}

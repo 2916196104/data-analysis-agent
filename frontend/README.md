@@ -82,6 +82,8 @@ npm run preview
 | `POST /tasks` | 提交 `analysis`、`import` 或 `label` 及其契约参数，带 `Idempotency-Key` |
 | `GET /tasks`、`GET /tasks/{id}` | 历史分页、真实状态/阶段、结果引用和错误 |
 | `POST /tasks/{id}/retry` | 仅 failed/partial 可重试，产生关联的新任务 |
+| `DELETE /tasks/{id}/imported-data` | 删除指定导入任务产生的评论、错误记录和关联标注；共享商品信息保留 |
+| `DELETE /tasks/{id}` | 删除任务记录及其重试子链，不删除业务数据；运行中的任务不可删除 |
 | `GET /analysis-runs/{id}` | 冻结范围、统计、趋势、对比、问题、证据，所有结果卡片的唯一数据来源 |
 
 `analysis.parameters` 提交 `model/base_url/prompt_version/source/dataset_version/product_ids/date_from/date_to/baseline_from/baseline_to`。基线结束必须早于当前窗口开始。规则使用后端默认值；分析可能保存规则告警，并不调用模型。`import.parameters` 为 `reviews_path/meta_path/dataset_version/product_ids/max_reviews`，至少一个文件路径；`max_reviews` 可选，要求评论路径且为正整数。
@@ -113,9 +115,9 @@ npm run test:e2e
 
 - 移除常驻左栏；任务记录集中到右上角，右侧抽屉支持完整标题、任务类型、创建时间、状态、当前任务标记与分页恢复。
 - 顶部集中常用操作，主工作区居中；1366 × 768 首屏可见“开始分析”，1024 / 768 / 390 px 页面无横向溢出，390 px 任务抽屉及长标题不溢出。
-- 17 项前端单元测试、生产构建和 33 项浏览器检查通过，浏览器运行错误为 0；覆盖键盘打开/关闭、空状态、历史分页、结果恢复及任务记录请求失败后的重试恢复。
-- 使用隔离 SQLite 数据库与本机模拟模型。分页检查使用列表接口测试数据，恢复结果、导入、标注及分析经过真实 API 和 worker；未调用线上模型或改动业务库。构建保留既有依赖包超过 500 kB 的提示。
-- 验收证据：`output/playwright/frontend-FdzdbD/`，包含 `acceptance.json`、`database-evidence.json` 及首页、真实任务记录和手机截图。
+- 18 项前端单元测试、生产构建和 35 项浏览器检查通过，浏览器运行错误为 0；覆盖任务记录分页、结果恢复、删除导入数据、删除任务记录、CORS 预检、异常重试和手机布局。
+- 使用隔离 SQLite 数据库与本机模拟模型。删除导入数据后评论数由 98 恢复到 96，任务详情标记已删除，随后删除任务记录返回 404；未调用线上模型或改动业务库。构建保留既有依赖包超过 500 kB 的提示。
+- 验收证据：`output/playwright/frontend-xx52Gt/`，包含 `acceptance.json`、`database-evidence.json` 及首页、任务记录和手机截图。
 
 ### 2026-10-23 首页与操作流程优化验收
 
