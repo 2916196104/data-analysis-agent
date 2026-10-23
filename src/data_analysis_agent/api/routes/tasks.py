@@ -1,9 +1,12 @@
 """任务 HTTP 端点；业务操作仍位于各自服务中。"""
 
 import logging
-from typing import Annotated
+import uuid
+from pathlib import Path as FilePath
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Body, Header, Path, Query, Response
+from fastapi import APIRouter, Body, Header, Path, Query, Request, Response
+from starlette.concurrency import run_in_threadpool
 
 from data_analysis_agent.api.responses import Result, ok_result
 from data_analysis_agent.api.schemas import TaskInput, TaskQuery
@@ -13,8 +16,11 @@ from data_analysis_agent.jobs.store import (
 )
 from data_analysis_agent.jobs.submission import prepare_parameters, retry_task
 from data_analysis_agent.reviews.store import delete_import_runs
+from data_analysis_agent.core.errors import ReviewDataError
+from data_analysis_agent.reviews.loader import import_suffix
 
 logger = logging.getLogger(__name__)
+UPLOAD_LIMIT = 512 * 1024 * 1024
 
 
 def create_router(task_db, business_db, *, import_root, env_file):
@@ -40,6 +46,38 @@ def create_router(task_db, business_db, *, import_root, env_file):
     @router.get("/tasks/{task_id}", response_model=Result, tags=["后台任务"])
     def task_detail(task_id: Annotated[str, Path(min_length=1, max_length=1000)]):
         return ok_result(get_task(task_db, task_id))
+
+    @router.post("/import-files", response_model=Result, status_code=201, tags=["后台任务"])
+    async def upload_import_file(request: Request,
+                                 kind: Annotated[Literal["reviews", "meta"], Query()],
+                                 filename: Annotated[str, Query(min_length=1, max_length=255)]):
+        """接收浏览器选择的评论或元数据文件，返回 import-root 内的任务路径。"""
+        original_name = FilePath(filename).name
+        suffix = import_suffix(original_name, kind)
+        if request.headers.get("content-length", "").isdigit() and int(request.headers["content-length"]) > UPLOAD_LIMIT:
+            raise ReviewDataError("单个导入文件不能超过 512 MiB。")
+        root = FilePath(import_root).resolve()
+        upload_dir = (root / ".uploads").resolve()
+        if not upload_dir.is_relative_to(root):
+            raise ReviewDataError("上传目录必须位于服务配置的 import-root 内。")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        target = upload_dir / f"{uuid.uuid4().hex}{suffix}"
+        size = 0
+        try:
+            with target.open("xb") as output:
+                async for chunk in request.stream():
+                    size += len(chunk)
+                    if size > UPLOAD_LIMIT:
+                        raise ReviewDataError("单个导入文件不能超过 512 MiB。")
+                    await run_in_threadpool(output.write, chunk)
+            if size == 0:
+                raise ReviewDataError("导入文件不能为空。")
+        except BaseException:
+            target.unlink(missing_ok=True)
+            raise
+        relative = target.relative_to(root).as_posix()
+        logger.info("导入文件上传 kind=%s filename=%s size=%s path=%s", kind, original_name, size, relative)
+        return ok_result({"kind": kind, "filename": original_name, "size_bytes": size, "path": relative})
 
     @router.delete("/tasks/{task_id}/imported-data", response_model=Result, tags=["后台任务"])
     def delete_imported_data(task_id: Annotated[str, Path(min_length=1, max_length=1000)]):

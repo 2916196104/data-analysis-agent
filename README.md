@@ -4,7 +4,7 @@
 
 一个独立 Python 项目，支持本地销售 CSV/Excel 的读取、字段映射、校验、统计、绘图和 Markdown 报告，并接入 HelloAgents 单 Agent 的自然语言工具调用。应用统一通过 `load_sales_data` 读取数据，原有 `load_sales_csv` 接口继续保留。固定流程无需 API 密钥；自然语言流程使用支持原生 Function Calling 的 OpenAI 兼容模型服务。
 
-新增独立的 [React 评论分析工作台](frontend/README.md)，使用 TypeScript、Vite、Ant Design 和 ECharts。支持选择已有评论数据、服务端路径导入、提交结构化分析、真实任务进度、历史恢复、原文证据和 JSON 导出。启动与后端 Origin 配置、接口映射及现有能力边界见前端说明。
+新增独立的 [React 评论分析工作台](frontend/README.md)，使用 TypeScript、Vite、Ant Design 和 ECharts。支持选择已有评论数据、从电脑任意位置选择文件导入、提交结构化分析、真实任务进度、历史恢复、原文证据和 JSON 导出。启动与后端 Origin 配置、接口映射及现有能力边界见前端说明。
 
 新增独立的 Amazon 评论/商品元数据 JSONL 导入入口，使用标准库 SQLite，支持 `.jsonl`/`.jsonl.gz` 流式读取、去重、原文定位和数据质量摘要。**环境配置和业务数据库初始化由你执行**；原有销售入口继续使用。配置步骤、可运行的模拟数据及完整契约见 [第三阶段 B：评论数据导入](docs/review-import.md)。
 

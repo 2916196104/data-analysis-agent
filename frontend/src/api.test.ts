@@ -46,4 +46,50 @@ describe('统一 API 契约', () => {
     expect(fetcher.mock.calls[0][1].method).toBe('DELETE');
     expect(fetcher.mock.calls[1][0]).toContain('/tasks/import-1/imported-data');
   });
+  it('上传本地文件时使用原始字节和文件名查询参数', async () => {
+    const file = new File(['{}\n'], '任意目录.jsonl', { type: 'application/json' });
+    const xhr = fakeUpload();
+    const progress = vi.fn();
+    let resolved = false;
+    const upload = api.uploadImportFile(file, 'reviews', progress).then(result => { resolved = true; return result; });
+    const url = new URL(xhr.open.mock.calls[0][1], 'http://localhost');
+    expect(url.searchParams.get('kind')).toBe('reviews');
+    expect(url.searchParams.get('filename')).toBe(file.name);
+    expect(xhr.send).toHaveBeenCalledWith(file);
+    xhr.upload.onprogress!({ loaded: 1 });
+    expect(progress).toHaveBeenLastCalledWith(1);
+    xhr.upload.onprogress!({ loaded: file.size });
+    await Promise.resolve();
+    expect(resolved).toBe(false); // 已发送全部字节，仍须等待服务端确认。
+    xhr.responseText = JSON.stringify({ status: 'ok', result: { kind: 'reviews', filename: file.name, size_bytes: 3, path: '.uploads/a.jsonl' } });
+    xhr.onload!();
+    const result = await upload;
+    expect(result.path).toBe('.uploads/a.jsonl');
+  });
+  it('上传拒绝、无效响应、断网和超时都不会进入处理阶段', async () => {
+    const file = new File(['{}\n'], 'reviews.jsonl');
+    for (const failure of ['http', 'json', 'network', 'timeout'] as const) {
+      const xhr = fakeUpload();
+      const upload = api.uploadImportFile(file, 'reviews');
+      if (failure === 'http') {
+        xhr.status = 413;
+        xhr.responseText = JSON.stringify({ status: 'error', error: { code: 'file_too_large', message: '文件过大' } });
+        xhr.onload!();
+      } else if (failure === 'json') { xhr.responseText = '<html>'; xhr.onload!(); }
+      else if (failure === 'timeout') xhr.ontimeout!();
+      else xhr.onerror!();
+      await expect(upload).rejects.toBeInstanceOf(ApiError);
+    }
+  });
 });
+
+function fakeUpload() {
+  const xhr = {
+    open: vi.fn(), send: vi.fn(), setRequestHeader: vi.fn(), timeout: 0, status: 200, responseText: '',
+    upload: { onprogress: null as null | ((event: { loaded: number }) => void) },
+    onload: null as null | (() => void), onerror: null as null | (() => void),
+    ontimeout: null as null | (() => void), onabort: null as null | (() => void),
+  };
+  vi.stubGlobal('XMLHttpRequest', class { constructor() { return xhr; } });
+  return xhr;
+}

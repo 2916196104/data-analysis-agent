@@ -215,7 +215,7 @@ class TaskWorker:
             if task["kind"] == "import":
                 for name in ("reviews_path", "meta_path"):
                     if parameters[name] is not None:
-                        parameters[name] = import_path(parameters[name], self.import_root)
+                        parameters[name] = import_path(parameters[name], self.import_root, "meta" if name == "meta_path" else "reviews")
                 result = import_amazon_jsonl(
                     self.business_db, **parameters, progress=report_progress,
                 )

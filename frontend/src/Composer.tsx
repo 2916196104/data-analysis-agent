@@ -21,12 +21,11 @@ interface ComposerProps {
   busy: boolean;
   onSubmit: (parameters: AnalysisParameters, note: string) => void;
   onPreview: () => void;
-  onImport: () => void;
   onLabel: () => void;
 }
 
 export default function Composer({
-  options, quality, draft, setDraft, busy, onSubmit, onPreview, onImport, onLabel,
+  options, quality, draft, setDraft, busy, onSubmit, onPreview, onLabel,
 }: ComposerProps) {
   const [form] = Form.useForm<Values>();
   const advanced = useRef<HTMLDetailsElement>(null);
@@ -115,7 +114,7 @@ export default function Composer({
       onFinish={handleSubmit}
     >
       <div className="scope-card">
-        <div className="scope-title"><strong>分析范围</strong><Button type="link" size="small" onClick={onImport}>导入新数据</Button></div>
+        <div className="scope-title"><strong>分析范围</strong></div>
         <div className="form-grid">
           <Form.Item label="数据集">
             <Select
@@ -165,11 +164,11 @@ export default function Composer({
             <Form.Item label="分析备注（可选）" name="note" extra="用于识别本次分析，不改变统计内容。"><Input aria-label="分析问题备注" placeholder="例如：十月包装问题复盘" maxLength={1000} disabled={busy} /></Form.Item>
           </div>
         </details>
-        {!options.products.length && <Alert className="spaced" type="info" showIcon message="先导入评论数据，再开始分析" />}
+        {!options.products.length && <Alert className="spaced" type="info" showIcon message="点击顶部“导入数据”，添加评论后开始分析" />}
         {!!availableProducts.length && needsPreparation && <Alert className="spaced" type="info" showIcon message="先准备数据" description="所选范围尚无可用的成功标注。确认本批处理数量后，模型会提取评论观点。" />}
         <div className="submit-row">
           <Button aria-label="预览数据" icon={<DatabaseOutlined />} disabled={!availableProducts.length} onClick={onPreview}>预览数据</Button>
-          {!availableProducts.length ? <Button type="primary" onClick={onImport}>导入数据</Button> : needsPreparation ? <Button type="primary" onClick={onLabel}>准备数据</Button> : <Button aria-label="开始分析" type="primary" htmlType="submit" loading={busy} icon={<ArrowRightOutlined />} iconPosition="end">开始分析</Button>}
+          {!availableProducts.length ? <Button type="primary" disabled>开始分析</Button> : needsPreparation ? <Button type="primary" onClick={onLabel}>准备数据</Button> : <Button aria-label="开始分析" type="primary" htmlType="submit" loading={busy} icon={<ArrowRightOutlined />} iconPosition="end">开始分析</Button>}
         </div>
       </div>
     </Form>

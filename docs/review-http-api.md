@@ -138,6 +138,10 @@ Set-Location E:\AllProject\data-analysis-agent
 | DELETE | `/tasks/{task_id}/imported-data` | 删除导入任务对应的导入批次、评论、错误记录和关联标注；共享商品信息保留 |
 | DELETE | `/tasks/{task_id}` | 删除任务记录及其重试子链；运行中的任务返回 409，业务数据不受影响 |
 
+`POST /import-files?kind=reviews|meta&filename=...` 接收浏览器选择的单个文件原始字节：评论支持 `.csv`、`.jsonl` 和 `.jsonl.gz`，商品元数据仅支持 `.jsonl` 和 `.jsonl.gz`（不区分大小写），单个文件最大 512 MiB。服务端使用随机文件名保存到配置的 `import-root/.uploads/`，响应中的相对路径随后作为 `POST /tasks` 的 `reviews_path` 或 `meta_path`。空文件、扩展名错误和超限返回 400，失败或中断产生的半文件会清理。上传副本保留供重试和证据追溯使用，当前不会随任务记录删除自动清理。浏览器无需暴露本机绝对路径；原有 CLI 仍可直接使用 `import-root` 内的路径。
+
+CSV 字段和编码见[评论 CSV 契约](review-import.md#评论-csv)。CSV 评论使用独立来源 `reviews_csv`，不可在同一任务中搭配 Amazon 元数据；API 调用方可显式设置 `dataset_version`，前端默认为 `reviews-csv`。上传只确认文件接收成功，CSV 表头和逐行校验由后台导入执行，错误可在任务结果中查看。
+
 提交及重试可带 HTTP 头 `Idempotency-Key`（1—200 字符非空 ASCII）。同一个键和相同参数返回原任务；键已用于不同参数时返回 409。任务响应另带 `Location` 指向任务详情。
 
 `kind` 支持 `import`、`label`、`analysis`、`replay`，`/docs` 中可查看四种请求体。`parameters` 不允许传数据库路径、密钥、模型配置文件路径或任意未知字段，这些由服务端启动参数控制。
@@ -241,12 +245,16 @@ failed / partial → 显式 retry → 新的 queued 任务
 
 | 类型 | 进度含义 |
 | --- | --- |
-| 导入 | 哈希、每约 1000 行的扫描进度、文件完整性核对；扫描期间 `total=null`，完成后使用文件数 |
+| 导入 | 哈希、读取、完整性核对均用当前文件的真实 `completed/total` 字节数；约每 250 ms 更新，步骤开始和结束立即更新；提交事务时总量未知，提交成功后使用文件数 |
 | 标注 | 本批选中评论数、已处理数、成功与失败数、模型调用数 |
 | 单次分析 | 一个分析窗口，执行前 0/1，保存完成后 1/1 |
 | 回放 | 总月份数、已提交月份数、当前月份及最近 `run_id` |
 
 `completed/total` 的计量单位由 `unit` 指定，不同阶段可能不同；`total=null` 时不要计算百分比。标注的失败条目也属于已处理，最终状态以 `status` 和 `result` 为准。查询 `worker_available` 和心跳可区分“正在执行”与“没有 worker”。
+
+浏览器导入分为两个阶段：文件上传使用 `XMLHttpRequest.upload` 的实际发送字节数，两份文件合并计算；发送 100% 后仍须等待上传接口确认，才提交导入任务。处理阶段轮询任务详情，`hashing_reviews/meta`、`importing_reviews/meta`、`verifying_reviews/meta` 的百分比只代表当前文件、当前步骤，切换步骤会重新计算，不能当成整次导入完成率。`filename` 是服务端文件名；`total_lines/inserted_records/duplicate_records/invalid_records` 是已经实际处理的计数，提交前新增记录仍可能回滚。
+
+`.gz` 的读取字节是压缩文件实际读取量，含解压缓冲；读取 100% 时仍可能继续处理行。达到 `max_reviews` 时可在读取不足 100% 时结束扫描，随后完整性校验仍读取整份原始文件。`committing_import` 表示正在提交，`imported` 只在事务提交成功后报告，最终仍以任务 `status/result` 判断成功、部分完成或失败。刷新页面可恢复处理进度；上传期间刷新会中断浏览器发送。
 
 - `succeeded`：该批任务执行完成；不表示已经标注全部评论，也不保证存在告警。
 - `partial`：导入存在坏行、标注存在失败或回放有月份未完成；保留完整业务返回结果。

@@ -5,15 +5,24 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass
+from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator
 
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.core.serialization import content_sha256, strict_json_loads
 
 SOURCE = "amazon_reviews_2023"
 DATASET_VERSION = "amazon-reviews-2023"
+
+
+def import_suffix(filename: str, kind: str = "reviews") -> str:
+    suffixes = (".jsonl.gz", ".jsonl", ".csv") if kind == "reviews" else (".jsonl.gz", ".jsonl")
+    for suffix in suffixes:
+        if filename.lower().endswith(suffix):
+            return suffix
+    raise ReviewDataError("评论支持 .csv、.jsonl 或 .jsonl.gz；商品元数据仅支持 .jsonl 或 .jsonl.gz。")
 
 
 @dataclass(frozen=True)
@@ -23,14 +32,19 @@ class JsonlLine:
     text: str | None
     data: dict | None
     error: str | None
+    bytes_read: int = 0
 
 
-def file_sha256(path: Path) -> str:
+def file_sha256(path: Path, progress: Callable[[int], None] | None = None) -> str:
     """对原始文件字节计算哈希，gzip 输入还包括压缩后的字节。"""
     digest = hashlib.sha256()
+    completed = 0
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
+            completed += len(chunk)
+            if progress:
+                progress(completed)
     return digest.hexdigest()
 
 
@@ -43,14 +57,17 @@ def iter_jsonl(path: str | Path) -> Iterator[JsonlLine]:
     path = Path(path)
     if not (path.name.lower().endswith(".jsonl") or path.name.lower().endswith(".jsonl.gz")):
         raise ReviewDataError("输入必须是 .jsonl 或 .jsonl.gz 文件。")
-    opener = gzip.open if path.name.lower().endswith(".gz") else open
-    with opener(path, "rb") as handle:
+    with ExitStack() as stack:
+        source = stack.enter_context(path.open("rb"))
+        handle = stack.enter_context(gzip.GzipFile(fileobj=source, mode="rb")) if path.name.lower().endswith(".gz") else source
         for number, raw in enumerate(handle, start=1):
+            # gzip 的原始读取量含解压缓冲，不能作为已处理行数或事务完成度。
+            bytes_read = source.tell()
             text = None
             try:
                 text = raw.decode("utf-8-sig" if number == 1 else "utf-8").rstrip("\r\n")
                 if not text.strip():
-                    yield JsonlLine(number, raw, text, None, None)
+                    yield JsonlLine(number, raw, text, None, None, bytes_read)
                     continue
                 data = strict_json_loads(text)
                 if not isinstance(data, dict):
@@ -58,11 +75,11 @@ def iter_jsonl(path: str | Path) -> Iterator[JsonlLine]:
                 # 在 SQLite 编码前拒绝转义的孤立代理项和溢出浮点数。
                 json.dumps(data, ensure_ascii=False, allow_nan=False).encode("utf-8")
             except UnicodeError:
-                yield JsonlLine(number, raw, text, None, "记录必须使用 UTF-8 编码。")
+                yield JsonlLine(number, raw, text, None, "记录必须使用 UTF-8 编码。", bytes_read)
             except (ValueError, RecursionError):
-                yield JsonlLine(number, raw, text, None, "JSON 无效、存在重复键或不是对象。")
+                yield JsonlLine(number, raw, text, None, "JSON 无效、存在重复键或不是对象。", bytes_read)
             else:
-                yield JsonlLine(number, raw, text, data, None)
+                yield JsonlLine(number, raw, text, data, None, bytes_read)
 
 
 def _text(data: dict, field: str, *, required: bool = False) -> str:

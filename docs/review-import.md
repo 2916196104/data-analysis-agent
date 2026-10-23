@@ -115,6 +115,25 @@ for name, rows in (("mock_reviews.jsonl", reviews), ("mock_meta.jsonl", meta)):
 
 重复执行完整导入命令，两份文件的 `inserted_records` 都为 0，评论和元数据的 `duplicate_records` 分别为 3 和 1。每次导入尝试仍会新增 `import_runs` 记录。
 
+## 评论 CSV
+
+评论文件选择器支持 `.csv`，无需改后缀。可直接导入京东评论 CSV，如含以下表头的 `after_analysis.csv`、`jd_comment_data.csv`。支持 UTF-8（含 BOM）和 GB18030；使用标准 CSV 引号规则保留正文中的逗号和换行。交易记录或用户行为数据缺少评论字段时会明确报错，整次导入回滚。
+
+| 含义 | 支持的列名（从左到右优先） |
+| --- | --- |
+| 商品 ID（必需） | `商品ID`、`product_id`、`parent_asin` |
+| 评论正文（必需，可为空） | `评论内容`、`text`、`content`、`review` |
+| 评论时间（必需） | `评论时间`、`published_at`、`review_time` |
+| 评分（可选，空或 1—5） | `打分`、`rating`、`score` |
+| 用户 ID（可选） | `用户ID`、`user_id` |
+| 原生评论 ID（可选） | `评论ID`、`review_id` |
+| 商品名称、品牌（可选） | `商品名称` / `product_name`、`品牌` / `brand` |
+| 评论标题（可选） | `评论标题`、`title` |
+
+时间支持 ISO 日期时间和 `YYYY/M/D HH:mm[:ss]`（也可仅日期），有时区时转为 UTC，无时区时按 UTC 解释。CSV 不受 Amazon 2023 年份限制。ID 按文本保留前导零和长整数，科学计数法 ID 会被拒绝，避免静默猜测已经损失的精度。
+
+CSV 以 `reviews_csv` 保存来源，前端默认版本为 `reviews-csv`；CLI/API 可显式指定版本。不能在 CSV 评论任务中同时提供 Amazon 元数据。CSV 内的商品名称和品牌用于商品展示，原字段以 JSON 对象保存在 `raw_json`，原始文件指纹及该条 CSV 起始物理行号用于定位来源。CSV 的 `total_lines` 统计表头以外的数据记录，带引号的多行正文算一条。缺少原生评论 ID 时沿用内容/用户指纹或匿名文件位置去重；存在原生 ID 时按该 ID 去重，同 ID 内容冲突保留首次内容并记录错误。限量、筛选、进度、失败回滚和重试规则与 JSONL 一致。
+
 ## 输入与统一字段
 
 支持 UTF-8（首行可以有 BOM），一行一个 JSON 对象；支持 `.jsonl` 和 `.jsonl.gz`，后缀不区分大小写。原始对象的额外字段保留在 `raw_json` 中。

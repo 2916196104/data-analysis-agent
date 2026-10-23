@@ -2,6 +2,7 @@
 
 import gzip
 import hashlib
+import itertools
 import json
 import sqlite3
 import subprocess
@@ -276,6 +277,65 @@ class ReviewImportTests(unittest.TestCase):
         self.assertIsNotNone(next(iterator).data)
         self.assertIsNotNone(next(iterator).error)
         iterator.close()
+
+    def test_import_reports_actual_bytes_counts_and_commit(self):
+        init_database(self.db)
+        for suffix in (".jsonl", ".jsonl.gz"):
+            with self.subTest(suffix=suffix):
+                path = self.write_jsonl("progress" + suffix, [review(), review(), review(rating=99)])
+                events = []
+                committed_counts = []
+
+                def capture(value):
+                    events.append(value)
+                    if value["stage"] in ("committing_import", "imported"):
+                        committed_counts.append((value["stage"], get_quality_summary(self.db)["import_count"]))
+
+                before = get_quality_summary(self.db)["import_count"]
+                with patch("data_analysis_agent.reviews.store.monotonic", side_effect=itertools.count()):
+                    result = import_amazon_jsonl(self.db, reviews_path=path, progress=capture)
+                for stage in ("hashing_reviews", "importing_reviews", "verifying_reviews"):
+                    values = [item for item in events if item["stage"] == stage]
+                    self.assertEqual(values[0]["completed"], 0)
+                    self.assertEqual(values[-1]["completed"], path.stat().st_size)
+                    self.assertTrue(all(item["total"] == path.stat().st_size and item["unit"] == "bytes" for item in values))
+                    self.assertEqual([item["completed"] for item in values], sorted(item["completed"] for item in values))
+                imported = [item for item in events if item["stage"] == "importing_reviews"][-1]
+                intermediate = [item for item in events if item["stage"] == "importing_reviews" and item["total_lines"] == 1]
+                self.assertTrue(intermediate)
+                self.assertEqual(intermediate[0]["inserted_records"] + intermediate[0]["duplicate_records"], 1)
+                self.assertEqual(imported["total_lines"], 3)
+                self.assertEqual(imported["inserted_records"], result["imports"][0]["inserted_records"])
+                self.assertEqual(imported["invalid_records"], 1)
+                self.assertEqual(committed_counts, [("committing_import", before), ("imported", before + 1)])
+                self.assertEqual(events[-1]["stage"], "imported")
+
+    def test_capped_and_failed_progress_never_claims_unprocessed_rows_or_commit(self):
+        init_database(self.db)
+        path = self.write_jsonl("capped.jsonl", [review(user_id=f"U{i}") for i in range(3)])
+        events = []
+        result = import_amazon_jsonl(self.db, reviews_path=path, max_reviews=1, progress=events.append)
+        scanned = [item for item in events if item["stage"] == "importing_reviews"][-1]
+        self.assertEqual(scanned["total_lines"], 1)
+        self.assertEqual(scanned["completed"], len(next(iter_jsonl(path)).raw))
+        self.assertLess(scanned["completed"], scanned["total"])
+        self.assertTrue(scanned["limit_reached"])
+        self.assertEqual(result["quality"]["review_count"], 1)
+        broken = self.write_jsonl("broken-progress.jsonl.gz", [review(user_id="OTHER")])
+        broken.write_bytes(broken.read_bytes()[:-5])
+        events.clear()
+        with self.assertRaises((EOFError, OSError)):
+            import_amazon_jsonl(self.db, reviews_path=broken, progress=events.append)
+        self.assertFalse(any(item["stage"] in ("committing_import", "imported") for item in events))
+        self.assertEqual(get_quality_summary(self.db)["review_count"], 1)
+
+    def test_hash_progress_counts_actual_chunks(self):
+        path = self.root / "hash.bin"
+        raw = b"x" * (2 * 1024 * 1024 + 11)
+        path.write_bytes(raw)
+        values = []
+        self.assertEqual(file_sha256(path, progress=values.append), hashlib.sha256(raw).hexdigest())
+        self.assertEqual(values, [1024 * 1024, 2 * 1024 * 1024, len(raw)])
 
     def test_error_samples_are_bounded_and_history_keeps_counts(self):
         init_database(self.db)

@@ -45,6 +45,12 @@ export interface ImportParameters {
   product_ids: string[];
   max_reviews?: number | null;
 }
+export interface UploadedImportFile {
+  kind: 'reviews' | 'meta';
+  filename: string;
+  size_bytes: number;
+  path: string;
+}
 export interface LabelParameters {
   source: string;
   dataset_version: string;

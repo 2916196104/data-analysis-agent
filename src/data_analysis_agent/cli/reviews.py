@@ -27,7 +27,7 @@ def main() -> int:
     evidence = commands.add_parser("evidence", help="按评论 ID 查询原文与来源位置")
     for command in (init, load, summary, evidence):
         command.add_argument("--db", required=True, type=database_argument, help="SQLite 文件路径、PostgreSQL URL 或 env:变量名")
-    load.add_argument("--reviews", type=Path, help="Amazon 评论 .jsonl 或 .jsonl.gz")
+    load.add_argument("--reviews", type=Path, help="评论 .csv 或 Amazon .jsonl / .jsonl.gz")
     load.add_argument("--meta", type=Path, help="Amazon 商品元数据 .jsonl 或 .jsonl.gz")
     load.add_argument("--dataset-version", default=DATASET_VERSION)
     load.add_argument("--product-id", action="append", help="只导入指定 parent_asin，可重复传入")

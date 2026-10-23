@@ -13,13 +13,14 @@ import Composer from './Composer';
 import { analysisDates, analysisParameters, datasetKey } from './analysis-draft';
 import DataPreview from './DataPreview';
 import LabelForm from './LabelForm';
+import ImportProgress from './ImportProgress';
 import ResultCards from './ResultCards';
 import { exportResult, readHistory, writeHistory } from './local-history';
 import { canRetry, isActive, kindLabels, progressPercent, stageLabels, statusLabels } from './task-state';
 import { useTask } from './useTask';
 import type {
   AnalysisParameters, Health, Identity, ImportParameters, Options, Page, Quality,
-  TaskInput, TaskSummary,
+  TaskInput, TaskSummary, UploadedImportFile,
 } from './types';
 
 const emptyOptions: Options = {
@@ -75,6 +76,11 @@ export default function App() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [detail, setDetail] = useState<{ title: string; value: unknown }>();
   const [importOpen, setImportOpen] = useState(false);
+  const [reviewFile, setReviewFile] = useState<File>();
+  const [metaFile, setMetaFile] = useState<File>();
+  const [importPhase, setImportPhase] = useState('');
+  const [uploadAttempted, setUploadAttempted] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<Partial<Record<'reviews' | 'meta', { file: File; loaded: number }>>>({});
   const [labelDefaults, setLabelDefaults] = useState<{
     dataset: string;
     products: string[];
@@ -83,6 +89,9 @@ export default function App() {
   }>();
   const [importForm] = Form.useForm<ImportParameters>();
   const importAdvanced = useRef<HTMLDetailsElement>(null);
+  const reviewFileInput = useRef<HTMLInputElement>(null);
+  const metaFileInput = useRef<HTMLInputElement>(null);
+  const uploadedFiles = useRef<Partial<Record<'reviews' | 'meta', { file: File; uploaded: UploadedImportFile }>>>({});
   const submissionKey = useRef<{ fingerprint: string; key: string } | undefined>(undefined);
   const retryKey = useRef<{ id: string; key: string } | undefined>(undefined);
   const historyRequest = useRef(0);
@@ -208,8 +217,10 @@ export default function App() {
       setLabelDefaults(undefined);
       setPage(1);
       void fetchHistory();
+      return true;
     } catch (error) {
       setSubmitError(errorMessage(error));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -272,10 +283,82 @@ export default function App() {
     }
   }
 
+  async function uploadAndSubmitImport(values: ImportParameters): Promise<void> {
+    if (!reviewFile && !metaFile) {
+      setSubmitError('请先选择评论文件或商品元数据文件。');
+      return;
+    }
+    if (values.max_reviews != null && !reviewFile) {
+      setSubmitError('设置新增评论上限时必须选择评论文件。');
+      return;
+    }
+    setSubmitError('');
+    setBusy(true);
+    setUploadAttempted(true);
+    setUploadProgress({});
+    try {
+      const uploadedReviews = await uploadSelectedFile(reviewFile, 'reviews');
+      const uploadedMeta = await uploadSelectedFile(metaFile, 'meta');
+      setImportPhase('正在提交导入任务…');
+      const submitted = await submit({ kind: 'import', parameters: {
+        reviews_path: uploadedReviews?.path,
+        meta_path: uploadedMeta?.path,
+        dataset_version: values.dataset_version.trim(), product_ids: [], max_reviews: values.max_reviews ?? undefined,
+      } }, `导入 ${reviewFile?.name || metaFile?.name}`);
+      if (submitted) {
+        setReviewFile(undefined);
+        setMetaFile(undefined);
+        uploadedFiles.current = {};
+        setUploadAttempted(false);
+        setUploadProgress({});
+      }
+    } catch (error) {
+      setSubmitError(errorMessage(error));
+    } finally {
+      setBusy(false);
+      setImportPhase('');
+    }
+  }
+
+  async function uploadSelectedFile(file: File | undefined, kind: 'reviews' | 'meta') {
+    if (!file) return undefined;
+    const saved = uploadedFiles.current[kind];
+    if (saved?.file === file) return saved.uploaded;
+    setImportPhase(`正在上传${kind === 'reviews' ? '评论' : '元数据'}文件…`);
+    const uploaded = await api.uploadImportFile(file, kind, loaded => {
+      setUploadProgress(current => ({ ...current, [kind]: { file, loaded } }));
+    });
+    uploadedFiles.current[kind] = { file, uploaded };
+    setUploadProgress(current => ({ ...current, [kind]: { file, loaded: file.size } }));
+    return uploaded;
+  }
+
+  function selectImportFile(file: File | undefined, kind: 'reviews' | 'meta') {
+    if (!file) return;
+    const supported = kind === 'reviews' ? /\.(?:csv|jsonl(?:\.gz)?)$/i : /\.jsonl(?:\.gz)?$/i;
+    if (!supported.test(file.name) || file.size === 0 || file.size > 512 * 1024 * 1024) {
+      setSubmitError(`请选择非空的 ${kind === 'reviews' ? '.csv、.jsonl 或 .jsonl.gz' : '.jsonl 或 .jsonl.gz'} 文件，单个文件最大 512 MiB。`);
+      return;
+    }
+    setSubmitError('');
+    setUploadAttempted(false);
+    if (kind === 'reviews') {
+      setReviewFile(file);
+      const csv = /\.csv$/i.test(file.name);
+      if (csv) setMetaFile(undefined);
+      if (['amazon-reviews-2023', 'reviews-csv'].includes(importForm.getFieldValue('dataset_version'))) {
+        importForm.setFieldValue('dataset_version', csv ? 'reviews-csv' : 'amazon-reviews-2023');
+      }
+    }
+    else setMetaFile(file);
+  }
+
+  const importResults = Array.isArray(task?.result?.imports) ? task.result.imports : [];
+  const taskSource = task?.parameters.source || importResults.find(item => item.kind === 'reviews')?.source || importResults[0]?.source;
   const currentProducts = options.products.filter(product => {
     if (task) {
       const ids = task.parameters.product_ids as string[] | undefined;
-      return (!task.parameters.source || product.source === task.parameters.source)
+      return (!taskSource || product.source === taskSource)
         && (!task.parameters.dataset_version || product.dataset_version === task.parameters.dataset_version)
         && (!ids?.length || ids.includes(product.product_id));
     }
@@ -291,7 +374,7 @@ export default function App() {
     setLabelDefaults({
       dataset: scoped
         ? JSON.stringify([
-          task.parameters.source || 'amazon_reviews_2023',
+          taskSource || 'amazon_reviews_2023',
           task.parameters.dataset_version,
         ])
         : dataset,
@@ -337,6 +420,17 @@ export default function App() {
   };
   const showDetail = (value: unknown, title: string) => setDetail({ title, value });
   const datasetSummary = productSummary(currentProducts, task?.parameters.dataset_version as string);
+  const importFiles = (['reviews', 'meta'] as const).map(kind => ({ kind, file: kind === 'reviews' ? reviewFile : metaFile }));
+  const importUpload = {
+    total: importFiles.reduce((sum, { file }) => sum + (file?.size ?? 0), 0),
+    loaded: importFiles.reduce((sum, { kind, file }) => {
+      if (!file) return sum;
+      const sent = uploadProgress[kind];
+      return sum + (uploadedFiles.current[kind]?.file === file ? file.size : sent?.file === file ? sent.loaded : 0);
+    }, 0),
+    confirmed: importFiles.every(({ kind, file }) => !file || uploadedFiles.current[kind]?.file === file),
+    busy, failed: !!submitError && !busy, detail: importPhase,
+  };
   return <div className="workbench">
     <Drawer title="任务记录" placement="right" width="min(640px, 100vw)" open={historyOpen} onClose={() => setHistoryOpen(false)} closable={{ 'aria-label': '关闭任务记录' }} className="task-history"
       footer={!!history?.total && <Pagination size="small" current={page} total={history.total} pageSize={15} showSizeChanger={false} showTotal={total => `共 ${total} 项任务`} onChange={setPage} />}>
@@ -362,7 +456,7 @@ export default function App() {
       <div className="workspace-toolbar">
         <div className="workspace-context"><span className="context-icon"><DatabaseOutlined /></span><div><span className="context-caption">当前分析范围</span><span className="context-summary" title={datasetSummary}>{datasetSummary}</span></div></div>
         <nav className="workspace-actions" aria-label="工作台操作">
-          <Button aria-label="从服务端目录导入" icon={<ImportOutlined />} onClick={() => { setSubmitError(''); setImportOpen(true); }}>导入数据</Button>
+          <Button aria-label="导入数据文件" icon={<ImportOutlined />} onClick={() => { setSubmitError(''); setImportOpen(true); }}>导入数据</Button>
           <Button aria-label="准备数据" icon={<CheckOutlined />} onClick={openLabel}>准备数据</Button>
           <Button aria-label="数据详情" icon={<FolderOpenOutlined />} disabled={!currentProducts.length} onClick={() => setPreviewOpen(true)}>数据详情</Button>
           <Button aria-label="新建分析" type={local.selected ? 'primary' : 'default'} icon={<PlusOutlined />} onClick={() => selectTask(null)}>新建分析</Button>
@@ -373,7 +467,7 @@ export default function App() {
         {storageError && <Alert className="spaced-bottom" type="warning" showIcon message="浏览器存储不可用，问题备注和当前选择在刷新后可能丢失；后端任务仍会保留。" />}
         {health && !health.worker_available && <Alert className="spaced-bottom" type="warning" showIcon message="后台执行器离线" description="可以提交任务，但任务会留在队列中，直到后端 worker 启动。" />}
         {submitError && !importOpen && !labelDefaults && <Alert className="spaced-bottom" type="error" showIcon message="请求未完成" description={submitError} />}
-        {!local.selected ? loading && !options.products.length ? <Skeleton active paragraph={{ rows: 6 }} /> : <Composer key={dataset} options={options} quality={quality} draft={draft} setDraft={setDraft} busy={busy} onSubmit={(parameters: AnalysisParameters, question: string) => void submit({ kind: 'analysis', parameters }, question)} onPreview={() => setPreviewOpen(true)} onImport={() => setImportOpen(true)} onLabel={openLabel} /> : <>
+        {!local.selected ? loading && !options.products.length ? <Skeleton active paragraph={{ rows: 6 }} /> : <Composer key={dataset} options={options} quality={quality} draft={draft} setDraft={setDraft} busy={busy} onSubmit={(parameters: AnalysisParameters, question: string) => void submit({ kind: 'analysis', parameters }, question)} onPreview={() => setPreviewOpen(true)} onLabel={openLabel} /> : <>
           {taskState.loading && !task && <Skeleton active paragraph={{ rows: 5 }} />}
           {taskState.error && <Alert className="spaced-bottom" type="error" showIcon message="任务连接异常" description={<>{taskState.error}<div>保留最后一次已知状态，正在尝试重新连接。</div></>} action={<Button onClick={taskState.refresh}>立即重连</Button>} />}
           {task && <>
@@ -381,7 +475,7 @@ export default function App() {
             <div className="scope-tags"><Tag icon={<DatabaseOutlined />}>{String(task.parameters.dataset_version || '全部版本')}</Tag><Tag>{(task.parameters.product_ids as string[] | undefined)?.join('、') || '全部商品'}</Tag>{!!task.parameters.date_from && <Tag>{String(task.parameters.date_from)} — {String(task.parameters.date_to)} · UTC</Tag>}<Button type="link" size="small" onClick={() => showDetail(task.parameters, '本次任务参数')}>查看参数</Button></div>
             <Card className="progress-card" aria-live="polite">
               <div className="progress-heading"><span>{isActive(task.status) ? <Spin size="small" /> : task.status === 'succeeded' ? <CheckOutlined className="success-icon" /> : <Badge status={task.status === 'failed' ? 'error' : 'warning'} />}<strong>{statusLabels[task.status]}</strong></span><span className="muted">{stageLabels[task.progress.stage] || task.progress.stage}</span></div>
-              {progressPercent(task.progress) !== undefined ? <Progress percent={progressPercent(task.progress)} status={progressStatus(task.status)} size="small" /> : <p className="muted">{task.status === 'queued' ? '等待后台执行器领取任务。' : `已处理 ${task.progress.completed}，当前阶段总量未知。`}</p>}
+              {task.kind === 'import' ? <ImportProgress task={task} /> : progressPercent(task.progress) !== undefined ? <Progress percent={progressPercent(task.progress)} status={progressStatus(task.status)} size="small" /> : <p className="muted">{task.status === 'queued' ? '等待后台执行器领取任务。' : `已处理 ${task.progress.completed}，当前阶段总量未知。`}</p>}
               {task.kind === 'label' && <>
                 <Space wrap aria-label="标注进度">
                   <span>标注进度 {task.progress.completed}/{task.progress.total ?? '待确定'}</span>
@@ -433,27 +527,22 @@ export default function App() {
           void submit({ kind: 'label', parameters }, `准备数据 · 最多 ${parameters.limit} 条`);
         }} />}
     </Modal>
-    <Modal title="从服务端目录导入" open={importOpen} onCancel={() => { if (!busy) setImportOpen(false); }} footer={null} destroyOnHidden>
-      <p className="muted">填写已放入导入目录的文件路径。支持 Amazon 格式的 JSONL / JSONL.gz，评论时间为 1996—2023 年。</p>
+    <Modal title="导入数据" open={importOpen} onCancel={() => { if (!busy) setImportOpen(false); }} footer={null} destroyOnHidden styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}>
+      <p className="muted">从电脑选择评论 CSV 或 Amazon JSONL / JSONL.gz，单个文件最大 512 MiB。CSV 支持 UTF-8、GB18030 编码，需包含商品ID、评论内容、评论时间（也支持英文列名）；交易和用户行为数据不适用于评论分析。</p>
       {submitError && <Alert className="spaced-bottom" type="error" showIcon message={submitError} />}
-      <Form form={importForm} layout="vertical" initialValues={{ dataset_version: 'amazon-reviews-2023' }} onFinishFailed={({ errorFields }) => { if (importAdvanced.current && errorFields.some(field => field.name[0] === 'dataset_version')) importAdvanced.current.open = true; }} onFinish={values => void submit({ kind: 'import', parameters: {
-        reviews_path: values.reviews_path?.trim() || undefined, meta_path: values.meta_path?.trim() || undefined,
-        dataset_version: values.dataset_version.trim(), product_ids: [],
-        max_reviews: values.max_reviews ?? undefined,
-      } }, `导入 ${values.reviews_path || values.meta_path}`)}>
-        <Form.Item label="评论文件相对路径" name="reviews_path" dependencies={['meta_path']} rules={[({ getFieldValue }) => ({ validator(_, value) {
-          return value?.trim() || getFieldValue('meta_path')?.trim() ? Promise.resolve() : Promise.reject(new Error('请至少填写一个文件路径'));
-        } })]}><Input placeholder="reviews.jsonl.gz" disabled={busy} /></Form.Item>
-        <Form.Item label="本次最多新增评论数（可选）" name="max_reviews" dependencies={['reviews_path']} extra="留空则全部导入。重复记录不占额度；达到数量后停止，后续评论不在本次检查范围内。" rules={[({ getFieldValue }) => ({ validator(_, value) {
+      {uploadAttempted && <ImportProgress upload={importUpload} />}
+      <Form name="import-data" form={importForm} layout="vertical" style={{ display: busy && uploadAttempted ? 'none' : undefined }} initialValues={{ dataset_version: 'amazon-reviews-2023' }} onFinishFailed={({ errorFields }) => { if (importAdvanced.current && errorFields.some(field => field.name[0] === 'dataset_version')) importAdvanced.current.open = true; }} onFinish={values => void uploadAndSubmitImport(values)}>
+        <Form.Item label="评论文件（可选）"><div className="file-picker-row"><input ref={reviewFileInput} type="file" aria-label="评论文件" accept=".csv,.jsonl,.jsonl.gz" hidden style={{ display: 'none' }} disabled={busy} onChange={event => { selectImportFile(event.target.files?.[0], 'reviews'); event.target.value = ''; }} /><Button onClick={() => reviewFileInput.current?.click()} disabled={busy}>选择评论文件</Button><span title={reviewFile?.name}>{reviewFile?.name || '未选择'}</span>{reviewFile && <Button type="text" size="small" aria-label="移除评论文件" disabled={busy} onClick={() => setReviewFile(undefined)}>移除</Button>}</div></Form.Item>
+        <Form.Item label="本次最多新增评论数（可选）" name="max_reviews" extra="留空则全部导入。重复记录不占额度；达到数量后停止，后续评论不在本次检查范围内。" rules={[() => ({ validator(_, value) {
           if (value == null) return Promise.resolve();
           if (!Number.isSafeInteger(value) || value < 1) return Promise.reject(new Error('请输入正整数'));
-          return getFieldValue('reviews_path')?.trim() ? Promise.resolve() : Promise.reject(new Error('限制评论数量时请填写评论文件路径'));
+          return Promise.resolve();
         } })]}><InputNumber min={1} step={1} placeholder="例如 1000" disabled={busy} style={{ width: '100%' }} /></Form.Item>
         <details className="advanced-settings" ref={importAdvanced}><summary>导入设置 <span>商品信息、数据集版本</span></summary><div className="advanced-content">
-          <Form.Item label="商品元数据相对路径（可选）" name="meta_path"><Input placeholder="meta.jsonl.gz" disabled={busy} /></Form.Item>
-          <Form.Item label="数据集版本" name="dataset_version" rules={[{ required: true, whitespace: true, message: '请输入数据集版本' }]}><Input disabled={busy} /></Form.Item>
+          <Form.Item label="商品元数据文件（可选）" extra="仅用于 Amazon JSONL；CSV 可直接包含商品名称、品牌。"><div className="file-picker-row"><input ref={metaFileInput} type="file" aria-label="商品元数据文件" accept=".jsonl,.jsonl.gz" hidden style={{ display: 'none' }} disabled={busy || /\.csv$/i.test(reviewFile?.name || '')} onChange={event => { selectImportFile(event.target.files?.[0], 'meta'); event.target.value = ''; }} /><Button onClick={() => metaFileInput.current?.click()} disabled={busy || /\.csv$/i.test(reviewFile?.name || '')}>选择元数据文件</Button><span title={metaFile?.name}>{metaFile?.name || '未选择'}</span>{metaFile && <Button type="text" size="small" aria-label="移除元数据文件" disabled={busy} onClick={() => setMetaFile(undefined)}>移除</Button>}</div></Form.Item>
+          <Form.Item label="数据集版本" name="dataset_version" rules={[{ required: true, whitespace: true, message: '请输入数据集版本' }]}><Input aria-label="数据集版本" disabled={busy} /></Form.Item>
         </div></details>
-        <Button className="spaced" aria-label="提交导入任务" block type="primary" htmlType="submit" icon={<ImportOutlined />} loading={busy}>导入数据</Button>
+        <Button className="spaced" aria-label="提交导入任务" block type="primary" htmlType="submit" icon={<ImportOutlined />} loading={busy}>{importPhase || '导入数据'}</Button>
       </Form>
     </Modal>
   </div>;

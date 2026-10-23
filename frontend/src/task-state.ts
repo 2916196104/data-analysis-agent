@@ -15,6 +15,7 @@ export const stageLabels: Record<string, string> = {
   hashing_reviews: '校验评论文件', hashing_meta: '校验商品文件',
   importing_reviews: '导入评论', importing_meta: '导入商品',
   verifying_reviews: '核对评论文件完整性', verifying_meta: '核对商品文件完整性',
+  committing_import: '提交数据到数据库',
   imported: '导入完成', labeling: '处理评论标注', replaying: '按月回放',
 };
 export interface TaskState { id: string | null; task: Task | null; run: Run | null; loading: boolean; error: string | null }

@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from time import monotonic
 from contextlib import closing
 from pathlib import Path
 
@@ -14,7 +15,9 @@ from data_analysis_agent.core.database import (PostgresConnection, check_postgre
 from data_analysis_agent.reviews.loader import (
     DATASET_VERSION, SOURCE, file_sha256,
     iter_jsonl, normalize_product, normalize_review,
+    import_suffix,
 )
+from data_analysis_agent.reviews.csv_loader import SOURCE as CSV_SOURCE, csv_value, iter_review_csv, normalize_csv_review
 
 SCHEMA_VERSION = 1
 APPLICATION_ID = 0x52455631
@@ -151,19 +154,23 @@ def _store_product(connection, record, raw_json, raw_data, run_id, line_number, 
 
 
 def _store_review(connection, record, raw_json, run_id, line_number, version, fingerprint, fetched_at,
-                  known_products):
+                  known_products, source=SOURCE):
     # 匿名记录没有安全的跨文件身份；保留不同的位置。
-    digest = content_sha256(record)
-    record_id = digest if record["user_id"] else content_sha256({"file_sha256": fingerprint, "line": line_number})
-    if connection.execute(
-        "SELECT 1 FROM reviews WHERE source=? AND dataset_version=? AND source_record_id=?",
-        (SOURCE, version, record_id),
-    ).fetchone():
+    digest = content_sha256({key: value for key, value in record.items()
+                             if key not in ("source_record_id", "product_title", "brand")})
+    record_id = record.get("source_record_id") or (digest if record["user_id"] else content_sha256({"file_sha256": fingerprint, "line": line_number}))
+    existing = connection.execute(
+        "SELECT content_sha256 FROM reviews WHERE source=? AND dataset_version=? AND source_record_id=?",
+        (source, version, record_id),
+    ).fetchone()
+    if existing:
+        if record.get("source_record_id") and existing[0] != digest:
+            raise ReviewDataError("同版本评论ID 的内容冲突；保留首次记录，请核查或使用新数据集版本。")
         return False
     if record["product_id"] not in known_products:
         connection.execute(
-            "INSERT INTO products(source, dataset_version, product_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
-            (SOURCE, version, record["product_id"]),
+            "INSERT INTO products(source, dataset_version, product_id, title, brand) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+            (source, version, record["product_id"], record.get("product_title"), record.get("brand")),
         )
         # 即使导入包含数百万商品的类别，也要限制内存使用。
         if len(known_products) < 4096:
@@ -173,7 +180,7 @@ def _store_review(connection, record, raw_json, run_id, line_number, version, fi
         (source, dataset_version, source_record_id, product_id, asin, user_id, title,
          text, has_text, rating, published_at, fetched_at, raw_json, content_sha256, import_run_id, line_number)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (SOURCE, version, record_id, record["product_id"], record["asin"], record["user_id"],
+        (source, version, record_id, record["product_id"], record["asin"], record["user_id"],
          record["title"], record["text"], int(bool(record["text"].strip())),
          record["rating"], record["published_at"], fetched_at,
          raw_json, digest, run_id, line_number),
@@ -182,26 +189,52 @@ def _store_review(connection, record, raw_json, run_id, line_number, version, fi
 
 
 def _import_file(connection, path, kind, version, product_ids, progress=None, max_reviews=None):
-    if progress:
-        progress({"stage": "hashing_" + kind, "completed": 0, "total": None, "unit": "lines"})
-    fingerprint = file_sha256(path)
-    started = utc_now()
-    run_id = insert_id(connection,
-        """INSERT INTO import_runs(source, dataset_version, kind, file_path, file_sha256, started_at)
-        VALUES (?, ?, ?, ?, ?, ?)""", (SOURCE, version, kind, str(path), fingerprint, started),
-    )
+    is_csv = import_suffix(path.name, kind) == ".csv"
+    source = CSV_SOURCE if is_csv else SOURCE
     counts = {name: 0 for name in
               ("total_lines", "blank_lines", "filtered_records", "inserted_records", "duplicate_records",
                "invalid_records", "empty_text_records", "missing_rating_records", "missing_user_id_records")}
+    file_size = path.stat().st_size
+    last_report = 0.0
+
+    def report(stage, completed, *, force=False, **extra):
+        nonlocal last_report
+        if not progress:
+            return
+        now = monotonic()
+        if force or now - last_report >= 0.25:
+            progress({"stage": stage, "completed": completed, "total": file_size, "unit": "bytes",
+                      "filename": path.name, **counts, **extra})
+            last_report = now
+
+    def hash_file(stage):
+        completed = 0
+
+        def on_read(value):
+            nonlocal completed
+            completed = value
+            report(stage, value)
+
+        report(stage, 0, force=True)
+        digest = file_sha256(path, progress=on_read)
+        report(stage, completed, force=True)
+        return digest
+
+    fingerprint = hash_file("hashing_" + kind)
+    started = utc_now()
+    run_id = insert_id(connection,
+        """INSERT INTO import_runs(source, dataset_version, kind, file_path, file_sha256, started_at)
+        VALUES (?, ?, ?, ?, ?, ?)""", (source, version, kind, str(path), fingerprint, started),
+    )
     known_products = set()
     limit_reached = False
-    with closing(iter_jsonl(path)) as lines:
+    bytes_read = 0
+    report("importing_" + kind, 0, force=True)
+    with closing(iter_review_csv(path) if is_csv else iter_jsonl(path)) as lines:
         for line in lines:
+            report("importing_" + kind, bytes_read)
+            bytes_read = line.bytes_read
             counts["total_lines"] += 1
-            if progress and counts["total_lines"] % 1000 == 0:
-                progress({"stage": "importing_" + kind, "completed": counts["total_lines"] - 1,
-                          "total": None, "unit": "lines", "inserted_records": counts["inserted_records"],
-                          "invalid_records": counts["invalid_records"]})
             reason = line.error
             if line.data is None and reason is None:
                 counts["blank_lines"] += 1
@@ -209,15 +242,15 @@ def _import_file(connection, path, kind, version, product_ids, progress=None, ma
             if reason is None:
                 try:
                     # 先按商品筛选再校验其他字段，但仍报告格式错误的 JSON。
-                    candidate = line.data.get("parent_asin")
+                    candidate = csv_value(line.data, "product_id") if is_csv else line.data.get("parent_asin")
                     if (product_ids and isinstance(candidate, str) and candidate.strip()
                             and candidate.strip() not in product_ids):
                         counts["filtered_records"] += 1
                         continue
                     if kind == "reviews":
-                        record = normalize_review(line.data)
+                        record = normalize_csv_review(line.data) if is_csv else normalize_review(line.data)
                         inserted = _store_review(connection, record, line.text, run_id, line.number,
-                                                 version, fingerprint, started, known_products)
+                                                 version, fingerprint, started, known_products, source)
                         counts["empty_text_records"] += not record["text"].strip()
                         counts["missing_rating_records"] += record["rating"] is None
                         counts["missing_user_id_records"] += not record["user_id"]
@@ -237,13 +270,12 @@ def _import_file(connection, path, kind, version, product_ids, progress=None, ma
                     "INSERT INTO import_errors(import_run_id, line_number, reason, raw_line) VALUES (?, ?, ?, ?)",
                     (run_id, line.number, reason, line.raw),
                 )
-    if progress:
-        progress({"stage": "verifying_" + kind, "completed": counts["total_lines"], "total": None, "unit": "lines"})
-    if file_sha256(path) != fingerprint:
+    report("importing_" + kind, bytes_read, force=True, limit_reached=limit_reached)
+    if hash_file("verifying_" + kind) != fingerprint:
         raise ReviewDataError("读取期间输入文件发生变化，整次导入已回滚。")
     valid = counts["inserted_records"] + counts["duplicate_records"]
     summary = {
-        "import_run_id": run_id, "source": SOURCE, "dataset_version": version,
+        "import_run_id": run_id, "source": source, "dataset_version": version,
         "kind": kind, "file_path": str(path), "file_sha256": fingerprint,
         "product_ids": sorted(product_ids),
         "max_reviews": max_reviews if kind == "reviews" else None,
@@ -316,6 +348,8 @@ def import_amazon_jsonl(db_path: str | Path, *, reviews_path: str | Path | None 
              if path is not None]
     if not files:
         raise ReviewDataError("至少指定一个评论文件或商品元数据文件。")
+    if reviews_path and str(reviews_path).lower().endswith(".csv") and meta_path:
+        raise ReviewDataError("CSV 评论已使用独立来源，不能与 Amazon 商品元数据一起导入。")
     database = database_target(db_path)
     for _, path in files:
         if not is_postgres(database) and path in {database, Path(str(database) + "-journal"), Path(str(database) + "-wal"),
@@ -329,8 +363,16 @@ def import_amazon_jsonl(db_path: str | Path, *, reviews_path: str | Path | None 
             imports = [_import_file(connection, path, kind, dataset_version.strip(), selected, progress, max_reviews)
                        for kind, path in files]
             quality = _quality_summary(connection)
+            if progress:
+                progress({"stage": "committing_import", "completed": 0, "total": None, "unit": "files",
+                          "total_lines": sum(item["total_lines"] for item in imports),
+                          "inserted_records": sum(item["inserted_records"] for item in imports),
+                          "invalid_records": sum(item["invalid_records"] for item in imports)})
     if progress:
-        progress({"stage": "imported", "completed": len(files), "total": len(files), "unit": "files"})
+        progress({"stage": "imported", "completed": len(files), "total": len(files), "unit": "files",
+                  "total_lines": sum(item["total_lines"] for item in imports),
+                  "inserted_records": sum(item["inserted_records"] for item in imports),
+                  "invalid_records": sum(item["invalid_records"] for item in imports)})
     return {"status": "partial" if any(item["status"] == "partial" for item in imports) else "ok",
             "database": database_identity(database), "imports": imports, "quality": quality}
 

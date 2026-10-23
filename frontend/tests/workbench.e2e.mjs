@@ -7,6 +7,7 @@ import net from 'node:net';
 import { createServer } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 import { chromium } from 'playwright';
 
 const frontend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,6 +30,10 @@ let maxConcurrentCalls = 0;
 const browserErrors = [];
 await mkdir(path.join(root, 'output/playwright'), { recursive: true });
 const artifacts = await mkdtemp(path.join(root, 'output/playwright/frontend-'));
+const importRoot = path.join(artifacts, 'server-imports');
+const localFiles = path.join(artifacts, '电脑文件 中文目录');
+await mkdir(importRoot);
+await mkdir(localFiles);
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function freePort(port) {
@@ -50,6 +55,11 @@ async function until(check, label, timeout = 30_000) {
     await delay(250);
   }
   throw new Error(`Timed out: ${label}`);
+}
+async function chooseImportFile(filePath, index = 0) {
+  const fileChooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: index === 0 ? '选择评论文件' : '选择元数据文件', exact: true }).click();
+  await (await fileChooser).setFiles(filePath);
 }
 async function get(endpoint) {
   const response = await fetch(`${apiUrl}${endpoint}`);
@@ -97,7 +107,7 @@ try {
   });
   await new Promise(resolve => modelServer.listen(0, '127.0.0.1', resolve));
   launch(python, ['-m', 'data_analysis_agent.cli.server', 'serve', '--db', database ? 'env:E2E_DATABASE_URL' : path.join(artifacts, 'reviews.sqlite3'),
-    '--port', String(apiPort), '--import-root', artifacts, '--env-file', path.join(artifacts, 'unused.env'), '--allow-origin', webUrl], 'api', {
+    '--port', String(apiPort), '--import-root', importRoot, '--env-file', path.join(artifacts, 'unused.env'), '--allow-origin', webUrl], 'api', {
     LLM_MODEL_ID: 'SIMULATED-LABEL-MODEL', LLM_API_KEY: 'local-test-key',
     LLM_BASE_URL: `http://127.0.0.1:${modelServer.address().port}/v1`, LLM_MAX_RETRIES: '0',
   });
@@ -113,6 +123,8 @@ try {
   await page.goto(webUrl);
   await writeFile(path.join(artifacts, 'page-title.txt'), await page.title());
   await page.getByRole('button', { name: '开始分析', exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: '导入新数据', exact: true }).count(), 0);
+  assert.equal(await page.getByRole('button', { name: '导入数据文件', exact: true }).count(), 1);
   await page.locator('.context-summary').filter({ hasText: 'SIMULATED-frontend' }).waitFor();
   assert.equal(await page.getByRole('textbox', { name: '分析问题备注' }).isVisible(), false);
   assert.equal(await page.getByRole('combobox', { name: '标注版本', exact: true }).isVisible(), false);
@@ -197,10 +209,10 @@ try {
   await page.getByRole('button', { name: '立即重连', exact: true }).click();
   await page.getByRole('heading', { name: '从评论中，看到变化' }).waitFor();
 
-  // A real corrupt gzip file reaches the worker and produces a persisted failure.
-  await page.getByRole('button', { name: '从服务端目录导入', exact: true }).click();
-  assert.equal(await page.getByRole('textbox', { name: '数据集版本', exact: true }).isVisible(), false);
-  await page.getByRole('textbox', { name: '评论文件相对路径', exact: true }).fill('broken.jsonl.gz');
+  // A real corrupt gzip selected from the browser reaches the worker and produces a persisted failure.
+  await page.getByRole('button', { name: '导入数据文件', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: '选择评论文件', exact: true }).isVisible(), true);
+  await chooseImportFile(path.join(artifacts, 'broken.jsonl.gz'));
   const failedSubmission = page.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
   await page.getByRole('button', { name: '提交导入任务', exact: true }).click();
   const failedId = (await (await failedSubmission).json()).result.task.task_id;
@@ -215,22 +227,94 @@ try {
   assert.notEqual(retried.task_id, failedId);
   assert.equal(retried.parent_task_id, failedId);
 
-  // A valid import also uses the actual server-side file contract.
+  // Choose a file outside import-root using the native file chooser, then check its bytes and database rows.
   const extra = JSON.parse(await readFile(path.join(artifacts, 'extra.jsonl'), 'utf8'));
-  await writeFile(path.join(artifacts, 'limited.jsonl'), Array.from({ length: 3 }, (_, index) =>
-    JSON.stringify({ ...extra, user_id: `limited-demo-${index}` })).join('\n') + '\n');
-  await page.getByRole('button', { name: '从服务端目录导入', exact: true }).click();
-  await page.getByRole('textbox', { name: '评论文件相对路径', exact: true }).fill('limited.jsonl');
+  const localReview = path.join(localFiles, '评论 样本.jsonl');
+  const localMeta = path.join(localFiles, '商品 信息.jsonl.gz');
+  await writeFile(localReview, Array.from({ length: 3 }, (_, index) =>
+    JSON.stringify({ ...extra, user_id: `limited-demo-${index}`, upload_padding: 'x'.repeat(1024 * 1024) })).join('\n') + '\n');
+  await writeFile(localMeta, gzipSync(JSON.stringify({ parent_asin: 'DEMO-C', title: 'DEMO-C', store: '本机测试商店' }) + '\n'));
+  assert.ok(!path.relative(importRoot, localReview).startsWith(`.${path.sep}`) && path.relative(importRoot, localReview).startsWith('..'));
+  await page.getByRole('button', { name: '导入数据文件', exact: true }).click();
+  await page.getByRole('button', { name: '提交导入任务', exact: true }).click();
+  await page.getByText('请先选择评论文件或商品元数据文件。', { exact: true }).waitFor();
+  await chooseImportFile(localReview);
+  await page.locator('summary').filter({ hasText: '导入设置' }).click();
+  await chooseImportFile(localMeta, 1);
+  await page.screenshot({ path: path.join(artifacts, '06-file-import.png'), fullPage: true });
   await page.getByRole('spinbutton', { name: '本次最多新增评论数（可选）' }).fill('2');
+  // Losing the task response must preserve both selected files, uploaded paths and the idempotency key.
+  const uploadRequests = [];
+  page.on('request', request => { if (request.url().includes('/import-files?')) uploadRequests.push(request.url()); });
+  let lostSubmission;
+  const lostResponseRoute = async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    lostSubmission = (await (await route.fetch()).json()).result.task;
+    await route.abort();
+  };
+  const network = await context.newCDPSession(page);
+  await network.send('Network.enable');
+  await network.send('Network.emulateNetworkConditions', { offline: false, latency: 20, downloadThroughput: -1, uploadThroughput: 256 * 1024 });
+  await page.evaluate(() => {
+    window.uploadEvents = [];
+    const send = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function (body) {
+      this.upload.addEventListener('progress', event => window.uploadEvents.push({ loaded: event.loaded, total: event.total }));
+      return send.call(this, body);
+    };
+  });
+  await page.getByRole('button', { name: '提交导入任务', exact: true }).click();
+  const uploadBar = page.getByRole('dialog', { name: '导入数据', exact: true }).getByRole('progressbar', { name: '文件上传进度', exact: true });
+  await until(async () => {
+    const percent = Number(await uploadBar.getAttribute('aria-valuenow'));
+    return percent > 0 && percent < 100;
+  }, 'real intermediate upload percentage');
+  assert.equal(await page.getByText('等待上传并提交任务', { exact: true }).isVisible(), true);
+  const uploadPercent = Number(await uploadBar.getAttribute('aria-valuenow'));
+  await page.route(`${apiUrl}/tasks`, lostResponseRoute);
+  await page.screenshot({ path: path.join(artifacts, 'upload-progress.png'), fullPage: true });
+  await page.getByText(/无法连接后端.*提交结果暂未确认/).waitFor();
+  assert.equal(await page.getByText('上传完成', { exact: true }).isVisible(), true);
+  await network.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await network.detach();
+  assert.equal(await page.getByText(path.basename(localReview), { exact: true }).isVisible(), true);
+  assert.equal(await page.getByText(path.basename(localMeta), { exact: true }).isVisible(), true);
+  assert.equal(uploadRequests.length, 2);
+  await page.unroute(`${apiUrl}/tasks`, lostResponseRoute);
   const importResponse = page.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
   await page.getByRole('button', { name: '提交导入任务', exact: true }).click();
-  const importId = (await (await importResponse).json()).result.task.task_id;
+  const importedSubmission = (await (await importResponse).json()).result;
+  const importId = importedSubmission.task.task_id;
+  assert.equal(importId, lostSubmission.task_id);
+  assert.equal(importedSubmission.reused, true);
+  assert.equal(uploadRequests.length, 2, 'retry must reuse the files that were already uploaded');
   await until(async () => (await get(`/tasks/${importId}`)).status === 'succeeded', 'successful import');
   const limitedImport = await get(`/tasks/${importId}`);
+  await page.getByText('处理完成', { exact: true }).waitFor();
+  assert.equal(limitedImport.progress.stage, 'imported');
+  assert.equal(limitedImport.progress.total_lines, 3);
+  assert.equal(limitedImport.progress.inserted_records, 3);
+  assert.match(await page.getByLabel('数据处理阶段', { exact: true }).innerText(), /已处理 3 行.*已新增 3 条/);
+  const uploadEvents = await page.evaluate(() => window.uploadEvents);
+  await page.reload();
+  await page.getByText('处理完成', { exact: true }).waitFor();
+  await page.screenshot({ path: path.join(artifacts, 'processing-complete.png'), fullPage: true });
   assert.equal(limitedImport.parameters.max_reviews, 2);
-  assert.equal(limitedImport.result.imports[0].inserted_records, 2);
-  assert.equal(limitedImport.result.imports[0].limit_reached, true);
-  assert.equal(limitedImport.result.imports[0].scan_complete, false);
+  const reviewImport = limitedImport.result.imports.find(item => item.kind === 'reviews');
+  assert.equal(reviewImport.inserted_records, 2);
+  assert.equal(reviewImport.limit_reached, true);
+  assert.equal(reviewImport.scan_complete, false);
+  assert.equal(limitedImport.result.imports.find(item => item.kind === 'meta').inserted_records, 1);
+  assert.deepEqual(await readFile(limitedImport.parameters.reviews_path), await readFile(localReview));
+  assert.deepEqual(await readFile(limitedImport.parameters.meta_path), await readFile(localMeta));
+  assert.ok(path.relative(importRoot, limitedImport.parameters.reviews_path).startsWith(`.uploads${path.sep}`));
+  await writeFile(path.join(artifacts, 'upload-evidence.json'), JSON.stringify({
+    local_review_file: localReview, local_meta_file: localMeta, server_import_root: importRoot,
+    same_review_bytes: true, same_compressed_meta_bytes: true, tasks_created_after_response_retry: 1,
+    uploaded_files_after_response_retry: uploadRequests.length, task_id: importId,
+    observed_upload_percent: uploadPercent, processing_progress: limitedImport.progress,
+    upload_events: uploadEvents,
+  }, null, 2));
   assert.equal((await get('/quality')).review_count, 98);
   const importedRows = await databaseEvidence();
   assert.equal(importedRows.total_reviews, 98);
@@ -315,9 +399,9 @@ try {
   assert.equal(modelCalls, 2, 'analysis must reuse labels without model calls');
 
   // Reimport the same two records through the UI, then read database rows independently.
-  await writeFile(path.join(artifacts, 'duplicate.jsonl'), (await readFile(path.join(artifacts, 'limited.jsonl'), 'utf8')).trim().split('\n').slice(0, 2).join('\n') + '\n');
-  await page.getByRole('button', { name: '从服务端目录导入', exact: true }).click();
-  await page.getByRole('textbox', { name: '评论文件相对路径', exact: true }).fill('duplicate.jsonl');
+  await writeFile(path.join(artifacts, 'duplicate.jsonl'), (await readFile(localReview, 'utf8')).trim().split('\n').slice(0, 2).join('\n') + '\n');
+  await page.getByRole('button', { name: '导入数据文件', exact: true }).click();
+  await chooseImportFile(path.join(artifacts, 'duplicate.jsonl'));
   const duplicateResponse = page.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
   await page.getByRole('button', { name: '提交导入任务', exact: true }).click();
   const duplicateId = (await (await duplicateResponse).json()).result.task.task_id;
@@ -331,7 +415,7 @@ try {
 
   // Delete the real limited import through the UI, then remove its task history.
   await page.getByRole('button', { name: '任务记录', exact: true }).click();
-  await page.locator('.history-item').filter({ hasText: '导入 limited.jsonl' }).first().click();
+  await page.locator('.history-item').filter({ hasText: `导入 ${path.basename(localReview)}` }).first().click();
   await page.getByRole('dialog', { name: '任务记录', exact: true }).waitFor({ state: 'hidden' });
   await page.getByText('删除导入数据', { exact: true }).click();
   await page.getByText('会删除本次导入产生的评论、错误记录和关联标注；其他导入批次共用的商品信息会保留。此操作不可恢复。', { exact: true }).waitFor();
@@ -344,6 +428,43 @@ try {
   await page.getByRole('button', { name: '删除记录', exact: true }).click();
   await page.getByRole('button', { name: '开始分析', exact: true }).waitFor();
   assert.equal((await fetch(`${apiUrl}/tasks/${importId}`)).status, 404);
+
+  // Use enough real database work to observe processing without generating timer-based progress.
+  const progressRows = database ? 3000 : 30000;
+  const processingFile = path.join(localFiles, '处理进度.jsonl');
+  await writeFile(processingFile, Array.from({ length: progressRows }, (_, index) =>
+    JSON.stringify({ ...extra, parent_asin: 'DEMO-PROGRESS', user_id: `progress-${index}` })).join('\n') + '\n');
+  await page.getByRole('button', { name: '导入数据文件', exact: true }).click();
+  await chooseImportFile(processingFile);
+  await page.getByRole('spinbutton', { name: '本次最多新增评论数（可选）' }).fill('');
+  const processingSubmission = page.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
+  await page.getByRole('button', { name: '提交导入任务', exact: true }).click();
+  const processingId = (await (await processingSubmission).json()).result.task.task_id;
+  let observedProcessing;
+  await until(async () => {
+    const current = await get(`/tasks/${processingId}`);
+    if (current.progress.stage === 'importing_reviews' && current.progress.total_lines > 0 && current.progress.total_lines < progressRows) observedProcessing = current.progress;
+    return observedProcessing && /新增待提交 [1-9]/.test(await page.getByLabel('数据处理阶段', { exact: true }).innerText());
+  }, 'actual processing bytes and row count', 90_000);
+  assert.equal(observedProcessing.unit, 'bytes');
+  assert.ok(observedProcessing.completed > 0 && observedProcessing.completed < observedProcessing.total);
+  await page.screenshot({ path: path.join(artifacts, 'processing-progress.png'), fullPage: true });
+  await page.reload();
+  await page.getByLabel('数据处理阶段', { exact: true }).waitFor();
+  await until(async () => (await get(`/tasks/${processingId}`)).status === 'succeeded', 'processing import commits', 90_000);
+  await page.getByText('处理完成', { exact: true }).waitFor();
+  const processed = await get(`/tasks/${processingId}`);
+  assert.equal(processed.progress.total_lines, progressRows);
+  assert.equal(processed.progress.inserted_records, progressRows);
+  assert.equal((await get('/quality')).review_count, 96 + progressRows);
+  await writeFile(path.join(artifacts, 'processing-evidence.json'), JSON.stringify({ observed: observedProcessing, completed: processed.progress, rows: progressRows }, null, 2));
+  await page.getByText('删除导入数据', { exact: true }).click();
+  await page.getByRole('button', { name: '删除导入数据', exact: true }).click();
+  await page.getByText('导入数据已删除', { exact: true }).waitFor();
+  assert.equal((await get('/quality')).review_count, 96);
+  await page.getByText('删除任务记录', { exact: true }).click();
+  await page.getByRole('button', { name: '删除记录', exact: true }).click();
+  await page.getByRole('button', { name: '开始分析', exact: true }).waitFor();
 
   // History preserves pagination and restores a real result; test rows only replace the list API.
   const historyRoute = '**/api/v1/tasks?*';
@@ -397,6 +518,37 @@ try {
   await page.getByRole('button', { name: '开始分析', exact: true }).waitFor();
   await page.screenshot({ path: path.join(artifacts, '04-mobile.png'), fullPage: true, animations: 'disabled' });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'mobile body overflows');
+  // CSV uses the same native picker and a separate source through preparation.
+  await page.setViewportSize({ width: 1366, height: 900 });
+  const localCsv = path.join(localFiles, '京东 评论.CSV');
+  await writeFile(localCsv, '\uFEFF商品ID,用户ID,打分,商品名称,评论内容,评论时间\n000123,00042,5,模拟CSV商品,包装完整,2024/8/21 17:30\n');
+  await page.getByRole('button', { name: '导入数据文件', exact: true }).click();
+  assert.equal(await page.locator('input[aria-label="评论文件"]').getAttribute('accept'), '.csv,.jsonl,.jsonl.gz');
+  await chooseImportFile(localCsv);
+  await page.locator('details').filter({ hasText: '数据集版本' }).locator('summary').click();
+  assert.equal(await page.getByRole('textbox', { name: '数据集版本', exact: true }).inputValue(), 'reviews-csv');
+  assert.equal(await page.getByRole('button', { name: '选择元数据文件', exact: true }).isDisabled(), true);
+  await page.getByRole('button', { name: '提交导入任务', exact: true }).click();
+  await page.getByRole('button', { name: '标注已导入的数据', exact: true }).waitFor();
+  const csvTask = (await get('/tasks?kind=import')).items[0];
+  const csvResult = await get(`/tasks/${csvTask.task_id}`);
+  assert.equal(csvResult.result.imports[0].inserted_records, 1);
+  assert.equal(csvResult.result.imports[0].source, 'reviews_csv');
+  const csvProducts = (await get('/options')).products.filter(item => item.source === 'reviews_csv');
+  assert.equal(csvProducts[0].product_id, '000123');
+  await page.getByRole('button', { name: '标注已导入的数据', exact: true }).click();
+  await page.getByText('reviews_csv / reviews-csv', { exact: true }).waitFor();
+  await page.screenshot({ path: path.join(artifacts, 'csv-preparation.png'), fullPage: true });
+  await page.keyboard.press('Escape');
+  const emptyContext = await browser.newContext({ viewport: { width: 1366, height: 900 } });
+  const emptyPage = await emptyContext.newPage();
+  const emptyOptions = { ...(await get('/options')), products: [], profiles: [], selected_profile_id: null };
+  await emptyPage.route(`${apiUrl}/options`, route => route.fulfill({ json: { status: 'ok', result: emptyOptions } }));
+  await emptyPage.goto(webUrl);
+  await emptyPage.getByText('点击顶部“导入数据”，添加评论后开始分析', { exact: true }).waitFor();
+  assert.equal(await emptyPage.locator('button').filter({ hasText: /^导入数据$/ }).count(), 1);
+  assert.equal(await emptyPage.getByRole('button', { name: '导入新数据', exact: true }).count(), 0);
+  await emptyContext.close();
   assert.deepEqual(browserErrors, []);
   const serverLog = await readFile(path.join(artifacts, 'api.log'), 'utf8');
   assert.match(serverLog, /POST \/api\/v1\/tasks HTTP\/1\.1.*202/);
@@ -410,8 +562,11 @@ try {
   assert.ok(!serverLog.includes(extra.text));
   const report = { status: 'passed', simulated_data: true, api: apiUrl, frontend: webUrl, task_id: taskId, run_id: run.run_id,
     failed_task_id: failedId, retry_task_id: retried.task_id, imported_task_id: importId,
-    checks: ['product selection', 'data preview', 'question note', 'real task and worker', 'snapshot statistics', 'chart',
-      'JSON download equality', 'reload recovery', 'network reconnect', 'worker failure', 'explicit retry', 'limited server file import',
+    checks: ['single import entry', 'CSV native picker and upload', 'CSV source and preparation scope', 'CSV textual IDs', 'product selection', 'data preview', 'question note', 'real task and worker', 'snapshot statistics', 'chart',
+      'JSON download equality', 'reload recovery', 'network reconnect', 'worker failure', 'explicit retry', 'native file chooser outside import root',
+      'Chinese and spaced file paths', 'JSONL and compressed metadata upload', 'uploaded bytes match selected files', 'upload missing file validation', 'lost response import retry uses one task',
+      'real byte upload progress', 'upload and processing stages', 'processing committed counts', 'import progress reload recovery',
+      'real processing byte and row progress', 'processing reload while active', 'large import database counts', 'large import cleanup',
       'label parameter validation', 'label product scope', 'label live progress', 'label concurrency', 'label reload recovery', 'label skip completed',
       'database import rows', 'database annotations and opinions', 'duplicate import', 'delete imported data', 'delete task history', 'label to analysis scope', 'mobile workspace', 'backend operation logs',
       'advanced parameters collapsed', 'main action above fold at 1366x768', 'draft reload recovery', 'one click prepared analysis',
@@ -421,6 +576,7 @@ try {
   console.log(JSON.stringify(report, null, 2));
 } catch (error) {
   if (page) {
+    await writeFile(path.join(artifacts, 'upload-events.json'), JSON.stringify(await page.evaluate(() => window.uploadEvents ?? []).catch(() => []), null, 2));
     await page.screenshot({ path: path.join(artifacts, 'failure-state.png'), fullPage: true }).catch(() => {});
     await writeFile(path.join(artifacts, 'failure-ui.txt'), await page.locator('body').innerText().catch(() => 'unavailable'));
   }

@@ -1,5 +1,6 @@
 import type {
   ApiErrorBody, Health, Options, Page, Quality, Review, Run, Submission, Task, TaskInput, TaskSummary,
+  UploadedImportFile,
 } from './types';
 
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
@@ -88,6 +89,33 @@ export const api = {
     `/tasks/${encodeURIComponent(id)}/retry`,
     { method: 'POST', headers: { 'Idempotency-Key': key } },
   ),
+  uploadImportFile: (file: File, kind: UploadedImportFile['kind'], onProgress?: (loaded: number) => void): Promise<UploadedImportFile> => {
+    const params = new URLSearchParams({ kind, filename: file.name });
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_BASE}/import-files?${params}`);
+      xhr.timeout = 10 * 60_000;
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      xhr.upload.onprogress = event => onProgress?.(Math.min(file.size, event.loaded));
+      const networkError = () => reject(new ApiError(0, { code: 'network_error', message: '文件上传失败或超时，请检查后端服务和网络后重试。' }));
+      xhr.onerror = networkError;
+      xhr.ontimeout = networkError;
+      xhr.onabort = networkError;
+      xhr.onload = () => {
+        let payload: { status?: string; result?: UploadedImportFile; error?: ApiErrorBody };
+        try { payload = JSON.parse(xhr.responseText); }
+        catch { reject(new ApiError(xhr.status, { code: 'invalid_response', message: '上传服务返回的内容不是有效 JSON。' })); return; }
+        if (xhr.status < 200 || xhr.status >= 300 || payload?.status !== 'ok' || !payload.result) {
+          reject(new ApiError(xhr.status, payload?.error ?? { code: 'http_error', message: `文件上传失败（HTTP ${xhr.status}）` }));
+          return;
+        }
+        onProgress?.(file.size);
+        resolve(payload.result);
+      };
+      xhr.send(file);
+    });
+  },
   deleteTask: (id: string) => request<{ deleted_task_ids: string[]; deleted_tasks: number }>(
     `/tasks/${encodeURIComponent(id)}`, { method: 'DELETE' },
   ),
