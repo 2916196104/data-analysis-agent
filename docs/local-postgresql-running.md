@@ -52,18 +52,11 @@ E:\AllProject\data-analysis-agent\data\private\backups\20261022-123805-040632
 
 ## 启动和停止项目
 
-当前 API/worker 和 Vite 前端已经在后台运行。进程信息保存在 `.cache/local-services.json`；启动日志位于 `.cache/local-api.stdout.log`、`.cache/local-api.stderr.log`、`.cache/local-web.stdout.log` 和 `.cache/local-web.stderr.log`。
+2026-10-23 已按用户要求将启动入口交给 IDEA：此前后台启动的本项目 API/worker 和 Vite 进程均已核对身份并停止，停止前无排队或执行中的任务。`.cache/local-services.json` 已标记 `stopped_for_idea`，其中的旧进程号只作历史记录，不应再次用于停止进程。
 
-如果要从 IDEA 或终端重新启动，先确认没有正在执行的任务，再停止这次启动的后台进程，避免重复 worker 或端口冲突。在项目根目录执行：
+现在在 IDEA 选择 **00 一键启动前后端**，或直接右键根目录 `run.py` 运行。统一入口负责启动 API/worker 与 Vite，服务就绪后打开页面；一个停止按钮即可一起关闭本次进程树。只启动 API 时选择 **71** 或 **77**，二者不要同时启动。**03 查看评论库摘要** 或 **78 PostgreSQL查看评论摘要** 用于只读检查。具体配置、Node.js 设置见 [IDEA 运行说明](idea-running.md)。
 
-```powershell
-$localServices = Get-Content -LiteralPath '.cache/local-services.json' -Raw | ConvertFrom-Json
-Stop-Process -Id $localServices.api_listener_pid, $localServices.frontend_listener_pid
-```
-
-这条命令用于本次运行期间。电脑重启或服务已经退出后，不要依据旧的进程号停止其他程序。
-
-之后可在 IDEA 选择 **71 启动HTTP API与后台任务** 或 **77 PostgreSQL启动HTTP与后台任务**，二者使用相同 PostgreSQL 配置，选择一个启动即可。**03 查看评论库摘要** 或 **78 PostgreSQL查看评论摘要** 用于只读检查。所有评论业务运行配置及本机临时评论配置均已切换到 `env:DATABASE_URL`，工作目录统一为项目根目录；不再保留指向旧 SQLite 业务库的 IDEA 配置。具体配置用途见 [IDEA 运行说明](idea-running.md)。
+已读取新配置的实际命令短暂试启动，确认 API、数据库、后台执行器及前端 HTTP 200 正常，随后停止全部试启动进程。检查记录位于 `.cache/idea-run-config-validation.json`，日志路径由其中的 `log_prefix` 指定；尚未在 IDEA 窗口内点击运行。另有不属于本次启动记录的 Python 进程监听 `0.0.0.0:8000`，保留未动；本项目绑定 `127.0.0.1:8000` 已实际启动验证通过。
 
 也可以在项目根目录用终端启动后端：
 
