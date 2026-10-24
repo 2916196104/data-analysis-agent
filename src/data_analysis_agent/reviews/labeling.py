@@ -3,6 +3,7 @@
 import json
 from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from contextlib import closing
 from pathlib import Path
 from time import perf_counter
 
@@ -19,13 +20,16 @@ from openai import (
 from data_analysis_agent.core.config import AgentSettings, read_settings
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.core.validation import validate_integer
-from data_analysis_agent.reviews.label_store import pending_reviews, save_annotation
+from data_analysis_agent.reviews.label_store import (
+    check_labeling_schema, pending_reviews, save_annotation_on_connection,
+)
 # 保留这些导出，兼容从本模块导入观点定义和校验函数的调用方。
 from data_analysis_agent.reviews.opinions import (
     ASPECTS, Extraction, Opinion, OpinionValidationError, validate_opinions,
 )
 from data_analysis_agent.reviews.prompts import MAX_TEXT_CHARS, PROMPT_VERSION, SYSTEM_PROMPT
 from data_analysis_agent.reviews.scope import review_scope
+from data_analysis_agent.reviews.store import connect_review_database
 
 TRANSIENT_ERROR_LIMIT = 3
 TRANSIENT_ERRORS = {"model_timeout", "model_connection_error", "model_server_error"}
@@ -204,6 +208,7 @@ def run_labeling(
 
     # 工作线程只请求模型；数据库写入和批次计数留在当前线程，避免并发写入冲突。
     with (
+        closing(connect_review_database(db_path)) as write_connection,
         OpenAI(
             api_key=settings.api_key,
             base_url=settings.base_url,
@@ -212,6 +217,7 @@ def run_labeling(
         ) as client,
         ThreadPoolExecutor(max_workers=workers) as executor,
     ):
+        check_labeling_schema(write_connection)
         remaining_reviews = iter(reviews)
         pending_requests = {}
         for _ in range(min(workers, len(reviews))):
@@ -231,8 +237,8 @@ def run_labeling(
                 batch_result["model_calls"] += int(model_called)
 
                 annotation_status = "failed" if error_code else "success"
-                annotation_id = save_annotation(
-                    db_path,
+                annotation_id = save_annotation_on_connection(
+                    write_connection,
                     review,
                     **model_identity,
                     status=annotation_status,

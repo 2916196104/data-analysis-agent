@@ -383,6 +383,23 @@ class ReviewLabelTests(unittest.TestCase):
         self.assertEqual(len({item["review_id"] for item in result["results"]}), 8)
         self.assertEqual(labeling_status(self.db)["profiles"][0]["successful_reviews"], 8)
 
+    def test_label_batch_reuses_one_database_writer_connection(self):
+        init_labeling(self.db)
+        connections = []
+
+        def open_connection(path):
+            from data_analysis_agent.reviews.store import connect_review_database
+
+            connection = connect_review_database(path)
+            connections.append(connection)
+            return connection
+
+        with self.mock_model([response([]), response([])], []), \
+                patch("data_analysis_agent.reviews.labeling.connect_review_database", side_effect=open_connection):
+            result = run_labeling(self.db, settings=SETTINGS, limit=2, workers=2)
+        self.assertEqual(result["successful_reviews"], 2)
+        self.assertEqual(len(connections), 1)
+
     def test_parallel_auth_failure_stops_submitting_new_requests(self):
         init_labeling(self.db)
         self.add_reviews([f"新的评论 {index}" for index in range(4)], name="more.jsonl")
