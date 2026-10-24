@@ -5,8 +5,11 @@
     <scripts>
       <script value="dev" />
     </scripts>
+    <arguments value="-- --host 127.0.0.1" />
     <node-interpreter value="project" />
-    <envs />
+    <envs>
+      <env name="VITE_API_BASE_URL" value="http://127.0.0.1:8000/api/v1" />
+    </envs>
     <method v="2" />
   </configuration>
 </component>

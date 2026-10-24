@@ -73,7 +73,20 @@ h1, h2, p { margin-top: 0; }
 .advanced-settings > summary span { margin-left: 8px; color: #6b7c71; font-size: 12px; }
 .advanced-content { padding: 4px 0 8px; }
 .reset-baseline { margin: -16px 0 16px; }
-.submit-row { display: flex; justify-content: space-between; margin-top: 10px; border-top: 1px solid #f0f3f1; padding-top: 21px; }.submit-row .ant-btn-primary { padding-inline: 25px; }
+.submit-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 10px; border-top: 1px solid #f0f3f1; padding-top: 21px; }.submit-row .ant-btn-primary { padding-inline: 25px; }
+.agent-answer { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.9; }
+.agent-results > * { min-width: 0; }
+.agent-summary { margin: 0; padding-left: 20px; line-height: 1.8; }
+.agent-summary li + li { margin-top: 14px; }
+.agent-summary a { display: block; font-weight: 600; }
+.agent-overview { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 16px 0; margin-top: 16px; border-top: 1px solid #e2e9e4; }
+.agent-overview strong { font-size: 20px; margin-left: 6px; }
+.agent-table-controls .ant-select { min-width: 185px; }
+.agent-evidence-list { display: grid; gap: 18px; }
+.agent-evidence-list article + article { border-top: 1px solid #e2e9e4; padding-top: 18px; }
+.agent-evidence-list blockquote { margin: 10px 0; border-left: 3px solid #b5cec0; padding: 4px 14px; line-height: 1.8; overflow-wrap: anywhere; }
+.agent-results details > summary { cursor: pointer; margin-top: 16px; }
+.agent-results .ant-card-head-title { white-space: normal; }
 .workspace-footer { width: calc(100% - 72px); max-width: 1128px; margin: 0 auto; padding: 20px 0; border-top: 1px solid #e5ebe7; color: #a6afa9; font-size: 10px; letter-spacing: .6px; display: flex; justify-content: space-between; }
 .muted { color: #88988f; font-size: 12px; font-weight: 400; line-height: 1.8; }.api-address { margin-top: 6px; overflow-wrap: anywhere; }
 .full-width { width: 100%; }.spaced { margin-top: 18px; }.spaced-bottom { margin-bottom: 18px; }

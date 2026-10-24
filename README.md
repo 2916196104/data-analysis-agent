@@ -6,6 +6,8 @@
 
 新增独立的 [React 评论分析工作台](frontend/README.md)，使用 TypeScript、Vite、Ant Design 和 ECharts。支持选择已有评论数据、从电脑任意位置选择文件导入、提交结构化分析、真实任务进度、历史恢复、原文证据和 JSON 导出。启动与后端 Origin 配置、接口映射及现有能力边界见前端说明。
 
+工作台现支持[只读评论分析 Agent](docs/review-agent.md)：选择范围后点击“Agent 问答”，复用 HelloAgents 和已有统计工具查询趋势、商品对比、六维度问题及原文证据。模型选择工具，代码整理可核验的数字与引文；结果随任务保存，刷新后可恢复。
+
 新增独立的 Amazon 评论/商品元数据 JSONL 导入入口，使用标准库 SQLite，支持 `.jsonl`/`.jsonl.gz` 流式读取、去重、原文定位和数据质量摘要。**环境配置和业务数据库初始化由你执行**；原有销售入口继续使用。配置步骤、可运行的模拟数据及完整契约见 [第三阶段 B：评论数据导入](docs/review-import.md)。
 
 All_Beauty 的完整真实文件已下载到 `data/private/amazon_reviews_2023/raw/`，已选取 4 款美发造型工具，在临时库验证 4,941 条唯一评论的导入、去重和原文位置。选品、真实验收结果及业务库操作步骤见 [All_Beauty 真实数据说明](docs/all-beauty-real-data.md)。
@@ -45,7 +47,7 @@ New-Item -ItemType Directory -Force data/private | Out-Null
 .\.venv\Scripts\python.exe -m data_analysis_agent.cli.reviews evidence --db data/private/reviews.sqlite3 --review-id 1
 ```
 
-导入不会自动创建数据库或调用模型。有坏记录时保留合法记录及错误明细，退出码为 3；文件损坏等整体失败会回滚本次导入。评论工作台、模型标注、评论统计、规则监控与销售 Agent 使用各自入口，后续再增加评论问答。
+导入不会自动创建数据库或调用模型。有坏记录时保留合法记录及错误明细，退出码为 3；文件损坏等整体失败会回滚本次导入。评论工作台、模型标注、评论统计、规则监控与销售 Agent 使用各自入口；评论问答通过工作台“Agent 问答”提交。
 
 ## 运行
 
@@ -295,4 +297,4 @@ print(json.dumps(result, ensure_ascii=False, indent=2))
 
 真实数据放 `data/private/`，产物放 `outputs/`。`.gitignore` 忽略 `.env` 及其变体（保留 `.env.example`）、常见密钥文件、整个数据目录（只放行明确的模拟 CSV）、常见数据文件扩展名、运行产物、日志、缓存、虚拟环境和 IDE 配置。自定义产物目录也应放在 `outputs/` 下；提交前使用 `git status --short` 检查，不使用强制添加来绕过忽略规则。
 
-销售分析当前面向一份小型 CSV 或一个 Excel 数据工作表，不提供大数据流式销售统计、退款分析、多币种换算或成本指标。评论入口已支持 SQLite、流式导入、六维度增量标注、本机人工复核、范围查询、四类统计证据工具、运行快照、按月历史回放及规则告警；评论问答、HTTP API 与定时运行留到后续阶段。
+销售分析当前面向一份小型 CSV 或一个 Excel 数据工作表，不提供大数据流式销售统计、退款分析、多币种换算或成本指标。评论入口已支持 SQLite/PostgreSQL、流式导入、六维度增量标注、本机人工复核、范围查询、四类统计证据工具、运行快照、按月历史回放、规则告警、HTTP API 与单轮只读问答；定时运行和多轮会话尚未接入。

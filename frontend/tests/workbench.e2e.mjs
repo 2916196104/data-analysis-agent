@@ -25,6 +25,7 @@ let browser;
 let page;
 let modelServer;
 let modelCalls = 0;
+let agentModelCalls = 0;
 let concurrentCalls = 0;
 let maxConcurrentCalls = 0;
 const browserErrors = [];
@@ -95,6 +96,22 @@ try {
     const body = JSON.parse(raw);
     assert.equal(request.url, '/v1/chat/completions');
     assert.equal(body.model, 'SIMULATED-LABEL-MODEL');
+    if (body.tools) {
+      agentModelCalls++;
+      const ids = body.messages.filter(message => message.role === 'tool')
+        .map(message => JSON.parse(message.content).data?.result_id).filter(Boolean);
+      const message = ids.length ? { role: 'assistant', content: JSON.stringify({ status: 'ok', result_ids: ids }) }
+        : { role: 'assistant', content: null, tool_calls: [
+          ['get_trend', { period: 'month' }], ['compare_products', {}],
+          ['get_evidence', { aspect: 'packaging', sentiment: 'negative' }],
+        ].map(([name, parameters], index) => ({ id: `agent-${index}`, type: 'function',
+          function: { name, arguments: JSON.stringify(parameters) } })) };
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ id: `agent-local-${agentModelCalls}`, object: 'chat.completion', created: 0,
+        model: body.model, choices: [{ index: 0, finish_reason: message.tool_calls ? 'tool_calls' : 'stop', message }],
+        usage: { prompt_tokens: 20, completion_tokens: 10, total_tokens: 30 } }));
+      return;
+    }
     modelCalls++; concurrentCalls++;
     maxConcurrentCalls = Math.max(maxConcurrentCalls, concurrentCalls);
     await delay(2200);
@@ -540,6 +557,53 @@ try {
   await page.getByText('reviews_csv / reviews-csv', { exact: true }).waitFor();
   await page.screenshot({ path: path.join(artifacts, 'csv-preparation.png'), fullPage: true });
   await page.keyboard.press('Escape');
+  // Agent uses the actual queue, HelloAgents, SDK and read-only business tools.
+  const agentContext = await browser.newContext({ viewport: { width: 1366, height: 900 }, acceptDownloads: true });
+  const fixtureProfile = (await get('/options')).profiles.find(profile => profile.requested_model === 'SIMULATED-ANNOTATIONS');
+  await agentContext.addInitScript(({ storageKey, profileId }) => {
+    if (!localStorage.getItem(storageKey)) localStorage.setItem(storageKey, JSON.stringify({ selected: null, notes: {}, draft: {
+      dataset: JSON.stringify(['amazon_reviews_2023', 'SIMULATED-frontend']), productIds: ['DEMO-A', 'DEMO-B'],
+      profileId, current: ['2023-02-01', '2023-02-24'], baseline: ['2023-01-01', '2023-01-31'], note: '',
+    } }));
+  }, { storageKey: `review-workbench:${apiUrl}`, profileId: fixtureProfile.profile_id });
+  const agentPage = await agentContext.newPage();
+  const mainPage = page;
+  page = agentPage;
+  agentPage.on('pageerror', error => browserErrors.push(error.message));
+  await agentPage.goto(webUrl);
+  await agentPage.getByRole('button', { name: 'Agent 问答', exact: true }).click();
+  const agentQuestion = '按月查看评论趋势，对比所选商品，并查询包装负面评论的原文证据';
+  await agentPage.getByRole('textbox', { name: '评论分析问题' }).fill(agentQuestion);
+  await agentPage.getByRole('button', { name: '提交问题', exact: true }).click();
+  await agentPage.getByRole('heading', { name: 'Agent 分析结果', exact: true }).waitFor();
+  const agentId = (await get('/tasks?kind=analysis')).items[0].task_id;
+  const agentTask = await get(`/tasks/${agentId}`);
+  assert.equal(agentTask.status, 'succeeded', JSON.stringify(agentTask));
+  assert.equal(agentTask.parameters.question, agentQuestion);
+  assert.equal(agentTask.result.results.r1.data.summary.review_count, 48);
+  assert.equal(agentTask.result.results.r2.data.products.length, 2);
+  assert.ok(agentTask.result.results.r3.data.items.every(item => item.opinions[0].quote === '包装破损'));
+  assert.equal(agentModelCalls, 2);
+  await agentPage.getByRole('button', { name: /查看原文 #/ }).first().click();
+  await agentPage.getByRole('dialog').getByText(/sha256:/).waitFor();
+  await agentPage.getByRole('button', { name: '关闭数据详情', exact: true }).click();
+  await agentPage.getByRole('dialog').waitFor({ state: 'hidden' });
+  const [agentDownload] = await Promise.all([
+    agentPage.waitForEvent('download'),
+    agentPage.getByRole('button', { name: '下载 Agent JSON', exact: true }).click({ timeout: 5000 }),
+  ]);
+  assert.deepEqual(JSON.parse(await readFile(await agentDownload.path(), 'utf8')), agentTask.result);
+  await agentPage.reload();
+  await agentPage.getByRole('heading', { name: 'Agent 分析结果', exact: true }).waitFor();
+  assert.equal(await agentPage.getByText('正在读取分析快照…').count(), 0);
+  await agentPage.setViewportSize({ width: 390, height: 844 });
+  assert.ok(await agentPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Agent mobile overflows');
+  await agentPage.screenshot({ path: path.join(artifacts, 'review-agent-mobile.png'), fullPage: true });
+  await agentPage.setViewportSize({ width: 1366, height: 900 });
+  await agentPage.screenshot({ path: path.join(artifacts, 'review-agent.png'), fullPage: true });
+  assert.equal(agentModelCalls, 2, 'restoring a saved Agent result must not invoke the model');
+  await agentContext.close();
+  page = mainPage;
   const emptyContext = await browser.newContext({ viewport: { width: 1366, height: 900 } });
   const emptyPage = await emptyContext.newPage();
   const emptyOptions = { ...(await get('/options')), products: [], profiles: [], selected_profile_id: null };
@@ -561,7 +625,7 @@ try {
   assert.ok(!serverLog.includes('local-test-key'));
   assert.ok(!serverLog.includes(extra.text));
   const report = { status: 'passed', simulated_data: true, api: apiUrl, frontend: webUrl, task_id: taskId, run_id: run.run_id,
-    failed_task_id: failedId, retry_task_id: retried.task_id, imported_task_id: importId,
+    failed_task_id: failedId, retry_task_id: retried.task_id, imported_task_id: importId, agent_task_id: agentId,
     checks: ['single import entry', 'CSV native picker and upload', 'CSV source and preparation scope', 'CSV textual IDs', 'product selection', 'data preview', 'question note', 'real task and worker', 'snapshot statistics', 'chart',
       'JSON download equality', 'reload recovery', 'network reconnect', 'worker failure', 'explicit retry', 'native file chooser outside import root',
       'Chinese and spaced file paths', 'JSONL and compressed metadata upload', 'uploaded bytes match selected files', 'upload missing file validation', 'lost response import retry uses one task',
@@ -570,7 +634,8 @@ try {
       'label parameter validation', 'label product scope', 'label live progress', 'label concurrency', 'label reload recovery', 'label skip completed',
       'database import rows', 'database annotations and opinions', 'duplicate import', 'delete imported data', 'delete task history', 'label to analysis scope', 'mobile workspace', 'backend operation logs',
       'advanced parameters collapsed', 'main action above fold at 1366x768', 'draft reload recovery', 'one click prepared analysis',
-      'full width workspace at 1366, 1024 and 768', 'keyboard history drawer and empty state', 'history pagination and result restore', 'mobile history drawer', 'history error recovery'],
+      'full width workspace at 1366, 1024 and 768', 'keyboard history drawer and empty state', 'history pagination and result restore', 'mobile history drawer', 'history error recovery',
+      'Agent real tools and queue', 'Agent trend comparison and original evidence', 'Agent JSON download', 'Agent reload without model call', 'Agent mobile layout'],
     browser_errors: browserErrors, artifacts };
   await writeFile(path.join(artifacts, 'acceptance.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));

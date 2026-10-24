@@ -8,6 +8,7 @@ export interface AnalysisDraft {
   current?: [string, string];
   baseline?: [string, string];
   note: string;
+  agentQuestion?: string;
 }
 
 export const emptyDraft = (): AnalysisDraft => ({ dataset: '', productIds: [], note: '' });

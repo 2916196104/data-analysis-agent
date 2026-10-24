@@ -9,6 +9,7 @@
       <env name="PYTHONUTF8" value="1" />
       <env name="PYTHONIOENCODING" value="utf-8" />
       <env name="PYTHONPATH" value="$PROJECT_DIR$/src" />
+      <env name="DATABASE_SQL_LOG" value="1" />
     </envs>
     <option name="SDK_HOME" value="$PROJECT_DIR$/.venv/Scripts/python.exe" />
     <option name="SDK_NAME" value="E:\AllProject\data-analysis-agent\.venv" />

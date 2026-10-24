@@ -1,5 +1,5 @@
-import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
-import { Alert, Button, DatePicker, Form, Input, Select } from 'antd';
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { Alert, Button, DatePicker, Form, Input, Modal, Select, Space } from 'antd';
 import { ArrowRightOutlined, DatabaseOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import {
@@ -28,6 +28,7 @@ export default function Composer({
   options, quality, draft, setDraft, busy, onSubmit, onPreview, onLabel,
 }: ComposerProps) {
   const [form] = Form.useForm<Values>();
+  const [agentOpen, setAgentOpen] = useState(false);
   const advanced = useRef<HTMLDetailsElement>(null);
   const availableProducts = options.products.filter(
     product => datasetKey(product) === draft.dataset,
@@ -90,6 +91,13 @@ export default function Composer({
     const next = { ...draft, baseline: undefined };
     setDraft(next);
     form.setFieldValue('baseline', analysisDates(next, quality).baseline.map(date => dayjs(date)));
+  }
+
+  function submitAgent(): void {
+    const question = draft.agentQuestion?.trim();
+    if (!parameters || !question) return;
+    setAgentOpen(false);
+    onSubmit({ ...parameters, question }, question);
   }
 
   return <div className="composer-wrap">
@@ -168,9 +176,22 @@ export default function Composer({
         {!!availableProducts.length && needsPreparation && <Alert className="spaced" type="info" showIcon message="先准备数据" description="所选范围尚无可用的成功标注。确认本批处理数量后，模型会提取评论观点。" />}
         <div className="submit-row">
           <Button aria-label="预览数据" icon={<DatabaseOutlined />} disabled={!availableProducts.length} onClick={onPreview}>预览数据</Button>
+          <Button aria-label="Agent 问答" disabled={busy || !parameters} onClick={() => setAgentOpen(true)}>Agent 问答</Button>
           {!availableProducts.length ? <Button type="primary" disabled>开始分析</Button> : needsPreparation ? <Button type="primary" onClick={onLabel}>准备数据</Button> : <Button aria-label="开始分析" type="primary" htmlType="submit" loading={busy} icon={<ArrowRightOutlined />} iconPosition="end">开始分析</Button>}
         </div>
       </div>
     </Form>
+    <Modal title="只读评论 Agent" open={agentOpen} onCancel={() => setAgentOpen(false)} onOk={submitAgent}
+      okText="提交问题" cancelText="取消" okButtonProps={{ disabled: !parameters || !draft.agentQuestion?.trim(), loading: busy }}>
+      <p>模型将查询当前选择范围的已有标注，返回统计和原文证据。</p>
+      <p className="muted">{selectedProducts.length} 款商品 · {dates.current[0]} 至 {dates.current[1]}（UTC）</p>
+      <Input.TextArea aria-label="评论分析问题" value={draft.agentQuestion || ''} rows={4} maxLength={4000} showCount
+        placeholder="例如：按日查看评论趋势，对比所选商品，并给出包装负面评论原文。"
+        onChange={event => setDraft(previous => ({ ...previous, agentQuestion: event.target.value }))} />
+      <Space className="spaced" wrap>
+        {['按日查看评论趋势', '对比所选商品的负面评论占比', '查询包装负面评论的原文证据'].map(question =>
+          <Button key={question} size="small" onClick={() => setDraft(previous => ({ ...previous, agentQuestion: question }))}>{question}</Button>)}
+      </Space>
+    </Modal>
   </div>;
 }

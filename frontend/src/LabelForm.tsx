@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { Alert, Button, Checkbox, Form, InputNumber, Select } from 'antd';
 import { datasetKey, datasets } from './analysis-draft';
-import type { LabelParameters, Options } from './types';
+import type { AnalysisScope, LabelParameters, Options } from './types';
 
 interface Values {
   dataset: string;
@@ -17,6 +17,8 @@ interface LabelFormProps {
   initialProducts: string[];
   initialLimit?: number;
   initialWorkers?: number;
+  initialScope?: Pick<AnalysisScope, 'date_from' | 'date_to' | 'as_of'>;
+  initialRetryFailed?: boolean;
   busy: boolean;
   onSubmit: (parameters: LabelParameters) => void;
 }
@@ -27,6 +29,8 @@ export default function LabelForm({
   initialProducts,
   initialLimit = 100,
   initialWorkers = 2,
+  initialScope,
+  initialRetryFailed = false,
   busy,
   onSubmit,
 }: LabelFormProps) {
@@ -47,6 +51,7 @@ export default function LabelForm({
       limit: values.limit,
       workers: values.workers,
       retry_failed: values.retry_failed,
+      ...initialScope,
     });
   }
 
@@ -59,7 +64,7 @@ export default function LabelForm({
         product_ids: initialProducts,
         limit: initialLimit,
         workers: initialWorkers,
-        retry_failed: false,
+        retry_failed: initialRetryFailed,
       }}
       onFinishFailed={({ errorFields }) => {
         if (advanced.current && errorFields.some(field => field.name[0] === 'workers')) {
@@ -69,12 +74,15 @@ export default function LabelForm({
       onFinish={submit}
     >
       <p className="muted">
-        模型将提取评论观点，供后续分析使用。处理所选商品的全部日期，可能包含以前导入的待处理评论；自动跳过同一版本已成功的评论。
+        模型将提取评论观点，供后续分析使用。{initialScope
+          ? `仅处理本次分析范围：${initialScope.date_from} — ${initialScope.date_to}（UTC）${initialScope.as_of ? `，截止 ${initialScope.as_of}` : ''}。`
+          : '处理所选商品的全部日期，可能包含以前导入的待处理评论；'}自动跳过同一版本已成功的评论。
       </p>
+      {initialScope && <Alert className="spaced-bottom" type="info" showIcon message="提交后使用服务当前配置的标注模型处理。完成后请使用新标注任务对应的版本重新分析；历史结果不会自动更新。" />}
       <Form.Item label="标注数据集" name="dataset" rules={[{ required: true, message: '请选择数据集' }]}>
         <Select
           aria-label="标注数据集"
-          disabled={busy}
+          disabled={busy || !!initialScope}
           placeholder="请选择数据集"
           onChange={() => form.setFieldValue('product_ids', [])}
           options={availableDatasets.map(item => ({
@@ -91,7 +99,7 @@ export default function LabelForm({
           maxTagCount="responsive"
           optionFilterProp="label"
           placeholder="全部商品"
-          disabled={busy || !availableProducts.length}
+          disabled={busy || !!initialScope || !availableProducts.length}
           options={availableProducts.map(product => ({
             value: product.product_id,
             label: `${product.product_title || product.product_id} · ${product.product_id}（${product.review_count} 条）`,

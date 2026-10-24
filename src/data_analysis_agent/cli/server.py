@@ -14,9 +14,9 @@ if __name__ == "__main__" and not __package__:
 
     __package__ = prepare_direct_run(__file__)
 
-from data_analysis_agent.core.config import ConfigurationError
+from data_analysis_agent.core.config import ConfigurationError, read_settings
 from data_analysis_agent.reviews.label_store import init_labeling
-from data_analysis_agent.core.database import DATABASE_ERRORS, database_argument, is_postgres
+from data_analysis_agent.core.database import DATABASE_ERRORS, configure_sql_logging, database_argument, is_postgres
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.reviews.monitor_store import init_monitoring
 from data_analysis_agent.reviews.store import init_database
@@ -65,6 +65,9 @@ def main():
         logging.getLogger("data_analysis_agent").setLevel(logging.INFO)
     task_db = args.task_db or default_task_database(args.db)
     try:
+        if args.command in ("serve", "worker"):
+            settings = read_settings(args.env_file)
+            configure_sql_logging(settings.get("DATABASE_SQL_LOG", "0").strip().lower() in ("1", "true", "yes", "on"))
         if args.command != "init":
             check_task_database(task_db, args.db)
         if args.command == "init":

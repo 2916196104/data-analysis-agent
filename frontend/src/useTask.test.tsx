@@ -51,4 +51,15 @@ describe('任务轮询生命周期', () => {
     await act(() => vi.advanceTimersByTimeAsync(10_000));
     expect(api.task).toHaveBeenCalledTimes(1);
   });
+  it('刷新恢复 Agent 持久结果，不请求结构化分析快照', async () => {
+    const saved = { agent: true, answer: '已保存的评论分析', result_ids: ['r1'] };
+    vi.mocked(api.task).mockResolvedValue({ ...task('succeeded'), result: saved });
+    const { result, unmount } = renderHook(() => useTask('a'));
+    await act(async () => {});
+    expect(result.current.task?.result).toEqual(saved);
+    expect(api.run).not.toHaveBeenCalled();
+    await act(() => vi.advanceTimersByTimeAsync(15_000));
+    expect(api.task).toHaveBeenCalledTimes(1);
+    unmount();
+  });
 });

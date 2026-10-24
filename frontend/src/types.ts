@@ -37,6 +37,7 @@ export interface AnalysisScope extends Identity {
 export interface AnalysisParameters extends AnalysisScope {
   baseline_from: string;
   baseline_to: string;
+  question?: string;
 }
 export interface ImportParameters {
   reviews_path?: string;
@@ -58,6 +59,9 @@ export interface LabelParameters {
   limit: number;
   workers: number;
   retry_failed: boolean;
+  date_from?: string;
+  date_to?: string;
+  as_of?: string | null;
 }
 export type TaskInput = { kind: 'analysis'; parameters: AnalysisParameters }
   | { kind: 'import'; parameters: ImportParameters }
@@ -121,6 +125,8 @@ export interface Review {
 export interface Summary {
   review_count: number;
   eligible_text_reviews: number;
+  empty_text_reviews?: number;
+  reviewed_reviews?: number;
   successful_reviews: number;
   failed_reviews: number;
   unprocessed_reviews: number;
@@ -136,6 +142,39 @@ export interface Issue {
   negative_rate: number | null;
   baseline_negative_rate: number | null;
   negative_rate_change_pp: number | null;
+}
+export interface AgentEvidence {
+  review_id: number;
+  product_id: string;
+  text: string;
+  published_at: string;
+  evidence_ref: string;
+  opinion_source: string;
+  opinions: Opinion[];
+}
+export type AgentToolResult = { result_id: string; parameters: Record<string, unknown> } & (
+  { kind: 'context'; data: { summary: Summary; products?: { product_id: string; title: string | null }[] } }
+  | { kind: 'trend'; data: { period: string; summary: Summary; buckets: (Summary & { bucket: string })[] } }
+  | { kind: 'comparison'; data: { products: (Summary & { product_id: string })[]; no_reviews_product_ids?: string[] } }
+  | { kind: 'issues'; data: { issues: Issue[]; current?: Summary; baseline?: Summary } }
+  | { kind: 'evidence'; data: { total: number; page: number; items: AgentEvidence[] } }
+);
+export interface AgentResult {
+  agent: true;
+  status: 'ok' | 'unsupported' | 'error';
+  question: string;
+  answer?: string;
+  answer_sections?: { result_id: string; kind: AgentToolResult['kind']; text: string }[];
+  scope: AnalysisScope;
+  snapshot_at: string;
+  result_ids?: string[];
+  results: Record<string, AgentToolResult>;
+  warnings?: string[];
+  validation?: { status: 'passed' | 'failed'; checks: { name: string; passed: boolean; detail: string }[] };
+  model_calls: number;
+  tool_calls: number;
+  elapsed_seconds: number;
+  trace: { event: string; tool?: string; status?: string; elapsed_ms?: number; result_id?: string }[];
 }
 export interface Run {
   run_id: string;

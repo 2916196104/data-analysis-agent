@@ -15,11 +15,12 @@ import DataPreview from './DataPreview';
 import LabelForm from './LabelForm';
 import ImportProgress from './ImportProgress';
 import ResultCards from './ResultCards';
+import AgentResults from './AgentResults';
 import { exportResult, readHistory, writeHistory } from './local-history';
 import { canRetry, isActive, kindLabels, progressPercent, stageLabels, statusLabels } from './task-state';
 import { useTask } from './useTask';
 import type {
-  AnalysisParameters, Health, Identity, ImportParameters, Options, Page, Quality,
+  AgentResult, AnalysisParameters, AnalysisScope, Health, Identity, ImportParameters, Options, Page, Quality,
   TaskInput, TaskSummary, UploadedImportFile,
 } from './types';
 
@@ -86,6 +87,8 @@ export default function App() {
     products: string[];
     limit?: number;
     workers?: number;
+    scope?: Pick<AnalysisScope, 'date_from' | 'date_to' | 'as_of'>;
+    retryFailed?: boolean;
   }>();
   const [importForm] = Form.useForm<ImportParameters>();
   const importAdvanced = useRef<HTMLDetailsElement>(null);
@@ -99,6 +102,7 @@ export default function App() {
   const taskState = useTask(local.selected);
   const task = taskState.id === local.selected ? taskState.task : null;
   const run = taskState.id === local.selected ? taskState.run : null;
+  const agentResult = task?.result?.agent === true ? task.result as unknown as AgentResult : null;
   const fetchHistory = useCallback(async () => {
     const requestId = ++historyRequest.current;
     try {
@@ -396,6 +400,9 @@ export default function App() {
     : profileId;
   const preparedDraft = {
     ...draft,
+    ...(task?.kind === 'label' && task.parameters.date_from && task.parameters.date_to
+      ? { current: [task.parameters.date_from, task.parameters.date_to] as [string, string], baseline: undefined }
+      : {}),
     dataset: task?.kind === 'label'
       ? JSON.stringify([task.parameters.source, task.parameters.dataset_version])
       : dataset,
@@ -500,15 +507,20 @@ export default function App() {
               {!previewProfile && !loading && <p className="muted">暂无可用标注版本，请先完成一批数据准备。</p>}
             </Card>}
             {run && <ResultCards run={run} question={title} onDetail={showDetail} />}
+            {agentResult && <AgentResults key={task.task_id} result={agentResult} onDetail={showDetail} onPrepare={products => {
+              setSubmitError('');
+              setLabelDefaults({ dataset: JSON.stringify([agentResult.scope.source, agentResult.scope.dataset_version]), products,
+                scope: { date_from: agentResult.scope.date_from, date_to: agentResult.scope.date_to, as_of: agentResult.scope.as_of }, retryFailed: true });
+            }} />}
             {task.result && task.kind !== 'analysis' && <details className="advanced-settings spaced"><summary>处理明细 <span>原始结果与下载</span></summary><div className="advanced-content"><Button icon={<DownloadOutlined />} onClick={() => exportResult(task.result, `task-${task.task_id}`)}>下载 JSON</Button><pre className="json-view">{JSON.stringify(task.result, null, 2)}</pre></div></details>}
-            {task.kind === 'analysis' && task.status === 'succeeded' && !run && !taskState.error && <div className="loading-result"><Spin /> 正在读取分析快照…</div>}
+            {task.kind === 'analysis' && task.status === 'succeeded' && !run && !agentResult && !taskState.error && <div className="loading-result"><Spin /> 正在读取分析快照…</div>}
           </>}
         </>}
       </main>
       <footer className="workspace-footer">观数 · 数据有据，分析可溯<span>评论分析工作台</span></footer>
     </div>
     <Drawer title="数据详情" width={620} open={previewOpen} onClose={() => setPreviewOpen(false)} destroyOnHidden><DataPreview products={currentProducts} options={options} profileId={previewProfile} onDetail={showDetail} /></Drawer>
-    <Drawer title={detail?.title} width={650} open={!!detail} onClose={() => setDetail(undefined)} extra={<Button icon={<DownloadOutlined />} onClick={() => exportResult(detail?.value, 'analysis-detail')}>下载 JSON</Button>}><pre className="json-view">{JSON.stringify(detail?.value, null, 2)}</pre></Drawer>
+    <Drawer title={detail?.title} width={650} open={!!detail} onClose={() => setDetail(undefined)} closable={{ 'aria-label': '关闭数据详情' }} extra={<Button icon={<DownloadOutlined />} onClick={() => exportResult(detail?.value, 'analysis-detail')}>下载 JSON</Button>}><pre className="json-view">{JSON.stringify(detail?.value, null, 2)}</pre></Drawer>
     <Modal title={pendingDelete?.kind === 'data' ? '删除这次导入的数据？' : '删除任务记录？'} open={!!pendingDelete} onCancel={() => { if (!deleteBusy) setPendingDelete(undefined); }} onOk={() => void executeDelete()} okText={pendingDelete?.kind === 'data' ? '删除导入数据' : '删除记录'} cancelText="取消" okButtonProps={{ danger: true, loading: deleteBusy }} destroyOnHidden>
       {pendingDelete?.kind === 'data'
         ? '会删除本次导入产生的评论、错误记录和关联标注；其他导入批次共用的商品信息会保留。此操作不可恢复。'
@@ -517,7 +529,7 @@ export default function App() {
     <Modal title="准备数据" open={!!labelDefaults} onCancel={() => { if (!busy) setLabelDefaults(undefined); }} footer={null} destroyOnHidden>
       {submitError && <Alert className="spaced-bottom" type="error" showIcon message="标注任务未提交" description={submitError} />}
       {labelDefaults && <LabelForm options={options} initialDataset={labelDefaults.dataset} initialProducts={labelDefaults.products}
-        initialLimit={labelDefaults.limit} initialWorkers={labelDefaults.workers} busy={busy}
+        initialLimit={labelDefaults.limit} initialWorkers={labelDefaults.workers} initialScope={labelDefaults.scope} initialRetryFailed={labelDefaults.retryFailed} busy={busy}
         onSubmit={parameters => {
           setDraft(previous => {
             const dataset = JSON.stringify([parameters.source, parameters.dataset_version]);

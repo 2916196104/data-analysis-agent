@@ -8,6 +8,7 @@ from data_analysis_agent.jobs.parameters import PARAMETERS
 from data_analysis_agent.jobs.store import TaskConflict, enqueue, get_task
 from data_analysis_agent.reviews.prompts import PROMPT_VERSION
 from data_analysis_agent.reviews.loader import import_suffix
+from data_analysis_agent.agents.review_prompts import PROMPT_VERSION as AGENT_PROMPT_VERSION
 
 
 def import_path(value, root, kind="reviews"):
@@ -26,6 +27,11 @@ def configured_identity(env_file):
     return settings, {"model": settings.model, "base_url": settings.base_url, "prompt_version": PROMPT_VERSION}
 
 
+def configured_agent_identity(env_file):
+    settings = AgentSettings.from_values(read_settings(env_file))
+    return settings, {"model": settings.model, "base_url": settings.base_url, "prompt_version": AGENT_PROMPT_VERSION}
+
+
 def prepare_parameters(kind, parameters, *, import_root, env_file):
     values = PARAMETERS[kind].model_validate(parameters).model_dump()
     if kind == "import":
@@ -36,6 +42,12 @@ def prepare_parameters(kind, parameters, *, import_root, env_file):
             raise ReviewDataError("CSV 评论已使用独立来源，不能与 Amazon 商品元数据一起导入。")
     elif kind == "label":
         _, values["model_identity"] = configured_identity(env_file)
+    elif kind == "analysis":
+        if values["question"] is None:
+            # 保留原结构化分析任务的载荷和幂等哈希。
+            values.pop("question")
+        else:
+            _, values["model_identity"] = configured_agent_identity(env_file)
     return values
 
 
@@ -44,10 +56,11 @@ def retry_task(task_db, task_id, *, import_root, env_file, idempotency_key=None)
     if task["status"] not in ("failed", "partial"):
         raise TaskConflict("只能重试失败或部分完成的任务。")
     parameters = dict(task["parameters"])
-    if task["kind"] == "label":
-        _, identity = configured_identity(env_file)
+    if task["kind"] == "label" or (task["kind"] == "analysis" and parameters.get("question")):
+        configured = configured_identity if task["kind"] == "label" else configured_agent_identity
+        _, identity = configured(env_file)
         if parameters["model_identity"] != identity:
-            raise TaskConflict("模型配置已变化，请使用新配置提交新标注任务。")
+            raise TaskConflict("模型配置已变化，请使用新配置提交新任务。")
     elif task["kind"] == "import":
         for name in ("reviews_path", "meta_path"):
             if parameters.get(name) is not None:

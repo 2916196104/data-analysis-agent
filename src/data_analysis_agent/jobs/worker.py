@@ -19,8 +19,8 @@ from data_analysis_agent.core.database import (
     is_postgres,
 )
 from data_analysis_agent.jobs.parameters import PARAMETERS
-# 保留这些导出，兼容旧入口；模型 SDK 仍只在真正执行标注任务时加载。
-from data_analysis_agent.jobs.submission import configured_identity, import_path, prepare_parameters, retry_task
+# 保留这些导出，兼容旧入口；模型 SDK 仅在执行标注或 Agent 问答时加载。
+from data_analysis_agent.jobs.submission import configured_agent_identity, configured_identity, import_path, prepare_parameters, retry_task
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.reviews.monitoring import replay_monthly, run_analysis
 from data_analysis_agent.reviews.store import import_amazon_jsonl
@@ -234,12 +234,31 @@ class TaskWorker:
                     progress=report_progress,
                 )
             elif task["kind"] == "analysis":
-                report_progress({"stage": "analysis", "completed": 0, "total": 1, "unit": "windows"})
-                result = run_analysis(self.business_db, **parameters)
-                report_progress({
-                    "stage": "analysis", "completed": 1, "total": 1,
-                    "unit": "windows", "run_id": result["run_id"],
-                })
+                question = parameters.pop("question", None)
+                if question is not None:
+                    from data_analysis_agent.agents.reviews import run_review_agent
+
+                    settings, current_identity = configured_agent_identity(self.env_file)
+                    if queued_identity != current_identity:
+                        raise ConfigurationError("Agent 模型配置与入队时不同，请重新提交问答任务。")
+                    parameters.pop("rules")
+                    result = run_review_agent(self.business_db, question, scope=parameters,
+                                              settings=settings, progress=report_progress)
+                    if result["status"] == "error":
+                        finish_task(self.task_db, task["task_id"], self.worker_id,
+                                    status="failed", result=result, error=result["error"])
+                        logger.warning("任务失败 task_id=%s kind=analysis error_code=%s 耗时=%.2fs",
+                                       task["task_id"], result["error"]["code"], time.monotonic() - started)
+                        return
+                    report_progress({"stage": "agent_completed", "completed": result["tool_calls"],
+                                     "total": result["tool_calls"], "unit": "tools"})
+                else:
+                    report_progress({"stage": "analysis", "completed": 0, "total": 1, "unit": "windows"})
+                    result = run_analysis(self.business_db, **parameters)
+                    report_progress({
+                        "stage": "analysis", "completed": 1, "total": 1,
+                        "unit": "windows", "run_id": result["run_id"],
+                    })
             else:
                 result = replay_monthly(
                     self.business_db, **parameters, progress=report_progress,

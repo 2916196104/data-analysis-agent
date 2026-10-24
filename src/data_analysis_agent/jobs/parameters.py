@@ -45,6 +45,13 @@ class LabelParameters(Scope):
 
 class AnalysisParameters(BaselineScope):
     rules: Rules = Field(default_factory=Rules)
+    question: str | None = Field(default=None, min_length=1, max_length=4000, pattern=r"\S")
+
+    @model_validator(mode="after")
+    def agent_scope_is_explicit(self):
+        if self.question is not None and (not self.source or not self.dataset_version):
+            raise ValueError("Agent 问答须明确选择数据来源和数据集版本。")
+        return self
 
 
 class ReplayParameters(Identity):

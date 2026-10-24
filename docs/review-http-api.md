@@ -1,5 +1,7 @@
 # 运行统一 HTTP API 与后台任务
 
+工作台新增[只读评论分析 Agent](review-agent.md)。在原 `analysis` 任务参数中传入 `question` 即可提交单轮问答；不传时保持原结构化分析行为。Agent 结果直接保存在任务中，无需数据库结构升级。
+
 本文下面的文件路径示例适用于 SQLite。PostgreSQL 可以使用 `--db env:DATABASE_URL`，默认任务表与业务表同库；配置及已有 SQLite 数据迁移见 [PostgreSQL 配置与迁移](postgresql.md)。新库使用 `init`，迁移旧库使用 `review_migrate`，两种初始化方式选择其一。
 
 API 统一接入现有评论查询、标注进度、人工复核、四个分析工具、运行记录与告警处理。导入、标注、保存分析、月度回放通过持久化任务提交，HTTP 立即返回 `task_id`，worker 在后台串行执行。本次不新增前端，原有 CLI 继续可用。

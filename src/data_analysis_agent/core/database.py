@@ -1,9 +1,12 @@
 """为应用固定的 SQLite/PostgreSQL 查询提供小型 DB-API 桥接层。"""
 
 import hashlib
+import logging
 import re
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
+from time import perf_counter
 from urllib.parse import quote, urlunsplit
 
 import psycopg
@@ -17,6 +20,33 @@ class DatabaseError(Exception):
 
 
 DATABASE_ERRORS = (sqlite3.Error, DatabaseError)
+
+
+sql_logger = logging.getLogger("data_analysis_agent.sql")
+sql_logger.setLevel(logging.WARNING)
+
+
+def configure_sql_logging(enabled):
+    """只记录 SQL 模板和耗时，不展开参数或数据库异常中的业务数据。"""
+    sql_logger.setLevel(logging.INFO if enabled else logging.WARNING)
+
+
+@contextmanager
+def _trace_sql(namespace, statement):
+    if not sql_logger.isEnabledFor(logging.INFO):
+        yield
+        return
+    started = perf_counter()
+    statement = " ".join(statement.split())
+    try:
+        yield
+    except psycopg.Error as exc:
+        sql_logger.warning("SQL 失败 范围=%s 耗时=%.2fms 异常=%s | %s",
+                           namespace, (perf_counter() - started) * 1000, type(exc).__name__, statement)
+        raise
+    else:
+        sql_logger.info("SQL 成功 范围=%s 耗时=%.2fms | %s",
+                        namespace, (perf_counter() - started) * 1000, statement)
 
 
 def is_postgres(value):
@@ -100,14 +130,15 @@ class PostgresConnection:
     """匹配现有固定 SQL 语句使用的事务和行对象子集。"""
 
     def __init__(self, target, *, readonly=False, namespace="business"):
-        database_identity(target)
+        identity = database_identity(target)
         self.namespace = namespace
         self.readonly = readonly
         self.raw = None
         try:
-            self.raw = psycopg.connect(target, autocommit=True, row_factory=_row_factory,
-                                       connect_timeout=10, options="-c search_path=public -c timezone=UTC")
-            self.raw.execute("SET default_transaction_read_only = " + ("on" if readonly else "off"))
+            with _trace_sql(self.namespace, "CONNECT " + identity):
+                self.raw = psycopg.connect(target, autocommit=True, row_factory=_row_factory,
+                                           connect_timeout=10, options="-c search_path=public -c timezone=UTC")
+            self._execute("SET default_transaction_read_only = " + ("on" if readonly else "off"))
         except psycopg.Error:
             if self.raw is not None:
                 self.raw.close()
@@ -117,21 +148,25 @@ class PostgresConnection:
     def in_transaction(self):
         return self.raw.info.transaction_status != TransactionStatus.IDLE
 
+    def _execute(self, query, parameters=None):
+        with _trace_sql(self.namespace, query):
+            return self.raw.execute(query, parameters)
+
     def execute(self, query, parameters=None):
         try:
             command = query.strip().upper()
             if command == "BEGIN IMMEDIATE":
-                self.raw.execute("BEGIN")
+                self._execute("BEGIN")
                 # 在多个 API 进程之间保持 SQLite 序列化的读改写事务。
-                self.raw.execute("SELECT pg_advisory_xact_lock(%s)", (self._lock_key(),))
+                self._execute("SELECT pg_advisory_xact_lock(%s)", (self._lock_key(),))
                 return self.raw.cursor()
             if command == "BEGIN":
                 query = "BEGIN ISOLATION LEVEL REPEATABLE READ" + (" READ ONLY" if self.readonly else "")
             elif not self.in_transaction and command.startswith(("INSERT", "UPDATE", "DELETE")):
-                self.raw.execute("BEGIN")
+                self._execute("BEGIN")
             if command.startswith("CREATE TABLE"):
                 query = postgres_schema(query)
-            return self.raw.execute(_parameters(query) if parameters is not None else query, parameters)
+            return self._execute(_parameters(query) if parameters is not None else query, parameters)
         except psycopg.Error:
             raise DatabaseError("PostgreSQL 操作失败，事务未完成；请检查表结构、约束和服务状态。") from None
 
@@ -146,9 +181,11 @@ class PostgresConnection:
     def executemany(self, query, rows):
         try:
             if not self.in_transaction:
-                self.raw.execute("BEGIN")
+                self._execute("BEGIN")
             cursor = self.raw.cursor()
-            cursor.executemany(_parameters(query), rows)
+            statement = _parameters(query)
+            with _trace_sql(self.namespace, "EXECUTEMANY " + statement):
+                cursor.executemany(statement, rows)
             return cursor
         except psycopg.Error:
             raise DatabaseError("PostgreSQL 批量写入失败，事务未完成。") from None
@@ -160,13 +197,15 @@ class PostgresConnection:
 
     def commit(self):
         try:
-            self.raw.commit()
+            with _trace_sql(self.namespace, "COMMIT"):
+                self.raw.commit()
         except psycopg.Error:
             raise DatabaseError("PostgreSQL 提交失败，请核查事务结果。") from None
 
     def rollback(self):
         try:
-            self.raw.rollback()
+            with _trace_sql(self.namespace, "ROLLBACK"):
+                self.raw.rollback()
         except psycopg.Error:
             raise DatabaseError("PostgreSQL 回滚失败，请检查连接。") from None
 

@@ -30,6 +30,11 @@ describe('分析范围与衔接', () => {
     expect(writeHistory(saved)).toBe(true);
     expect(readHistory()).toEqual(saved);
   });
+  it('保留尚未提交的 Agent 问题', () => {
+    const saved = { selected: null, notes: {}, draft: { ...emptyDraft(), agentQuestion: '查询包装原文证据' } };
+    writeHistory(saved);
+    expect(readHistory().draft.agentQuestion).toBe('查询包装原文证据');
+  });
   it('读取旧版记录和损坏日期时保留历史并恢复可用默认值', () => {
     localStorage.clear();
     writeHistory({ selected: 'legacy', notes: {}, draft: emptyDraft() });
