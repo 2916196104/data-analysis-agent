@@ -47,6 +47,14 @@ def response(opinions=(), *, content=None, finish="stop", usage=True, model="res
     })
 
 
+def batch_response(items, *, finish="stop", usage=True):
+    return response(
+        content=json.dumps({"items": items}, ensure_ascii=False),
+        finish=finish,
+        usage=usage,
+    )
+
+
 class ReviewLabelTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
@@ -325,6 +333,9 @@ class ReviewLabelTests(unittest.TestCase):
         for value in (0, 5, True, "4"):
             with self.assertRaises(ReviewDataError):
                 run_labeling(self.db, settings=SETTINGS, workers=value)
+        for value in (0, 9, True, "4"):
+            with self.assertRaises(ReviewDataError):
+                run_labeling(self.db, settings=SETTINGS, batch_size=value)
         for value in ([""], "P1", [1]):
             with self.assertRaises(ReviewDataError):
                 run_labeling(self.db, settings=SETTINGS, product_ids=value)
@@ -399,6 +410,31 @@ class ReviewLabelTests(unittest.TestCase):
             result = run_labeling(self.db, settings=SETTINGS, limit=2, workers=2)
         self.assertEqual(result["successful_reviews"], 2)
         self.assertEqual(len(connections), 1)
+
+    def test_batch_output_is_split_and_each_review_is_saved(self):
+        init_labeling(self.db)
+        self.add_reviews([f"批量评论 {index}" for index in range(4)], name="batch.jsonl")
+        requests = []
+
+        def handler(request):
+            body = json.loads(request.content)
+            items = json.loads(body["messages"][1]["content"])["items"]
+            requests.append([item["review_id"] for item in items])
+            if len(items) == 4:
+                return batch_response([{"review_id": items[0]["review_id"], "opinions": []}])
+            return batch_response([
+                {"review_id": item["review_id"], "opinions": []}
+                for item in items
+            ])
+
+        def client(**kwargs):
+            return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+        with patch("data_analysis_agent.reviews.labeling.OpenAI", side_effect=client):
+            result = run_labeling(self.db, settings=SETTINGS, limit=4, workers=1, batch_size=4)
+        self.assertEqual([len(item) for item in requests], [4, 2, 2])
+        self.assertEqual((result["successful_reviews"], result["failed_reviews"]), (4, 0))
+        self.assertEqual(result["model_calls"], 3)
 
     def test_parallel_auth_failure_stops_submitting_new_requests(self):
         init_labeling(self.db)

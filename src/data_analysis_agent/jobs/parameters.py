@@ -32,6 +32,7 @@ class ImportParameters(Input):
 class LabelParameters(Scope):
     limit: int = Field(default=20, ge=1, le=1000, strict=True)
     workers: int = Field(default=1, ge=1, le=4, strict=True)
+    batch_size: int = Field(default=1, ge=1, le=8, strict=True)
     retry_failed: bool = Field(default=False, strict=True)
 
 

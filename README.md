@@ -34,7 +34,7 @@ All_Beauty 的完整真实文件已下载到 `data/private/amazon_reviews_2023/r
 
 新增 [分析记录、月度回放与规则告警](docs/review-monitoring.md)：`python -m data_analysis_agent.cli.monitoring` 保存本次分析输入、人工观点和统计证据；按 UTC 月末回放，检查样本量、覆盖率、负面数量及占比增长；支持冷却去重、告警查询、确认和忽略。首次使用须显式执行该入口的 `init --db`，只新增监控表。命令不调用模型，样本不足会记录“无法判断”。
 
-`run` 会向配置的模型端点发送评论正文；默认每批最多 20 条。重复执行继续下一批，成功结果不重复调用模型；`--retry-failed` 可显式纳入失败项。可用 `--limit 200 --workers 4` 同时处理最多 4 条评论的模型请求，并在终端逐条查看进度；默认单路。用[观点标注说明](docs/review-labeling.md)中的人工复核方法比较模型准确率。开发联调仅用模拟样本请求线上接口；业务库中的真实标注由你执行。已有观点表时无需重复初始化。
+`run` 会向配置的模型端点发送评论正文；默认每批最多 20 条。重复执行继续下一批，成功结果不重复调用模型；`--retry-failed` 可显式纳入失败项。可用 `--limit 200 --workers 4` 同时处理最多 4 个模型请求，也可增加 `--batch-size 4` 让单次请求包含多条评论；程序在每条结果保存后报告进度，默认仍是单条请求。用[观点标注说明](docs/review-labeling.md)中的人工复核方法比较模型准确率。开发联调仅用模拟样本请求线上接口；业务库中的真实标注由你执行。已有观点表时无需重复初始化。
 
 ```powershell
 New-Item -ItemType Directory -Force data/private | Out-Null

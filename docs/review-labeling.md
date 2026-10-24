@@ -65,6 +65,14 @@ Set-Location E:\AllProject\data-analysis-agent
 .\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling run --db data/private/reviews.sqlite3 --source amazon_reviews_2023 --dataset-version amazon-reviews-2023 --limit 200 --workers 4
 ```
 
+当模型端点支持稳定的 JSON 批量输出时，可以增加 `--batch-size 4`，一次请求处理多条评论：
+
+```powershell
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling run --db data/private/reviews.sqlite3 --source amazon_reviews_2023 --dataset-version amazon-reviews-2023 --limit 200 --workers 4 --batch-size 4
+```
+
+`--batch-size` 默认是 1，允许 1—8。批次同时受总正文字符上限约 24,000 限制；每条评论仍单独校验 quote 和写入结果。批量 JSON 缺少、重复或新增 `review_id` 时，程序会递归拆分批次（例如 8 → 4 → 2 → 1）后重试；认证、限流和不可恢复 API 错误保持原有停批规则。`model_calls` 统计实际请求次数，可能大于评论数，因为批量校验失败的父请求也会计入。模型返回的批次 token 用量按条目分摊后写入，汇总不会重复计算，单条用量是近似值。批量包装不会改变观点抽取规则和既有 `PROMPT_VERSION`，成功标注仍按评论正文、模型、服务地址和提示词版本增量跳过。
+
 IDEA 可选 **18 亚马逊并发标注200条（调用模型）**，此配置不限定商品或日期。先用少量评论比较 `--workers 2` 与 `4`；服务端限流、并发配额和单条评论长度会影响实际速度。认证、限流及其他不可恢复的模型 API 错误会停批；单次超时、连接中断或服务端 5xx 会记录失败后继续，连续 3 次这类错误才停批。最多 4 条已在途的请求会保存结果后结束。失败项仍需要显式 `--retry-failed`。不要同时运行两个标注进程，避免重复发送相同评论。并发不会减少总模型调用量或直接提高标签准确率。
 
 如果终端显示 `model_timeout`，可在 `.env` 中把 `LLM_TIMEOUT_SECONDS=30` 调到例如 `60`，并按服务状况设置 `LLM_MAX_RETRIES=1` 或 `2`（允许 0—3）。超时和重试会延长单条评论的最长等待时间。旧记录中的 `model_api_error` 未保存具体异常，不能仅凭该代码确认是超时；处理服务故障后使用 `--retry-failed` 重试。

@@ -42,6 +42,7 @@ def main():
         command.add_argument("--prompt-version", required=command is query, help="标注时使用的完整提示词版本")
     run.add_argument("--limit", type=int, default=20, help="每批最多处理条数，1—1000，默认20")
     run.add_argument("--workers", type=int, default=1, help="同时调用模型的请求数，1—4，默认1")
+    run.add_argument("--batch-size", type=int, default=1, help="每次模型请求的评论数，1—8，默认1")
     run.add_argument("--env-file", type=Path, default=Path(".env"))
     run.add_argument("--retry-failed", action="store_true", help="同时选择失败评论重新尝试")
     evidence.add_argument("--review-id", required=True, type=int)
@@ -66,7 +67,8 @@ def main():
                       file=sys.stderr, flush=True)
 
             result = run_labeling(args.db, limit=args.limit, retry_failed=args.retry_failed,
-                                   env_file=args.env_file, progress=show_progress, workers=args.workers, **scope)
+                                   env_file=args.env_file, progress=show_progress, workers=args.workers,
+                                   batch_size=args.batch_size, **scope)
         elif args.command == "status":
             result = {"status": "ok", "current_prompt_version": PROMPT_VERSION,
                       **labeling_status(args.db, **scope, **identity)}
