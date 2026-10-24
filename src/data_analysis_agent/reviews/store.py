@@ -10,7 +10,7 @@ from data_analysis_agent.core.clock import utc_now
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.core.database import (PostgresConnection, check_postgres_schema, connect_database, database_identity,
-                       database_target, init_postgres, insert_id, is_postgres)
+                       database_target, init_postgres, insert_id, is_postgres, table_names)
 
 from data_analysis_agent.reviews.loader import (
     DATASET_VERSION, SOURCE, file_sha256,
@@ -405,6 +405,10 @@ def delete_import_runs(db_path: str | Path, import_run_ids: list[int]) -> dict:
             f"SELECT id FROM reviews WHERE import_run_id IN ({placeholders})", ids,
         ).fetchall()
         review_ids = [row[0] for row in review_rows]
+        if review_ids and "label_tasks" in table_names(connection):
+            from data_analysis_agent.jobs.label_queue import delete_review_tasks_on_connection
+
+            delete_review_tasks_on_connection(connection, review_ids)
         annotation_ids: list[int] = []
         human_review_ids: list[int] = []
         if review_ids:

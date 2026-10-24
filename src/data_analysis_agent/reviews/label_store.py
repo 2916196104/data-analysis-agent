@@ -4,7 +4,7 @@ from contextlib import closing
 from pathlib import Path
 
 from data_analysis_agent.core.clock import utc_now
-from data_analysis_agent.core.database import insert_id, table_names
+from data_analysis_agent.core.database import PostgresConnection, insert_id, table_names
 from data_analysis_agent.core.validation import validate_integer
 
 from data_analysis_agent.core.errors import ReviewDataError
@@ -123,38 +123,54 @@ def _save_annotation(connection, review, *, model, base_url, prompt_version, sta
                      opinions=(), model_version=None, response_id=None, error_code=None,
                      usage=None, elapsed_ms=0):
     """在已打开的连接上原子提交一次完整尝试及其已校验观点。"""
-    usage = usage or {}
-    key = (review["id"], review["content_sha256"], model, base_url, prompt_version)
     with connection:
         connection.execute("BEGIN IMMEDIATE")
-        current = connection.execute("SELECT text, content_sha256 FROM reviews WHERE id=?", (review["id"],)).fetchone()
-        if current is None or current[0] != review["text"] or current[1] != review["content_sha256"]:
-            raise ReviewDataError("标注期间评论内容变化，结果未保存。")
-        if connection.execute(
-            "SELECT 1 FROM review_annotations WHERE review_id=? AND content_sha256=? "
-            "AND requested_model=? AND base_url=? AND prompt_version=? AND status='success'", key
-        ).fetchone():
-            return None
-        for opinion in opinions:
-            if review["text"][opinion["quote_start"]:opinion["quote_end"]] != opinion["quote"]:
-                raise ReviewDataError("观点原文位置与正文不一致，结果未保存。")
-        if status == "failed" and opinions:
-            raise ReviewDataError("失败的标注不能保存观点。")
-        annotation_id = insert_id(connection,
-            """INSERT INTO review_annotations
-            (review_id, content_sha256, requested_model, base_url, prompt_version, status,
-             model_version, response_id, error_code, input_tokens, output_tokens, total_tokens,
-             elapsed_ms, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (*key, status, model_version, response_id, error_code, usage.get("input_tokens"),
-             usage.get("output_tokens"), usage.get("total_tokens"), elapsed_ms, utc_now()),
+        return append_annotation_on_connection(
+            connection, review, model=model, base_url=base_url, prompt_version=prompt_version,
+            status=status, opinions=opinions, model_version=model_version, response_id=response_id,
+            error_code=error_code, usage=usage, elapsed_ms=elapsed_ms,
         )
-        connection.executemany(
-            """INSERT INTO review_opinions
-            (annotation_id, aspect, sentiment, quote, quote_start, quote_end) VALUES (?,?,?,?,?,?)""",
-            [(annotation_id, item["aspect"], item["sentiment"], item["quote"],
-              item["quote_start"], item["quote_end"]) for item in opinions],
-        )
-        return annotation_id
+
+
+def append_annotation_on_connection(connection, review, *, model, base_url, prompt_version, status,
+                                    opinions=(), model_version=None, response_id=None, error_code=None,
+                                    usage=None, elapsed_ms=0):
+    """复用相同校验和唯一约束；事务由调用方管理，可与持久任务状态一起提交。"""
+    usage = usage or {}
+    key = (review["id"], review["content_sha256"], model, base_url, prompt_version)
+    if not connection.in_transaction:
+        raise ReviewDataError("标注追加必须处于调用方事务内。")
+    # 同一评论的旧入口和队列入口也必须互斥，避免先查后写竞争。
+    if isinstance(connection, PostgresConnection):
+        connection.execute("SELECT id FROM reviews WHERE id=? FOR UPDATE", (review["id"],))
+    current = connection.execute("SELECT text, content_sha256 FROM reviews WHERE id=?", (review["id"],)).fetchone()
+    if current is None or current[0] != review["text"] or current[1] != review["content_sha256"]:
+        raise ReviewDataError("标注期间评论内容变化，结果未保存。")
+    if connection.execute(
+        "SELECT 1 FROM review_annotations WHERE review_id=? AND content_sha256=? "
+        "AND requested_model=? AND base_url=? AND prompt_version=? AND status='success'", key
+    ).fetchone():
+        return None
+    for opinion in opinions:
+        if review["text"][opinion["quote_start"]:opinion["quote_end"]] != opinion["quote"]:
+            raise ReviewDataError("观点原文位置与正文不一致，结果未保存。")
+    if status == "failed" and opinions:
+        raise ReviewDataError("失败的标注不能保存观点。")
+    annotation_id = insert_id(connection,
+        """INSERT INTO review_annotations
+        (review_id, content_sha256, requested_model, base_url, prompt_version, status,
+         model_version, response_id, error_code, input_tokens, output_tokens, total_tokens,
+         elapsed_ms, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (*key, status, model_version, response_id, error_code, usage.get("input_tokens"),
+         usage.get("output_tokens"), usage.get("total_tokens"), elapsed_ms, utc_now()),
+    )
+    connection.executemany(
+        """INSERT INTO review_opinions
+        (annotation_id, aspect, sentiment, quote, quote_start, quote_end) VALUES (?,?,?,?,?,?)""",
+        [(annotation_id, item["aspect"], item["sentiment"], item["quote"],
+          item["quote_start"], item["quote_end"]) for item in opinions],
+    )
+    return annotation_id
 
 
 def save_annotation(db_path, review, *, model, base_url, prompt_version, status,

@@ -20,6 +20,10 @@ from data_analysis_agent.core.errors import ReviewDataError
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "queue":
+        from data_analysis_agent.cli.label_queue import main as queue_main
+
+        return queue_main(sys.argv[2:])
     parser = argparse.ArgumentParser(description="商品评论六维度观点标注")
     commands = parser.add_subparsers(dest="command", required=True)
     setup = commands.add_parser("init", help="由你显式创建观点表，保留原始评论")
@@ -27,6 +31,7 @@ def main():
     status = commands.add_parser("status", help="只读查看各模型版本进度，无需模型配置")
     evidence = commands.add_parser("evidence", help="查看评论原文、观点和模型版本")
     query = commands.add_parser("query", help="按明确版本和时间范围查询当前有效观点，不调用模型")
+    commands.add_parser("queue", help="Redis 持久批处理：使用 queue --help 查看子命令")
     for command in (setup, run, status, evidence, query):
         command.add_argument("--db", required=True, type=database_argument)
     for command in (run, status, query):

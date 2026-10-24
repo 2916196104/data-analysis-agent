@@ -77,3 +77,49 @@ class AgentSettings:
             timeout_seconds=timeout,
             max_retries=integer("LLM_MAX_RETRIES", 1, 0, 3),
         )
+
+
+@dataclass(frozen=True)
+class LabelQueueSettings:
+    redis_url: str = field(repr=False)
+    quota_scope: str
+    rpm: int
+    tpm: int
+    concurrency: int = 2
+    chunk_size: int = 100
+    batch_size: int = 4
+    lease_seconds: int = 120
+    max_calls: int = 6
+    max_retries: int = 2
+    backoff_seconds: int = 10
+    stream: str = "review-labels"
+    group: str = "label-workers"
+    coordinator_timeout_seconds: int = 3600
+
+    @classmethod
+    def from_values(cls, values, *, timeout_seconds=30):
+        required = ("LABEL_REDIS_URL", "LABEL_QUOTA_SCOPE", "LABEL_RPM", "LABEL_TPM")
+        if any(not values.get(name, "").strip() for name in required):
+            raise ConfigurationError("请配置 LABEL_REDIS_URL、LABEL_QUOTA_SCOPE、LABEL_RPM 和 LABEL_TPM；不推测服务商额度。")
+        if urlsplit(values["LABEL_REDIS_URL"]).scheme not in {"redis", "rediss"}:
+            raise ConfigurationError("LABEL_REDIS_URL 必须是 redis:// 或 rediss:// 地址。")
+        def number(name, default, low, high):
+            try:
+                value = int(values.get(name, str(default)))
+                if not low <= value <= high:
+                    raise ValueError
+                return value
+            except ValueError:
+                raise ConfigurationError(f"{name} 必须是 {low} 至 {high} 的整数。") from None
+        lease = number("LABEL_LEASE_SECONDS", max(120, int(timeout_seconds * 2 + 30)), 30, 3600)
+        if lease <= timeout_seconds + 10:
+            raise ConfigurationError("LABEL_LEASE_SECONDS 必须至少比请求超时长 10 秒。")
+        return cls(redis_url=values["LABEL_REDIS_URL"], quota_scope=values["LABEL_QUOTA_SCOPE"].strip(),
+                   rpm=number("LABEL_RPM", 0, 1, 1000000000), tpm=number("LABEL_TPM", 0, 1, 1000000000000),
+                   concurrency=number("LABEL_MAX_CONCURRENCY", 2, 1, 100),
+                   chunk_size=number("LABEL_DB_CHUNK_SIZE", 100, 1, 1000), batch_size=number("LABEL_BATCH_SIZE", 4, 1, 8),
+                   lease_seconds=lease, max_calls=number("LABEL_MAX_CALLS_PER_REVIEW", 6, 1, 100),
+                   max_retries=number("LABEL_MAX_RETRIES", 2, 0, 20),
+                   backoff_seconds=number("LABEL_BACKOFF_SECONDS", 10, 1, 3600),
+                   coordinator_timeout_seconds=number("LABEL_COORDINATOR_TIMEOUT_SECONDS", 3600, 1, 604800),
+                   stream=values.get("LABEL_STREAM", "review-labels"), group=values.get("LABEL_GROUP", "label-workers"))

@@ -294,6 +294,17 @@ def _label_batch(client: OpenAI, reviews: list[dict], settings: AgentSettings) -
     return outcome
 
 
+def label_batch_once(client, reviews, settings):
+    """队列执行器复用同一请求格式、ID 和 quote 校验；拆分调度由持久任务控制。"""
+    return (_single_outcome(client, reviews[0], settings) if len(reviews) == 1
+            else _request_batch(client, reviews, settings))
+
+
+def review_batches(reviews, batch_size):
+    """共享正文长度和每请求评论数限制。"""
+    return _review_batches(reviews, batch_size)
+
+
 def _review_batches(reviews: list[dict], batch_size: int):
     current = []
     current_chars = 0
@@ -364,7 +375,16 @@ def run_labeling(
         source=source,
         dataset_version=dataset_version,
     )
-    settings = settings or AgentSettings.from_values(read_settings(env_file))
+    values = read_settings(env_file)
+    settings = settings or AgentSettings.from_values(values)
+    mode = values.get("LABEL_EXECUTION_MODE", "local").strip()
+    if mode == "redis":
+        from data_analysis_agent.jobs.label_dispatch import run_queued_labeling
+
+        return run_queued_labeling(db_path, settings, values, limit=limit, retry_failed=retry_failed,
+                                   retry_transient=retry_transient, scope=scope, progress=progress)
+    if mode != "local":
+        raise ReviewDataError("LABEL_EXECUTION_MODE 必须是 local 或 redis。")
     sdk_max_retries = settings.max_retries if (retry_failed or retry_transient) else 0
 
     # 模型、服务地址和提示词版本共同决定哪些评论已经完成标注。
