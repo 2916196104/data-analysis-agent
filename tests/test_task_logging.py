@@ -34,6 +34,24 @@ class TaskLoggingTests(unittest.TestCase):
         self.assertNotIn('private-input.jsonl', output)
         self.assertEqual(self.finish.call_args.kwargs['status'], 'partial')
 
+    def test_label_task_retry_uses_transient_recovery_unless_explicitly_retrying_all(self):
+        identity = {"model": "simulated", "base_url": "https://offline.invalid/v1", "prompt_version": "v1"}
+        for parent, flags, expected in (
+            (None, {}, (False, False)),
+            ("parent", {}, (False, True)),
+            ("parent", {"retry_transient": True}, (False, True)),
+            ("parent", {"retry_failed": True}, (True, False)),
+        ):
+            with self.subTest(parent=parent, flags=flags), patch(
+                'data_analysis_agent.jobs.worker.configured_identity', return_value=(object(), identity)
+            ), patch('data_analysis_agent.reviews.labeling.run_labeling', return_value={'status': 'ok'}) as run:
+                self.worker._execute({
+                    'task_id': 'label-test', 'kind': 'label', 'parent_task_id': parent,
+                    'parameters': {'model_identity': identity, **flags},
+                })
+                self.assertEqual((run.call_args.kwargs['retry_failed'], run.call_args.kwargs['retry_transient']), expected)
+                self.assertEqual(self.finish.call_args.kwargs['status'], 'succeeded')
+
     def test_error_logs_code_and_type_without_exception_message(self):
         with patch('data_analysis_agent.jobs.worker.import_amazon_jsonl', side_effect=RuntimeError('SECRET_KEY')), self.assertLogs(
                 'data_analysis_agent.jobs.worker', level='INFO') as logs:

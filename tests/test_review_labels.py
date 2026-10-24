@@ -73,7 +73,7 @@ class ReviewLabelTests(unittest.TestCase):
         }, ensure_ascii=False) + "\n" for index, text in enumerate(texts)), encoding="utf-8")
         import_amazon_jsonl(self.db, reviews_path=source)
 
-    def mock_model(self, sequence, requests):
+    def mock_model(self, sequence, requests, expected_retries=0):
         items = iter(sequence)
 
         def handler(request):
@@ -89,7 +89,7 @@ class ReviewLabelTests(unittest.TestCase):
             return item
 
         def client(**kwargs):
-            self.assertEqual(kwargs["max_retries"], 1)
+            self.assertEqual(kwargs["max_retries"], expected_retries)
             self.assertEqual(kwargs["timeout"], 30)
             return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handler)))
 
@@ -98,7 +98,10 @@ class ReviewLabelTests(unittest.TestCase):
     def run_script(self, sequence, **kwargs):
         requests = []
         settings = kwargs.pop("settings", SETTINGS)
-        with self.mock_model(sequence, requests):
+        expected_retries = settings.max_retries if (
+            kwargs.get("retry_failed") or kwargs.get("retry_transient")
+        ) else 0
+        with self.mock_model(sequence, requests, expected_retries=expected_retries):
             result = run_labeling(self.db, settings=settings, **kwargs)
         return result, requests
 
@@ -206,6 +209,50 @@ class ReviewLabelTests(unittest.TestCase):
         progress = labeling_status(self.db)["profiles"][0]
         self.assertEqual((progress["failed_attempts"], progress["failed_reviews"], progress["successful_reviews"]), (1, 0, 2))
 
+    def test_transient_recovery_skips_invalid_output(self):
+        init_labeling(self.db)
+        first, _ = self.run_script([response([opinion(quote="编造片段")])], limit=1)
+        self.assertEqual(first["results"][0]["error_code"], "invalid_output")
+        recovered, requests = self.run_script(
+            [response([])], limit=1, retry_transient=True,
+        )
+        self.assertEqual((recovered["selected_reviews"], recovered["model_calls"], len(requests)), (0, 0, 0))
+
+    def test_recovery_selects_latest_error_and_current_identity_only(self):
+        init_labeling(self.db)
+        codes = ["model_timeout", "model_connection_error", "model_server_error",
+                 "authentication_error", "rate_limit", "invalid_output", "model_api_error", "input_too_long"]
+        self.add_reviews(codes + ["pending", "other-profile", "changed-content"], name="recovery.jsonl")
+        identity = {"model": SETTINGS.model, "base_url": SETTINGS.base_url, "prompt_version": PROMPT_VERSION}
+        reviews = {r["text"]: r for r in pending_reviews(self.db, **identity, limit=50)}
+        for code in codes:
+            save_annotation(self.db, reviews[code], **identity, status="failed", error_code=code)
+        for code in ("model_timeout", "invalid_output"):
+            save_annotation(self.db, reviews[BODY1], **identity, status="failed", error_code=code)
+        save_annotation(self.db, reviews[BODY2], **identity, status="failed", error_code="model_timeout")
+        save_annotation(self.db, reviews[BODY2], **identity, status="success")
+        for field, value in (("model", "other-model"), ("base_url", "https://other.invalid/v1"),
+                             ("prompt_version", "other-prompt")):
+            save_annotation(self.db, reviews["other-profile"], **{**identity, field: value},
+                            status="failed", error_code="model_timeout")
+        save_annotation(self.db, reviews["changed-content"], **identity,
+                        status="failed", error_code="model_timeout")
+        with closing(sqlite3.connect(self.db)) as connection, connection:
+            connection.execute("UPDATE reviews SET content_sha256='changed' WHERE id=?",
+                               (reviews["changed-content"]["id"],))
+        selected = pending_reviews(self.db, **identity, limit=50, retry_transient=True)
+        self.assertEqual({r["id"] for r in selected}, {reviews[code]["id"] for code in codes[:3]})
+
+    def test_recovery_sdk_retry_is_bounded_and_preserves_history(self):
+        init_labeling(self.db)
+        self.run_script([httpx.ReadTimeout("temporary")], limit=1)
+        bad = httpx.Response(503, json={"error": {"message": "temporary"}}, headers={"retry-after-ms": "1"})
+        recovered, requests = self.run_script([bad, response([])], retry_transient=True)
+        self.assertEqual((len(requests), recovered["model_calls"], recovered["successful_reviews"]), (2, 1, 1))
+        self.assertEqual(recovered["sdk_max_retries"], SETTINGS.max_retries)
+        self.assertEqual([a["status"] for a in opinion_evidence(self.db, 1)["annotations"]], ["failed", "success"])
+        self.assertEqual(self.run_script([], retry_transient=True)[0]["selected_reviews"], 0)
+
     def test_success_with_no_opinions_is_cached_and_missing_usage_is_null(self):
         init_labeling(self.db)
         self.run_script([response([], usage=False), response([])])
@@ -242,7 +289,7 @@ class ReviewLabelTests(unittest.TestCase):
         limited = httpx.Response(429, json={"error": {"message": "rate limited"}},
                                 headers={"retry-after-ms": "1"})
         result, requests = self.run_script([limited, limited])
-        self.assertEqual(len(requests), 2)
+        self.assertEqual(len(requests), 1)
         self.assertEqual(result["stopped_reason"], "rate_limit")
         self.assertEqual(result["processed_reviews"], 1)
 
@@ -263,17 +310,24 @@ class ReviewLabelTests(unittest.TestCase):
     def test_transient_retry_is_bounded_and_one_timeout_does_not_stop_batch(self):
         init_labeling(self.db)
         bad = httpx.Response(500, json={"error": {"message": "temporary failure"}}, headers={"retry-after-ms": "1"})
-        result, requests = self.run_script([bad, response([])], limit=1)
-        self.assertEqual(len(requests), 2)
+        result, requests = self.run_script([bad], limit=1)
+        self.assertEqual(len(requests), 1)
         self.assertEqual(result["model_calls"], 1)
+        self.assertEqual(result["results"][0]["error_code"], "model_server_error")
+        recovered, requests = self.run_script([response([])], limit=1, retry_transient=True)
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(recovered["successful_reviews"], 1)
         timeout = httpx.ReadTimeout("must not persist " + FAKE_KEY)
         self.add_reviews(["另一条评论"], name="extra.jsonl")
-        continued, requests = self.run_script([timeout, timeout, response([])])
-        self.assertEqual(len(requests), 3)
+        continued, requests = self.run_script([timeout, response([])])
+        self.assertEqual(len(requests), 2)
         self.assertEqual(continued["stopped_reason"], None)
         self.assertEqual((continued["failed_reviews"], continued["successful_reviews"]), (1, 1))
         self.assertEqual(continued["results"][0]["error_code"], "model_timeout")
         self.assertNotIn(FAKE_KEY, json.dumps(continued))
+        recovered_timeout, requests = self.run_script([response([])], limit=1, retry_transient=True)
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(recovered_timeout["successful_reviews"], 1)
 
     def test_repeated_server_errors_stop_batch(self):
         init_labeling(self.db)
@@ -281,7 +335,7 @@ class ReviewLabelTests(unittest.TestCase):
         bad = httpx.Response(503, json={"error": {"message": "temporary failure"}},
                              headers={"retry-after-ms": "1"})
         result, requests = self.run_script([bad] * 6 + [response([])])
-        self.assertEqual(len(requests), 6)
+        self.assertEqual(len(requests), 3)
         self.assertEqual(result["processed_reviews"], 3)
         self.assertEqual(result["stopped_reason"], "repeated_model_api_errors")
         self.assertEqual([item["error_code"] for item in result["results"]], ["model_server_error"] * 3)
@@ -336,6 +390,10 @@ class ReviewLabelTests(unittest.TestCase):
         for value in (0, 9, True, "4"):
             with self.assertRaises(ReviewDataError):
                 run_labeling(self.db, settings=SETTINGS, batch_size=value)
+        for retry_options in ({"retry_transient": 1}, {"retry_failed": 1},
+                              {"retry_transient": True, "retry_failed": True}):
+            with self.assertRaises(ReviewDataError):
+                run_labeling(self.db, settings=SETTINGS, **retry_options)
         for value in ([""], "P1", [1]):
             with self.assertRaises(ReviewDataError):
                 run_labeling(self.db, settings=SETTINGS, product_ids=value)
@@ -435,6 +493,39 @@ class ReviewLabelTests(unittest.TestCase):
         self.assertEqual([len(item) for item in requests], [4, 2, 2])
         self.assertEqual((result["successful_reviews"], result["failed_reviews"]), (4, 0))
         self.assertEqual(result["model_calls"], 3)
+
+    def test_first_pass_batch_network_failure_does_not_split_or_retry(self):
+        init_labeling(self.db)
+        self.add_reviews([f"网络恢复 {index}" for index in range(4)], name="batch-network.jsonl")
+        for code, error in (
+            ("model_timeout", httpx.ReadTimeout("temporary")),
+            ("model_connection_error", httpx.ConnectError("temporary")),
+            ("model_server_error", httpx.Response(503, json={"error": {"message": "temporary"}})),
+        ):
+            with self.subTest(code=code):
+                requests = []
+
+                def handler(request):
+                    items = json.loads(json.loads(request.content)["messages"][1]["content"])["items"]
+                    requests.append(len(items))
+                    if len(requests) == 1:
+                        if isinstance(error, Exception):
+                            raise error
+                        return error
+                    return batch_response([{"review_id": item["review_id"], "opinions": []} for item in items])
+
+                def client(**kwargs):
+                    self.assertEqual(kwargs["max_retries"], 0)
+                    return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+                with patch("data_analysis_agent.reviews.labeling.OpenAI", side_effect=client):
+                    result = run_labeling(self.db, settings=replace(SETTINGS, model=code),
+                                          limit=6, workers=1, batch_size=4)
+                self.assertEqual(requests, [4, 2])
+                self.assertEqual((result["processed_reviews"], result["failed_reviews"],
+                                  result["successful_reviews"], result["model_calls"]), (6, 4, 2, 2))
+                self.assertIsNone(result["stopped_reason"])
+                self.assertEqual([r["error_code"] for r in result["results"][:4]], [code] * 4)
 
     def test_parallel_auth_failure_stops_submitting_new_requests(self):
         init_labeling(self.db)

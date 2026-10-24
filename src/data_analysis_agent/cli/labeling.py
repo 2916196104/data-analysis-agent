@@ -44,7 +44,10 @@ def main():
     run.add_argument("--workers", type=int, default=1, help="同时调用模型的请求数，1—4，默认1")
     run.add_argument("--batch-size", type=int, default=1, help="每次模型请求的评论数，1—8，默认1")
     run.add_argument("--env-file", type=Path, default=Path(".env"))
-    run.add_argument("--retry-failed", action="store_true", help="同时选择失败评论重新尝试")
+    retry_group = run.add_mutually_exclusive_group()
+    retry_group.add_argument("--retry-failed", action="store_true", help="人工显式重试所有失败评论")
+    retry_group.add_argument("--retry-transient", action="store_true",
+                             help="只恢复最近一次超时、连接或服务端错误")
     evidence.add_argument("--review-id", required=True, type=int)
     query.add_argument("--page", type=int, default=1)
     query.add_argument("--page-size", type=int, default=20)
@@ -68,7 +71,7 @@ def main():
 
             result = run_labeling(args.db, limit=args.limit, retry_failed=args.retry_failed,
                                    env_file=args.env_file, progress=show_progress, workers=args.workers,
-                                   batch_size=args.batch_size, **scope)
+                                   batch_size=args.batch_size, retry_transient=args.retry_transient, **scope)
         elif args.command == "status":
             result = {"status": "ok", "current_prompt_version": PROMPT_VERSION,
                       **labeling_status(args.db, **scope, **identity)}

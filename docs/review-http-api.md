@@ -212,6 +212,8 @@ Invoke-RestMethod "$apiBase/tasks/$taskId" | ConvertTo-Json -Depth 20
 
 成功记录跳过，每个任务只处理本批次最多 20 条，不自动把范围内所有评论全部标注。模型身份在入队时记录，密钥不入库；worker 执行前重新读取服务选择的 `.env`，如果模型、服务地址或提示词身份已变化，任务失败并要求重新提交。
 
+首轮标注关闭 SDK 自动重试。需要单独提交网络错误恢复任务时，使用相同商品、时间筛选范围，并在 `parameters` 中设置 `retry_transient: true`；也可以同时指定 `workers: 4`、`batch_size: 4`。恢复只选择最新一次失败为 `model_timeout`、`model_connection_error` 或 `model_server_error` 的评论，不选未处理评论或其他失败；SDK 重试上限使用服务端 `LLM_MAX_RETRIES`。`retry_failed: true` 保留为人工显式纳入所有失败和未处理评论，不能与 `retry_transient: true` 同时使用。
+
 ### 提交本机文件导入
 
 请求体结构如下。相对路径以 `--import-root data/private` 为基准；禁止越出该目录，worker 执行前再次检查文件。
@@ -268,7 +270,7 @@ $retryTaskId = $retrySubmission.result.task.task_id
 Invoke-RestMethod "$apiBase/tasks/$retryTaskId" | ConvertTo-Json -Depth 20
 ```
 
-标注重试自动纳入失败记录，并继续跳过成功结果，但仍受原批次 `limit` 限制；它也可能处理同范围的未标注记录。回放重试复用已提交且输入未变的月份；导入重试复用现有去重规则，但会新增导入历史。
+标注任务的重试默认进入网络错误恢复模式，只选择最新一次为三类可恢复错误的评论，继续跳过成功结果，并受原范围和 `limit` 限制。若原任务显式设置 `retry_failed: true`，其子任务保留人工重试所有失败的语义。因中断或停批留下的未处理评论，须重新提交首轮标注任务继续处理；恢复模式选出零条不代表所有失败或未处理评论都已完成。回放重试复用已提交且输入未变的月份；导入重试复用现有去重规则，但会新增导入历史。
 
 worker 不自动重跑失败或中断任务，避免不知情地重复发起模型调用。业务写入与任务状态位于不同 SQLite 事务，因此进程恰好在业务提交后、任务状态保存前退出时，任务可能显示中断，但业务结果已存在；重试依赖现有增量、去重与分析复用规则。网络请求结果不确定时仍可能再次调用模型，这里不承诺严格的“只执行一次”。
 

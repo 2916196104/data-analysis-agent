@@ -12,6 +12,11 @@ from data_analysis_agent.reviews.scope import current_reviews_sql, model_identit
 from data_analysis_agent.reviews.store import connect_review_database
 
 LABEL_SCHEMA_VERSION = 1
+RECOVERABLE_ERROR_CODES = (
+    "model_timeout",
+    "model_connection_error",
+    "model_server_error",
+)
 LABEL_SCHEMA = """
 CREATE TABLE review_labeling_schema (version INTEGER PRIMARY KEY);
 INSERT INTO review_labeling_schema VALUES (1);
@@ -74,23 +79,43 @@ def init_labeling(db_path: str | Path) -> dict:
     return {"created": True, "label_schema_version": LABEL_SCHEMA_VERSION}
 
 
-def pending_reviews(db_path, *, model, base_url, prompt_version, limit, retry_failed=False, product_ids=(),
-                    date_from=None, date_to=None, as_of=None, source=None, dataset_version=None):
+def pending_reviews(db_path, *, model, base_url, prompt_version, limit, retry_failed=False,
+                    retry_transient=False, product_ids=(), date_from=None, date_to=None,
+                    as_of=None, source=None, dataset_version=None):
     identity = model_identity(model, base_url, prompt_version, required=True)
     where, filters, _ = review_scope(product_ids=product_ids, date_from=date_from, date_to=date_to,
                                     as_of=as_of, source=source, dataset_version=dataset_version)
     validate_integer(limit, "limit", maximum=1000)
     if not isinstance(retry_failed, bool):
         raise ReviewDataError("retry_failed 必须是布尔值。")
+    if not isinstance(retry_transient, bool):
+        raise ReviewDataError("retry_transient 必须是布尔值。")
+    if retry_failed and retry_transient:
+        raise ReviewDataError("retry_failed 和 retry_transient 不能同时启用。")
     with closing(connect_review_database(db_path, readonly=True)) as connection:
         check_labeling_schema(connection)
-        conditions = [where, "r.has_text=1", "NOT EXISTS (SELECT 1 FROM review_annotations a "
-                      "WHERE a.review_id=r.id AND a.content_sha256=r.content_sha256 "
-                      "AND a.requested_model=? AND a.base_url=? AND a.prompt_version=?"
-                      + (" AND a.status='success')" if retry_failed else ")")]
+        identity_sql = (
+            "a.review_id=r.id AND a.content_sha256=r.content_sha256 "
+            "AND a.requested_model=? AND a.base_url=? AND a.prompt_version=?"
+        )
+        conditions = [
+            where,
+            "r.has_text=1",
+            "NOT EXISTS (SELECT 1 FROM review_annotations a "
+            f"WHERE {identity_sql}"
+            + (" AND a.status='success')" if retry_failed or retry_transient else ")"),
+        ]
+        parameters = (*filters, *identity)
+        if retry_transient:
+            # 最新尝试决定能否恢复；不选未处理项，也不复活已被其他错误取代的旧超时。
+            conditions.append(
+                "(SELECT a.error_code FROM review_annotations a "
+                f"WHERE {identity_sql} ORDER BY a.id DESC LIMIT 1) IN (?,?,?)"
+            )
+            parameters = (*parameters, *identity, *RECOVERABLE_ERROR_CODES)
         return [dict(row) for row in connection.execute(
             "SELECT r.id, r.text, r.content_sha256 FROM reviews r WHERE "
-            + " AND ".join(conditions) + " ORDER BY r.id LIMIT ?", (*filters, *identity, limit)
+            + " AND ".join(conditions) + " ORDER BY r.id LIMIT ?", (*parameters, limit)
         )]
 
 

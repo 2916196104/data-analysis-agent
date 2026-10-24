@@ -34,6 +34,13 @@ class LabelParameters(Scope):
     workers: int = Field(default=1, ge=1, le=4, strict=True)
     batch_size: int = Field(default=1, ge=1, le=8, strict=True)
     retry_failed: bool = Field(default=False, strict=True)
+    retry_transient: bool = Field(default=False, strict=True)
+
+    @model_validator(mode="after")
+    def retry_modes_are_exclusive(self):
+        if self.retry_failed and self.retry_transient:
+            raise ValueError("retry_failed 和 retry_transient 不能同时启用。")
+        return self
 
 
 class AnalysisParameters(BaselineScope):

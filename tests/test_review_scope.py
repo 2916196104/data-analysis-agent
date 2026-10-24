@@ -95,7 +95,7 @@ class ReviewScopeTests(WorkbenchFixture, unittest.TestCase):
         with patch("data_analysis_agent.reviews.labeling.OpenAI") as client:
             self.assertEqual(run_labeling(self.db, settings=label_tests.SETTINGS, **filters)["selected_reviews"], 0)
             client.assert_not_called()
-        with label_tests.ReviewLabelTests.mock_model(self, [label_tests.response([])], requests):
+        with label_tests.ReviewLabelTests.mock_model(self, [label_tests.response([])], requests, expected_retries=1):
             retry = run_labeling(self.db, settings=label_tests.SETTINGS, retry_failed=True, **filters)
         self.assertEqual([r["review_id"] for r in retry["results"]], [5])
         self.assertEqual(retry["successful_reviews"], 1)

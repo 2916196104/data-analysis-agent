@@ -136,6 +136,24 @@ class PostgresTests(unittest.TestCase):
         save_annotation(self.target, review, **IDENTITY, status="success", opinions=[])
         self.assertEqual(labeling_status(self.target)["profiles"][0]["successful_reviews"], 1)
 
+    def test_transient_recovery_uses_latest_error_and_skips_unprocessed(self):
+        init_database(self.target)
+        init_labeling(self.target)
+        source_file = next(self.fixture.root.glob("simulated-*.jsonl"))
+        import_amazon_jsonl(self.target, reviews_path=source_file)
+        reviews = pending_reviews(self.target, **IDENTITY, limit=10)
+        for review, code in zip(reviews, (
+            "model_timeout", "model_connection_error", "model_server_error", "invalid_output",
+            "authentication_error", "rate_limit", "model_api_error",
+        )):
+            save_annotation(self.target, review, **IDENTITY, status="failed", error_code=code)
+        save_annotation(self.target, reviews[0], **IDENTITY, status="failed", error_code="invalid_output")
+        save_annotation(self.target, reviews[1], **IDENTITY, status="success")
+        selected = pending_reviews(self.target, **IDENTITY, limit=100, retry_transient=True)
+        self.assertEqual([r["id"] for r in selected], [reviews[2]["id"]])
+        save_annotation(self.target, reviews[2], **IDENTITY, status="success")
+        self.assertEqual(pending_reviews(self.target, **IDENTITY, limit=100, retry_transient=True), [])
+
     def test_migration_refuses_existing_target_and_rolls_back_failure(self):
         with closing(sqlite3.connect(self.source)) as connection, connection:
             connection.execute("UPDATE reviews SET text=? WHERE id=1", ("含\x00字符",))

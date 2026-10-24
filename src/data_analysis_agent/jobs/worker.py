@@ -225,8 +225,8 @@ class TaskWorker:
                 settings, current_identity = configured_identity(self.env_file)
                 if queued_identity != current_identity:
                     raise ConfigurationError("模型配置与入队时不同，任务未调用模型；请重新提交标注任务。")
-                if task["parent_task_id"] is not None:
-                    parameters["retry_failed"] = True
+                if task["parent_task_id"] is not None and not parameters["retry_failed"]:
+                    parameters["retry_transient"] = True
                 result = run_labeling(
                     self.business_db,
                     **parameters,

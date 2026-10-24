@@ -22,7 +22,8 @@ from data_analysis_agent.core.config import AgentSettings, read_settings
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.core.validation import validate_integer
 from data_analysis_agent.reviews.label_store import (
-    check_labeling_schema, pending_reviews, save_annotation_on_connection,
+    RECOVERABLE_ERROR_CODES, check_labeling_schema, pending_reviews,
+    save_annotation_on_connection,
 )
 # 保留这些导出，兼容从本模块导入观点定义和校验函数的调用方。
 from data_analysis_agent.reviews.opinions import (
@@ -36,7 +37,7 @@ from data_analysis_agent.reviews.scope import review_scope
 from data_analysis_agent.reviews.store import connect_review_database
 
 TRANSIENT_ERROR_LIMIT = 3
-TRANSIENT_ERRORS = {"model_timeout", "model_connection_error", "model_server_error"}
+TRANSIENT_ERRORS = set(RECOVERABLE_ERROR_CODES)
 
 
 @dataclass
@@ -289,12 +290,7 @@ def _label_batch(client: OpenAI, reviews: list[dict], settings: AgentSettings) -
         outcome = _request_batch(client, reviews, settings)
     except OpinionValidationError:
         return _split_batch(client, reviews, settings, parent_calls=1)
-    if (
-        len(reviews) > 1
-        and outcome.items
-        and outcome.items[0]["error_code"] in TRANSIENT_ERRORS
-    ):
-        return _split_batch(client, reviews, settings, parent_calls=outcome.model_calls)
+    # 网络类错误留给独立恢复轮，避免一次超时触发整棵拆分请求树。
     return outcome
 
 
@@ -336,17 +332,23 @@ def run_labeling(
     progress: Callable[[dict], None] | None = None,
     workers: int = 1,
     batch_size: int = 1,
+    retry_transient: bool = False,
 ) -> dict:
     """按筛选范围标注一批评论，将结果写入已初始化的数据库并返回批次摘要。
 
     limit 限制整批评论数，workers 控制批量模型请求并发数，batch_size 控制每次请求的评论数。成功记录自动跳过，
-    失败记录只有在 retry_failed=True 时才重新选取。未传 settings 时读取配置。
+    失败记录默认不重新选取；retry_failed 用于人工显式重试所有失败，retry_transient
+    只恢复最近一次可恢复的模型错误。未传 settings 时读取配置。
     progress 在每条结果保存后接收进度，开始时也会收到一次初始进度。
     """
     # 先检查输入和筛选范围，避免无效参数触发模型请求。
     validate_integer(limit, "limit", maximum=1000)
     validate_integer(workers, "workers", maximum=4)
     validate_integer(batch_size, "batch_size", maximum=8)
+    if not isinstance(retry_failed, bool) or not isinstance(retry_transient, bool):
+        raise ReviewDataError("retry_failed 和 retry_transient 必须是布尔值。")
+    if retry_failed and retry_transient:
+        raise ReviewDataError("retry_failed 和 retry_transient 不能同时启用。")
     if product_ids is not None:
         if not isinstance(product_ids, list) or any(
             not isinstance(product_id, str) or not product_id.strip()
@@ -363,6 +365,7 @@ def run_labeling(
         dataset_version=dataset_version,
     )
     settings = settings or AgentSettings.from_values(read_settings(env_file))
+    sdk_max_retries = settings.max_retries if (retry_failed or retry_transient) else 0
 
     # 模型、服务地址和提示词版本共同决定哪些评论已经完成标注。
     model_identity = {
@@ -374,12 +377,15 @@ def run_labeling(
         name: value for name, value in scope.items() if name != "timezone"
     }
     reviews = pending_reviews(
-        db_path, **model_identity, limit=limit, retry_failed=retry_failed, **review_filters,
+        db_path, **model_identity, limit=limit, retry_failed=retry_failed,
+        retry_transient=retry_transient, **review_filters,
     )
     batch_result = {
         "status": "ok",
         **model_identity,
         "batch_size": batch_size,
+        "retry_transient": retry_transient,
+        "sdk_max_retries": sdk_max_retries,
         "selected_reviews": len(reviews),
         "processed_reviews": 0,
         "successful_reviews": 0,
@@ -415,7 +421,8 @@ def run_labeling(
             api_key=settings.api_key,
             base_url=settings.base_url,
             timeout=settings.timeout_seconds,
-            max_retries=settings.max_retries,
+            # 首轮只记录失败，恢复轮或人工显式重试才使用 SDK 重试。
+            max_retries=sdk_max_retries,
         ) as client,
         ThreadPoolExecutor(max_workers=workers) as executor,
     ):
@@ -477,17 +484,16 @@ def run_labeling(
                     })
                     notify_progress()
 
-                    # 按完成结果的处理顺序累计连续瞬时错误，其他结果会重置计数。
-                    if error_code in TRANSIENT_ERRORS:
-                        consecutive_transient_errors += 1
-                    else:
-                        consecutive_transient_errors = 0
-
-                    if consecutive_transient_errors >= TRANSIENT_ERROR_LIMIT:
-                        stopping = True
-                        batch_result["stopped_reason"] = (
-                            batch_result["stopped_reason"] or "repeated_model_api_errors"
-                        )
+                # 同一次失败请求中的多条评论只计一次，避免首个批量超时就停批。
+                if outcome.items and all(item["error_code"] in TRANSIENT_ERRORS for item in outcome.items):
+                    consecutive_transient_errors += 1
+                else:
+                    consecutive_transient_errors = 0
+                if consecutive_transient_errors >= TRANSIENT_ERROR_LIMIT:
+                    stopping = True
+                    batch_result["stopped_reason"] = (
+                        batch_result["stopped_reason"] or "repeated_model_api_errors"
+                    )
 
                 if outcome.should_stop:
                     stopping = True

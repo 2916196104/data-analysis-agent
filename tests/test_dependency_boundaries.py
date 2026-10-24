@@ -138,7 +138,7 @@ class ParameterContractTests(unittest.TestCase):
         identity = {"model": "demo", "base_url": "https://example.invalid/v1", "prompt_version": "v1"}
         self.payloads = {
             "import": {"reviews_path": "sample.jsonl", "max_reviews": 3},
-            "label": {"product_ids": ["P1"], "workers": 2},
+            "label": {"product_ids": ["P1"], "workers": 2, "retry_transient": True},
             "analysis": {**identity, "date_from": "2020-01-01", "date_to": "2020-01-31",
                          "baseline_from": "2019-12-01", "baseline_to": "2019-12-31"},
             "replay": {**identity, "month_from": "2020-01", "month_to": "2020-03"},
@@ -164,6 +164,7 @@ class ParameterContractTests(unittest.TestCase):
         cases = [
             ("import", {"max_reviews": True}), ("import", {"meta_path": "meta.jsonl", "max_reviews": 1}),
             ("label", {"workers": True}), ("label", {"date_from": "2020-02-30"}),
+            ("label", {"retry_transient": "true"}), ("label", {"retry_failed": True}),
             ("analysis", {"baseline_to": "2020-01-01"}),
             ("analysis", {"rules": {"min_samples": True}}),
             ("replay", {"month_to": "2019-12"}), ("replay", {"month_from": "0001-01"}),

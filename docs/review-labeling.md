@@ -47,7 +47,7 @@ Set-Location E:\AllProject\data-analysis-agent
 .\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling run --db data/private/reviews.sqlite3 --limit 20
 ```
 
-该命令会调用你配置的模型服务，可能产生模型调用费用；每条评论最多一次逻辑模型调用，HTTP 层重试次数沿用 `LLM_MAX_RETRIES`。不使用销售 Agent 的多轮工具调用流程。
+该命令会调用你配置的模型服务，可能产生模型调用费用。首轮标注默认关闭 SDK 自动重试，失败记录立即保存，避免单条请求因重试拖到约两个超时时间。不使用销售 Agent 的多轮工具调用流程。
 
 也可以只处理一款商品：
 
@@ -73,9 +73,17 @@ Set-Location E:\AllProject\data-analysis-agent
 
 `--batch-size` 默认是 1，允许 1—8。批次同时受总正文字符上限约 24,000 限制；每条评论仍单独校验 quote 和写入结果。批量 JSON 缺少、重复或新增 `review_id` 时，程序会递归拆分批次（例如 8 → 4 → 2 → 1）后重试；认证、限流和不可恢复 API 错误保持原有停批规则。`model_calls` 统计实际请求次数，可能大于评论数，因为批量校验失败的父请求也会计入。模型返回的批次 token 用量按条目分摊后写入，汇总不会重复计算，单条用量是近似值。批量包装不会改变观点抽取规则和既有 `PROMPT_VERSION`，成功标注仍按评论正文、模型、服务地址和提示词版本增量跳过。
 
-IDEA 可选 **18 亚马逊并发标注200条（调用模型）**，此配置不限定商品或日期。先用少量评论比较 `--workers 2` 与 `4`；服务端限流、并发配额和单条评论长度会影响实际速度。认证、限流及其他不可恢复的模型 API 错误会停批；单次超时、连接中断或服务端 5xx 会记录失败后继续，连续 3 次这类错误才停批。最多 4 条已在途的请求会保存结果后结束。失败项仍需要显式 `--retry-failed`。不要同时运行两个标注进程，避免重复发送相同评论。并发不会减少总模型调用量或直接提高标签准确率。
+IDEA 可选 **18 亚马逊并发标注200条（调用模型）**，此配置不限定商品或日期。先用少量评论比较 `--workers 2` 与 `4`；服务端限流、并发配额和单条评论长度会影响实际速度。认证、限流及其他不可恢复的模型 API 错误会停批；单次超时、连接中断或服务端 5xx 会记录失败后继续，连续 3 次这类错误才停批。最多 4 条已在途的请求会保存结果后结束。首轮结束后可用 `--retry-transient` 只恢复最近一次 timeout、connection_error 或 server_error；`--retry-failed` 仍用于人工显式重试所有失败类型。不要同时运行两个标注进程，避免重复发送相同评论。并发不会减少总模型调用量或直接提高标签准确率。
 
-如果终端显示 `model_timeout`，可在 `.env` 中把 `LLM_TIMEOUT_SECONDS=30` 调到例如 `60`，并按服务状况设置 `LLM_MAX_RETRIES=1` 或 `2`（允许 0—3）。超时和重试会延长单条评论的最长等待时间。旧记录中的 `model_api_error` 未保存具体异常，不能仅凭该代码确认是超时；处理服务故障后使用 `--retry-failed` 重试。
+如果终端显示 `model_timeout`，首轮会立即保存失败记录。服务恢复后使用下面的恢复命令；恢复轮才使用 `.env` 中的 `LLM_MAX_RETRIES`（允许 0—3）：
+
+```powershell
+.\.venv\Scripts\python.exe -m data_analysis_agent.cli.labeling run --db data/private/reviews.sqlite3 --limit 200 --workers 4 --batch-size 4 --retry-transient
+```
+
+`--retry-transient` 只选择当前正文指纹、模型、端点和提示词版本下，最近一次失败为 `model_timeout`、`model_connection_error` 或 `model_server_error` 的评论。它不选未处理评论，也不选认证、限流、`invalid_output` 和其他 API 错误；历史上发生过超时但最新一次为其他错误的评论同样排除。两个重试参数不能同时使用。需要人工确认提示词或模型输出后再处理其他失败时，使用 `--retry-failed`。
+
+批量请求出现网络类错误时，将整组逐条保存为相应失败，不立即拆分重试；JSON 格式、ID 或原文证据校验失败仍沿用批量拆分规则。连续三个请求批次都出现网络类错误时停止派发，同一请求包含的多条失败评论只计一次。结果的 `sdk_max_retries` 显示本轮实际采用的 SDK 重试上限；恢复轮仍可能等待多次超时，并不会自动在首轮结束后启动。
 
 模型标签质量应从不同商品和星级抽样，在本机[人工复核工作台](review-workbench.md)核对维度、情感及原文片段，记录漏标和错标后再修改提示词或模型。提示词规则变动会产生新的版本，原有成功记录不会自动复用；改模型也会形成独立标注身份。先用小样本比较准确率、平均耗时、失败率和 token 用量，再决定是否整库重标。
 
@@ -186,10 +194,11 @@ API 返回用量时，保存输入、输出和总 token 数；未返回的用量
 | `invalid_output` | JSON、原文片段或结束状态不合格；保留失败记录，继续下一条 |
 | `input_too_long` | 正文超限；不调用模型，保留失败记录 |
 | `authentication_error` | 认证失败；保存本条失败记录，停止批次 |
-| `rate_limit` | SDK 重试后仍限流；保存失败记录，停止批次 |
-| `model_api_error` | 网络、超时、服务异常或请求不兼容；保存失败记录，停止批次 |
+| `rate_limit` | 保存失败记录，停止批次；不会进入 `--retry-transient` |
+| `model_timeout` / `model_connection_error` / `model_server_error` | 保存失败记录，留给恢复轮；连续三个请求批次失败时停止派发 |
+| `model_api_error` | 其他 API 错误或请求不兼容；保存失败记录，停止批次 |
 
-超时和 HTTP 重试沿用现有 `LLM_TIMEOUT_SECONDS`、`LLM_MAX_RETRIES`。模型需要支持聊天接口的 `response_format={"type":"json_object"}`；当前配置已用模拟样本验证。没有额外的模型格式修复调用，失败项由你选择何时重试。
+首轮标注关闭 SDK 自动重试；`--retry-transient` 和 `--retry-failed` 恢复轮使用 `LLM_MAX_RETRIES`。超时仍受 `LLM_TIMEOUT_SECONDS` 限制。模型需要支持聊天接口的 `response_format={"type":"json_object"}`；当前配置已用模拟样本验证。没有额外的模型格式修复调用，失败项由你选择何时重试。
 
 每条评论独立提交，停止、中断或后续写入失败时，前面已提交的成功记录保留；下次增量处理会跳过它们。`--workers` 只并发模型请求，SQLite 保存保持单线程。不要并发运行多个标注进程：数据库能阻止重复成功结果，但进程间竞争仍可能产生重复模型调用。
 
