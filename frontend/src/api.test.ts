@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError, errorMessage, request } from './api';
+import { api, API_BASE, ApiError, errorMessage, request } from './api';
 
 afterEach(() => vi.unstubAllGlobals());
 describe('统一 API 契约', () => {
@@ -55,30 +55,47 @@ describe('统一 API 契约', () => {
     const url = new URL(xhr.open.mock.calls[0][1], 'http://localhost');
     expect(url.searchParams.get('kind')).toBe('reviews');
     expect(url.searchParams.get('filename')).toBe(file.name);
+    expect(xhr.open).toHaveBeenCalledWith('POST', `${API_BASE}/import-files?${url.searchParams}`);
+    expect(xhr.timeout).toBe(600_000);
+    expect(xhr.setRequestHeader.mock.calls).toEqual([['Accept', 'application/json'], ['Content-Type', 'application/json']]);
     expect(xhr.send).toHaveBeenCalledWith(file);
     xhr.upload.onprogress!({ loaded: 1 });
     expect(progress).toHaveBeenLastCalledWith(1);
     xhr.upload.onprogress!({ loaded: file.size });
+    xhr.upload.onprogress!({ loaded: file.size + 100 });
+    expect(progress).toHaveBeenLastCalledWith(file.size);
     await Promise.resolve();
     expect(resolved).toBe(false); // 已发送全部字节，仍须等待服务端确认。
     xhr.responseText = JSON.stringify({ status: 'ok', result: { kind: 'reviews', filename: file.name, size_bytes: 3, path: '.uploads/a.jsonl' } });
     xhr.onload!();
     const result = await upload;
     expect(result.path).toBe('.uploads/a.jsonl');
+    expect(progress).toHaveBeenLastCalledWith(file.size);
   });
   it('上传拒绝、无效响应、断网和超时都不会进入处理阶段', async () => {
     const file = new File(['{}\n'], 'reviews.jsonl');
-    for (const failure of ['http', 'json', 'network', 'timeout'] as const) {
+    for (const failure of ['http', 'json', 'network', 'timeout', 'abort', 'empty'] as const) {
       const xhr = fakeUpload();
       const upload = api.uploadImportFile(file, 'reviews');
+      expect(xhr.setRequestHeader).toHaveBeenCalledWith('Content-Type', 'application/octet-stream');
       if (failure === 'http') {
         xhr.status = 413;
         xhr.responseText = JSON.stringify({ status: 'error', error: { code: 'file_too_large', message: '文件过大' } });
         xhr.onload!();
       } else if (failure === 'json') { xhr.responseText = '<html>'; xhr.onload!(); }
       else if (failure === 'timeout') xhr.ontimeout!();
+      else if (failure === 'abort') xhr.onabort!();
+      else if (failure === 'empty') { xhr.responseText = JSON.stringify({ status: 'ok' }); xhr.onload!(); }
       else xhr.onerror!();
       await expect(upload).rejects.toBeInstanceOf(ApiError);
+      const expected = failure === 'http'
+        ? { status: 413, body: { code: 'file_too_large', message: '文件过大' } }
+        : failure === 'json'
+          ? { status: 200, body: { code: 'invalid_response', message: '上传服务返回的内容不是有效 JSON。' } }
+          : failure === 'empty'
+            ? { status: 200, body: { code: 'http_error', message: '文件上传失败（HTTP 200）' } }
+            : { status: 0, body: { code: 'network_error', message: '文件上传失败或超时，请检查后端服务和网络后重试。' } };
+      await expect(upload).rejects.toMatchObject(expected);
     }
   });
 });
