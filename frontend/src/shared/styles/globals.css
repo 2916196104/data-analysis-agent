@@ -1,0 +1,9 @@
+* { box-sizing: border-box; }
+:root { font-family: var(--font-family); color: var(--color-text); background: var(--color-background); font-synthesis: none; text-rendering: optimizeLegibility; }
+body { margin: 0; }
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; }
+button:disabled { cursor: not-allowed; }
+h1, h2, p { margin-top: 0; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

@@ -4,10 +4,10 @@ import {
   Progress, Skeleton, Space, Spin, Tag,
 } from 'antd';
 import {
-  ArrowRightOutlined, BarChartOutlined, CheckOutlined, DatabaseOutlined, DeleteOutlined,
-  DownloadOutlined, FileTextOutlined, FolderOpenOutlined, HistoryOutlined, ImportOutlined,
-  PlusOutlined, ReloadOutlined,
+  ArrowRightOutlined, CheckOutlined, DatabaseOutlined, DeleteOutlined,
+  DownloadOutlined, FileTextOutlined, HistoryOutlined, ImportOutlined, ReloadOutlined,
 } from '@ant-design/icons';
+import AppLayout from './app/AppLayout';
 import { api, API_BASE, errorMessage } from './api';
 import Composer from './Composer';
 import { analysisDates, analysisParameters, datasetKey } from './analysis-draft';
@@ -438,7 +438,7 @@ export default function App() {
     confirmed: importFiles.every(({ kind, file }) => !file || uploadedFiles.current[kind]?.file === file),
     busy, failed: !!submitError && !busy, detail: importPhase,
   };
-  return <div className="workbench">
+  return <>
     <Drawer title="任务记录" placement="right" width="min(640px, 100vw)" open={historyOpen} onClose={() => setHistoryOpen(false)} closable={{ 'aria-label': '关闭任务记录' }} className="task-history"
       footer={!!history?.total && <Pagination size="small" current={page} total={history.total} pageSize={15} showSizeChanger={false} showTotal={total => `共 ${total} 项任务`} onChange={setPage} />}>
       <div className="history-intro"><div><h2>最近任务</h2><p>查看处理进度，或打开任务继续查看结果。</p></div><Button type="text" aria-label="刷新任务记录" icon={<ReloadOutlined />} onClick={() => void fetchHistory()} /></div>
@@ -453,23 +453,14 @@ export default function App() {
         </div>)}
       </div>
     </Drawer>
-    <div className="workspace-main">
-      <header className="topbar">
-        <div className="topbar-inner">
-          <div className="brand"><div className="brand-mark"><BarChartOutlined /></div><div className="brand-copy"><strong>观数</strong><span>评论分析工作台</span></div></div>
-          <div className="header-actions"><span className="connection-label"><Badge status={!health ? 'error' : health.worker_available ? 'success' : 'warning'} text={!health ? '连接待确认' : health.worker_available ? '服务已连接' : '执行器离线'} /></span><Button type="text" icon={<ReloadOutlined />} aria-label="刷新数据" title="刷新数据" loading={loading} onClick={() => { void load(); void fetchHistory(); taskState.refresh(); }} /><Button className="history-trigger" icon={<HistoryOutlined />} aria-label="任务记录" aria-expanded={historyOpen} onClick={() => { setHistoryOpen(true); void fetchHistory(); }}>任务记录{history?.total ? <span className="history-count">{history.total}</span> : null}</Button></div>
-        </div>
-      </header>
-      <div className="workspace-toolbar">
-        <div className="workspace-context"><span className="context-icon"><DatabaseOutlined /></span><div><span className="context-caption">当前分析范围</span><span className="context-summary" title={datasetSummary}>{datasetSummary}</span></div></div>
-        <nav className="workspace-actions" aria-label="工作台操作">
-          <Button aria-label="导入数据文件" icon={<ImportOutlined />} onClick={() => { setSubmitError(''); setImportOpen(true); }}>导入数据</Button>
-          <Button aria-label="准备数据" icon={<CheckOutlined />} onClick={openLabel}>准备数据</Button>
-          <Button aria-label="数据详情" icon={<FolderOpenOutlined />} disabled={!currentProducts.length} onClick={() => setPreviewOpen(true)}>数据详情</Button>
-          <Button aria-label="新建分析" type={local.selected ? 'primary' : 'default'} icon={<PlusOutlined />} onClick={() => selectTask(null)}>新建分析</Button>
-        </nav>
-      </div>
-      <main className="main-content">
+    <AppLayout
+      connection={{ status: !health ? 'error' : health.worker_available ? 'success' : 'warning', text: !health ? '连接待确认' : health.worker_available ? '服务已连接' : '执行器离线' }}
+      loading={loading} historyOpen={historyOpen} taskCount={history?.total}
+      datasetSummary={datasetSummary} hasProducts={!!currentProducts.length} hasSelectedTask={!!local.selected}
+      onRefresh={() => { void load(); void fetchHistory(); taskState.refresh(); }}
+      onHistory={() => { setHistoryOpen(true); void fetchHistory(); }}
+      onImport={() => { setSubmitError(''); setImportOpen(true); }}
+      onPrepare={openLabel} onPreview={() => setPreviewOpen(true)} onNewAnalysis={() => selectTask(null)}>
         {connectionError && <Alert className="spaced-bottom" type="error" showIcon message="无法完整加载工作空间" description={<>{connectionError}<div className="api-address">API：{API_BASE}</div></>} action={<Button onClick={() => void load()}>重新连接</Button>} />}
         {storageError && <Alert className="spaced-bottom" type="warning" showIcon message="浏览器存储不可用，问题备注和当前选择在刷新后可能丢失；后端任务仍会保留。" />}
         {health && !health.worker_available && <Alert className="spaced-bottom" type="warning" showIcon message="后台执行器离线" description="可以提交任务，但任务会留在队列中，直到后端 worker 启动。" />}
@@ -516,9 +507,7 @@ export default function App() {
             {task.kind === 'analysis' && task.status === 'succeeded' && !run && !agentResult && !taskState.error && <div className="loading-result"><Spin /> 正在读取分析快照…</div>}
           </>}
         </>}
-      </main>
-      <footer className="workspace-footer">观数 · 数据有据，分析可溯<span>评论分析工作台</span></footer>
-    </div>
+    </AppLayout>
     <Drawer title="数据详情" width={620} open={previewOpen} onClose={() => setPreviewOpen(false)} destroyOnHidden><DataPreview products={currentProducts} options={options} profileId={previewProfile} onDetail={showDetail} /></Drawer>
     <Drawer title={detail?.title} width={650} open={!!detail} onClose={() => setDetail(undefined)} closable={{ 'aria-label': '关闭数据详情' }} extra={<Button icon={<DownloadOutlined />} onClick={() => exportResult(detail?.value, 'analysis-detail')}>下载 JSON</Button>}><pre className="json-view">{JSON.stringify(detail?.value, null, 2)}</pre></Drawer>
     <Modal title={pendingDelete?.kind === 'data' ? '删除这次导入的数据？' : '删除任务记录？'} open={!!pendingDelete} onCancel={() => { if (!deleteBusy) setPendingDelete(undefined); }} onOk={() => void executeDelete()} okText={pendingDelete?.kind === 'data' ? '删除导入数据' : '删除记录'} cancelText="取消" okButtonProps={{ danger: true, loading: deleteBusy }} destroyOnHidden>
@@ -557,5 +546,5 @@ export default function App() {
         <Button className="spaced" aria-label="提交导入任务" block type="primary" htmlType="submit" icon={<ImportOutlined />} loading={busy}>{importPhase || '导入数据'}</Button>
       </Form>
     </Modal>
-  </div>;
+  </>;
 }

@@ -9,6 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { chromium } from 'playwright';
+import { captureLayout } from './capture-layout.mjs';
 
 const frontend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const root = path.dirname(frontend);
@@ -29,6 +30,7 @@ let agentModelCalls = 0;
 let concurrentCalls = 0;
 let maxConcurrentCalls = 0;
 const browserErrors = [];
+const layoutMeasurements = [];
 await mkdir(path.join(root, 'output/playwright'), { recursive: true });
 const artifacts = await mkdtemp(path.join(root, 'output/playwright/frontend-'));
 const importRoot = path.join(artifacts, 'server-imports');
@@ -127,6 +129,8 @@ try {
     '--port', String(apiPort), '--import-root', importRoot, '--env-file', path.join(artifacts, 'unused.env'), '--allow-origin', webUrl], 'api', {
     LLM_MODEL_ID: 'SIMULATED-LABEL-MODEL', LLM_API_KEY: 'local-test-key',
     LLM_BASE_URL: `http://127.0.0.1:${modelServer.address().port}/v1`, LLM_MAX_RETRIES: '0',
+    // 本脚本只启动本地 Worker；避免项目 .env 的 Redis 模式影响隔离验收。
+    LABEL_EXECUTION_MODE: 'local',
   });
   launch(process.execPath, [path.join(frontend, 'node_modules/vite/bin/vite.js'), frontend, '--host', '127.0.0.1', '--port', String(webPort)], 'vite', { VITE_API_BASE_URL: apiUrl });
   await until(async () => (await fetch(`${apiUrl}/health`)).ok, 'API ready');
@@ -163,6 +167,7 @@ try {
   await page.setViewportSize({ width: 1366, height: 768 });
   await writeFile(path.join(artifacts, 'initial-ui.txt'), await page.locator('body').innerText());
   await page.screenshot({ path: path.join(artifacts, '01-workbench.png'), fullPage: true });
+  await captureLayout(page, artifacts, 'workbench', layoutMeasurements);
 
   // Select a real product and preview its actual persisted reviews.
   await page.getByRole('combobox', { name: '分析商品' }).click();
@@ -170,6 +175,7 @@ try {
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: '预览数据', exact: true }).click();
   await page.getByText('使用顺手，效果不错。', { exact: true }).first().waitFor();
+  await captureLayout(page, artifacts, 'data-preview', layoutMeasurements);
   await page.keyboard.press('Escape');
   await page.getByRole('tab', { name: '数据预览', exact: true }).waitFor({ state: 'hidden' });
   const analysisEnd = page.locator('.scope-card .ant-picker').first().locator('input').last();
@@ -203,6 +209,7 @@ try {
   assert.equal(run.results.trend.summary.negative_rate, 0.5);
   assert.equal(run.results.summary.triggered, 1);
   await page.screenshot({ path: path.join(artifacts, '02-analysis-result.png'), fullPage: true });
+  await captureLayout(page, artifacts, 'analysis-result', layoutMeasurements);
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: '下载 JSON', exact: true }).click();
   const download = await downloadPromise;
@@ -259,6 +266,7 @@ try {
   await page.locator('summary').filter({ hasText: '导入设置' }).click();
   await chooseImportFile(localMeta, 1);
   await page.screenshot({ path: path.join(artifacts, '06-file-import.png'), fullPage: true });
+  await captureLayout(page, artifacts, 'import-dialog', layoutMeasurements);
   await page.getByRole('spinbutton', { name: '本次最多新增评论数（可选）' }).fill('2');
   // Losing the task response must preserve both selected files, uploaded paths and the idempotency key.
   const uploadRequests = [];
@@ -311,6 +319,7 @@ try {
   assert.equal(limitedImport.progress.stage, 'imported');
   assert.equal(limitedImport.progress.total_lines, 3);
   assert.equal(limitedImport.progress.inserted_records, 3);
+  await page.getByRole('dialog', { name: '导入数据', exact: true }).waitFor({ state: 'hidden' });
   assert.match(await page.getByLabel('数据处理阶段', { exact: true }).innerText(), /已处理 3 行.*已新增 3 条/);
   const uploadEvents = await page.evaluate(() => window.uploadEvents);
   await page.reload();
@@ -346,6 +355,7 @@ try {
   await page.getByRole('combobox', { name: '标注商品', exact: true }).click();
   await page.getByTitle('DEMO-C · DEMO-C（2 条）').click();
   await page.keyboard.press('Escape');
+  await captureLayout(page, artifacts, 'annotation-dialog', layoutMeasurements);
   await page.getByRole('spinbutton', { name: '每批标注数量', exact: true }).fill('2.5');
   await page.getByRole('button', { name: '提交标注任务', exact: true }).click();
   await page.getByText('请输入 1–1000 的整数', { exact: true }).waitFor();
@@ -528,6 +538,7 @@ try {
   await historyDrawer.getByText('任务记录暂不可用', { exact: true }).waitFor({ state: 'hidden' });
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.screenshot({ path: path.join(artifacts, 'history-desktop.png'), animations: 'disabled' });
+  await captureLayout(page, artifacts, 'task-history', layoutMeasurements);
   await historyDrawer.getByRole('button', { name: '关闭任务记录', exact: true }).click();
   await historyDrawer.waitFor({ state: 'hidden' });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -572,6 +583,7 @@ try {
   agentPage.on('pageerror', error => browserErrors.push(error.message));
   await agentPage.goto(webUrl);
   await agentPage.getByRole('button', { name: 'Agent 问答', exact: true }).click();
+  await captureLayout(agentPage, artifacts, 'agent-question', layoutMeasurements);
   const agentQuestion = '按月查看评论趋势，对比所选商品，并查询包装负面评论的原文证据';
   await agentPage.getByRole('textbox', { name: '评论分析问题' }).fill(agentQuestion);
   await agentPage.getByRole('button', { name: '提交问题', exact: true }).click();
@@ -601,6 +613,7 @@ try {
   await agentPage.screenshot({ path: path.join(artifacts, 'review-agent-mobile.png'), fullPage: true });
   await agentPage.setViewportSize({ width: 1366, height: 900 });
   await agentPage.screenshot({ path: path.join(artifacts, 'review-agent.png'), fullPage: true });
+  await captureLayout(agentPage, artifacts, 'agent-result', layoutMeasurements);
   assert.equal(agentModelCalls, 2, 'restoring a saved Agent result must not invoke the model');
   await agentContext.close();
   page = mainPage;
@@ -636,7 +649,7 @@ try {
       'advanced parameters collapsed', 'main action above fold at 1366x768', 'draft reload recovery', 'one click prepared analysis',
       'full width workspace at 1366, 1024 and 768', 'keyboard history drawer and empty state', 'history pagination and result restore', 'mobile history drawer', 'history error recovery',
       'Agent real tools and queue', 'Agent trend comparison and original evidence', 'Agent JSON download', 'Agent reload without model call', 'Agent mobile layout'],
-    browser_errors: browserErrors, artifacts };
+    browser_errors: browserErrors, layout_screenshots: layoutMeasurements.length, artifacts };
   await writeFile(path.join(artifacts, 'acceptance.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 } catch (error) {
