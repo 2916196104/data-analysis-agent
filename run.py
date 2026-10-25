@@ -95,12 +95,18 @@ def wait_ready(
             api_status, content = get_local(urls[0])
             health = json.loads(content)
             web_status, _ = get_local(urls[1])
-            worker_available = health.get('result', {}).get('worker_available')
+            result = health.get('result', {})
+            worker_available = result.get('worker_available')
+            redis_ready = (
+                not result.get('redis_worker_required')
+                or result.get('redis_worker_available')
+            )
             services_ready = (
                 api_status == 200
                 and web_status == 200
                 and health.get('status') == 'ok'
                 and worker_available
+                and redis_ready
             )
             if services_ready:
                 return True
@@ -114,8 +120,9 @@ def wait_ready(
     return False
 
 
-def launch(api_port: int = 8000, web_port: int = 5173, open_browser: bool = True) -> int:
-    """启动后端和前端，并在退出时统一回收本次启动的进程。"""
+def launch(api_port: int = 8000, web_port: int = 5173, open_browser: bool = True,
+           no_redis_worker: bool = False) -> int:
+    """启动后端、前端和按配置启用的 Redis 标注 Worker，并统一回收。"""
     if api_port == web_port:
         raise RuntimeError('前端和后端必须使用不同端口。')
     check_port(api_port)
@@ -179,6 +186,24 @@ def launch(api_port: int = 8000, web_port: int = 5173, open_browser: bool = True
                 env=frontend_environment,
             )
             processes = [('后端', backend), ('前端', frontend)]
+            settings = read_settings(ROOT / '.env')
+            execution_mode = settings.get('LABEL_EXECUTION_MODE', 'local').strip().lower()
+            if execution_mode == 'redis' and not no_redis_worker:
+                redis_worker_command = [
+                    sys.executable,
+                    '-m',
+                    'data_analysis_agent.cli.label_queue',
+                    'worker',
+                    '--db',
+                    'env:DATABASE_URL',
+                    '--env-file',
+                    str(ROOT / '.env'),
+                ]
+                print('启动 Redis 标注 Worker。', flush=True)
+                redis_worker = family.start(redis_worker_command, cwd=ROOT, env=environment)
+                processes.append(('Redis 标注 Worker', redis_worker))
+            elif execution_mode == 'redis' and no_redis_worker:
+                print('已跳过 Redis 标注 Worker（--no-redis-worker）。', flush=True)
             if wait_ready(processes, [f'{api_url}/api/v1/health', web_url], stop):
                 print(
                     f'前后端已就绪：{web_url}\n'
@@ -210,10 +235,11 @@ def main() -> int:
     parser.add_argument('--api-port', type=port_number, default=8000, help='后端端口，默认 8000')
     parser.add_argument('--web-port', type=port_number, default=5173, help='前端端口，默认 5173')
     parser.add_argument('--no-browser', action='store_true', help='启动后不自动打开浏览器')
+    parser.add_argument('--no-redis-worker', action='store_true', help='LABEL_EXECUTION_MODE=redis 时跳过自动启动 Redis Worker')
     args = parser.parse_args()
     try:
         print('正在检查启动环境与本地配置…', flush=True)
-        return launch(args.api_port, args.web_port, not args.no_browser)
+        return launch(args.api_port, args.web_port, not args.no_browser, args.no_redis_worker)
     except (OSError, ValueError, RuntimeError) as error:
         print(f'启动失败：{error}', file=sys.stderr)
         return 1

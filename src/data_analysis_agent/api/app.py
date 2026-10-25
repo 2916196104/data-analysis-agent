@@ -14,11 +14,12 @@ from starlette.middleware.cors import CORSMiddleware
 
 from data_analysis_agent.api.responses import ErrorBody, ErrorResult, Result, error_response, ok_result
 from data_analysis_agent.api.routes import analytics, monitoring, reviews, tasks
-from data_analysis_agent.core.config import ConfigurationError
+from data_analysis_agent.core.config import ConfigurationError, read_settings
 from data_analysis_agent.core.database import DatabaseError, database_target
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.reviews.monitor_store import check_monitoring_schema
 from data_analysis_agent.reviews.store import connect_review_database
+from data_analysis_agent.jobs.label_metrics import queue_metrics
 from data_analysis_agent.jobs.store import TaskConflict, TaskNotFound, check_task_database, queue_health
 from data_analysis_agent.jobs.worker import TaskWorker
 from data_analysis_agent.reviews.human_review import ReviewConflict, ReviewNotFound, check_workbench_schema
@@ -117,7 +118,31 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
         info = queue["worker"]
         available = bool(info and not info["stopped_at"] and
                          (datetime.now(timezone.utc) - datetime.fromisoformat(info["heartbeat_at"])).total_seconds() < 30)
-        return ok_result({"business_database": "ok", "queue": queue, "worker_available": available})
+        settings = read_settings(env_file)
+        redis_required = settings.get("LABEL_EXECUTION_MODE", "local").strip().lower() == "redis"
+        redis_health = {"required": redis_required, "available": None, "backlog_reviews": None,
+                        "processing_reviews": None, "workers": []}
+        if redis_required:
+            try:
+                label_queue = queue_metrics(db)
+                workers = label_queue["workers"]
+                redis_health = {
+                    "required": True,
+                    "available": any(worker["alive"] for worker in workers),
+                    "backlog_reviews": label_queue["backlog_reviews"],
+                    "processing_reviews": label_queue["processing_reviews"],
+                    "workers": workers,
+                }
+            except (ReviewDataError, DatabaseError, ConfigurationError, OSError):
+                redis_health["available"] = False
+        return ok_result({
+            "business_database": "ok",
+            "queue": queue,
+            "worker_available": available,
+            "redis_worker_required": redis_required,
+            "redis_worker_available": redis_health["available"],
+            "redis_queue": redis_health,
+        })
 
     router.include_router(reviews.create_router(db))
     router.include_router(analytics.create_router(db))

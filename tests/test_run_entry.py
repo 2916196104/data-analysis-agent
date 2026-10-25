@@ -97,6 +97,34 @@ class RunEntryTests(unittest.TestCase):
             factory.return_value.__exit__.assert_called_once()
         self.assertEqual(events, ['ready', 'browser'])
 
+    def test_redis_mode_starts_queue_worker_and_stops_with_project(self):
+        stop = MagicMock()
+        stop.wait.return_value = True
+        family = MagicMock()
+        family.start.side_effect = [MagicMock(), MagicMock(), MagicMock()]
+        with patch('run.check_port'), patch('run.read_settings', return_value={
+                'DATABASE_URL': 'postgresql://localhost/test',
+                'LABEL_EXECUTION_MODE': 'redis',
+            }), patch('run.shutil.which', return_value='node'),                 patch('pathlib.Path.is_file', return_value=True), patch('run.Event', return_value=stop),                 patch('run.ProcessFamily') as factory, patch('run.wait_ready', return_value=True),                 patch('run.webbrowser.open'):
+            factory.return_value.__enter__.return_value = family
+            self.assertEqual(run.launch(18001, 15174, open_browser=False), 0)
+            self.assertEqual(family.start.call_count, 3)
+            redis_command = family.start.call_args_list[2].args[0]
+            self.assertIn('data_analysis_agent.cli.label_queue', redis_command)
+            self.assertIn('worker', redis_command)
+            factory.return_value.__exit__.assert_called_once()
+
+    def test_no_redis_worker_flag_skips_queue_worker(self):
+        family = MagicMock()
+        family.start.side_effect = [MagicMock(), MagicMock()]
+        with patch('run.check_port'), patch('run.read_settings', return_value={
+                'DATABASE_URL': 'postgresql://localhost/test',
+                'LABEL_EXECUTION_MODE': 'redis',
+            }), patch('run.shutil.which', return_value='node'),                 patch('pathlib.Path.is_file', return_value=True), patch('run.Event', return_value=MagicMock()),                 patch('run.ProcessFamily') as factory, patch('run.wait_ready', return_value=True),                 patch('run.webbrowser.open'):
+            factory.return_value.__enter__.return_value = family
+            self.assertEqual(run.launch(18001, 15174, open_browser=False, no_redis_worker=True), 0)
+            self.assertEqual(family.start.call_count, 2)
+
     def test_failed_start_does_not_open_browser_and_exits_context(self):
         with patch('run.check_port'), patch('run.read_settings', return_value={'DATABASE_URL': 'postgresql://localhost/test'}), \
                 patch('run.shutil.which', return_value='node'), patch('pathlib.Path.is_file', return_value=True), \

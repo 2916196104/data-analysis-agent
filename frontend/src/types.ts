@@ -96,7 +96,13 @@ export interface Options {
   processing_statuses: Record<string, string>;
   human_statuses: Record<string, string>;
 }
-export interface Health { worker_available: boolean; business_database: string }
+export interface Health {
+  worker_available: boolean;
+  business_database: string;
+  redis_worker_required?: boolean;
+  redis_worker_available?: boolean | null;
+  redis_queue?: { backlog_reviews: number | null; processing_reviews: number | null };
+}
 export interface Quality {
   review_count: number;
   product_count: number;

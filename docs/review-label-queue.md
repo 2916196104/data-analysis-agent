@@ -95,7 +95,7 @@ Worker 自带发件箱补发。需要独立派发进程时：
 .\.venv\Scripts\python.exe run.py
 ```
 
-另开终端常驻运行 `queue worker --db env:DATABASE_URL`。原页面标注和 `review-label run` 将只创建/观察持久运行，调用统一由专用 Worker 负责；模型 batch 和并发使用 Worker 的 `LABEL_*` 配置。页面原有单次 1000 条上限保留，大范围用 `queue submit`。
+设置 `LABEL_EXECUTION_MODE=redis` 后，根目录 `run.py` 会自动启动 Redis 标注 Worker；如果手动启动 API，则另开终端运行 `queue worker --db env:DATABASE_URL`。原页面标注和 `review-label run` 将只创建/观察持久运行，调用统一由专用 Worker 负责；模型 batch 和并发使用 Worker 的 `LABEL_*` 配置。页面原有单次 1000 条上限保留，大范围用 `queue submit`。
 
 原协调入口默认等待最多 3600 秒，可用 `LABEL_COORDINATOR_TIMEOUT_SECONDS` 调整；超时返回部分状态和 run_id，后台持久工作仍可继续。停止页面后台任务不会删除持久运行。`LABEL_EXECUTION_MODE=local` 保留原小批量行为，**不要在同一模型账户同时混用 local 标注和共享配额 Worker**。销售/问答等其他模型调用不在本标注限流器内，配额应按账户实际分配。
 
