@@ -59,6 +59,11 @@ async function until(check, label, timeout = 30_000) {
   }
   throw new Error(`Timed out: ${label}`);
 }
+async function clickNavigation(name) {
+  const target = page.getByRole('button', { name, exact: true });
+  if (!await target.isVisible()) await page.getByRole('button', { name: '工作空间导航', exact: true }).click();
+  await target.click();
+}
 async function chooseImportFile(filePath, index = 0) {
   const fileChooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: index === 0 ? '选择评论文件' : '选择元数据文件', exact: true }).click();
@@ -151,9 +156,9 @@ try {
   assert.equal(await page.getByRole('combobox', { name: '标注版本', exact: true }).isVisible(), false);
   const startBox = await page.getByRole('button', { name: '开始分析', exact: true }).boundingBox();
   assert.ok(startBox && startBox.y + startBox.height <= 768, 'main action must fit above the fold');
-  // History lives in a dedicated drawer; the workspace always gets the full width.
-  assert.equal(await page.locator('.desktop-sidebar').count(), 0);
-  assert.equal((await page.locator('.workspace-main').boundingBox()).width, 1366);
+  // The reference shell reserves a 230px sidebar; task history remains a drawer.
+  assert.equal((await page.locator('.workspace-sidebar').boundingBox()).width, 230);
+  assert.ok((await page.locator('.main-content').boundingBox()).width > 650);
   await page.getByRole('button', { name: '任务记录', exact: true }).focus();
   await page.keyboard.press('Enter');
   await page.getByRole('heading', { name: '还没有任务记录', exact: true }).waitFor();
@@ -173,7 +178,7 @@ try {
   await page.getByRole('combobox', { name: '分析商品' }).click();
   await page.getByTitle('DEMO-A（48 条）').click();
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: '预览数据', exact: true }).click();
+  await page.getByRole('button', { name: '数据详情', exact: true }).click();
   await page.getByText('使用顺手，效果不错。', { exact: true }).first().waitFor();
   await captureLayout(page, artifacts, 'data-preview', layoutMeasurements);
   await page.keyboard.press('Escape');
@@ -263,7 +268,7 @@ try {
   await page.getByRole('button', { name: '提交导入任务', exact: true }).click();
   await page.getByText('请先选择评论文件或商品元数据文件。', { exact: true }).waitFor();
   await chooseImportFile(localReview);
-  await page.locator('summary').filter({ hasText: '导入设置' }).click();
+  await page.getByRole('dialog', { name: '导入数据', exact: true }).locator('summary').filter({ hasText: '高级设置' }).click();
   await chooseImportFile(localMeta, 1);
   await page.screenshot({ path: path.join(artifacts, '06-file-import.png'), fullPage: true });
   await captureLayout(page, artifacts, 'import-dialog', layoutMeasurements);
@@ -407,7 +412,7 @@ try {
   await page.getByText(/SIMULATED-LABEL-MODEL · review-opinions/).first().waitFor();
   await page.locator('summary').filter({ hasText: '高级设置' }).click();
   // Return to the completed batch and start analysis without selecting the scope again.
-  await page.getByRole('button', { name: '任务记录', exact: true }).click();
+  await clickNavigation('任务记录');
   await page.locator('.history-item').filter({ hasText: '准备数据 · 最多 2 条' }).last().click();
   await page.getByRole('dialog', { name: '任务记录', exact: true }).waitFor({ state: 'hidden' });
   await page.reload();
@@ -441,7 +446,7 @@ try {
     file_rows: 3, imported: importedRows, labeled: persisted, duplicate_import: { inserted: 0, duplicates: 2 }, model_calls: modelCalls, max_concurrency: maxConcurrentCalls }, null, 2));
 
   // Delete the real limited import through the UI, then remove its task history.
-  await page.getByRole('button', { name: '任务记录', exact: true }).click();
+  await clickNavigation('任务记录');
   await page.locator('.history-item').filter({ hasText: `导入 ${path.basename(localReview)}` }).first().click();
   await page.getByRole('dialog', { name: '任务记录', exact: true }).waitFor({ state: 'hidden' });
   await page.getByText('删除导入数据', { exact: true }).click();
@@ -501,7 +506,7 @@ try {
     const currentPage = Number(new URL(route.request().url()).searchParams.get('page'));
     await route.fulfill({ json: { status: 'ok', result: { total: 16, page: currentPage, page_size: 15, items: currentPage === 2 ? [historyItem] : historyRows } } });
   });
-  await page.getByRole('button', { name: '任务记录', exact: true }).click();
+  await clickNavigation('任务记录');
   const historyDrawer = page.getByRole('dialog', { name: '任务记录', exact: true });
   await until(async () => await historyDrawer.locator('.history-item').count() === 15, 'history first page');
   await page.screenshot({ path: path.join(artifacts, 'history-pagination.png'), animations: 'disabled' });
@@ -512,7 +517,7 @@ try {
   await page.getByRole('heading', { name: question, exact: true }).waitFor();
   await page.getByRole('heading', { name: '从评论中，看到变化' }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: '任务记录', exact: true }).click();
+  await clickNavigation('任务记录');
   await historyDrawer.locator('.history-item').first().waitFor();
   await until(async () => {
     const box = await historyDrawer.boundingBox();
@@ -528,7 +533,7 @@ try {
   // A history request error has a retry action and recovers without losing the workspace.
   await page.unroute(historyRoute);
   await page.route(historyRoute, route => route.abort());
-  await page.getByRole('button', { name: '任务记录', exact: true }).click();
+  await clickNavigation('任务记录');
   await historyDrawer.getByText('任务记录暂不可用', { exact: true }).waitFor();
   const historyRetry = page.waitForRequest(request => request.url().includes('/tasks?'));
   await historyDrawer.getByRole('button', { name: '重试任务记录', exact: true }).click();
@@ -542,7 +547,7 @@ try {
   await historyDrawer.getByRole('button', { name: '关闭任务记录', exact: true }).click();
   await historyDrawer.waitFor({ state: 'hidden' });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: '新建分析', exact: true }).click();
+  await clickNavigation('新建分析');
   await page.getByRole('button', { name: '开始分析', exact: true }).waitFor();
   await page.screenshot({ path: path.join(artifacts, '04-mobile.png'), fullPage: true, animations: 'disabled' });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'mobile body overflows');
@@ -554,7 +559,7 @@ try {
   assert.equal(await page.locator('input[aria-label="评论文件"]').getAttribute('accept'), '.csv,.jsonl,.jsonl.gz');
   await chooseImportFile(localCsv);
   await page.locator('details').filter({ hasText: '数据集版本' }).locator('summary').click();
-  assert.equal(await page.getByRole('textbox', { name: '数据集版本', exact: true }).inputValue(), 'reviews-csv');
+  await page.getByRole('textbox', { name: '数据集版本', exact: true }).fill('reviews-csv');
   assert.equal(await page.getByRole('button', { name: '选择元数据文件', exact: true }).isDisabled(), true);
   await page.getByRole('button', { name: '提交导入任务', exact: true }).click();
   await page.getByRole('button', { name: '标注已导入的数据', exact: true }).waitFor();
@@ -622,8 +627,8 @@ try {
   const emptyOptions = { ...(await get('/options')), products: [], profiles: [], selected_profile_id: null };
   await emptyPage.route(`${apiUrl}/options`, route => route.fulfill({ json: { status: 'ok', result: emptyOptions } }));
   await emptyPage.goto(webUrl);
-  await emptyPage.getByText('点击顶部“导入数据”，添加评论后开始分析', { exact: true }).waitFor();
-  assert.equal(await emptyPage.locator('button').filter({ hasText: /^导入数据$/ }).count(), 1);
+  await emptyPage.getByText('从数据管理或侧栏导入评论后开始分析', { exact: true }).waitFor();
+  assert.equal(await emptyPage.getByRole('button', { name: '导入数据文件', exact: true }).count(), 1);
   assert.equal(await emptyPage.getByRole('button', { name: '导入新数据', exact: true }).count(), 0);
   await emptyContext.close();
   assert.deepEqual(browserErrors, []);
@@ -647,7 +652,7 @@ try {
       'label parameter validation', 'label product scope', 'label live progress', 'label concurrency', 'label reload recovery', 'label skip completed',
       'database import rows', 'database annotations and opinions', 'duplicate import', 'delete imported data', 'delete task history', 'label to analysis scope', 'mobile workspace', 'backend operation logs',
       'advanced parameters collapsed', 'main action above fold at 1366x768', 'draft reload recovery', 'one click prepared analysis',
-      'full width workspace at 1366, 1024 and 768', 'keyboard history drawer and empty state', 'history pagination and result restore', 'mobile history drawer', 'history error recovery',
+      'reference sidebar and responsive workspace', 'keyboard history drawer and empty state', 'history pagination and result restore', 'mobile history drawer', 'history error recovery',
       'Agent real tools and queue', 'Agent trend comparison and original evidence', 'Agent JSON download', 'Agent reload without model call', 'Agent mobile layout'],
     browser_errors: browserErrors, layout_screenshots: layoutMeasurements.length, artifacts };
   await writeFile(path.join(artifacts, 'acceptance.json'), JSON.stringify(report, null, 2));

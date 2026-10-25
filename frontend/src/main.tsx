@@ -9,6 +9,7 @@ import './shared/styles/tokens.css';
 import './shared/styles/globals.css';
 import './shared/styles/layout.css';
 import './styles.css';
+import './features/analysis/review-analysis.css';
 
 dayjs.locale('zh-cn');
 // Ant Design 与布局样式读取同一份 Token，避免主题色和尺寸分别维护。

@@ -7,7 +7,7 @@ const viewports = [
   { width: 768, height: 1024 }, { width: 390, height: 844 },
 ];
 
-// 在现有真实业务流程中采集页面，不用替换 API 来构造截图状态。
+// 在原有业务流程中采集截图；针对新 Header + Sidebar 布局检查实际边界。
 export async function captureLayout(page, artifacts, name, measurements) {
   const previous = page.viewportSize();
   try {
@@ -22,18 +22,16 @@ export async function captureLayout(page, artifacts, name, measurements) {
           return { x: box.x, y: box.y, width: box.width, height: box.height };
         };
         const visible = element => element.getBoundingClientRect().width > 0 && getComputedStyle(element).visibility !== 'hidden';
-        const main = document.querySelector('.main-content');
-        const header = document.querySelector('.topbar-inner');
-        const toolbar = document.querySelector('.workspace-toolbar');
         return {
           documentWidth: document.documentElement.scrollWidth,
-          main: rect(main), header: rect(header), toolbar: rect(toolbar),
+          main: rect(document.querySelector('.main-content')),
+          header: rect(document.querySelector('.topbar-inner')),
+          sidebar: rect(document.querySelector('.workspace-sidebar')),
           footer: rect(document.querySelector('.workspace-footer')),
-          contentPadding: [main, header, toolbar].map(element => getComputedStyle(element).paddingLeft),
           dialogs: [...document.querySelectorAll('[role="dialog"]')].filter(visible).map(rect),
-          clippedButtons: [...document.querySelectorAll('.header-actions button, .workspace-actions button')]
+          clippedButtons: [...document.querySelectorAll('.header-actions button, .workspace-actions button, .sidebar-nav button')]
             .filter(visible).filter(element => element.scrollWidth > element.clientWidth + 1)
-            .map(element => element.getAttribute('aria-label')),
+            .map(element => element.getAttribute('aria-label') || element.textContent),
           canvases: [...document.querySelectorAll('canvas')].filter(visible).map(rect),
           tableCount: [...document.querySelectorAll('table')].filter(visible).length,
           primaryColor: getComputedStyle(document.querySelector('.brand-mark')).backgroundColor,
@@ -42,14 +40,15 @@ export async function captureLayout(page, artifacts, name, measurements) {
       measurements.push({ name, viewport, screenshot, ...measurement });
       await writeFile(path.join(artifacts, 'layout-measurements.json'), JSON.stringify(measurements, null, 2));
       assert.ok(measurement.documentWidth <= viewport.width + 1, `${name}: page overflows at ${viewport.width}`);
-      assert.equal(measurement.header.x, measurement.main.x, `${name}: header alignment`);
-      assert.equal(measurement.toolbar.width, measurement.main.width, `${name}: toolbar alignment`);
-      assert.equal(new Set(measurement.contentPadding).size, 1, `${name}: inconsistent horizontal spacing`);
-      const padding = parseFloat(measurement.contentPadding[0]);
-      assert.equal(measurement.footer.x, measurement.main.x + padding, `${name}: footer left alignment`);
-      assert.equal(measurement.footer.width, measurement.main.width - padding * 2, `${name}: footer right alignment`);
+      assert.ok(measurement.main.x >= measurement.header.x, `${name}: main must be inside frame`);
+      assert.equal(measurement.footer.x, measurement.main.x, `${name}: footer left alignment`);
+      assert.equal(measurement.footer.width, measurement.main.width, `${name}: footer right alignment`);
+      if (viewport.width > 700) {
+        assert.ok(measurement.sidebar.width >= 160 && measurement.sidebar.width <= 230, 'sidebar width');
+        assert.ok(measurement.main.x >= measurement.sidebar.x + measurement.sidebar.width + 20, 'sidebar content gap');
+      } else assert.equal(measurement.sidebar.width, 0, 'mobile navigation collapses');
       assert.deepEqual(measurement.clippedButtons, [], `${name}: clipped navigation text`);
-      assert.equal(measurement.primaryColor, 'rgb(18, 117, 104)', 'brand token must remain green');
+      assert.equal(measurement.primaryColor, 'rgb(78, 116, 104)', 'reference green token');
       for (const dialog of measurement.dialogs) {
         assert.ok(dialog.x >= -1 && dialog.x + dialog.width <= viewport.width + 1, `${name}: dialog overflows`);
       }

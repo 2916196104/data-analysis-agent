@@ -1,0 +1,55 @@
+.composer-wrap { width: 100%; max-width: none; margin: 0; }
+.review-page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin: 0 0 13px; }
+.review-page-heading h1 { font-size: 26px; font-weight: 700; line-height: 36px; margin: 0 0 2px; letter-spacing: -.5px; }
+.review-page-heading p { font-size: 12px; color: #666; line-height: 20px; margin: 0; overflow-wrap: anywhere; }
+.review-page-heading .ant-btn { margin-top: 8px; flex-shrink: 0; padding-inline: 12px; font-size: 12px; box-shadow: none; }
+.review-filter.scope-card { padding: 7px 10px 8px; margin-bottom: 16px; min-height: 74px; border: 1px solid var(--color-border); border-radius: 11px; background: var(--color-surface); box-shadow: none; }
+.review-filter-caption { font-size: 12px; line-height: 20px; color: #737373; }
+.review-filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.review-filter-grid > * { min-width: 0; }
+.review-filter-grid .ant-form-item { margin-bottom: 0; }
+.review-filter-grid .ant-select, .review-filter-grid .ant-picker { width: 100%; font-size: 12px; }
+.review-filter-grid .ant-select .ant-select-selector, .review-filter-grid .ant-picker { border-color: transparent; background: transparent; box-shadow: none; }
+.review-filter-grid .ant-select:hover .ant-select-selector, .review-filter-grid .ant-picker:hover { border-color: var(--color-border); }
+.review-filter-grid .ant-select-selection-placeholder { color: var(--color-text); }
+.review-filter-grid .ant-picker input { font-size: 12px; }
+.review-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-bottom: 16px; }
+.review-metric { min-height: 78px; border: 1px solid var(--color-border); border-radius: 11px; padding: 7px 11px 10px; }
+.review-metric > span { display: block; color: #737373; font-size: 12px; line-height: 20px; margin-bottom: 3px; }
+.review-metric > strong { display: block; font-size: 28px; line-height: 34px; letter-spacing: .2px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.review-trend { border: 1px solid var(--color-border); border-radius: 11px; padding: 18px 11px 12px; }
+.review-trend-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.review-trend-heading h2 { font-size: 13px; font-weight: 400; line-height: 20px; margin: 0; }
+.review-trend-heading > span { font-size: 12px; color: #666; }
+.review-trend .chart, .trend-state { height: 206px; }
+.trend-state { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; font-size: 12px; color: #888; text-align: center; }
+.trend-state > .anticon { color: #8ca297; font-size: 30px; }
+.trend-state .ant-alert { text-align: left; max-width: 100%; }
+.review-insight { padding: 24px 10px 20px; }
+.review-insight .ant-btn { padding-inline: 0; height: 32px; font-size: 13px; color: var(--color-text); }
+.review-insight .ant-btn .anticon { color: #666; font-size: 17px; }
+.review-insight p { margin: 6px 0 0; font-size: 13px; color: #737373; line-height: 22px; }
+.composer-wrap .advanced-settings { border-color: #eee; }
+.composer-wrap .advanced-settings > summary { color: #737373; padding-block: 12px; font-size: 12px; }
+.composer-wrap .advanced-settings > summary span { color: #999; font-size: 11px; }
+.composer-wrap .advanced-content { padding-top: 10px; }
+.composer-wrap .advanced-content .ant-form-item { margin-bottom: 18px; }
+.data-management-controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+.data-management-controls > .ant-select { width: min(100%, 380px); }
+.executor-note { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 18px 0 0; font-size: 11px; line-height: 20px; color: #8c733c; }
+@media (max-width: 1100px) {
+  .review-filter-grid { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); }
+}
+@media (max-width: 850px) {
+  .review-filter-grid { grid-template-columns: 1fr; gap: 0; }
+  .review-filter.scope-card { min-height: 108px; }
+}
+@media (max-width: 700px) {
+  .review-page-heading h1 { font-size: 24px; line-height: 32px; }
+  .review-page-heading .ant-btn { margin-top: 2px; }
+  .review-metric { min-height: 76px; padding-inline: 10px; }
+  .review-metric > strong { font-size: 26px; }
+  .review-insight { padding-inline: 4px; }
+  .review-trend .chart, .trend-state { height: 206px; }
+  .composer-wrap .advanced-settings > summary span { display: block; margin: 4px 0 0 15px; }
+}

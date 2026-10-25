@@ -1,16 +1,16 @@
 :root {
-  --color-primary: #127568;
-  --color-primary-hover: #0f655b;
-  --color-text: #243331;
-  --color-text-secondary: #76827e;
-  --color-border: #dce5e1;
+  --color-primary: #4e7468;
+  --color-primary-hover: #416458;
+  --color-text: #171717;
+  --color-text-secondary: #737373;
+  --color-border: #e1e1e1;
   --color-surface: #ffffff;
-  --color-background: #f5f7f6;
+  --color-background: #fdfdfd;
   --color-success: #378773;
   --color-warning: #a87e36;
   --color-danger: #b55c50;
   --color-focus: #82bcb0;
-  --font-family: Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
+  --font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
@@ -24,6 +24,6 @@
   --space-8: 32px;
   --space-9: 36px;
   --space-12: 48px;
-  --control-height: 40px;
+  --control-height: 34px;
   --content-max-width: 1200px;
 }

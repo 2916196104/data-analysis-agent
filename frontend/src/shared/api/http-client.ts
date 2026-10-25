@@ -60,19 +60,26 @@ export function query(values: Record<string, string | number | undefined>): stri
 }
 
 /** 上传保留 XHR 字节进度和独立错误文案，发送完成不等于服务端确认。 */
-export function uploadRequest<T>(path: string, file: File, onProgress?: (loaded: number) => void): Promise<T> {
+export function uploadRequest<T>(path: string, file: File, onProgress?: (loaded: number) => void, signal?: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(signal.reason); return; }
     const xhr = new XMLHttpRequest();
+    const cancel = () => xhr.abort();
+    const cleanup = () => signal?.removeEventListener('abort', cancel);
     xhr.open('POST', `${API_BASE}${path}`);
     xhr.timeout = 10 * 60_000;
     xhr.setRequestHeader('Accept', 'application/json');
     xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
     xhr.upload.onprogress = event => onProgress?.(Math.min(file.size, event.loaded));
-    const networkError = () => reject(new ApiError(0, { code: 'network_error', message: '文件上传失败或超时，请检查后端服务和网络后重试。' }));
+    const networkError = () => {
+      cleanup();
+      reject(signal?.aborted ? signal.reason : new ApiError(0, { code: 'network_error', message: '文件上传失败或超时，请检查后端服务和网络后重试。' }));
+    };
     xhr.onerror = networkError;
     xhr.ontimeout = networkError;
     xhr.onabort = networkError;
     xhr.onload = () => {
+      cleanup();
       let payload: { status?: string; result?: T; error?: ApiErrorBody };
       try { payload = JSON.parse(xhr.responseText); }
       catch { reject(new ApiError(xhr.status, { code: 'invalid_response', message: '上传服务返回的内容不是有效 JSON。' })); return; }
@@ -83,7 +90,8 @@ export function uploadRequest<T>(path: string, file: File, onProgress?: (loaded:
       onProgress?.(file.size);
       resolve(payload.result);
     };
-    xhr.send(file);
+    signal?.addEventListener('abort', cancel, { once: true });
+    try { xhr.send(file); } catch (error) { cleanup(); reject(error); }
   });
 }
 

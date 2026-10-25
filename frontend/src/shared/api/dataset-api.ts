@@ -7,9 +7,10 @@ export const datasetApi = {
     file: File,
     kind: UploadedImportFile['kind'],
     onProgress?: (loaded: number) => void,
+    signal?: AbortSignal,
   ): Promise<UploadedImportFile> => {
     const params = new URLSearchParams({ kind, filename: file.name });
-    return uploadRequest<UploadedImportFile>(`/import-files?${params}`, file, onProgress);
+    return uploadRequest<UploadedImportFile>(`/import-files?${params}`, file, onProgress, signal);
   },
   deleteImportedData: (id: string) => request<{ task: Task; deletion: Record<string, number | number[]>; reused: boolean }>(
     `/tasks/${encodeURIComponent(id)}/imported-data`, { method: 'DELETE' },

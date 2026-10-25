@@ -16,7 +16,7 @@ export default function ResultCards({ run, question, onDetail }: { run: Run; que
     evaluation: item.evaluations.find(e => e.aspect === issue.aspect)?.status,
   })));
   const trendOption = useMemo(() => ({
-    color: ['#127568', '#d49c4a'],
+    color: ['#4e7468', '#d49c4a'],
     tooltip: { trigger: 'axis', renderMode: 'richText' },
     legend: { bottom: 0, icon: 'circle', textStyle: { color: '#76827e' } },
     grid: { top: 24, left: 45, right: 24, bottom: 60 },

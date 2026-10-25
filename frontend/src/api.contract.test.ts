@@ -4,6 +4,21 @@ import { api, API_BASE, ApiError, errorMessage, request } from './api';
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('阶段 0 API 请求契约', () => {
+  it('已有趋势接口使用重复商品参数，保留 UTC 日期、模型身份和取消信号', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'ok', result: { summary: {}, buckets: [] } })));
+    vi.stubGlobal('fetch', fetcher);
+    const controller = new AbortController();
+    await api.trend({ model: 'model', base_url: 'offline', prompt_version: 'v1', product_ids: ['A&B', '中文/B'],
+      source: 'reviews_csv', dataset_version: '版本 1', date_from: '2023-02-01', date_to: '2023-02-28', as_of: null }, controller.signal);
+    const url = new URL(fetcher.mock.calls[0][0], 'http://localhost');
+    expect(url.pathname).toBe(new URL(`${API_BASE}/analytics/trend`, 'http://localhost').pathname);
+    expect(url.searchParams.getAll('product_ids')).toEqual(['A&B', '中文/B']);
+    expect(url.searchParams.get('period')).toBe('month');
+    expect(url.searchParams.get('date_to')).toBe('2023-02-28');
+    expect(url.searchParams.has('as_of')).toBe(false);
+    controller.abort();
+    expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
+  });
   const product = '["a&b","版本 1","p/1"]';
   const cases: [string, () => Promise<unknown>, string, string, string?][] = [
     ['健康状态', () => api.health(), '/health', 'GET'],

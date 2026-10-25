@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { Alert, Button, DatePicker, Form, Input, Modal, Select, Space } from 'antd';
-import { ArrowRightOutlined, DatabaseOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import ReviewDashboard from './features/analysis/ReviewDashboard';
 import dayjs, { type Dayjs } from 'dayjs';
 import {
-  analysisDates, analysisParameters, datasetKey, datasets, type AnalysisDraft,
+  analysisDates, analysisParameters, type AnalysisDraft,
 } from './analysis-draft';
 import type { AnalysisParameters, Options, Quality } from './types';
+import { DatasetSelector, ProductSelector } from './features/datasets';
+import { datasetSelectOptions, productSelectOptions, productsForDataset } from './features/datasets/model/dataset-options';
 
 interface Values {
   note: string;
@@ -19,36 +22,27 @@ interface ComposerProps {
   draft: AnalysisDraft;
   setDraft: Dispatch<SetStateAction<AnalysisDraft>>;
   busy: boolean;
+  refreshKey: number;
+  agentOpen: boolean;
+  setAgentOpen: (open: boolean) => void;
   onSubmit: (parameters: AnalysisParameters, note: string) => void;
   onPreview: () => void;
   onLabel: () => void;
 }
 
 export default function Composer({
-  options, quality, draft, setDraft, busy, onSubmit, onPreview, onLabel,
+  options, quality, draft, setDraft, busy, refreshKey, agentOpen, setAgentOpen, onSubmit, onPreview, onLabel,
 }: ComposerProps) {
   const [form] = Form.useForm<Values>();
-  const [agentOpen, setAgentOpen] = useState(false);
   const advanced = useRef<HTMLDetailsElement>(null);
-  const availableProducts = options.products.filter(
-    product => datasetKey(product) === draft.dataset,
-  );
+  const availableProducts = productsForDataset(options, draft.dataset);
   const selectedProducts = availableProducts.filter(
     product => !draft.productIds.length || draft.productIds.includes(product.product_id),
   );
   const profile = options.profiles.find(item => item.profile_id === draft.profileId);
   const dates = analysisDates(draft, quality);
-  const availableDatasets = datasets(options.products);
-  const datasetOptions = availableDatasets.map(item => ({
-    value: item.key,
-    label: availableDatasets.filter(other => other.version === item.version).length > 1
-      ? `${item.version} · ${item.source}`
-      : item.version,
-  }));
-  const productOptions = availableProducts.map(product => ({
-    value: product.product_id,
-    label: `${product.product_title || product.product_id}（${product.review_count} 条）`,
-  }));
+  const datasetOptions = datasetSelectOptions(options.products);
+  const productOptions = productSelectOptions(availableProducts);
   const profileOptions = options.profiles.map(item => ({
     value: item.profile_id,
     label: `${item.requested_model} · ${item.prompt_version}`,
@@ -101,8 +95,11 @@ export default function Composer({
   }
 
   return <div className="composer-wrap">
-    <div className="welcome"><h1>评论分析</h1><p>选好数据与时间，即可查看口碑变化、商品差异和负面问题。</p></div>
+    <div className="review-page-heading"><div><h1>评论分析</h1><p>{availableProducts[0]?.dataset_version || '尚未选择数据集'} · {availableProducts.length} 款商品</p></div>
+      {!availableProducts.length ? <Button type="primary" disabled>开始分析</Button> : needsPreparation ? <Button type="primary" onClick={onLabel}>准备数据</Button> : <Button aria-label="开始分析" type="primary" htmlType="submit" form="review-analysis-form" loading={busy}>开始分析</Button>}
+    </div>
     <Form<Values>
+      id="review-analysis-form"
       form={form}
       layout="vertical"
       requiredMark={false}
@@ -121,39 +118,28 @@ export default function Composer({
       onFinishFailed={() => { if (advanced.current) advanced.current.open = true; }}
       onFinish={handleSubmit}
     >
-      <div className="scope-card">
-        <div className="scope-title"><strong>分析范围</strong></div>
-        <div className="form-grid">
-          <Form.Item label="数据集">
-            <Select
-              aria-label="数据集"
-              value={draft.dataset || undefined}
-              placeholder="请选择数据集"
-              disabled={busy}
-              onChange={dataset => setDraft(previous => ({ ...previous, dataset, productIds: [] }))}
-              options={datasetOptions}
-            />
+      <div className="scope-card review-filter">
+        <div className="review-filter-caption">筛选条件</div>
+        <div className="review-filter-grid">
+          <Form.Item>
+            <ProductSelector value={draft.productIds} options={productOptions} disabled={busy || !draft.dataset} onChange={productIds => setDraft(previous => ({ ...previous, productIds }))} />
           </Form.Item>
-          <Form.Item label="商品">
-            <Select
-              aria-label="分析商品"
-              mode="multiple"
-              value={draft.productIds}
-              maxCount={100}
-              maxTagCount="responsive"
-              optionFilterProp="label"
-              placeholder="全部商品"
-              disabled={busy || !draft.dataset}
-              onChange={productIds => setDraft(previous => ({ ...previous, productIds }))}
-              options={productOptions}
-            />
-          </Form.Item>
-          <Form.Item label="分析时间" name="current" className="span-two" rules={[{ required: true, message: '请选择分析时间' }]}><DatePicker.RangePicker aria-label="当前窗口" className="full-width" allowClear={false} disabled={busy} /></Form.Item>
+          <Form.Item name="current" rules={[{ required: true, message: '请选择分析时间' }]}><DatePicker.RangePicker aria-label="当前窗口" title="时间范围（UTC）" className="full-width" allowClear={false} disabled={busy} /></Form.Item>
         </div>
-        <p className="scope-summary">{selectedProducts.length} 款商品 · 共 {selectedProducts.reduce((sum, product) => sum + product.review_count, 0).toLocaleString()} 条评论（全部日期）<br />对比 {dates.baseline[0]} 至 {dates.baseline[1]} · 日期按 UTC</p>
+      </div>
+      <ReviewDashboard parameters={parameters} productCount={selectedProducts.length} hasProducts={!!availableProducts.length} refreshKey={refreshKey} />
+      <section className="review-insight">
+        <Button type="text" aria-label="Agent 问答" icon={<ThunderboltOutlined />} disabled={busy || !parameters} onClick={() => setAgentOpen(true)}>AI 洞察</Button>
+        <p>解释变化、查找负面问题并关联原始评论。</p>
+        {!parameters && <span className="muted">选择可用标注版本与分析范围后启用</span>}
+      </section>
         <details className="advanced-settings" ref={advanced}>
-          <summary>高级设置 <span>对比时间、标注版本、备注</span></summary>
+          <summary>高级设置 <span>数据集、对比时间、标注版本、备注</span></summary>
           <div className="advanced-content">
+            <Form.Item label="数据集">
+              <DatasetSelector value={draft.dataset} options={datasetOptions} disabled={busy} onChange={dataset => setDraft(previous => ({ ...previous, dataset, productIds: [] }))} />
+            </Form.Item>
+            <p className="scope-summary">{selectedProducts.length} 款商品 · 共 {selectedProducts.reduce((sum, product) => sum + product.review_count, 0).toLocaleString()} 条评论（目录全部日期）<br />对比 {dates.baseline[0]} 至 {dates.baseline[1]} · 日期按 UTC</p>
             <Form.Item label="对比时间" name="baseline" dependencies={['current']} rules={[{ required: true, message: '请选择对比时间' }, ({ getFieldValue }) => ({ validator(_, value) {
               const current = getFieldValue('current');
               return value && current && !value[1].isBefore(current[0], 'day') ? Promise.reject(new Error('对比结束日期必须早于分析开始日期')) : Promise.resolve();
@@ -170,16 +156,11 @@ export default function Composer({
               />
             </Form.Item>
             <Form.Item label="分析备注（可选）" name="note" extra="用于识别本次分析，不改变统计内容。"><Input aria-label="分析问题备注" placeholder="例如：十月包装问题复盘" maxLength={1000} disabled={busy} /></Form.Item>
+            <div className="submit-row"><Button aria-label="预览数据" icon={<DatabaseOutlined />} disabled={!availableProducts.length} onClick={onPreview}>预览数据</Button></div>
           </div>
         </details>
-        {!options.products.length && <Alert className="spaced" type="info" showIcon message="点击顶部“导入数据”，添加评论后开始分析" />}
+        {!options.products.length && <Alert className="spaced" type="info" showIcon message="从数据管理或侧栏导入评论后开始分析" />}
         {!!availableProducts.length && needsPreparation && <Alert className="spaced" type="info" showIcon message="先准备数据" description="所选范围尚无可用的成功标注。确认本批处理数量后，模型会提取评论观点。" />}
-        <div className="submit-row">
-          <Button aria-label="预览数据" icon={<DatabaseOutlined />} disabled={!availableProducts.length} onClick={onPreview}>预览数据</Button>
-          <Button aria-label="Agent 问答" disabled={busy || !parameters} onClick={() => setAgentOpen(true)}>Agent 问答</Button>
-          {!availableProducts.length ? <Button type="primary" disabled>开始分析</Button> : needsPreparation ? <Button type="primary" onClick={onLabel}>准备数据</Button> : <Button aria-label="开始分析" type="primary" htmlType="submit" loading={busy} icon={<ArrowRightOutlined />} iconPosition="end">开始分析</Button>}
-        </div>
-      </div>
     </Form>
     <Modal title="只读评论 Agent" open={agentOpen} onCancel={() => setAgentOpen(false)} onOk={submitAgent}
       okText="提交问题" cancelText="取消" okButtonProps={{ disabled: !parameters || !draft.agentQuestion?.trim(), loading: busy }}>
