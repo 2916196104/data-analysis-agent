@@ -1,6 +1,6 @@
-.workbench { min-height: 100vh; padding: 4px 28px 26px; background: var(--color-background); }
-.workspace-main { max-width: 1024px; margin: 0 auto; min-height: calc(100vh - 30px); min-width: 0; padding: 0 12px; border: 1px solid var(--color-border); border-radius: 22px; background: var(--color-surface); }
-.topbar { border-bottom: 1px solid #ededed; }
+.workbench { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; padding: 4px 28px 26px; background: var(--color-background); }
+.workspace-main { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 1024px; margin: 0 auto; min-height: 0; min-width: 0; padding: 0 12px; border: 1px solid var(--color-border); border-radius: 22px; background: var(--color-surface); }
+.topbar { flex-shrink: 0; border-bottom: 1px solid #ededed; }
 .topbar-inner { min-height: 96px; padding: 12px 10px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .brand-mark { width: 43px; height: 43px; flex-shrink: 0; display: grid; place-items: center; background: var(--color-primary); border-radius: 11px; color: white; font-size: 23px; }
@@ -11,21 +11,21 @@
 .header-actions .ant-btn { font-size: 18px; color: #666; }
 .header-actions [aria-disabled] { cursor: default; }
 .mobile-menu-trigger.ant-btn { display: none; }
-.workspace-body { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 32px; padding: 32px 10px 26px; min-height: calc(100vh - 128px); }
-.workspace-sidebar { min-width: 0; display: flex; flex-direction: column; }
-.sidebar-caption { color: #888; font-size: 13px; margin-bottom: 10px; }
-.sidebar-nav { display: flex; flex-direction: column; gap: 16px; }
-.sidebar-nav > button { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; padding: 8px; min-height: 35px; border-radius: 9px; background: transparent; text-align: left; color: #626262; font-size: 13px; }
+.workspace-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 230px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 32px; padding: 32px 10px 26px; }
+.workspace-sidebar { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+.sidebar-caption { flex-shrink: 0; color: #888; font-size: 13px; margin-bottom: 10px; }
+.sidebar-nav { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; display: flex; flex-direction: column; gap: 16px; }
+.sidebar-nav > button { flex-shrink: 0; display: flex; align-items: center; gap: 12px; width: 100%; border: 0; padding: 8px; min-height: 35px; border-radius: 9px; background: transparent; text-align: left; color: #626262; font-size: 13px; }
 .sidebar-nav > button .anticon { font-size: 17px; flex-shrink: 0; }
 .sidebar-nav > button small { margin-left: auto; font-size: 10px; color: #999; font-weight: 400; }
 .sidebar-nav > button:hover:not(:disabled), .sidebar-nav > button.active { background: #f3f3f3; color: #151515; }
 .sidebar-nav > button.active { font-weight: 600; }
 .sidebar-nav > button:disabled { cursor: not-allowed; }
-.sidebar-tools { margin-top: auto; padding-top: 40px; }
+.sidebar-tools { flex-shrink: 0; margin-top: auto; padding-top: 40px; }
 .connection-label .ant-badge-status-text { color: #888; font-size: 11px; }
 .workspace-actions { display: flex; gap: 8px; margin-top: 10px; }
 .workspace-actions .ant-btn { color: #777; }
-.workspace-content { min-width: 0; }
+.workspace-content { min-height: 0; min-width: 0; overflow-y: auto; overscroll-behavior-y: contain; }
 .main-content { min-width: 0; }
 .workspace-footer { display: flex; gap: 20px; justify-content: space-between; margin-top: 32px; padding-top: 14px; border-top: 1px solid #efefef; font-size: 10px; color: #999; }
 .context-summary { min-width: 0; overflow-wrap: anywhere; }
@@ -42,7 +42,7 @@
 }
 @media (max-width: 700px) {
   .workbench { padding: 8px; }
-  .workspace-main { padding: 0 8px; border-radius: 16px; min-height: calc(100vh - 16px); }
+  .workspace-main { padding: 0 8px; border-radius: 16px; }
   .topbar-inner { min-height: 72px; padding: 14px 6px; gap: 8px; }
   .brand { gap: 9px; }
   .brand-mark { width: 36px; height: 36px; font-size: 20px; border-radius: 9px; }
@@ -52,10 +52,11 @@
   .header-actions { gap: 0; }
   .header-actions .ant-btn { width: 30px; padding: 4px; font-size: 16px; }
   .mobile-menu-trigger.ant-btn { display: inline-flex; }
-  .workspace-body { display: block; padding: 24px 6px 18px; min-height: 0; }
+  .workspace-body { display: flex; flex-direction: column; gap: 0; padding: 24px 6px 18px; }
+  .workspace-content { flex: 1; }
   .workspace-sidebar { display: none; }
-  .workspace-sidebar.is-open { display: flex; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--color-border); }
-  .sidebar-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .workspace-sidebar.is-open { display: flex; flex: 0 1 auto; max-height: 55%; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--color-border); }
+  .sidebar-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 10px; }
   .sidebar-tools { padding-top: 20px; }
   .workspace-actions { gap: 14px; }
   .workspace-footer { flex-wrap: wrap; gap: 8px; margin-top: 24px; }

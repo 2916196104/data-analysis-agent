@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { chromium } from 'playwright';
-import { captureLayout } from './capture-layout.mjs';
+import { captureLayout, checkShellScrolling, checkShortContent } from './capture-layout.mjs';
 
 const frontend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const root = path.dirname(frontend);
@@ -173,6 +173,7 @@ try {
   await writeFile(path.join(artifacts, 'initial-ui.txt'), await page.locator('body').innerText());
   await page.screenshot({ path: path.join(artifacts, '01-workbench.png'), fullPage: true });
   await captureLayout(page, artifacts, 'workbench', layoutMeasurements);
+  await checkShortContent(page, artifacts);
 
   // Select a real product and preview its actual persisted reviews.
   await page.getByRole('combobox', { name: '分析商品' }).click();
@@ -215,6 +216,7 @@ try {
   assert.equal(run.results.summary.triggered, 1);
   await page.screenshot({ path: path.join(artifacts, '02-analysis-result.png'), fullPage: true });
   await captureLayout(page, artifacts, 'analysis-result', layoutMeasurements);
+  await checkShellScrolling(page, artifacts);
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: '下载 JSON', exact: true }).click();
   const download = await downloadPromise;

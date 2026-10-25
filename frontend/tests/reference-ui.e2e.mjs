@@ -56,9 +56,9 @@ try {
   report.executorWarningVisible = await page.getByText('后台执行器离线', { exact: true }).isVisible();
   for (const width of [1440, 1024, 768, 390, 1116]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.locator('.workspace-content').evaluate(element => element.scrollTo(0, 0));
     await page.locator('.review-trend').scrollIntoViewIfNeeded();
-    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.locator('.workspace-content').evaluate(element => element.scrollTo(0, 0));
     const filename = `review-analysis-${width}.png`;
     await page.screenshot({ path: path.join(output, filename), fullPage: true, animations: 'disabled' });
     const boxes = await page.evaluate(() => {
