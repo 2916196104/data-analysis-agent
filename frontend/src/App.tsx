@@ -1,26 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert, Badge, Button, Card, Drawer, Modal, Pagination,
+  Alert, Badge, Button, Card, Drawer, Modal,
   Progress, Skeleton, Space, Spin, Tag,
 } from 'antd';
 import {
-  ArrowRightOutlined, CheckOutlined, DatabaseOutlined, DeleteOutlined,
-  DownloadOutlined, FileTextOutlined, HistoryOutlined, ImportOutlined, ReloadOutlined,
+  CheckOutlined, DatabaseOutlined, DeleteOutlined,
+  DownloadOutlined, ReloadOutlined,
 } from '@ant-design/icons';
 import AppLayout from './app/AppLayout';
+import { navigate, routeUrl, taskRoute, useAppRoute } from './app/router';
 import DataManagement from './features/datasets/components/DataManagement';
 import { api, API_BASE, errorMessage } from './api';
 import Composer from './Composer';
 import { analysisDates, analysisParameters, datasetKey } from './analysis-draft';
-import LabelForm from './LabelForm';
+import AnnotationPage from './features/annotations/AnnotationPage';
+import { AnnotationNextSteps, AnnotationProgress } from './features/annotations/AnnotationTaskContent';
+import TaskReportsPage from './features/tasks/TaskReportsPage';
 import ResultCards from './ResultCards';
-import AgentResults from './AgentResults';
+import AiAssistantPage from './features/agent/AiAssistantPage';
+import { useAgentChat } from './features/agent/useAgentChat';
+import { isAgentTask } from './features/agent/chat-state';
 import { DataPreviewDrawer, ImportDialog, ImportProgress, useImportTask } from './features/datasets';
 import { exportResult, readHistory, writeHistory } from './local-history';
 import { canRetry, isActive, kindLabels, progressPercent, stageLabels, statusLabels } from './task-state';
 import { useTask } from './useTask';
 import type {
-  AgentResult, AnalysisParameters, AnalysisScope, Health, Identity, Options, Page, Quality,
+  AgentResult, AnalysisParameters, Health, Identity, Options, Page, Quality,
   TaskInput, TaskSummary,
 } from './types';
 
@@ -56,8 +61,10 @@ function progressStatus(task: TaskSummary['status']): 'exception' | 'success' | 
 /** 工作台页面：加载目录和任务历史，提交任务后轮询并展示冻结结果。 */
 export default function App() {
   const [local, setLocal] = useState(readHistory);
-  const [section, setSection] = useState<'analysis' | 'datasets'>('analysis');
-  const [agentOpen, setAgentOpen] = useState(false);
+  const route = useAppRoute(local.selected);
+  const section = route.page === 'task' ? route.module : route.page;
+  const selectedTaskId = route.page === 'task' ? route.taskId : null;
+  const [datasetPage, setDatasetPage] = useState(1);
   const [options, setOptions] = useState<Options>(emptyOptions);
   const [quality, setQuality] = useState<Quality>();
   const [catalogRevision, setCatalogRevision] = useState(0);
@@ -65,6 +72,7 @@ export default function App() {
   const [draft, setDraft] = useState(local.draft);
   const { dataset, productIds, profileId } = draft;
   const [history, setHistory] = useState<Page<TaskSummary>>();
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState('');
@@ -76,29 +84,22 @@ export default function App() {
   const [pendingDelete, setPendingDelete] = useState<{
     kind: 'task' | 'data'; taskId: string; label: string;
   }>();
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [detail, setDetail] = useState<{ title: string; value: unknown }>();
   const [importOpen, setImportOpen] = useState(false);
-  const [labelDefaults, setLabelDefaults] = useState<{
-    dataset: string;
-    products: string[];
-    limit?: number;
-    workers?: number;
-    scope?: Pick<AnalysisScope, 'date_from' | 'date_to' | 'as_of'>;
-    retryFailed?: boolean;
-  }>();
+  const labelDefaults = route.page === 'annotation' ? route.defaults : undefined;
   const submissionKey = useRef<{ fingerprint: string; key: string } | undefined>(undefined);
   const retryKey = useRef<{ id: string; key: string } | undefined>(undefined);
   const historyRequest = useRef(0);
   const loadRequest = useRef(0);
-  const taskState = useTask(local.selected);
+  const taskState = useTask(selectedTaskId);
   const importTask = useImportTask({ onSubmit: submit, onBusyChange: setBusy, onError: setSubmitError });
-  const task = taskState.id === local.selected ? taskState.task : null;
-  const run = taskState.id === local.selected ? taskState.run : null;
-  const agentResult = task?.result?.agent === true ? task.result as unknown as AgentResult : null;
+  const task = taskState.id === selectedTaskId ? taskState.task : null;
+  const run = taskState.id === selectedTaskId ? taskState.run : null;
+  const chat = useAgentChat(route.page === 'assistant' ? route.taskId : undefined);
   const fetchHistory = useCallback(async () => {
     const requestId = ++historyRequest.current;
+    setHistoryLoading(true);
     try {
       const next = await api.tasks(page);
       if (requestId === historyRequest.current) {
@@ -107,8 +108,19 @@ export default function App() {
       }
     } catch (error) {
       if (requestId === historyRequest.current) setHistoryError(errorMessage(error));
+    } finally {
+      if (requestId === historyRequest.current) setHistoryLoading(false);
     }
   }, [page]);
+  useEffect(() => {
+    const saved = chat.session.turns.filter(turn => turn.taskId);
+    if (!saved.length) return;
+    setLocal(previous => ({ ...previous,
+      selected: route.page === 'assistant' ? chat.activeTurn?.taskId ?? null : previous.selected,
+      notes: { ...previous.notes, ...Object.fromEntries(saved.map(turn => [turn.taskId!, turn.question])) },
+    }));
+    void fetchHistory();
+  }, [chat.session, route.page, fetchHistory]);
 
   const load = useCallback(async () => {
     const requestId = ++loadRequest.current;
@@ -185,6 +197,24 @@ export default function App() {
     setStorageError(!writeHistory({ ...local, draft }));
   }, [local, draft]);
   useEffect(() => {
+    if (route.page === 'tasks') return;
+    setLocal(previous => previous.selected === selectedTaskId ? previous : { ...previous, selected: selectedTaskId });
+  }, [route.page, selectedTaskId]);
+  useEffect(() => {
+    setSubmitError('');
+    setPendingDelete(undefined);
+  }, [route]);
+  useEffect(() => {
+    if (route.page === 'annotation' && !route.defaults && !loading) {
+      navigate({ page: 'annotation', defaults: { dataset, products: productIds } }, true);
+    }
+  }, [route, loading, dataset, productIds]);
+  useEffect(() => {
+    if (route.page !== 'task' || !task) return;
+    const canonical = taskRoute(task.task_id, task.kind, isAgentTask(task));
+    if (routeUrl(canonical) !== routeUrl(route)) navigate(canonical, true);
+  }, [route, task]);
+  useEffect(() => {
     const dataPreparationFinished = task
       && (task.kind === 'import' || task.kind === 'label')
       && !isActive(task.status);
@@ -192,9 +222,10 @@ export default function App() {
   }, [task?.task_id, task?.status, task?.kind, load]);
 
   const selectTask = (id: string | null) => {
-    setSection('analysis');
+    const kind = history?.items.find(item => item.task_id === id)?.kind ?? (task?.task_id === id ? task.kind : undefined);
+    navigate(id ? taskRoute(id, kind, chat.session.turns.some(turn => turn.taskId === id)) : { page: 'analysis' });
     setLocal(previous => ({ ...previous, selected: id }));
-    setHistoryOpen(false);
+    setPendingDelete(undefined);
     setSubmitError('');
   };
 
@@ -207,7 +238,7 @@ export default function App() {
     setSubmitError('');
     try {
       const result = await api.submit(input, submissionKey.current.key);
-      setSection('analysis');
+      navigate(taskRoute(result.task.task_id, result.task.kind));
       setLocal(previous => ({
         ...previous,
         selected: result.task.task_id,
@@ -215,7 +246,6 @@ export default function App() {
       }));
       submissionKey.current = undefined;
       setImportOpen(false);
-      setLabelDefaults(undefined);
       setPage(1);
       void fetchHistory();
       return true;
@@ -236,6 +266,7 @@ export default function App() {
     setSubmitError('');
     try {
       const result = await api.retry(task.task_id, retryKey.current.key);
+      navigate(taskRoute(result.task.task_id, result.task.kind));
       setLocal(previous => ({
         ...previous,
         selected: result.task.task_id,
@@ -269,8 +300,12 @@ export default function App() {
     try {
       if (current.kind === 'task') {
         await api.deleteTask(current.taskId);
-        if (local.selected === current.taskId) selectTask(null);
-        else void fetchHistory();
+        if (local.selected === current.taskId) {
+          if (section === 'tasks') setLocal(previous => ({ ...previous, selected: null }));
+          else if (section === 'annotation') navigate({ page: 'annotation' });
+          else selectTask(null);
+        }
+        void fetchHistory();
       } else {
         await api.deleteImportedData(current.taskId);
         await Promise.all([fetchHistory(), load()]);
@@ -294,16 +329,21 @@ export default function App() {
         && (!task.parameters.dataset_version || product.dataset_version === task.parameters.dataset_version)
         && (!ids?.length || ids.includes(product.product_id));
     }
-    return datasetKey(product) === dataset && (!productIds.length || productIds.includes(product.product_id));
+    const activeDataset = labelDefaults?.dataset ?? dataset;
+    const activeProducts = labelDefaults?.products ?? productIds;
+    return datasetKey(product) === activeDataset && (!activeProducts.length || activeProducts.includes(product.product_id));
   });
   const title = task
     ? local.notes[task.task_id] || `${kindLabels[task.kind]} · ${dateLabel(task.created_at)}`
     : '';
 
   const openLabel = () => {
+    if (route.page === 'annotation') return;
+    if (loading) { navigate({ page: 'annotation' }); return; }
     const scoped = task?.kind === 'import' || task?.kind === 'label';
     setSubmitError('');
-    setLabelDefaults({
+    setPendingDelete(undefined);
+    navigate({ page: 'annotation', defaults: {
       dataset: scoped
         ? JSON.stringify([
           taskSource || 'amazon_reviews_2023',
@@ -313,7 +353,7 @@ export default function App() {
       products: scoped ? (task.parameters.product_ids as string[] || []) : productIds,
       limit: task?.kind === 'label' ? task.parameters.limit as number : undefined,
       workers: task?.kind === 'label' ? task.parameters.workers as number : undefined,
-    });
+    } });
   };
 
   const taskIdentity = task?.kind === 'label'
@@ -354,36 +394,62 @@ export default function App() {
     }
   };
   const showDetail = (value: unknown, title: string) => setDetail({ title, value });
+  const prepareAgent = (result: AgentResult, products: string[]) => {
+    setSubmitError('');
+    navigate({ page: 'annotation', defaults: { dataset: JSON.stringify([result.scope.source, result.scope.dataset_version]), products,
+      scope: { date_from: result.scope.date_from, date_to: result.scope.date_to, as_of: result.scope.as_of }, retryFailed: true } });
+  };
+  const chatParameters = analysisParameters(draft, options, quality);
+  const chatDates = analysisDates(draft, quality);
+  const chatContext = `${currentProducts[0]?.dataset_version || '尚未选择数据集'} · ${productIds.length ? currentProducts.map(product => product.product_title || product.product_id).join('、') : `全部商品（${currentProducts.length} 款）`} · ${chatDates.current[0]} — ${chatDates.current[1]}（UTC）`;
+  const sendChat = async () => {
+    const question = draft.agentQuestion?.trim();
+    if (!chatParameters || !question || chat.pending) return;
+    if (route.page === 'assistant' && route.taskId) navigate({ page: 'assistant' });
+    if (await chat.send(chatParameters, question)) setDraft(previous => previous.agentQuestion?.trim() === question ? { ...previous, agentQuestion: '' } : previous);
+  };
   const datasetSummary = productSummary(currentProducts, task?.parameters.dataset_version as string);
   return <>
-    <Drawer title="任务记录" placement="right" width="min(640px, 100vw)" open={historyOpen} onClose={() => setHistoryOpen(false)} closable={{ 'aria-label': '关闭任务记录' }} className="task-history"
-      footer={!!history?.total && <Pagination size="small" current={page} total={history.total} pageSize={15} showSizeChanger={false} showTotal={total => `共 ${total} 项任务`} onChange={setPage} />}>
-      <div className="history-intro"><div><h2>最近任务</h2><p>查看处理进度，或打开任务继续查看结果。</p></div><Button type="text" aria-label="刷新任务记录" icon={<ReloadOutlined />} onClick={() => void fetchHistory()} /></div>
-      {historyError && <Alert className="spaced-bottom" type="warning" showIcon message="任务记录暂不可用" description={historyError} action={<Button size="small" aria-label="重试任务记录" onClick={() => void fetchHistory()}>重试</Button>} />}
-      {!history && !historyError && <Skeleton active paragraph={{ rows: 5 }} />}
-      {history && !history.items.length && !historyError && <div className="history-empty"><HistoryOutlined /><h3>还没有任务记录</h3><p>导入、准备数据和分析的任务会自动保存在这里。</p><Button onClick={() => selectTask(null)}>开始一次分析</Button></div>}
-      <div className="history-list">
-        {history?.items.map(item => <div key={item.task_id} role="button" tabIndex={0} aria-current={local.selected === item.task_id ? 'true' : undefined} className={`history-item ${local.selected === item.task_id ? 'selected' : ''}`} onClick={() => selectTask(item.task_id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectTask(item.task_id); } }}>
-          <span className={`history-icon ${item.kind}`}>{item.kind === 'import' ? <ImportOutlined /> : item.kind === 'label' ? <CheckOutlined /> : <FileTextOutlined />}</span>
-          <span className="history-copy"><span className="history-title">{local.notes[item.task_id] || kindLabels[item.kind]}</span><span className="history-meta"><span>{kindLabels[item.kind]}</span><time dateTime={item.created_at}>{dateLabel(item.created_at)}</time>{local.selected === item.task_id && <span className="history-current">当前查看</span>}</span></span>
-          <span className={`task-state ${item.status}`}><span className="status-dot" />{statusLabels[item.status]}</span><Button className="history-delete" type="text" danger aria-label={`删除${local.notes[item.task_id] || kindLabels[item.kind]}`} icon={<DeleteOutlined />} loading={deleteBusy} onClick={event => { event.stopPropagation(); confirmDeleteTask(item.task_id, local.notes[item.task_id] || kindLabels[item.kind]); }} /><ArrowRightOutlined className="history-arrow" />
-        </div>)}
-      </div>
-    </Drawer>
     <AppLayout
       connection={{ status: !health ? 'error' : health.worker_available ? 'success' : 'warning', text: !health ? '连接待确认' : health.worker_available ? '服务已连接' : '执行器离线' }}
-      loading={loading} historyOpen={historyOpen} taskCount={history?.total}
+      loading={loading} taskCount={history?.total} fillContent={route.page === 'assistant'}
       datasetSummary={datasetSummary} hasProducts={!!currentProducts.length} section={section}
-      onDatasets={() => { selectTask(null); setSection('datasets'); }}
-      onAgent={() => { selectTask(null); setAgentOpen(true); }}
+      onDatasets={() => navigate({ page: 'datasets' })}
+      onAnnotation={() => { if (route.page !== 'annotation') navigate({ page: 'annotation' }); }}
+      onAgent={() => navigate({ page: 'assistant' })}
       onRefresh={() => { void load(); void fetchHistory(); taskState.refresh(); }}
-      onHistory={() => { setHistoryOpen(true); void fetchHistory(); }}
+      onHistory={() => { navigate({ page: 'tasks' }); void fetchHistory(); }}
       onImport={() => { setSubmitError(''); setImportOpen(true); }}
       onPrepare={openLabel} onPreview={() => setPreviewOpen(true)} onNewAnalysis={() => selectTask(null)}>
         {connectionError && <Alert className="spaced-bottom" type="error" showIcon message="无法完整加载工作空间" description={<>{connectionError}<div className="api-address">API：{API_BASE}</div></>} action={<Button onClick={() => void load()}>重新连接</Button>} />}
         {storageError && <Alert className="spaced-bottom" type="warning" showIcon message="浏览器存储不可用，问题备注和当前选择在刷新后可能丢失；后端任务仍会保留。" />}
-        {submitError && !importOpen && !labelDefaults && <Alert className="spaced-bottom" type="error" showIcon message="请求未完成" description={submitError} />}
-        {section === 'datasets' ? <DataManagement options={options} dataset={dataset} onDataset={value => setDraft(previous => ({ ...previous, dataset: value, productIds: [] }))} onImport={() => { setSubmitError(''); setImportOpen(true); }} onPreview={() => setPreviewOpen(true)} /> : !local.selected ? loading && !options.products.length ? <Skeleton active paragraph={{ rows: 6 }} /> : <Composer key={dataset} options={options} quality={quality} draft={draft} setDraft={setDraft} busy={busy} refreshKey={catalogRevision} agentOpen={agentOpen} setAgentOpen={setAgentOpen} onSubmit={(parameters: AnalysisParameters, question: string) => void submit({ kind: 'analysis', parameters }, question)} onPreview={() => setPreviewOpen(true)} onLabel={openLabel} /> : <>
+        {submitError && !importOpen && route.page !== 'annotation' && <Alert className="spaced-bottom" type="error" showIcon message="请求未完成" description={submitError} />}
+        {route.page === 'assistant' ? <AiAssistantPage chat={chat} parameters={chatParameters} context={chatContext}
+          input={draft.agentQuestion || ''} onInput={agentQuestion => setDraft(previous => ({ ...previous, agentQuestion }))}
+          onSend={() => void sendChat()} onPrepare={prepareAgent} onAnalysis={() => selectTask(null)}
+          onNewQuestion={() => { chat.release(); navigate({ page: 'assistant' }); }}
+        /> : section === 'tasks' ? <TaskReportsPage tasks={history} page={page} loading={historyLoading} error={historyError}
+          notes={local.notes} selectedId={local.selected} deleteBusy={deleteBusy} formatCreatedAt={dateLabel}
+          pendingDelete={pendingDelete?.kind === 'task' ? pendingDelete : undefined}
+          onRefresh={() => void fetchHistory()} onPage={value => { setPendingDelete(undefined); setPage(value); }}
+          onSelect={selectTask} onDelete={confirmDeleteTask} onConfirmDelete={() => void executeDelete()}
+          onCancelDelete={() => { if (!deleteBusy) setPendingDelete(undefined); }}
+        /> : route.page === 'annotation' ? !labelDefaults || (loading && !options.products.length) ? <Skeleton active paragraph={{ rows: 6 }} /> : <AnnotationPage
+          options={options} initialDataset={labelDefaults.dataset} initialProducts={labelDefaults.products}
+          initialLimit={labelDefaults.limit} initialWorkers={labelDefaults.workers} initialScope={labelDefaults.scope}
+          initialRetryFailed={labelDefaults.retryFailed} busy={busy} error={submitError}
+          onSubmit={parameters => {
+            setDraft(previous => {
+              const dataset = JSON.stringify([parameters.source, parameters.dataset_version]);
+              return { ...previous, dataset, productIds: parameters.product_ids,
+                note: previous.dataset === dataset && JSON.stringify(previous.productIds) === JSON.stringify(parameters.product_ids) ? previous.note : '' };
+            });
+            navigate({ page: 'annotation', defaults: { ...labelDefaults,
+              dataset: JSON.stringify([parameters.source, parameters.dataset_version]), products: parameters.product_ids,
+              limit: parameters.limit, workers: parameters.workers, retryFailed: parameters.retry_failed } }, true);
+            void submit({ kind: 'label', parameters }, `准备数据 · 最多 ${parameters.limit} 条`);
+          }}
+        /> : section === 'datasets' ? <DataManagement options={options} dataset={dataset} page={datasetPage} onPage={setDatasetPage} onDataset={value => { setDatasetPage(1); setDraft(previous => ({ ...previous, dataset: value, productIds: [] })); }} onImport={() => { setSubmitError(''); setImportOpen(true); }} onPreview={() => setPreviewOpen(true)} /> : !selectedTaskId ? loading && !options.products.length ? <Skeleton active paragraph={{ rows: 6 }} /> : <Composer key={dataset} options={options} quality={quality} draft={draft} setDraft={setDraft} busy={busy} refreshKey={catalogRevision} onAgent={() => navigate({ page: 'assistant' })} onSubmit={(parameters: AnalysisParameters, question: string) => void submit({ kind: 'analysis', parameters }, question)} onPreview={() => setPreviewOpen(true)} onLabel={openLabel} /> : <>
           {taskState.loading && !task && <Skeleton active paragraph={{ rows: 5 }} />}
           {taskState.error && <Alert className="spaced-bottom" type="error" showIcon message="任务连接异常" description={<>{taskState.error}<div>保留最后一次已知状态，正在尝试重新连接。</div></>} action={<Button onClick={taskState.refresh}>立即重连</Button>} />}
           {task && <>
@@ -392,16 +458,7 @@ export default function App() {
             <Card className="progress-card" aria-live="polite">
               <div className="progress-heading"><span>{isActive(task.status) ? <Spin size="small" /> : task.status === 'succeeded' ? <CheckOutlined className="success-icon" /> : <Badge status={task.status === 'failed' ? 'error' : 'warning'} />}<strong>{statusLabels[task.status]}</strong></span><span className="muted">{stageLabels[task.progress.stage] || task.progress.stage}</span></div>
               {task.kind === 'import' ? <ImportProgress task={task} /> : progressPercent(task.progress) !== undefined ? <Progress percent={progressPercent(task.progress)} status={progressStatus(task.status)} size="small" /> : <p className="muted">{task.status === 'queued' ? '等待后台执行器领取任务。' : `已处理 ${task.progress.completed}，当前阶段总量未知。`}</p>}
-              {task.kind === 'label' && <>
-                <Space wrap aria-label="标注进度">
-                  <span>标注进度 {task.progress.completed}/{task.progress.total ?? '待确定'}</span>
-                  <span>成功 {Number(task.progress.successful_reviews ?? 0)}</span>
-                  <span>失败 {Number(task.progress.failed_reviews ?? 0)}</span>
-                  <span>模型调用 {Number(task.progress.model_calls ?? 0)}</span>
-                </Space>
-                {task.status === 'running' && task.progress.completed === 0 && <p className="muted">正在准备或等待首条模型响应，收到结果后会自动更新进度。</p>}
-                {task.status === 'succeeded' && task.progress.total === 0 && <p>所选范围内没有需要标注的评论。可更换商品，或勾选重试失败评论。</p>}
-              </>}
+              {task.kind === 'label' && <AnnotationProgress task={task} />}
               {task.error && <Alert className="spaced" type="error" showIcon message={task.error.message} description={`错误码：${task.error.code}`} />}
               {task.status === 'partial' && <Alert className="spaced" type="warning" showIcon message="任务部分完成" description="请先查看返回结果中的错误与已完成记录，再决定是否重试。" />}
               <div className="task-actions">{canRetry(task.status) && <Button aria-label="重试任务" loading={busy} icon={<ReloadOutlined />} onClick={() => void retry()}>重试任务</Button>}<Button size="small" type="text" onClick={() => showDetail(task, '任务详情')}>执行详情</Button>{task.parent_task_id && <Button type="link" size="small" onClick={() => selectTask(task.parent_task_id)}>查看原任务</Button>}{!isActive(task.status) && <Button danger loading={deleteBusy} icon={<DeleteOutlined />} onClick={() => confirmDeleteTask(task.task_id, title)}>删除任务记录</Button>}</div>
@@ -409,43 +466,20 @@ export default function App() {
             {task.kind === 'import' && (task.status === 'succeeded' || task.status === 'partial') && <Card className="spaced" title="导入完成，继续准备数据">
               {Array.isArray(task.result?.imports) && task.result.imports.map((item, index) => <p key={index}>{item.kind === 'reviews' ? '评论' : '商品信息'}：新增 <strong>{item.inserted_records}</strong> 条，重复 {item.duplicate_records} 条{item.limit_reached ? '；已达到本次导入上限' : ''}。</p>)}
               <p className="muted">已带入本次数据集。下一步确认商品和处理数量，提取评论观点。</p><Space wrap><Button type="primary" disabled={loading || !currentProducts.length} onClick={openLabel}>标注已导入的数据</Button>{!Boolean(task.result?.import_data_deleted) && <Button danger loading={deleteBusy} icon={<DeleteOutlined />} onClick={() => confirmDeleteImportedData(task.task_id)}>删除导入数据</Button>}{Boolean(task.result?.import_data_deleted) && <Tag color="green">导入数据已删除</Tag>}</Space></Card>}
-            {task.kind === 'label' && !isActive(task.status) && <Card className="spaced" title="继续分析">
-              <p>分析 {preparedDates.current[0]} 至 {preparedDates.current[1]}，对比 {preparedDates.baseline[0]} 至 {preparedDates.baseline[1]}。</p>
-              <p className="muted">沿用本次商品和标注版本。分析使用已有标注；未处理的评论会显示为覆盖率不足。</p>
-              <Space wrap><Button type="primary" loading={busy || loading} disabled={loading || !previewProfile || !!connectionError} onClick={() => analyzeLabeled(true)}>分析这些评论</Button><Button type="link" disabled={loading || !previewProfile} onClick={() => analyzeLabeled(false)}>调整分析范围</Button><Button onClick={openLabel}>继续标注下一批</Button></Space>
-              {!previewProfile && !loading && <p className="muted">暂无可用标注版本，请先完成一批数据准备。</p>}
-            </Card>}
+            {task.kind === 'label' && <AnnotationNextSteps task={task} dates={preparedDates} loading={loading} busy={busy} profileId={previewProfile} connectionError={!!connectionError} onAnalyze={analyzeLabeled} onContinue={openLabel} />}
             {run && <ResultCards run={run} question={title} onDetail={showDetail} />}
-            {agentResult && <AgentResults key={task.task_id} result={agentResult} onDetail={showDetail} onPrepare={products => {
-              setSubmitError('');
-              setLabelDefaults({ dataset: JSON.stringify([agentResult.scope.source, agentResult.scope.dataset_version]), products,
-                scope: { date_from: agentResult.scope.date_from, date_to: agentResult.scope.date_to, as_of: agentResult.scope.as_of }, retryFailed: true });
-            }} />}
             {task.result && task.kind !== 'analysis' && <details className="advanced-settings spaced"><summary>处理明细 <span>原始结果与下载</span></summary><div className="advanced-content"><Button icon={<DownloadOutlined />} onClick={() => exportResult(task.result, `task-${task.task_id}`)}>下载 JSON</Button><pre className="json-view">{JSON.stringify(task.result, null, 2)}</pre></div></details>}
-            {task.kind === 'analysis' && task.status === 'succeeded' && !run && !agentResult && !taskState.error && <div className="loading-result"><Spin /> 正在读取分析快照…</div>}
+            {task.kind === 'analysis' && task.status === 'succeeded' && !run && !isAgentTask(task) && !taskState.error && <div className="loading-result"><Spin /> 正在读取分析快照…</div>}
           </>}
         </>}
         {health && !health.worker_available && <p className="executor-note" role="status"><Badge status="warning" /><span>后台执行器离线</span> · 提交的任务将排队等待执行器启动。</p>}
     </AppLayout>
     <DataPreviewDrawer open={previewOpen} onClose={() => setPreviewOpen(false)} products={currentProducts} options={options} profileId={previewProfile} onDetail={showDetail} />
     <Drawer title={detail?.title} width={650} open={!!detail} onClose={() => setDetail(undefined)} closable={{ 'aria-label': '关闭数据详情' }} extra={<Button icon={<DownloadOutlined />} onClick={() => exportResult(detail?.value, 'analysis-detail')}>下载 JSON</Button>}><pre className="json-view">{JSON.stringify(detail?.value, null, 2)}</pre></Drawer>
-    <Modal title={pendingDelete?.kind === 'data' ? '删除这次导入的数据？' : '删除任务记录？'} open={!!pendingDelete} onCancel={() => { if (!deleteBusy) setPendingDelete(undefined); }} onOk={() => void executeDelete()} okText={pendingDelete?.kind === 'data' ? '删除导入数据' : '删除记录'} cancelText="取消" okButtonProps={{ danger: true, loading: deleteBusy }} destroyOnHidden>
+    <Modal title={pendingDelete?.kind === 'data' ? '删除这次导入的数据？' : '删除任务记录？'} open={!!pendingDelete && section !== 'tasks'} onCancel={() => { if (!deleteBusy) setPendingDelete(undefined); }} onOk={() => void executeDelete()} okText={pendingDelete?.kind === 'data' ? '删除导入数据' : '删除记录'} cancelText="取消" okButtonProps={{ danger: true, loading: deleteBusy }} destroyOnHidden>
       {pendingDelete?.kind === 'data'
         ? '会删除本次导入产生的评论、错误记录和关联标注；其他导入批次共用的商品信息会保留。此操作不可恢复。'
         : `将删除“${pendingDelete?.label}”及其重试记录。已导入的评论数据不会被删除。`}
-    </Modal>
-    <Modal title="准备数据" open={!!labelDefaults} onCancel={() => { if (!busy) setLabelDefaults(undefined); }} footer={null} destroyOnHidden>
-      {submitError && <Alert className="spaced-bottom" type="error" showIcon message="标注任务未提交" description={submitError} />}
-      {labelDefaults && <LabelForm options={options} initialDataset={labelDefaults.dataset} initialProducts={labelDefaults.products}
-        initialLimit={labelDefaults.limit} initialWorkers={labelDefaults.workers} initialScope={labelDefaults.scope} initialRetryFailed={labelDefaults.retryFailed} busy={busy}
-        onSubmit={parameters => {
-          setDraft(previous => {
-            const dataset = JSON.stringify([parameters.source, parameters.dataset_version]);
-            return { ...previous, dataset, productIds: parameters.product_ids,
-              note: previous.dataset === dataset && JSON.stringify(previous.productIds) === JSON.stringify(parameters.product_ids) ? previous.note : '' };
-          });
-          void submit({ kind: 'label', parameters }, `准备数据 · 最多 ${parameters.limit} 条`);
-        }} />}
     </Modal>
     <ImportDialog
       open={importOpen}

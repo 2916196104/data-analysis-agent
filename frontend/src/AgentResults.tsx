@@ -55,9 +55,10 @@ function ProductComparison({ item, titles, onPrepare }: {
   </>;
 }
 
-export default function AgentResults({ result, onDetail, onPrepare }: {
+export default function AgentResults({ result, onDetail, onPrepare, idPrefix = 'agent' }: {
   result: AgentResult; onDetail: (value: unknown, title: string) => void;
   onPrepare?: (productIds: string[]) => void;
+  idPrefix?: string;
 }) {
   const selected = (result.result_ids || []).map(id => result.results[id]).filter(Boolean);
   const overview = Object.values(result.results).find(item => item.kind === 'context');
@@ -67,7 +68,7 @@ export default function AgentResults({ result, onDetail, onPrepare }: {
     <div className="section-heading"><h2>Agent 分析结果</h2><Tag>只读查询</Tag></div>
     <Card title={result.status === 'unsupported' ? '当前问题需要调整' : '分析摘要'}>
       {result.status === 'ok' ? <ul className="agent-summary">{selected.map(item => <li key={item.result_id}>
-        <a href={`#agent-${item.result_id}`}>{sectionNames[item.kind]} [{item.result_id}]</a><span>{sectionSummary(item)}</span>
+        <a href={`#${idPrefix}-${item.result_id}`}>{sectionNames[item.kind]} [{item.result_id}]</a><span>{sectionSummary(item)}</span>
       </li>)}</ul> : <p className="agent-answer">{result.answer || '分析未完成，请查看任务错误和执行记录。'}</p>}
       {summary && <div className="agent-overview">
         <span>评论总数 <strong>{summary.review_count}</strong></span>
@@ -80,7 +81,7 @@ export default function AgentResults({ result, onDetail, onPrepare }: {
       {onPrepare && summary && summary.failed_reviews + summary.unprocessed_reviews > 0 && <Button className="spaced" onClick={() => onPrepare(result.scope.product_ids)}>补齐当前范围标注</Button>}
       <p className="muted spaced">负面占比 = 负面评论数 / 成功标注数；覆盖率 = 成功标注数 / 有效正文数。未标注评论不用于判断正负面。成功标注不足 20 条或覆盖率低于 80% 时标记为“样本有限”。</p>
     </Card>
-    {selected.map(item => <Card id={`agent-${item.result_id}`} key={item.result_id} title={`${sectionNames[item.kind]} [${item.result_id}]`}
+    {selected.map(item => <Card id={`${idPrefix}-${item.result_id}`} key={item.result_id} title={`${sectionNames[item.kind]} [${item.result_id}]`}
       extra={<Button size="small" onClick={() => onDetail(item, `统计依据 [${item.result_id}]`)}>统计依据</Button>}>
       {item.kind === 'trend' ? <>
         <p className="muted">按 UTC 统计；首末时间段可能不完整，比较前请核对日期和标注覆盖率。</p>

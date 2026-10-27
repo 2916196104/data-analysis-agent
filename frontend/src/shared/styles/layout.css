@@ -27,6 +27,10 @@
 .workspace-actions .ant-btn { color: #777; }
 .workspace-content { min-height: 0; min-width: 0; overflow-y: auto; overscroll-behavior-y: contain; }
 .main-content { min-width: 0; }
+.workspace-content-fill { display: flex; flex-direction: column; overflow: hidden; }
+.workspace-content-fill > .main-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.workspace-content-fill > .main-content > .ant-alert { flex-shrink: 0; }
+.workspace-content-fill > .workspace-footer { flex-shrink: 0; margin-top: 12px; padding-top: 10px; }
 .workspace-footer { display: flex; gap: 20px; justify-content: space-between; margin-top: 32px; padding-top: 14px; border-top: 1px solid #efefef; font-size: 10px; color: #999; }
 .context-summary { min-width: 0; overflow-wrap: anywhere; }
 .workspace-footer > span:last-child { flex-shrink: 0; }

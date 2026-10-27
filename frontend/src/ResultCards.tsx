@@ -3,6 +3,7 @@ import { Alert, Button, Card, Empty, Statistic, Table, Tabs, Tag } from 'antd';
 import { DownloadOutlined, ExpandOutlined, FileTextOutlined } from '@ant-design/icons';
 import { exportResult } from './local-history';
 import type { Run } from './types';
+import { reviewTrendOption } from './features/analysis/review-trend-chart';
 
 const Chart = lazy(() => import('./Chart'));
 export const rate = (value: number | null) => value === null ? '—' : `${(value * 100).toFixed(1)}%`;
@@ -15,18 +16,7 @@ export default function ResultCards({ run, question, onDetail }: { run: Run; que
     ...issue, key: `${item.product.product_id}:${issue.aspect}`, product_id: item.product.product_id,
     evaluation: item.evaluations.find(e => e.aspect === issue.aspect)?.status,
   })));
-  const trendOption = useMemo(() => ({
-    color: ['#4e7468', '#d49c4a'],
-    tooltip: { trigger: 'axis', renderMode: 'richText' },
-    legend: { bottom: 0, icon: 'circle', textStyle: { color: '#76827e' } },
-    grid: { top: 24, left: 45, right: 24, bottom: 60 },
-    xAxis: { type: 'category', data: buckets.map(row => row.bucket), axisLine: { lineStyle: { color: '#dce5e1' } }, axisTick: { show: false } },
-    yAxis: { type: 'value', minInterval: 1, splitLine: { lineStyle: { color: '#eef1ef' } } },
-    series: [
-      { name: '评论数', type: buckets.length === 1 ? 'bar' : 'line', barMaxWidth: 48, data: buckets.map(row => row.review_count), symbolSize: 7, areaStyle: { opacity: 0.06 } },
-      { name: '负面评论数', type: buckets.length === 1 ? 'bar' : 'line', barMaxWidth: 48, data: buckets.map(row => row.negative_review_count), symbolSize: 7 },
-    ],
-  }), [buckets]);
+  const trendOption = useMemo(() => reviewTrendOption(buckets), [buckets]);
   const download = () => exportResult({ question_note: question, note_scope: 'local_browser_only', analysis: run }, `analysis-${run.run_id}`);
   const trendTable = <Table size="small" rowKey="bucket" dataSource={buckets} pagination={{ pageSize: 6, hideOnSinglePage: true }} columns={[
     { title: '月份（UTC）', dataIndex: 'bucket' }, { title: '评论数', dataIndex: 'review_count' },
@@ -51,7 +41,7 @@ export default function ResultCards({ run, question, onDetail }: { run: Run; que
     </div>
     <Card title="评论趋势" extra={<span className="muted">按月 · 去重评论</span>}>
       {buckets.length ? <Tabs items={[
-        { key: 'chart', label: '趋势图', children: <Suspense fallback={<div className="chart loading-chart">正在加载图表…</div>}><Chart option={trendOption} label="按月展示评论数量和负面评论数量" /></Suspense> },
+        { key: 'chart', label: '趋势图', children: <Suspense fallback={<div className="chart loading-chart">正在加载图表…</div>}><Chart option={trendOption} label="每月总评论数和差评数的前后重叠柱状图" /></Suspense> },
         { key: 'table', label: '数据表', children: trendTable },
       ]} /> : <Empty description="当前范围没有趋势数据" />}
     </Card>

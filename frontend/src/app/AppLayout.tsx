@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Badge, Button, Tooltip } from 'antd';
 import {
   AppstoreOutlined, BarChartOutlined, BellOutlined, CheckOutlined,
@@ -10,30 +10,33 @@ interface AppLayoutProps {
   children: ReactNode;
   connection: { status: 'error' | 'success' | 'warning'; text: string };
   loading: boolean;
-  historyOpen: boolean;
   taskCount?: number;
   datasetSummary: string;
   hasProducts: boolean;
-  section: 'analysis' | 'datasets';
+  section: 'analysis' | 'datasets' | 'annotation' | 'tasks' | 'assistant';
+  fillContent?: boolean;
   onRefresh: () => void;
   onHistory: () => void;
   onImport: () => void;
   onPrepare: () => void;
+  onAnnotation: () => void;
   onPreview: () => void;
   onNewAnalysis: () => void;
   onDatasets: () => void;
   onAgent: () => void;
 }
 
-/** 导航调用现有工作流；当前项目没有 URL 路由，不伪造页面地址。 */
+/** 一级模块高亮由当前路由归属决定。 */
 export default function AppLayout({
-  children, connection, loading, historyOpen, taskCount, datasetSummary,
-  hasProducts, section, onRefresh, onHistory, onImport, onPrepare,
+  children, connection, loading, taskCount, datasetSummary, fillContent = false,
+  hasProducts, section, onRefresh, onHistory, onImport, onPrepare, onAnnotation,
   onPreview, onNewAnalysis, onDatasets, onAgent,
 }: AppLayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const content = useRef<HTMLDivElement>(null);
+  useEffect(() => { content.current?.scrollTo(0, 0); }, [section]);
   const navigate = (action: () => void) => { action(); setMenuOpen(false); };
-  const pageName = section === 'datasets' ? '数据管理' : '评论分析';
+  const pageName = section === 'assistant' ? 'AI 助手' : section === 'tasks' ? '任务与报告' : section === 'annotation' ? '评论标注' : section === 'datasets' ? '数据管理' : '评论分析';
   return <div className="workbench">
     <div className="workspace-main">
       <header className="topbar">
@@ -56,9 +59,9 @@ export default function AppLayout({
             <button disabled title="数据概览 · 未开放"><AppstoreOutlined /><span>数据概览</span><small>未开放</small></button>
             <button aria-label="新建分析" aria-current={section === 'analysis' ? 'page' : undefined} className={section === 'analysis' ? 'active' : ''} onClick={() => navigate(onNewAnalysis)}><BarChartOutlined /><span>评论分析</span></button>
             <button aria-label="数据管理" className={section === 'datasets' ? 'active' : ''} aria-current={section === 'datasets' ? 'page' : undefined} onClick={() => navigate(onDatasets)}><DatabaseOutlined /><span>数据管理</span></button>
-            <button aria-label="评论标注" onClick={() => navigate(onPrepare)}><TagsOutlined /><span>评论标注</span></button>
-            <button aria-label="AI 助手" onClick={() => navigate(onAgent)}><RobotOutlined /><span>AI 助手</span></button>
-            <button aria-label="任务记录" aria-expanded={historyOpen} onClick={() => navigate(onHistory)}><HistoryOutlined /><span>任务与报告</span>{taskCount ? <small>{taskCount}</small> : null}</button>
+            <button aria-label="评论标注" className={section === 'annotation' ? 'active' : ''} aria-current={section === 'annotation' ? 'page' : undefined} onClick={() => navigate(onAnnotation)}><TagsOutlined /><span>评论标注</span></button>
+            <button aria-label="AI 助手" className={section === 'assistant' ? 'active' : ''} aria-current={section === 'assistant' ? 'page' : undefined} onClick={() => navigate(onAgent)}><RobotOutlined /><span>AI 助手</span></button>
+            <button aria-label="任务记录" className={section === 'tasks' ? 'active' : ''} aria-current={section === 'tasks' ? 'page' : undefined} onClick={() => navigate(onHistory)}><HistoryOutlined /><span>任务与报告</span>{taskCount ? <small>{taskCount}</small> : null}</button>
           </nav>
           <div className="sidebar-tools">
             <span className="connection-label"><Badge status={connection.status} text={connection.text} /></span>
@@ -70,7 +73,7 @@ export default function AppLayout({
             </div>
           </div>
         </aside>
-        <div className="workspace-content">
+        <div className={`workspace-content ${fillContent ? 'workspace-content-fill' : ''}`} ref={content}>
           <main className="main-content">{children}</main>
           <footer className="workspace-footer"><span className="context-summary" title={datasetSummary}>{datasetSummary}</span><span>观数 · 数据有据</span></footer>
         </div>

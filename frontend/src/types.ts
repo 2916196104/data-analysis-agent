@@ -39,6 +39,14 @@ export interface AnalysisParameters extends AnalysisScope {
   baseline_to: string;
   question?: string;
 }
+export interface AnnotationDefaults {
+  dataset: string;
+  products: string[];
+  limit?: number;
+  workers?: number;
+  scope?: Pick<AnalysisScope, 'date_from' | 'date_to' | 'as_of'>;
+  retryFailed?: boolean;
+}
 export interface ImportParameters {
   reviews_path?: string;
   meta_path?: string;

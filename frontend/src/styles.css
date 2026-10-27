@@ -1,6 +1,3 @@
-.history-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
-.history-intro h2 { font-size: 22px; font-weight: 600; margin: 0 0 8px; }
-.history-intro p { color: #71847a; font-size: 13px; margin-bottom: 0; line-height: 1.7; }
 .history-list { display: flex; flex-direction: column; gap: 10px; }
 .history-empty { text-align: center; color: #71847a; padding: 64px 16px; }
 .history-empty > .anticon { font-size: 32px; color: #9cb4a7; }
@@ -23,9 +20,6 @@
 .history-arrow { color: #9caea3; font-size: 12px; }
 .history-delete.ant-btn { flex-shrink: 0; opacity: 0; }
 .history-item:hover .history-delete, .history-item:focus-within .history-delete, .history-item.selected .history-delete { opacity: 1; }
-.task-history .ant-drawer-body { padding: 28px; background: #fafcfb; }
-.task-history .ant-drawer-footer { padding: 18px 24px; }
-.task-history .ant-pagination { display: flex; justify-content: flex-end; flex-wrap: wrap; row-gap: 8px; }
 .eyebrow { font-size: 10px; letter-spacing: 2px; color: #7b9786; font-weight: 600; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }.form-grid > * { min-width: 0; }
 .span-two { grid-column: 1 / -1; }.form-grid .ant-form-item-label > label { font-size: 14px; color: #4e6456; }.form-grid .ant-select, .form-grid .ant-picker { font-size: 14px; }
@@ -84,8 +78,6 @@
   .download-card .ant-card-body { flex-wrap: wrap; }
   .download-card .ant-btn { width: 100%; }
   .section-heading h2 { font-size: 19px; }
-  .task-history .ant-drawer-body { padding: 20px 16px; }
-  .task-history .ant-drawer-footer { padding: 16px; }
   .history-item { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 8px 10px; padding: 14px 12px; }
   .history-icon { width: 32px; height: 32px; grid-row: 1 / 3; align-self: start; }
   .history-copy { grid-column: 2 / -1; }

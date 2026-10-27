@@ -66,7 +66,7 @@ export async function captureLayout(page, artifacts, name, measurements) {
 }
 
 // 使用真实长结果和鼠标滚轮检查滚动边界，不增加或隐藏页面内容。
-export async function checkShellScrolling(page, artifacts) {
+export async function checkShellScrolling(page, artifacts, prefix = 'scroll') {
   const previous = page.viewportSize();
   const checks = [];
   const snapshot = () => page.evaluate(() => {
@@ -88,7 +88,7 @@ export async function checkShellScrolling(page, artifacts) {
       if (mobile) await page.getByRole('button', { name: '工作空间导航', exact: true }).click();
       await page.locator('.workspace-content').evaluate(element => element.scrollTo(0, 0));
       const before = await snapshot();
-      assert.ok(before.scrollHeight > before.clientHeight, 'real analysis result must overflow its container');
+      assert.ok(before.scrollHeight > before.clientHeight, 'long page must overflow its content container');
       assert.ok(before.content.height > 100, 'navigation must leave room to scroll content');
       assert.ok(before.tools.y >= 0 && before.tools.y + before.tools.height <= viewport.height, 'sidebar status and actions stay in viewport');
       await page.mouse.move(before.content.x + before.content.width / 2, before.content.y + before.content.height / 2);
@@ -104,7 +104,7 @@ export async function checkShellScrolling(page, artifacts) {
       assert.equal(after.documentTop, 0, 'wheel must not scroll the document');
       assert.ok(after.documentHeight <= viewport.height + 1, 'double vertical scrolling');
       assert.ok(after.documentWidth <= viewport.width + 1 && after.scrollWidth <= after.clientWidth + 1, 'horizontal overflow');
-      await page.screenshot({ path: path.join(artifacts, `scroll-${viewport.width}x${viewport.height}-bottom.png`), animations: 'disabled' });
+      await page.screenshot({ path: path.join(artifacts, `${prefix}-${viewport.width}x${viewport.height}-bottom.png`), animations: 'disabled' });
       await page.mouse.wheel(0, -100000);
       await page.waitForFunction(() => document.querySelector('.workspace-content').scrollTop === 0);
       if (viewport.height === 480) {
@@ -119,14 +119,42 @@ export async function checkShellScrolling(page, artifacts) {
         assert.equal(menuScrolled.top, 0, 'menu scrolling moved main content');
         await menu.evaluate(element => element.scrollTo(0, 0));
       }
-      await page.screenshot({ path: path.join(artifacts, `scroll-${viewport.width}x${viewport.height}-top.png`), animations: 'disabled' });
+      await page.screenshot({ path: path.join(artifacts, `${prefix}-${viewport.width}x${viewport.height}-top.png`), animations: 'disabled' });
       checks.push({ viewport, before, after, status: 'passed' });
       if (mobile) await page.getByRole('button', { name: '工作空间导航', exact: true }).click();
     }
-    await writeFile(path.join(artifacts, 'scroll-measurements.json'), JSON.stringify(checks, null, 2));
+    await writeFile(path.join(artifacts, `${prefix}-measurements.json`), JSON.stringify(checks, null, 2));
   } finally {
     await page.setViewportSize(previous);
     await page.locator('.workspace-content').evaluate(element => element.scrollTo(0, 0));
+  }
+}
+
+export async function checkTaskReportsPage(page, artifacts) {
+  const reports = page.locator('main .task-reports');
+  await reports.getByRole('heading', { name: '任务与报告', exact: true }).waitFor();
+  assert.equal(await page.getByRole('dialog', { name: '任务记录', exact: true }).count(), 0);
+  assert.equal(await page.locator('.ant-modal-mask:visible, .ant-drawer-mask:visible').count(), 0);
+  assert.equal(await page.getByRole('button', { name: '任务记录', exact: true }).getAttribute('aria-current'), 'page');
+  assert.ok(await reports.locator('.history-delete').evaluateAll(buttons => buttons.length > 0 && buttons.every(button => getComputedStyle(button).opacity === '1')), 'delete actions must remain visible without hover');
+  assert.ok(await reports.evaluate(element => {
+    const list = element.querySelector('.history-list');
+    const pagination = element.querySelector('.task-reports-pagination');
+    return pagination.parentElement === element && !!(list.compareDocumentPosition(pagination) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && !['fixed', 'sticky', 'absolute'].includes(getComputedStyle(pagination).position);
+  }), 'pagination must follow list in normal page flow');
+  await checkShellScrolling(page, artifacts, 'task-scroll');
+  const previous = page.viewportSize();
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.ok(await reports.locator('.history-item').first().evaluate(element => {
+      const icon = element.querySelector('.history-icon').getBoundingClientRect();
+      const title = element.querySelector('.history-copy').getBoundingClientRect();
+      const status = element.querySelector('.task-state').getBoundingClientRect();
+      return Math.abs(title.top - icon.top) <= 2 && status.top >= title.bottom;
+    }), 'mobile task title must align with icon, with status below');
+  } finally {
+    await page.setViewportSize(previous);
   }
 }
 
@@ -145,4 +173,127 @@ export async function checkShortContent(page, artifacts) {
   } finally {
     await page.setViewportSize(previous);
   }
+}
+
+export async function checkPreparationPage(page, artifacts) {
+  const previous = page.viewportSize();
+  const checks = [];
+  const navigate = async name => {
+    const button = page.getByRole('button', { name, exact: true });
+    if (!await button.isVisible()) await page.getByRole('button', { name: '工作空间导航', exact: true }).click();
+    await button.click();
+  };
+  try {
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      await navigate('数据管理');
+      const rows = await page.locator('.data-management tbody').innerText();
+      assert.equal(new URL(page.url()).pathname, '/data-management');
+      assert.equal(await page.locator('.data-management').getByRole('button', { name: '准备所选数据', exact: true }).count(), 0);
+      assert.equal(await page.locator('.data-management a').count(), 0, 'annotation-only review link must not belong to dataset page');
+      await navigate('评论标注');
+      await page.getByRole('heading', { name: '评论标注', exact: true }).waitFor();
+      assert.equal(new URL(page.url()).pathname, '/annotation');
+      assert.equal(await page.locator('.sidebar-nav button[aria-label="评论标注"]').getAttribute('aria-current'), 'page');
+      assert.equal(await page.locator('.sidebar-nav [aria-current="page"]').count(), 1);
+      assert.equal(await page.locator('.sidebar-nav button[aria-label="数据管理"]').getAttribute('aria-current'), null);
+      assert.equal(await page.getByRole('button', { name: '返回数据管理', exact: true }).count(), 0);
+      await page.locator('.annotation-page summary').click();
+      assert.equal(await page.getByRole('dialog', { name: '准备数据', exact: true }).count(), 0);
+      assert.equal(await page.locator('.ant-modal-mask:visible, .ant-drawer-mask:visible').count(), 0);
+      assert.equal(await page.getByRole('spinbutton', { name: '并发数', exact: true }).isVisible(), true);
+      assert.equal(await page.getByRole('checkbox', { name: '同时重试此前标注失败的评论' }).isVisible(), true);
+      const snapshot = () => page.evaluate(() => {
+        const box = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+        const content = document.querySelector('.workspace-content');
+        return { header: box('.topbar'), sidebar: box('.workspace-sidebar'), tools: box('.sidebar-tools'),
+          content: box('.workspace-content'), top: content.scrollTop, clientHeight: content.clientHeight,
+          scrollHeight: content.scrollHeight, overflow: content.scrollWidth > content.clientWidth + 1,
+          documentTop: document.scrollingElement.scrollTop, documentHeight: document.scrollingElement.scrollHeight,
+          documentWidth: document.documentElement.scrollWidth, width: innerWidth, height: innerHeight };
+      });
+      await page.locator('.workspace-content').evaluate(element => element.scrollTo(0, 0));
+      const before = await snapshot();
+      assert.ok(!before.overflow && before.documentWidth <= viewport.width + 1, 'preparation horizontal overflow');
+      assert.ok(before.documentHeight <= viewport.height + 1, 'preparation must not scroll document');
+      await page.screenshot({ path: path.join(artifacts, `preparation-${viewport.width}-top.png`), animations: 'disabled' });
+      await page.mouse.move(before.content.x + before.content.width / 2, before.content.y + before.content.height / 2);
+      await page.mouse.wheel(0, 100000);
+      await page.waitForFunction(() => { const element = document.querySelector('.workspace-content'); return Math.abs(element.scrollTop + element.clientHeight - element.scrollHeight) <= 1; });
+      const after = await snapshot();
+      assert.deepEqual(after.header, before.header, 'preparation scroll moved header');
+      assert.deepEqual(after.sidebar, before.sidebar, 'preparation scroll moved sidebar');
+      assert.deepEqual(after.tools, before.tools, 'preparation scroll moved sidebar status');
+      assert.equal(after.documentTop, 0);
+      assert.equal(await page.getByRole('button', { name: '提交标注任务', exact: true }).isVisible(), true);
+      await page.screenshot({ path: path.join(artifacts, `preparation-${viewport.width}-bottom.png`), animations: 'disabled' });
+      await page.goBack();
+      await page.getByRole('heading', { name: '数据管理', exact: true }).waitFor();
+      assert.equal(await page.locator('.data-management tbody').innerText(), rows, 'back must retain dataset list');
+      assert.equal(await page.locator('.sidebar-nav button[aria-label="数据管理"]').getAttribute('aria-current'), 'page');
+      await page.goForward();
+      await page.getByRole('heading', { name: '评论标注', exact: true }).waitFor();
+      await page.reload();
+      await page.getByRole('combobox', { name: '标注数据集', exact: true }).waitFor();
+      assert.equal(await page.locator('.sidebar-nav button[aria-label="评论标注"]').getAttribute('aria-current'), 'page');
+      await navigate('新建分析');
+      assert.equal(await page.locator('.annotation-page').count(), 0, 'navigation must leave annotation page');
+      await page.getByRole('heading', { name: '评论分析', exact: true }).waitFor();
+      checks.push({ viewport, before, after, status: 'passed' });
+    }
+    const direct = await page.context().newPage();
+    try {
+      await direct.goto(new URL('/annotation', page.url()).href);
+      await direct.getByRole('combobox', { name: '标注数据集', exact: true }).waitFor();
+      assert.equal(await direct.getByRole('button', { name: '评论标注', exact: true }).getAttribute('aria-current'), 'page');
+      assert.equal(await direct.locator('.sidebar-nav [aria-current="page"]').count(), 1);
+    } finally { await direct.close(); }
+    await writeFile(path.join(artifacts, 'preparation-measurements.json'), JSON.stringify(checks, null, 2));
+  } finally {
+    await page.setViewportSize(previous);
+  }
+}
+
+export async function checkAssistantChat(page, artifacts) {
+  const previous = page.viewportSize();
+  const checks = [];
+  try {
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      const snapshot = () => page.evaluate(() => {
+        const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+        const messages = document.querySelector('.chat-messages');
+        const outer = document.querySelector('.workspace-content');
+        return { header: rect('.topbar'), sidebar: rect('.workspace-sidebar'), tools: rect('.sidebar-tools'),
+          heading: rect('.chat-heading'), input: rect('.chat-input-area'), messages: rect('.chat-messages'),
+          top: messages.scrollTop, clientHeight: messages.clientHeight, scrollHeight: messages.scrollHeight,
+          overflowX: messages.scrollWidth > messages.clientWidth + 1, outerTop: outer.scrollTop,
+          outerHeight: outer.scrollHeight, outerClient: outer.clientHeight,
+          documentTop: document.scrollingElement.scrollTop, documentHeight: document.scrollingElement.scrollHeight,
+          documentWidth: document.documentElement.scrollWidth };
+      });
+      assert.equal(await page.getByRole('dialog').count(), 0);
+      assert.equal(await page.locator('.ant-modal-mask:visible, .ant-drawer-mask:visible').count(), 0);
+      assert.equal(await page.locator('.sidebar-nav button[aria-label="AI 助手"]').getAttribute('aria-current'), 'page');
+      const before = await snapshot();
+      assert.ok(before.scrollHeight > before.clientHeight, 'real questions and replies must create a scrolling conversation');
+      assert.ok(before.clientHeight > 60 && before.input.y + before.input.height <= viewport.height, 'input stays inside content');
+      assert.ok(!before.overflowX && before.documentWidth <= viewport.width + 1, 'chat horizontal overflow');
+      assert.ok(before.documentHeight <= viewport.height + 1 && before.outerHeight <= before.outerClient + 1, 'chat must not create outer scrolling');
+      await page.mouse.move(before.messages.x + before.messages.width / 2, before.messages.y + before.messages.height / 2);
+      await page.mouse.wheel(0, -100000);
+      await page.waitForFunction(() => document.querySelector('.chat-messages').scrollTop === 0);
+      const top = await snapshot();
+      await page.screenshot({ path: path.join(artifacts, `assistant-${viewport.width}-top.png`), animations: 'disabled' });
+      await page.mouse.wheel(0, 100000);
+      await page.waitForFunction(() => { const m = document.querySelector('.chat-messages'); return Math.abs(m.scrollTop + m.clientHeight - m.scrollHeight) <= 1; });
+      const bottom = await snapshot();
+      for (const key of ['header', 'sidebar', 'tools', 'heading', 'input']) assert.deepEqual(bottom[key], top[key], `chat scroll moved ${key}`);
+      assert.equal(bottom.documentTop, 0);
+      assert.equal(bottom.outerTop, 0);
+      await page.screenshot({ path: path.join(artifacts, `assistant-${viewport.width}-bottom.png`), animations: 'disabled' });
+      checks.push({ viewport, top, bottom, status: 'passed' });
+    }
+    await writeFile(path.join(artifacts, 'assistant-measurements.json'), JSON.stringify(checks, null, 2));
+  } finally { await page.setViewportSize(previous); }
 }

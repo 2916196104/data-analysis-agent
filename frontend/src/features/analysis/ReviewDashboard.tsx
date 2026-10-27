@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Spin } from 'antd';
-import { LineChartOutlined } from '@ant-design/icons';
+import { BarChartOutlined } from '@ant-design/icons';
 import { analysisApi } from '../../shared/api/analysis-api';
 import { errorMessage } from '../../api';
 import type { AnalysisParameters, Run } from '../../types';
+import { reviewTrendOption } from './review-trend-chart';
 
 const Chart = lazy(() => import('../../Chart'));
 type Trend = Run['results']['trend'];
@@ -37,15 +38,7 @@ export default function ReviewDashboard({ parameters, productCount, hasProducts,
     ['标注内负面占比', summary?.negative_rate != null ? `${(summary.negative_rate * 100).toFixed(1)}%` : undefined, '负面评论 / 成功标注；空分母显示 —'],
     ['商品数', hasProducts ? productCount.toLocaleString() : undefined, '当前选择范围的商品数'],
   ];
-  const option = useMemo(() => ({
-    color: ['#4e7468'],
-    tooltip: { trigger: 'axis', renderMode: 'richText' },
-    grid: { top: 30, left: 2, right: 2, bottom: 24, containLabel: false },
-    xAxis: { type: 'category', boundaryGap: false, data: data?.buckets.map(row => row.bucket) ?? [],
-      axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: '#858585', fontSize: 10, hideOverlap: true } },
-    yAxis: { type: 'value', minInterval: 1, splitNumber: 3, axisLabel: { show: false }, splitLine: { lineStyle: { color: '#e7e7e7' } } },
-    series: [{ name: '评论数', type: 'line', showSymbol: false, symbolSize: 7, lineStyle: { width: 4 }, data: data?.buckets.map(row => row.review_count) ?? [] }],
-  }), [data]);
+  const option = useMemo(() => reviewTrendOption(data?.buckets ?? []), [data]);
   return <>
     <section className="review-metrics" aria-label="当前范围统计" aria-busy={loading}>
       {metrics.map(([label, value, hint]) => <article className="review-metric" key={label} title={hint}>
@@ -53,11 +46,11 @@ export default function ReviewDashboard({ parameters, productCount, hasProducts,
       </article>)}
     </section>
     <section className="review-trend" aria-labelledby="review-trend-title">
-      <div className="review-trend-heading"><h2 id="review-trend-title">评论趋势</h2><span>按月</span></div>
+      <div className="review-trend-heading"><h2 id="review-trend-title">评论趋势</h2><span title="差评指含负面观点的已标注评论；差评率 = 差评数 / 成功标注数。首尾无评论月份已隐藏，超过 12 个月可滑动查看。">按月（UTC）</span></div>
       {error ? <div className="trend-state"><Alert type="error" showIcon message="趋势统计加载失败" description={error} action={<Button size="small" onClick={() => setRevision(value => value + 1)}>重试统计</Button>} /></div>
         : loading ? <div className="trend-state" role="status"><Spin size="small" /><span>正在读取当前范围统计…</span></div>
-        : data && data.summary.review_count > 0 ? <Suspense fallback={<div className="trend-state"><Spin /></div>}><Chart option={option} label="当前筛选范围的月度评论数量趋势" /></Suspense>
-        : <div className="trend-state"><LineChartOutlined /><span>{!hasProducts ? '导入评论后查看趋势' : !parameters ? '选择可用标注版本与时间后查看趋势' : '当前时间范围没有评论'}</span></div>}
+        : data && data.summary.review_count > 0 ? <Suspense fallback={<div className="trend-state"><Spin /></div>}><Chart option={option} label="每月总评论数和差评数的前后重叠柱状图" /></Suspense>
+        : <div className="trend-state"><BarChartOutlined /><span>{!hasProducts ? '导入评论后查看趋势' : !parameters ? '选择可用标注版本与时间后查看趋势' : '当前时间范围没有评论'}</span></div>}
     </section>
   </>;
 }

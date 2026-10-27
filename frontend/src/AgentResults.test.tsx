@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import AgentResults from './AgentResults';
-import LabelForm from './LabelForm';
+import AnnotationPage from './features/annotations/AnnotationPage';
 import { sampleState } from './agent-report';
 import type { AgentResult, Options, Summary } from './types';
 
@@ -56,8 +56,8 @@ describe('Agent 可读结果与标注补齐', () => {
     const options: Options = { profiles: [], selected_profile_id: null, aspects: {}, sentiments: {}, processing_statuses: {}, human_statuses: {},
       products: [{ key: 'A', source: scope.source, dataset_version: scope.dataset_version, product_id: 'A', product_title: '商品', review_count: 10, success_count: 0, pending_count: 10 }] };
     const window = { date_from: scope.date_from, date_to: scope.date_to, as_of: '2023-01-30T00:00:00Z' };
-    render(<LabelForm options={options} initialDataset={JSON.stringify([scope.source, scope.dataset_version])} initialProducts={['A']}
-      initialScope={window} initialRetryFailed busy={false} onSubmit={submit} />);
+    render(<AnnotationPage options={options} initialDataset={JSON.stringify([scope.source, scope.dataset_version])} initialProducts={['A']}
+      initialScope={window} initialRetryFailed busy={false} error="" onSubmit={submit} />);
     expect(submit).not.toHaveBeenCalled();
     expect(screen.getByRole('combobox', { name: '标注数据集' }).hasAttribute('disabled')).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: '提交标注任务' }));

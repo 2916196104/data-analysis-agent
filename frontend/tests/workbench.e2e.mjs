@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { chromium } from 'playwright';
-import { captureLayout, checkShellScrolling, checkShortContent } from './capture-layout.mjs';
+import { captureLayout, checkShellScrolling, checkShortContent, checkPreparationPage, checkTaskReportsPage, checkAssistantChat } from './capture-layout.mjs';
 
 const frontend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const root = path.dirname(frontend);
@@ -163,8 +163,8 @@ try {
   await page.keyboard.press('Enter');
   await page.getByRole('heading', { name: '还没有任务记录', exact: true }).waitFor();
   await page.screenshot({ path: path.join(artifacts, 'history-empty.png'), animations: 'disabled' });
-  await page.keyboard.press('Escape');
-  await page.getByRole('dialog', { name: '任务记录', exact: true }).waitFor({ state: 'hidden' });
+  await clickNavigation('新建分析');
+  await page.locator('.task-reports').waitFor({ state: 'hidden' });
   for (const width of [1024, 768]) {
     await page.setViewportSize({ width, height: 768 });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'workspace overflows');
@@ -174,6 +174,8 @@ try {
   await page.screenshot({ path: path.join(artifacts, '01-workbench.png'), fullPage: true });
   await captureLayout(page, artifacts, 'workbench', layoutMeasurements);
   await checkShortContent(page, artifacts);
+  await checkPreparationPage(page, artifacts);
+  assert.equal(modelCalls, 0, 'opening preparation must not submit model work');
 
   // Select a real product and preview its actual persisted reviews.
   await page.getByRole('combobox', { name: '分析商品' }).click();
@@ -362,7 +364,7 @@ try {
   await page.getByRole('combobox', { name: '标注商品', exact: true }).click();
   await page.getByTitle('DEMO-C · DEMO-C（2 条）').click();
   await page.keyboard.press('Escape');
-  await captureLayout(page, artifacts, 'annotation-dialog', layoutMeasurements);
+  await captureLayout(page, artifacts, 'annotation-page', layoutMeasurements);
   await page.getByRole('spinbutton', { name: '每批标注数量', exact: true }).fill('2.5');
   await page.getByRole('button', { name: '提交标注任务', exact: true }).click();
   await page.getByText('请输入 1–1000 的整数', { exact: true }).waitFor();
@@ -372,9 +374,24 @@ try {
   await page.locator('summary').filter({ hasText: '处理设置' }).click();
   await page.getByRole('spinbutton', { name: '并发数', exact: true }).fill('2');
   await page.getByRole('checkbox', { name: '同时重试此前标注失败的评论' }).check();
+  let failedLabelKey;
+  const failedLabelRoute = async route => {
+    if (route.request().method() !== 'POST' || route.request().postDataJSON()?.kind !== 'label') return route.continue();
+    failedLabelKey = route.request().headers()['idempotency-key'];
+    await route.fulfill({ status: 503, json: { status: 'error', error: { code: 'temporarily_unavailable', message: '验收：标注提交暂不可用，请重试。' } } });
+  };
+  await page.route(`${apiUrl}/tasks`, failedLabelRoute);
+  await page.getByRole('button', { name: '提交标注任务', exact: true }).click();
+  await page.getByText('验收：标注提交暂不可用，请重试。', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('spinbutton', { name: '每批标注数量', exact: true }).inputValue(), '2');
+  assert.equal(await page.getByRole('checkbox', { name: '同时重试此前标注失败的评论' }).isChecked(), true);
+  assert.equal(modelCalls, 0, 'failed submission must stay on form without model work');
+  await page.unroute(`${apiUrl}/tasks`, failedLabelRoute);
   const labelResponse = page.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
   await page.getByRole('button', { name: '提交标注任务', exact: true }).click();
-  const labeled = (await (await labelResponse).json()).result.task;
+  const labelSubmissionResponse = await labelResponse;
+  assert.equal(labelSubmissionResponse.request().headers()['idempotency-key'], failedLabelKey, 'label retry must retain idempotency key');
+  const labeled = (await labelSubmissionResponse.json()).result.task;
   assert.equal(labeled.kind, 'label');
   assert.deepEqual(labeled.parameters.product_ids, ['DEMO-C']);
   assert.equal(labeled.parameters.dataset_version, 'amazon-reviews-2023');
@@ -396,12 +413,34 @@ try {
   assert.equal(persisted.annotations.length, 2);
   assert.deepEqual(persisted.annotations.map(a => a.review_id).sort((a, b) => a - b), importedRows.reviews.map(r => r.id));
   assert.ok(persisted.annotations.every(a => a.status === 'success' && a.aspect === 'packaging' && a.sentiment === 'negative' && a.quote === '包装破损'));
+  assert.equal(new URL(page.url()).pathname, `/annotation/tasks/${labeled.task_id}`);
+  assert.equal(await page.getByRole('button', { name: '评论标注', exact: true }).getAttribute('aria-current'), 'page');
+  assert.equal(await page.locator('.sidebar-nav [aria-current="page"]').count(), 1);
+  await page.goBack();
+  await page.getByRole('heading', { name: '评论标注', exact: true }).waitFor();
+  assert.equal(await page.getByRole('spinbutton', { name: '每批标注数量', exact: true }).inputValue(), '2');
+  assert.equal(modelCalls, 2, 'back must restore form without submitting again');
+  await page.goForward();
+  await page.getByText('标注进度 2/2', { exact: true }).waitFor();
   await page.reload();
   await page.getByText('标注进度 2/2', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: '评论标注', exact: true }).getAttribute('aria-current'), 'page');
+  const directLabelTask = await page.context().newPage();
+  try {
+    directLabelTask.on('pageerror', error => browserErrors.push(error.message));
+    // Historical generic task links resolve to the actual annotation module after loading the task kind.
+    await directLabelTask.goto(`${webUrl}/tasks/${labeled.task_id}`);
+    await directLabelTask.waitForURL(`${webUrl}/annotation/tasks/${labeled.task_id}`);
+    await directLabelTask.getByText('标注进度 2/2', { exact: true }).waitFor();
+    assert.equal(await directLabelTask.getByRole('button', { name: '评论标注', exact: true }).getAttribute('aria-current'), 'page');
+    assert.equal(modelCalls, 2, 'direct task URL must only read saved task');
+  } finally { await directLabelTask.close(); }
   await until(() => page.getByRole('button', { name: '分析这些评论', exact: true }).isEnabled(), 'prepared analysis ready');
   assert.equal(await page.locator('.json-view').isVisible(), false);
   await page.screenshot({ path: path.join(artifacts, '05-label-result.png'), fullPage: true });
   await page.getByRole('button', { name: '继续标注下一批', exact: true }).click();
+  assert.equal(new URL(page.url()).pathname, '/annotation');
+  assert.equal(await page.getByRole('button', { name: '评论标注', exact: true }).getAttribute('aria-current'), 'page');
   assert.equal(await page.getByRole('spinbutton', { name: '每批标注数量', exact: true }).inputValue(), '2');
   await page.getByRole('button', { name: '提交标注任务', exact: true }).click();
   await page.getByText('所选范围内没有需要标注的评论。可更换商品，或勾选重试失败评论。', { exact: true }).waitFor();
@@ -416,7 +455,7 @@ try {
   // Return to the completed batch and start analysis without selecting the scope again.
   await clickNavigation('任务记录');
   await page.locator('.history-item').filter({ hasText: '准备数据 · 最多 2 条' }).last().click();
-  await page.getByRole('dialog', { name: '任务记录', exact: true }).waitFor({ state: 'hidden' });
+  await page.locator('.task-reports').waitFor({ state: 'hidden' });
   await page.reload();
   await page.getByText('标注进度 2/2', { exact: true }).waitFor();
   await until(() => page.getByRole('button', { name: '分析这些评论', exact: true }).isEnabled(), 'restored label ready for analysis');
@@ -450,7 +489,7 @@ try {
   // Delete the real limited import through the UI, then remove its task history.
   await clickNavigation('任务记录');
   await page.locator('.history-item').filter({ hasText: `导入 ${path.basename(localReview)}` }).first().click();
-  await page.getByRole('dialog', { name: '任务记录', exact: true }).waitFor({ state: 'hidden' });
+  await page.locator('.task-reports').waitFor({ state: 'hidden' });
   await page.getByText('删除导入数据', { exact: true }).click();
   await page.getByText('会删除本次导入产生的评论、错误记录和关联标注；其他导入批次共用的商品信息会保留。此操作不可恢复。', { exact: true }).waitFor();
   await page.getByRole('button', { name: '删除导入数据', exact: true }).click();
@@ -509,45 +548,62 @@ try {
     await route.fulfill({ json: { status: 'ok', result: { total: 16, page: currentPage, page_size: 15, items: currentPage === 2 ? [historyItem] : historyRows } } });
   });
   await clickNavigation('任务记录');
-  const historyDrawer = page.getByRole('dialog', { name: '任务记录', exact: true });
-  await until(async () => await historyDrawer.locator('.history-item').count() === 15, 'history first page');
+  const historyPage = page.locator('main .task-reports');
+  await until(async () => await historyPage.locator('.history-item').count() === 15, 'history first page');
+  await checkTaskReportsPage(page, artifacts);
   await page.screenshot({ path: path.join(artifacts, 'history-pagination.png'), animations: 'disabled' });
-  await historyDrawer.getByTitle('下一页').click();
-  await until(async () => await historyDrawer.locator('.history-item').count() === 1, 'history second page');
-  await historyDrawer.locator('.history-item').click();
-  await historyDrawer.waitFor({ state: 'hidden' });
+  await historyPage.getByTitle('下一页').click();
+  await until(async () => await historyPage.locator('.history-item').count() === 1, 'history second page');
+  await historyPage.locator('.history-item').click();
+  await historyPage.waitFor({ state: 'hidden' });
   await page.getByRole('heading', { name: question, exact: true }).waitFor();
   await page.getByRole('heading', { name: '从评论中，看到变化' }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   await clickNavigation('任务记录');
-  await historyDrawer.locator('.history-item').first().waitFor();
+  await historyPage.locator('.history-item').first().waitFor();
   await until(async () => {
-    const box = await historyDrawer.boundingBox();
+    const box = await historyPage.boundingBox();
     return box && box.width <= 391 && box.x >= -1 && box.x + box.width <= 391;
-  }, 'history fits mobile viewport after opening');
-  assert.ok(await historyDrawer.evaluate(element => element.scrollWidth <= element.clientWidth), 'history content overflows');
-  assert.ok(await historyDrawer.locator('.history-title').first().evaluate(element => element.scrollWidth <= element.clientWidth), 'long history title overflows');
+  }, 'history page fits mobile viewport');
+  assert.ok(await historyPage.evaluate(element => element.scrollWidth <= element.clientWidth), 'history content overflows');
+  assert.ok(await historyPage.locator('.history-title').first().evaluate(element => element.scrollWidth <= element.clientWidth), 'long history title overflows');
   await page.screenshot({ path: path.join(artifacts, 'history-mobile.png'), animations: 'disabled' });
-  await historyDrawer.getByTitle('上一页').click();
-  await until(async () => await historyDrawer.locator('.history-item').count() === 15, 'return to first history page');
-  await historyDrawer.getByRole('button', { name: '关闭任务记录', exact: true }).click();
-  await historyDrawer.waitFor({ state: 'hidden' });
+  await historyPage.getByTitle('上一页').click();
+  await until(async () => await historyPage.locator('.history-item').count() === 15, 'return to first history page');
+  await clickNavigation('新建分析');
+  await historyPage.waitFor({ state: 'hidden' });
   // A history request error has a retry action and recovers without losing the workspace.
   await page.unroute(historyRoute);
   await page.route(historyRoute, route => route.abort());
   await clickNavigation('任务记录');
-  await historyDrawer.getByText('任务记录暂不可用', { exact: true }).waitFor();
+  await historyPage.getByText('任务记录暂不可用', { exact: true }).waitFor();
   const historyRetry = page.waitForRequest(request => request.url().includes('/tasks?'));
-  await historyDrawer.getByRole('button', { name: '重试任务记录', exact: true }).click();
+  await historyPage.getByRole('button', { name: '重试任务记录', exact: true }).click();
   await historyRetry;
   await page.unroute(historyRoute);
-  await historyDrawer.getByRole('button', { name: '刷新任务记录', exact: true }).click();
-  await historyDrawer.getByText('任务记录暂不可用', { exact: true }).waitFor({ state: 'hidden' });
+  await historyPage.getByRole('button', { name: '刷新任务记录', exact: true }).click();
+  await historyPage.getByText('任务记录暂不可用', { exact: true }).waitFor({ state: 'hidden' });
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.screenshot({ path: path.join(artifacts, 'history-desktop.png'), animations: 'disabled' });
   await captureLayout(page, artifacts, 'task-history', layoutMeasurements);
-  await historyDrawer.getByRole('button', { name: '关闭任务记录', exact: true }).click();
-  await historyDrawer.waitFor({ state: 'hidden' });
+  // Deleting the currently selected real task stays on this page and needs explicit inline confirmation.
+  await historyPage.locator(`[data-task-id="${failedId}"]`).click();
+  await page.getByRole('button', { name: '重试任务', exact: true }).waitFor();
+  await clickNavigation('任务记录');
+  const deleteRow = historyPage.locator(`[data-task-id="${failedId}"]`);
+  await deleteRow.waitFor();
+  assert.equal(await deleteRow.getAttribute('aria-current'), 'true');
+  await deleteRow.locator('.history-delete').click();
+  assert.equal(await page.locator('.ant-modal-mask:visible, .ant-drawer-mask:visible').count(), 0);
+  await historyPage.getByRole('button', { name: '取消删除任务', exact: true }).click();
+  assert.equal((await fetch(`${apiUrl}/tasks/${failedId}`)).status, 200);
+  await deleteRow.locator('.history-delete').click();
+  const taskDeleted = page.waitForResponse(response => response.url() === `${apiUrl}/tasks/${failedId}` && response.request().method() === 'DELETE');
+  await historyPage.getByRole('button', { name: '确认删除任务', exact: true }).click();
+  assert.equal((await taskDeleted).status(), 200);
+  await deleteRow.waitFor({ state: 'hidden' });
+  assert.equal((await fetch(`${apiUrl}/tasks/${failedId}`)).status, 404);
+  await page.getByRole('heading', { name: '任务与报告', exact: true }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   await clickNavigation('新建分析');
   await page.getByRole('button', { name: '开始分析', exact: true }).waitFor();
@@ -590,10 +646,36 @@ try {
   agentPage.on('pageerror', error => browserErrors.push(error.message));
   await agentPage.goto(webUrl);
   await agentPage.getByRole('button', { name: 'Agent 问答', exact: true }).click();
+  await agentPage.getByRole('heading', { name: 'AI 评论分析助手', exact: true }).waitFor();
+  assert.equal(new URL(agentPage.url()).pathname, '/assistant');
+  assert.equal(await agentPage.getByRole('dialog').count(), 0);
+  await agentPage.getByRole('button', { name: '按日查看评论趋势', exact: true }).click();
+  assert.equal(await agentPage.getByRole('textbox', { name: '评论分析问题' }).inputValue(), '按日查看评论趋势');
   await captureLayout(agentPage, artifacts, 'agent-question', layoutMeasurements);
   const agentQuestion = '按月查看评论趋势，对比所选商品，并查询包装负面评论的原文证据';
   await agentPage.getByRole('textbox', { name: '评论分析问题' }).fill(agentQuestion);
-  await agentPage.getByRole('button', { name: '提交问题', exact: true }).click();
+  const agentSubmissionKeys = [];
+  const agentFailure = async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    agentSubmissionKeys.push(route.request().headers()['idempotency-key']);
+    await route.fulfill({ status: 503, json: { status: 'error', error: { code: 'temporary_failure', message: '验收：AI 提交暂不可用，请重试。' } } });
+  };
+  await agentPage.route(`${apiUrl}/tasks`, agentFailure);
+  const chatInput = agentPage.getByRole('textbox', { name: '评论分析问题' });
+  await chatInput.press('Shift+Enter');
+  assert.equal(await chatInput.inputValue(), `${agentQuestion}\n`);
+  assert.equal(agentSubmissionKeys.length, 0, 'Shift+Enter must not submit');
+  await chatInput.press('Enter');
+  await agentPage.getByText('验收：AI 提交暂不可用，请重试。', { exact: true }).waitFor();
+  assert.equal(await agentPage.locator('.chat-turn').count(), 1);
+  assert.equal(agentModelCalls, 0);
+  await agentPage.unroute(`${apiUrl}/tasks`, agentFailure);
+  const acceptedAgent = agentPage.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
+  await agentPage.getByRole('button', { name: '重试提交', exact: true }).click();
+  const agentAcceptedResponse = await acceptedAgent;
+  assert.equal(agentAcceptedResponse.request().headers()['idempotency-key'], agentSubmissionKeys[0]);
+  await agentPage.locator('.chat-report').waitFor();
+  await agentPage.locator('.chat-report > summary').click();
   await agentPage.getByRole('heading', { name: 'Agent 分析结果', exact: true }).waitFor();
   const agentId = (await get('/tasks?kind=analysis')).items[0].task_id;
   const agentTask = await get(`/tasks/${agentId}`);
@@ -604,16 +686,51 @@ try {
   assert.ok(agentTask.result.results.r3.data.items.every(item => item.opinions[0].quote === '包装破损'));
   assert.equal(agentModelCalls, 2);
   await agentPage.getByRole('button', { name: /查看原文 #/ }).first().click();
-  await agentPage.getByRole('dialog').getByText(/sha256:/).waitFor();
+  await agentPage.locator('.chat-inline-detail').getByText(/sha256:/).waitFor();
+  assert.equal(await agentPage.getByRole('dialog').count(), 0);
   await agentPage.getByRole('button', { name: '关闭数据详情', exact: true }).click();
-  await agentPage.getByRole('dialog').waitFor({ state: 'hidden' });
+  await agentPage.locator('.chat-inline-detail').waitFor({ state: 'hidden' });
   const [agentDownload] = await Promise.all([
     agentPage.waitForEvent('download'),
     agentPage.getByRole('button', { name: '下载 Agent JSON', exact: true }).click({ timeout: 5000 }),
   ]);
   assert.deepEqual(JSON.parse(await readFile(await agentDownload.path(), 'utf8')), agentTask.result);
+  await agentPage.locator('.chat-report > summary').click();
+  const nextQuestion = `第二次查询：请解释当前范围的包装问题。\n${'请结合真实评论原文分析。'.repeat(65)}`;
+  await chatInput.fill(nextQuestion);
+  const nextSubmission = agentPage.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
+  await agentPage.getByRole('button', { name: '提交问题', exact: true }).click();
+  const nextRequest = (await nextSubmission).request().postDataJSON();
+  assert.deepEqual(nextRequest.parameters.product_ids, ['DEMO-A', 'DEMO-B']);
+  assert.equal(nextRequest.parameters.date_from, '2023-02-01');
+  assert.equal(nextRequest.parameters.question, nextQuestion);
+  assert.equal('messages' in nextRequest || 'messages' in nextRequest.parameters, false, 'single-turn API must not receive chat history');
+  await until(async () => await agentPage.locator('.chat-report').count() === 2, 'second real Agent reply');
+  assert.equal(agentModelCalls, 4);
+  assert.deepEqual(await agentPage.locator('.chat-user > p').allTextContents(), [agentQuestion, nextQuestion]);
+  await agentPage.getByRole('button', { name: '对比所选商品的负面评论占比', exact: true }).click();
+  assert.equal(await chatInput.inputValue(), '对比所选商品的负面评论占比');
+  await chatInput.fill('');
+  await agentPage.waitForFunction(() => { const m = document.querySelector('.chat-messages'); return Math.abs(m.scrollTop + m.clientHeight - m.scrollHeight) <= 1; });
+  await checkAssistantChat(agentPage, artifacts);
+  await clickNavigation('数据管理');
+  assert.equal(await agentPage.locator('.ai-assistant').count(), 0);
+  await agentPage.getByRole('heading', { name: '数据管理', exact: true }).waitFor();
+  await clickNavigation('AI 助手');
+  await until(async () => await agentPage.locator('.chat-report').count() === 2, 'conversation retained after navigation');
   await agentPage.reload();
-  await agentPage.getByRole('heading', { name: 'Agent 分析结果', exact: true }).waitFor();
+  await until(async () => await agentPage.locator('.chat-report').count() === 2, 'saved conversation restored');
+  assert.equal(agentModelCalls, 4, 'reload must only read saved tasks');
+  await agentPage.goto(`${webUrl}/tasks/${agentId}`);
+  await agentPage.waitForURL(`${webUrl}/assistant/tasks/${agentId}`);
+  await until(async () => await agentPage.locator('.chat-report').count() === 2, 'legacy Agent link restored in chat');
+  await agentPage.route(`${apiUrl}/tasks/${agentId}`, route => route.abort());
+  await agentPage.reload();
+  await agentPage.getByText('任务连接异常', { exact: true }).waitFor();
+  await agentPage.getByRole('heading', { name: 'AI 评论分析助手', exact: true }).waitFor();
+  await agentPage.unroute(`${apiUrl}/tasks/${agentId}`);
+  await agentPage.getByRole('button', { name: '重新连接', exact: true }).click();
+  await agentPage.getByText('任务连接异常', { exact: true }).waitFor({ state: 'hidden' });
   assert.equal(await agentPage.getByText('正在读取分析快照…').count(), 0);
   await agentPage.setViewportSize({ width: 390, height: 844 });
   assert.ok(await agentPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Agent mobile overflows');
@@ -621,7 +738,7 @@ try {
   await agentPage.setViewportSize({ width: 1366, height: 900 });
   await agentPage.screenshot({ path: path.join(artifacts, 'review-agent.png'), fullPage: true });
   await captureLayout(agentPage, artifacts, 'agent-result', layoutMeasurements);
-  assert.equal(agentModelCalls, 2, 'restoring a saved Agent result must not invoke the model');
+  assert.equal(agentModelCalls, 4, 'restoring a saved Agent result must not invoke the model');
   await agentContext.close();
   page = mainPage;
   const emptyContext = await browser.newContext({ viewport: { width: 1366, height: 900 } });
@@ -651,11 +768,18 @@ try {
       'Chinese and spaced file paths', 'JSONL and compressed metadata upload', 'uploaded bytes match selected files', 'upload missing file validation', 'lost response import retry uses one task',
       'real byte upload progress', 'upload and processing stages', 'processing committed counts', 'import progress reload recovery',
       'real processing byte and row progress', 'processing reload while active', 'large import database counts', 'large import cleanup',
+      'inline preparation without overlay', 'preparation return and sidebar navigation', 'preparation responsive independent scrolling', 'label submission error and idempotent retry',
+      'independent dataset and annotation routes', 'direct annotation URL and reload', 'browser back and forward module ownership',
+      'annotation task URL reload and legacy links', 'annotation batch form history without model calls',
       'label parameter validation', 'label product scope', 'label live progress', 'label concurrency', 'label reload recovery', 'label skip completed',
       'database import rows', 'database annotations and opinions', 'duplicate import', 'delete imported data', 'delete task history', 'label to analysis scope', 'mobile workspace', 'backend operation logs',
       'advanced parameters collapsed', 'main action above fold at 1366x768', 'draft reload recovery', 'one click prepared analysis',
-      'reference sidebar and responsive workspace', 'keyboard history drawer and empty state', 'history pagination and result restore', 'mobile history drawer', 'history error recovery',
-      'Agent real tools and queue', 'Agent trend comparison and original evidence', 'Agent JSON download', 'Agent reload without model call', 'Agent mobile layout'],
+      'reference sidebar and responsive workspace', 'keyboard task page and empty state', 'history pagination and result restore', 'mobile task page', 'history error recovery',
+      'task page without overlay and active navigation', 'task page responsive independent scrolling', 'inline delete cancellation and selected task deletion',
+      'Agent real tools and queue', 'Agent trend comparison and original evidence', 'Agent JSON download', 'Agent reload without model call', 'Agent mobile layout',
+      'assistant route without overlays', 'chat keyboard send and multiline input', 'chat submission failure and idempotent retry',
+      'ordered local conversation with single-turn requests', 'fixed chat input and independently scrolling messages',
+      'chat presets remain available after replies', 'inline Agent evidence without dialog', 'legacy Agent URL and connection recovery'],
     browser_errors: browserErrors, layout_screenshots: layoutMeasurements.length, artifacts };
   await writeFile(path.join(artifacts, 'acceptance.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));

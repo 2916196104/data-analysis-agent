@@ -4,7 +4,11 @@ import ReviewDashboard from './ReviewDashboard';
 import { analysisApi } from '../../shared/api/analysis-api';
 import type { AnalysisParameters, Run } from '../../types';
 
-vi.mock('../../Chart', () => ({ default: () => <div role="img" aria-label="趋势图" /> }));
+const chartProps = vi.hoisted(() => vi.fn());
+vi.mock('../../Chart', () => ({ default: (props: unknown) => {
+  chartProps(props);
+  return <div role="img" aria-label="趋势图" />;
+} }));
 const parameters: AnalysisParameters = { product_ids: ['A'], source: 'reviews_csv', dataset_version: 'v1',
   model: 'test', base_url: 'offline', prompt_version: 'v1', date_from: '2023-02-01', date_to: '2023-02-28',
   baseline_from: '2023-01-01', baseline_to: '2023-01-31' };
@@ -16,6 +20,20 @@ const trend = (rate: number | null): Run['results']['trend'] => ({ buckets: [], 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('首页真实统计', () => {
+  it('将接口月桶的总量和差评量绑定到同一重叠柱状图', async () => {
+    const response = trend(0.5);
+    response.buckets = [{ ...response.summary, bucket: '2023-02', negative_review_count: 5 }];
+    vi.spyOn(analysisApi, 'trend').mockResolvedValue(response);
+    render(<ReviewDashboard parameters={parameters} productCount={1} hasProducts />);
+    await screen.findByRole('img', { name: '趋势图' });
+    const { option, label } = chartProps.mock.calls.at(-1)![0];
+    expect(label).toBe('每月总评论数和差评数的前后重叠柱状图');
+    expect(option.xAxis.map((axis: { data: string[] }) => axis.data)).toEqual([['2023-02'], ['2023-02']]);
+    expect(option.series.map((series: { type: string; data: number[] }) => [series.type, series.data])).toEqual([
+      ['bar', [10]], ['bar', [5]],
+    ]);
+  });
+
   it('缺少版本不请求统计，不把未统计显示为零', () => {
     const fetcher = vi.spyOn(analysisApi, 'trend');
     const { container } = render(<ReviewDashboard productCount={2} hasProducts />);
