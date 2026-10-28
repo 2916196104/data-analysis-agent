@@ -21,8 +21,6 @@
 .history-delete.ant-btn { flex-shrink: 0; opacity: 0; }
 .history-item:hover .history-delete, .history-item:focus-within .history-delete, .history-item.selected .history-delete { opacity: 1; }
 .eyebrow { font-size: 10px; letter-spacing: 2px; color: #7b9786; font-weight: 600; }
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }.form-grid > * { min-width: 0; }
-.span-two { grid-column: 1 / -1; }.form-grid .ant-form-item-label > label { font-size: 14px; color: #4e6456; }.form-grid .ant-select, .form-grid .ant-picker { font-size: 14px; }
 .scope-summary { font-size: 13px; color: #63766c; line-height: 1.8; margin: -4px 0 16px; }
 .advanced-settings { border-top: 1px solid #e2e9e4; font-size: 14px; }
 .advanced-settings > summary { padding: 14px 0; cursor: pointer; color: #365b48; }
@@ -68,7 +66,6 @@
   .metrics-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 600px) {
-  .form-grid { grid-template-columns: 1fr; }
   .metrics-grid { gap: 10px; }
   .metrics-grid .ant-card-body { padding: 18px 14px; }
   .metrics-grid .ant-statistic-content { font-size: 25px; }

@@ -7,7 +7,8 @@ afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
 describe('模块路由与浏览器历史', () => {
   it.each([
     ['/data-management', 'datasets'], ['/annotation', 'annotation'],
-    ['/annotation/prepare', 'annotation'], ['/tasks', 'tasks'], ['/analysis/new', 'analysis'],
+    ['/annotation/prepare', 'annotation'], ['/annotation/review', 'annotation-review'],
+    ['/tasks', 'tasks'], ['/analysis/new', 'analysis'],
   ])('%s 解析为独立模块 %s', (path, page) => {
     expect(parseRoute(path).page).toBe(page);
   });
@@ -17,6 +18,18 @@ describe('模块路由与浏览器历史', () => {
     expect(routeUrl(taskRoute('label/id', 'label'))).toBe('/annotation/tasks/label%2Fid');
     expect(parseRoute('/annotation/tasks/label%2Fid')).toEqual(taskRoute('label/id', 'label'));
     expect(parseRoute('/annotation', '', 'old-analysis').page).toBe('annotation');
+  });
+
+  it('replay 任务当前沿用分析任务路径，记录未区分模块的边界行为', () => {
+    const route = taskRoute('replay/id', 'replay');
+    expect(route).toEqual({ page: 'task', taskId: 'replay/id', module: 'analysis' });
+    expect(routeUrl(route)).toBe('/tasks/replay%2Fid');
+    expect(parseRoute('/tasks/replay%2Fid')).toEqual(route);
+  });
+
+  it('人工复核位于评论标注模块内，并使用独立页面路径', () => {
+    expect(routeUrl({ page: 'annotation-review' })).toBe('/annotation/review');
+    expect(parseRoute('/annotation/review')).toEqual({ page: 'annotation-review' });
   });
 
   it('仅旧根入口兼容本机选中任务，显式 URL 优先', () => {

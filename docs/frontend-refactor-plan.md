@@ -1,678 +1,407 @@
-# 观数前端重构计划
+# 观数前端重构计划（阶段 0 基线版）
 
-## 1. 目标与边界
+状态：阶段 0 已完成。阶段 0 只建立运行基线、冻结入口与契约、修订本计划；没有修改 React、Python、数据库、环境配置或依赖。
 
-本计划以当前 `frontend/src` React 工作台和 `frontend/workbench` 人工复核页面为基线，目标是逐步形成按业务功能划分的前端架构：
+## 1. 范围和保护边界
 
-- `datasets`：数据集、商品目录、导入文件和数据预览。
-- `annotations`：评论标注、标注进度、标注版本和人工复核衔接。
-- `analysis`：分析范围、日期基线、固定统计和结果快照。
-- `tasks`：任务创建、任务进度、历史任务、重试和删除。
-- `agent`：在当前分析上下文中提交只读问答并展示证据。
-- `shared`：统一布局、UI、Hooks、API 基础层、格式化函数、类型和样式。
+本计划覆盖 frontend/ React 工作台及其与 Python 静态工作台、/api/v1 的边界。
 
-重构保持以下外部契约不变：
+必须保持：
 
-- Python 后端 API 路径、HTTP 方法、响应包络、错误结构和 CORS/Host 约束。
-- `import`、`label`、`analysis`、`replay` 任务的创建、查询、幂等、重试和删除语义。
-- 结构化分析的计算、冻结快照、基线比较、规则判断和证据引用。
-- 评论标注的模型版本、成功/失败/待处理状态和进度字段。
-- 原始评论正文、引用位置、文件哈希/行号和 JSON 导出能力。
-- 现有用户路径：导入数据 → 准备数据 → 分析 → 查看结果 → Agent 问答。
+- Python API 路径、HTTP 方法、请求体、响应包络、错误结构和 Idempotency-Key 语义。
+- 导入、评论标注、固定分析、Agent 查询、任务轮询、重试、删除和 JSON 导出。
+- /analysis/new、/assistant、/data-management、/annotation、/tasks 及兼容路径。
+- Header、固定侧栏、右侧独立滚动、移动端导航和现有视觉样式。
+- frontend/workbench 原生人工复核工作台及其独立 /api、CSRF、Host 和 Origin 约束。
+- 现有兼容入口：src/api.ts、src/types.ts、根目录 re-export 文件和动态 import。
 
-本文件描述目标架构和迁移顺序；各次实施以第 10 节的阶段边界为准。阶段 0 只建立基线，后续阶段按顺序独立验收，不修改 Python API、业务数据库或模型配置。
+本阶段禁止：删除文件、移动源码、修改业务代码、修改 Python、修改数据库、更新依赖、降低测试断言、提交或推送 Git。
 
-## 2. 当前基线
+## 2. 阶段 0 运行基线
 
-当前 React 入口是 `frontend/src/main.tsx`，主编排集中在约 561 行的 `frontend/src/App.tsx`。页面没有 URL 路由，使用 `localStorage` 保存当前任务、分析草稿和备注；任务进度由 `useTask` 手写轮询。
+### 2.1 工作区和工具链
 
-当前主要依赖为 React、TypeScript、Vite、Ant Design、ECharts、dayjs、Vitest、Testing Library 和 Playwright。第一阶段优先继续使用这些依赖，不预先引入新的状态框架或 UI 框架。
+基线日期：2026-10-28（Asia/Taipei）。
 
-当前 React 页面和独立人工复核页面使用两套接口：
+| 项目 | 结果 |
+|---|---|
+| 分支 | refactor/frontened-ux |
+| HEAD | cf184af 柱状图的修改2 |
+| Git 工作区 | 干净；没有已有修改需要迁移或覆盖 |
+| Node/npm | Node 24.19.0，npm 11.17.0 |
+| 项目环境 | frontend/node_modules 和根目录 .venv 均存在 |
+| 依赖树 | npm ls --depth=0 无 missing、extraneous 或 invalid 报告 |
+| lint | 未配置；package.json 没有 lint script |
+| CI | 未发现 .github、.gitlab 或其他前端 CI 配置 |
 
-| 页面 | 前端技术 | 服务 | 接口形态 | 主要职责 |
-| --- | --- | --- | --- | --- |
-| React 工作台 | React + TypeScript + Vite | `api.app` | `/api/v1`，统一 `{status,result}` 包络 | 导入、标注、固定分析、Agent、任务历史 |
-| 人工复核工作台 | 原生 HTML/CSS/JavaScript | `api.workbench` | `/api`，直接返回业务 JSON，并使用 CSRF token | 评论筛选、原文定位、人工确认和纠错 |
+### 2.2 现有脚本
 
-这两套页面暂时都要保留。迁移人工复核前先统一领域类型和接口说明，避免把两个响应协议混为一谈。
+来自 frontend/package.json：
 
-## 3. 目标架构
+| 命令 | 作用 |
+|---|---|
+| npm run dev | Vite 开发服务器，127.0.0.1 |
+| npm run build | tsc -b && vite build |
+| npm run preview | Vite 预览服务器 |
+| npm test | Vitest 一次性单元测试 |
+| npm run test:watch | Vitest watch 模式 |
+| npm run test:e2e | node tests/workbench.e2e.mjs，启动隔离 API、Worker、Vite、模拟模型和 Playwright |
 
-### 3.1 目标目录树
+reference-ui.e2e.mjs 是独立的只读浏览器脚本，不在 package script 中；capture-layout.mjs 由 workbench.e2e.mjs 导入。
 
-```text
+### 2.3 单元测试
+
+执行命令：
+
+~~~powershell
+cd E:\AllProject\data-analysis-agent\frontend
+npm test
+~~~
+
+结果：
+
+- 12 个测试文件通过。
+- 88 项测试通过。
+- 总耗时约 28.85 秒。
+- 覆盖 API 契约、草稿日期、任务状态、轮询、路由、趋势图、Agent、导入进度和任务记录页面。
+
+### 2.4 生产构建
+
+执行命令：
+
+~~~powershell
+cd E:\AllProject\data-analysis-agent\frontend
+npm run build
+~~~
+
+结果：TypeScript strict 检查和 Vite 构建通过。当前未压缩产物：
+
+| 文件 | 大小 |
+|---|---:|
+| index-CEJpJAnO.js | 314.94 kB |
+| charts-C-wSvojg.js | 575.93 kB |
+| ui-BE-NglN5.js | 1,057.85 kB |
+
+构建仍有既有的“部分 chunk 大于 500 kB”警告。本阶段不做拆包优化，也不把警告误判为构建失败。
+
+### 2.5 E2E
+
+第一次在普通执行环境运行 npm run test:e2e：
+
+- 失败于 API ready 超时。
+- fixture.log 和 vite.log 有启动结果，api.log 为空，API 没有监听。
+- 证据目录：output/playwright/frontend-56tfaH/。
+
+第二次在允许本机端口和 Windows asyncio 的执行环境运行同一个命令：
+
+- 隔离 fixture、FastAPI、Worker、Vite 和 Chrome 均启动。
+- 实际完成数据导入、失败导入、任务重试、成功导入、评论标注和四视口布局截图。
+- browser-errors.json 为空，浏览器运行错误为 0。
+- 最终在既有脚本的 prepared analysis ready 等待条件处超时，位置为 frontend/tests/workbench.e2e.mjs:438。
+- 证据目录：output/playwright/frontend-VgzEIO/。
+
+该失败记录为当前基线的“部分通过”，不能宣称全量 E2E 通过，也不能归因于本阶段重构。后续必须单独分析该等待条件，再决定是测试环境、历史断言还是页面状态问题。
+
+## 3. 当前真实目录结构
+
+~~~text
+frontend/
+├─ src/
+│  ├─ main.tsx
+│  ├─ App.tsx
+│  ├─ api.ts
+│  ├─ types.ts
+│  ├─ useTask.ts
+│  ├─ task-state.ts
+│  ├─ local-history.ts
+│  ├─ analysis-draft.ts
+│  ├─ Composer.tsx
+│  ├─ LabelForm.tsx
+│  ├─ ResultCards.tsx
+│  ├─ AgentResults.tsx
+│  ├─ Chart.tsx
+│  ├─ DataPreview.tsx              # 兼容 re-export，待确认是否仍为公共入口
+│  ├─ ImportProgress.tsx            # 兼容 re-export，测试仍直接引用
+│  ├─ app/
+│  │  ├─ AppLayout.tsx
+│  │  └─ router.ts
+│  ├─ features/
+│  │  ├─ agent/
+│  │  ├─ analysis/
+│  │  ├─ annotations/
+│  │  ├─ datasets/
+│  │  └─ tasks/
+│  ├─ shared/api/
+│  └─ shared/styles/
+├─ tests/
+│  ├─ workbench.e2e.mjs
+│  ├─ reference-ui.e2e.mjs
+│  └─ capture-layout.mjs
+└─ workbench/
+   ├─ index.html
+   ├─ workbench.js
+   └─ workbench.css
+~~~
+
+当前源码规模为 59 个 TypeScript/TSX 文件和 8 个 CSS 文件。最大编排文件是 src/App.tsx，类型中心是 src/types.ts。
+
+## 4. 页面、路由和业务入口
+
+| URL | 页面 | 入口和状态 |
+|---|---|---|
+| /analysis/new | 评论分析 | Composer、商品/日期/版本/备注、ReviewDashboard |
+| /analysis/new?mode=agent | Agent 兼容入口 | 解析后进入 /assistant |
+| /assistant | AI 评论分析助手 | AiAssistantPage、useAgentChat、消息历史和输入区 |
+| /assistant/tasks/:taskId | Agent 历史结果 | 从既有 analysis task 读取 task.result.agent |
+| /data-management | 数据管理 | 数据集目录、上传、评论原文预览 |
+| /annotation | 评论标注 | AnnotationPage、LabelForm、批量/并发/失败重试 |
+| /annotation/prepare | 标注兼容入口 | 解析为 /annotation |
+| /annotation/tasks/:taskId | 标注任务 | 标注进度、结果、继续分析/下一批 |
+| /tasks | 任务与报告 | 分页、刷新、删除、状态和结果入口 |
+| /tasks/:taskId | 通用任务兼容入口 | 读取任务类型后重定向到分析、标注或 Agent 模块 |
+| / | 旧入口 | 仅在本机 localStorage 有选中任务时恢复旧任务 |
+
+### 4.1 /api/v1 契约
+
+统一客户端位于 src/shared/api/http-client.ts，src/api.ts 组合资源 API 并作为兼容门面。成功响应为：
+
+~~~json
+{"status":"ok","result":{}}
+~~~
+
+错误响应为：
+
+~~~json
+{"status":"error","error":{"code":"...","message":"...","details":[]}}
+~~~
+
+React 当前调用：
+
+| 方法 | 路径 | 调用方 |
+|---|---|---|
+| GET | /health | App 健康状态和执行器状态 |
+| GET | /options | 数据集、商品、标注版本 |
+| GET | /quality | 日期和评论数量 |
+| GET | /reviews | 数据预览，参数为 product_key/profile_id/page/page_size |
+| GET | /reviews/{id} | 评论原文和字段详情 |
+| GET | /analytics/trend | 当前分析范围，重复发送 product_ids，附 period=month |
+| GET | /analysis-runs/{id} | 固定分析冻结快照 |
+| POST | /import-files?kind=...&filename=... | 原始字节上传和进度 |
+| POST | /tasks | 导入、标注、分析、Agent 任务；带 Idempotency-Key |
+| GET | /tasks?page=...&page_size=15 | 任务历史分页 |
+| GET | /tasks/{id} | 任务状态、进度、错误和结果 |
+| POST | /tasks/{id}/retry | failed/partial 任务重试；带 Idempotency-Key |
+| DELETE | /tasks/{id}/imported-data | 删除导入数据并刷新目录 |
+| DELETE | /tasks/{id} | 删除任务记录，不删除业务数据 |
+
+后端还提供 /products、/labeling/*、/analytics/top-issues、/analytics/compare-products、/analytics/evidence、/analysis-runs 和 /alerts。这些接口被 Python 测试和文档覆盖，不能因为当前 React 没有调用就删除。
+
+### 4.2 任务流程
+
+- 导入：XHR 上传 → 服务确认 → import task → 轮询 → 导入结果。
+- 标注：label task，参数为 source/dataset_version/product_ids/limit/workers/retry_failed，可带当前分析日期范围。
+- 固定分析：analysis task，参数包含模型身份、数据范围、当前窗口、基线窗口和可选备注。
+- Agent：仍使用 analysis task，但带 question；结果保存在 task.result.agent，不请求 analysis-runs。
+- 轮询：活跃任务约 1.5 秒一次；网络失败约 5 秒重连；切换任务会取消旧请求。
+- 重试：只允许 failed 或 partial，后端创建带 parent_task_id 的新任务。
+- 删除：运行中任务不可删除；删除导入数据后刷新 options、quality、历史和当前任务。
+
+### 4.3 replay 缺口
+
+后端支持 replay task，前端 TaskKind 也声明了 replay，但当前页面逻辑只对 import、label 和普通 analysis 做明确分支：
+
+- taskStepLabel 会把未识别类型显示成分析结果。
+- taskRoute 会把非 label 任务归到分析模块。
+- 任务列表的 replay 展示和详情没有独立页面。
+- TaskInput 没有 replay 提交类型。
+
+这不是删除候选。后续必须选择“增加只读 replay 页面”或“明确显示为未接入的历史任务”，避免误导用户。
+
+## 5. 独立 workbench 入口
+
+frontend/workbench/ 不是 React 旧副本，而是独立人工复核产品：
+
+- src/data_analysis_agent/api/workbench.py 读取源码目录或安装后的 share/data-analysis-agent/workbench。
+- pyproject.toml 的 setuptools.data-files 打包三个静态文件。
+- 页面使用 /api/options、/api/reviews 和 /api/reviews/{id}/human-reviews。
+- 保存使用 X-CSRF-Token，服务限制本机 Host/Origin。
+
+必须保留该目录、Python 入口、打包配置和独立协议。阶段 6 以后如要迁移，也必须先实现兼容 API 并保留原入口作为回滚路径。
+
+## 6. 候选删除和冗余证据
+
+| 候选 | 证据 | 当前结论 | 风险 |
+|---|---|---|---|
+| src/styles.css 中 .form-grid、.span-two | 全仓没有 JSX、测试、动态字符串或配置引用 | 低风险删除候选 | 低 |
+| src/DataPreview.tsx | 只有一行 re-export；当前源码无调用方，README/旧计划仍提及 | 待确认的兼容入口 | 中 |
+| src/ImportProgress.tsx | ImportProgress.test.tsx 直接引用，且是旧路径 re-export | 必须保留到兼容迁移完成 | 高 |
+| features/datasets/index.ts 的 useDatasetPreview re-export | 内部调用方直接导入 hook 文件，未发现 barrel 调用方 | 待确认的公共 re-export | 低到中 |
+| frontend/dist/、tsconfig.tsbuildinfo、.npm-cache/ | 构建或本地工具生成，已被忽略 | 可本地清理，不属于源码删除 | 低 |
+| output/playwright/、outputs/ | 含历史验收证据和文档引用 | 保留，不能批量清理 | 中 |
+
+动态 import 必须保护：Chart.tsx 由 ResultCards.tsx 和 ReviewDashboard.tsx 懒加载。api.ts、types.ts、useTask.ts 和 frontend/workbench/* 也不能按“当前静态调用较少”删除。
+
+## 7. 候选合并和拆分
+
+| 范围 | 当前问题 | 建议 | 预期收益 | 风险 |
+|---|---|---|---|---|
+| App.tsx | 同时管理页面、API、任务、存储、删除和导航 | 拆 page container 与 workspace hooks | 降低最大耦合点 | 高 |
+| types.ts | 混合所有领域类型 | 按任务、数据集、分析、Agent、API 拆分；旧文件先 re-export | 缩小类型变更影响 | 高 |
+| api.ts 与 shared/api/* | facade 和直接资源 API 并存 | 统一 feature 依赖资源 API，保留 facade 过渡 | API 入口单一 | 中 |
+| analysis-draft.ts 与 dataset model | 数据集 feature 反向依赖分析模块 | 抽出 datasetKey/datasets | 切断跨模块依赖 | 低到中 |
+| 全局 CSS | 分析 CSS 被数据管理、任务和标注使用 | 抽 shared PageHeader/Status/JSON 样式，再拆 feature CSS | 删除和移动更安全 | 中 |
+| 选择器 | LabelForm 和 DatasetPreview 重复拼接 Select options | 复用 DatasetSelector/ProductSelector 和 option builder | 减少 UI 重复 | 中 |
+| ResultCards 与 AgentResults | 共享指标、表格、证据视觉 | 只抽展示原语，不合并整页组件 | 保留不同数据语义 | 中高 |
+| local-history | 同时持久化草稿和下载 JSON | 拆 storage adapter 与 JSON export helper | 责任更清晰 | 低 |
+| Agent 历史消息 | 每个历史消息可能独立调用 useTask | 后续引入任务结果缓存 | 降低多轮历史读取开销 | 中 |
+
+不合并 DataManagement 与 AnnotationPage，也不合并 React workbench 与原生人工复核页面。
+
+## 8. 推荐目录结构
+
+~~~text
 frontend/src/
 ├─ app/
-│  ├─ App.tsx                 # 根组件，只负责 Providers 和路由出口
-│  ├─ AppLayout.tsx           # 导航区、顶部状态区、内容区
-│  ├─ router.ts               # 轻量路径解析和 history 适配
-│  └─ providers.tsx           # Ant Design、错误边界和应用级上下文
+│  ├─ App.tsx
+│  ├─ AppLayout.tsx
+│  ├─ router.ts
+│  └─ providers.tsx
 ├─ pages/
 │  ├─ AnalysisPage/
-│  │  ├─ AnalysisPage.tsx
-│  │  └─ index.ts
-│  ├─ TaskCenterPage/
-│  │  ├─ TaskCenterPage.tsx
-│  │  └─ index.ts
+│  ├─ DataManagementPage/
+│  ├─ AnnotationPage/
+│  ├─ TaskReportsPage/
 │  ├─ TaskDetailPage/
-│  │  ├─ TaskDetailPage.tsx
-│  │  └─ index.ts
-│  └─ ReviewWorkbenchPage/
-│     ├─ ReviewWorkbenchPage.tsx
-│     └─ index.ts
+│  └─ AiAssistantPage/
 ├─ features/
-│  ├─ datasets/
-│  │  ├─ components/
-│  │  │  ├─ DatasetSelector.tsx
-│  │  │  ├─ ProductSelector.tsx
-│  │  │  ├─ ImportDialog.tsx
-│  │  │  ├─ ImportProgress.tsx
-│  │  │  └─ DataPreviewDrawer.tsx
-│  │  ├─ hooks/
-│  │  │  ├─ useDatasetOptions.ts
-│  │  │  └─ useImportTask.ts
-│  │  ├─ model/
-│  │  │  └─ dataset-draft.ts
-│  │  └─ index.ts
-│  ├─ annotations/
-│  │  ├─ components/
-│  │  │  ├─ AnnotationForm.tsx
-│  │  │  ├─ AnnotationProgress.tsx
-│  │  │  └─ AnnotationVersionSelect.tsx
-│  │  ├─ hooks/
-│  │  │  └─ useAnnotationTask.ts
-│  │  ├─ model/
-│  │  │  └─ annotation-scope.ts
-│  │  └─ index.ts
-│  ├─ analysis/
-│  │  ├─ components/
-│  │  │  ├─ AnalysisScopeForm.tsx
-│  │  │  ├─ AnalysisActions.tsx
-│  │  │  └─ AnalysisContextSummary.tsx
-│  │  ├─ hooks/
-│  │  │  └─ useAnalysisDraft.ts
-│  │  ├─ model/
-│  │  │  ├─ analysis-draft.ts
-│  │  │  └─ analysis-view-model.ts
-│  │  └─ index.ts
-│  ├─ tasks/
-│  │  ├─ components/
-│  │  │  ├─ TaskCenterDrawer.tsx
-│  │  │  ├─ TaskList.tsx
-│  │  │  ├─ TaskProgressCard.tsx
-│  │  │  └─ TaskActions.tsx
-│  │  ├─ hooks/
-│  │  │  ├─ useTask.ts
-│  │  │  ├─ useTaskHistory.ts
-│  │  │  └─ useTaskMutations.ts
-│  │  ├─ model/
-│  │  │  ├─ task-types.ts
-│  │  │  └─ task-state.ts
-│  │  └─ index.ts
-│  └─ agent/
-│     ├─ components/
-│     │  ├─ AgentQuestionDialog.tsx
-│     │  ├─ AgentSummary.tsx
-│     │  ├─ AgentToolResultCard.tsx
-│     │  └─ AgentEvidenceList.tsx
-│     ├─ hooks/
-│     │  └─ useAgentTask.ts
-│     ├─ model/
-│     │  └─ agent-report.ts
-│     └─ index.ts
-├─ entities/
-│  ├─ dataset/
-│  ├─ product/
-│  ├─ review/
-│  ├─ annotation/
-│  ├─ analysis-run/
-│  └─ task/
+│  ├─ datasets/{components,hooks,model,api.ts,index.ts}
+│  ├─ annotations/{components,hooks,model,api.ts,index.ts}
+│  ├─ analysis/{components,hooks,model,api.ts,index.ts}
+│  ├─ tasks/{components,hooks,model,api.ts,index.ts}
+│  └─ agent/{components,hooks,model,api.ts,index.ts}
 ├─ shared/
-│  ├─ api/
-│  │  ├─ http-client.ts
-│  │  ├─ catalog-api.ts
-│  │  ├─ dataset-api.ts
-│  │  ├─ review-api.ts
-│  │  ├─ task-api.ts
-│  │  ├─ analysis-api.ts
-│  │  └─ workbench-api.ts
+│  ├─ api/{http-client.ts,index.ts}
 │  ├─ hooks/
-│  │  ├─ useInterval.ts
-│  │  ├─ useAbortableRequest.ts
-│  │  └─ useLocalStorage.ts
-│  ├─ ui/
-│  │  ├─ AppShell.tsx
-│  │  ├─ PageHeader.tsx
-│  │  ├─ StatusBadge.tsx
-│  │  ├─ MetricCard.tsx
-│  │  ├─ DataTable.tsx
-│  │  ├─ EvidenceDrawer.tsx
-│  │  └─ JsonExportButton.tsx
-│  ├─ formatters/
-│  │  ├─ date.ts
-│  │  ├─ number.ts
-│  │  ├─ rate.ts
-│  │  └─ task.ts
+│  ├─ ui/{PageHeader,StatusBadge,JsonExportButton,Chart}
 │  ├─ types/
-│  │  ├─ api.ts
-│  │  ├─ task.ts
-│  │  ├─ review.ts
-│  │  └─ analysis.ts
-│  └─ styles/
-│     ├─ tokens.css
-│     ├─ globals.css
-│     └─ layout.css
+│  ├─ formatters/
+│  └─ styles/{tokens,globals,layout,components}
+├─ legacy/compatibility-exports/
 └─ main.tsx
-```
-
-目录迁移不要求一次完成。每个业务目录先容纳原文件，再逐步拆出 `components`、`hooks` 和 `model`，避免为了目录形式进行无行为价值的重写。
-
-### 3.2 页面依赖关系
-
-```mermaid
-flowchart TD
-    Main[main.tsx] --> App[app/App.tsx]
-    App --> Layout[app/AppLayout.tsx]
-    Layout --> Analysis[AnalysisPage]
-    Layout --> Tasks[TaskCenterPage]
-    Layout --> Detail[TaskDetailPage]
-    Layout --> Reviews[ReviewWorkbenchPage]
-
-    Analysis --> Datasets[features/datasets]
-    Analysis --> Annotations[features/annotations]
-    Analysis --> AnalysisFeature[features/analysis]
-    Analysis --> Agent[features/agent]
-    Detail --> Tasks
-    Detail --> AnalysisFeature
-    Detail --> Agent
-    Reviews --> Datasets
-    Reviews --> Annotations
+~~~
 
-    Datasets --> SharedAPI[shared/api]
-    Annotations --> SharedAPI
-    AnalysisFeature --> SharedAPI
-    Tasks --> SharedAPI
-    Agent --> SharedAPI
-    SharedAPI --> Backend[Python /api/v1 或 /api]
-```
+迁移顺序必须先添加适配器和 re-export，再迁移内部调用；不要一次性做大规模重命名。
 
-业务模块只依赖 `entities`、`shared` 和自己的内部文件；`shared` 不反向依赖业务模块。页面只负责编排 feature，不直接拼接后端参数或解释任务结果。
+## 9. 分阶段重构顺序
 
-## 4. 页面路由表
+阶段按风险从低到高排列，每阶段独立提交、独立测试、可单独回滚。
 
-第一阶段不强制增加路由框架。使用 `window.history.pushState`、`popstate` 和一个小型 `router.ts` 即可满足当前页面数量；当路由需要嵌套路由、权限守卫或数据加载器时，再评估引入 React Router。路由变化应可被 URL 表达，不再只依赖 localStorage。
-
-| 路径 | 页面 | 入口 | 关键状态 | 兼容行为 |
-| --- | --- | --- | --- | --- |
-| `/analysis/new` | 分析工作台 | 顶部“新建分析” | 数据集、商品、当前窗口、基线、标注版本、备注 | 读取旧 localStorage 草稿作为初始值 |
-| `/analysis/new?mode=agent` | Agent 问答 | 分析工作台“Agent 问答” | 当前分析范围和问题文本 | 不改变分析范围，只创建 Agent 分析任务 |
-| `/tasks` | 任务中心 | 顶部“任务记录” | 分页、任务类型、状态、当前任务 | 保留现有分页和历史任务查询 |
-| `/tasks/:taskId` | 任务详情 | 任务中心、提交后自动跳转 | 任务状态、进度、结果、错误、重试 | 刷新后直接恢复任务 |
-| `/tasks/:taskId?tab=result` | 分析结果 | 固定分析任务完成后 | 摘要、趋势、商品对比、问题、证据 | 继续使用 `/analysis-runs/{id}` |
-| `/tasks/:taskId?tab=agent` | Agent 结果 | Agent 任务完成后 | 回答、工具结果、证据、校验和轨迹 | 继续从任务结果恢复，不重复模型调用 |
-| `/reviews` | 人工复核 | 导航区“人工复核” | 商品、日期、维度、情感、状态、人工记录 | 迁移完成前可跳转现有独立工作台 |
+### 阶段 0：基线和契约冻结（已完成）
 
-路由迁移期间保留 `/`：访问 `/` 时重定向到 `/analysis/new`，并根据旧 localStorage 的 `selected` 值跳转到对应 `/tasks/:taskId`。
+范围：本文件、运行记录、路由/API/资源清单。
 
-## 5. 组件迁移映射
+验证：npm test 通过；npm run build 通过；E2E 记录为部分通过并保留证据目录。
 
-| 当前文件/职责 | 目标位置 | 迁移方式 | 保留的行为 |
-| --- | --- | --- | --- |
-| `App.tsx` 页面壳和所有流程 | `app/App.tsx`、`app/AppLayout.tsx`、各页面 | 先抽布局，再按任务类型拆页面 | 顶部状态、任务记录、错误提示 |
-| `Composer.tsx` | `features/analysis/components/AnalysisScopeForm.tsx`、`features/agent/components/AgentQuestionDialog.tsx` | 将 Agent Modal 从分析表单分离 | 数据集、商品、日期、基线校验 |
-| `LabelForm.tsx` | `features/annotations/components/AnnotationForm.tsx` | 保留 Ant Form，参数转换移入 annotation model | 标注数量、并发、失败重试 |
-| `ImportProgress.tsx` | `features/datasets/components/ImportProgress.tsx` | 视觉组件与上传状态模型分离 | 上传确认、字节进度、入库阶段 |
-| `DataPreview.tsx` | `features/datasets/components/DataPreviewDrawer.tsx` | API 调用移至 `useDatasetPreview` | 商品选择、分页、原文详情 |
-| `ResultCards.tsx` | `features/analysis/components/AnalysisSnapshot.tsx` | 拆成摘要、趋势、对比、问题、证据卡片 | 现有分析快照和 JSON 导出 |
-| `AgentResults.tsx` | `features/agent/components/AgentResultView.tsx` | 共享指标表、证据卡和样本状态 | 工具结果引用、校验、Agent JSON 导出 |
-| `useTask.ts` | `features/tasks/hooks/useTask.ts` | 保留 AbortController 和轮询间隔 | 活跃任务轮询、网络失败重连 |
-| `task-state.ts` | `features/tasks/model/task-state.ts` | 任务状态机集中管理 | 状态标签、阶段标签、重试条件 |
-| `analysis-draft.ts` | `features/analysis/model/analysis-draft.ts` | 只保留范围和日期推导 | UTC 日期和基线不重叠校验 |
-| `agent-report.ts` | `features/agent/model/agent-report.ts` | 与共享指标格式化函数配合 | 空分母、样本有限和证据说明 |
-| `api.ts` | `shared/api/*` | 按资源拆分，底层请求仍统一 | 30 秒请求超时、错误包络、上传字节进度 |
-| `local-history.ts` | `shared/hooks/useLocalStorage.ts`、`shared/ui/JsonExportButton.tsx` | 按职责拆分 | 旧 key 兼容、浏览器 JSON 下载 |
-| `styles.css` | `shared/styles/*` 和 feature 局部样式 | 先提取 Token，再按布局/功能拆分 | 现有桌面、平板和窄屏断点 |
-| `frontend/workbench/*` | `pages/ReviewWorkbenchPage` 或独立 legacy 目录 | 先共享模型和 API 说明，后迁移 UI | 人工确认、纠错、冲突检测和 CSRF |
+回滚：恢复本文件即可，不涉及业务代码。
 
-固定分析结果统一使用以下分组结构：
+### 阶段 1：确认低风险冗余（下一阶段）
 
-1. 摘要与指标。
-2. 评论趋势：图表和数据表切换。
-3. 商品对比：成功标注、覆盖率、负面占比和数据状态。
-4. 负面问题：维度、负面数、当前占比、基线变化和规则判断。
-5. 原文证据：正文、商品、日期、引用和详情抽屉。
+精确文件范围：
 
-Agent 结果复用同样的摘要、指标、表格和证据组件，但保留 Agent 的工具结果 ID、调用轨迹、校验状态和问题上下文。
+- frontend/src/styles.css：删除已确认无引用的 .form-grid、.span-two。
+- frontend/src/features/datasets/index.ts：确认并处理未使用的 useDatasetPreview barrel re-export。
+- frontend/src/app/router.test.tsx：补 replay 路由行为测试，不修改生产路由。
+- frontend/README.md：修正仍指向旧 DataPreview.tsx 的文件说明。
 
-## 6. 状态管理边界
+验证：
 
-### 6.1 应用级状态
+- 全仓 rg 检查 CSS、re-export 和动态 import 引用。
+- npm test。
+- npm run build。
+- 不运行后端写操作，不改变 API。
 
-只保留真正跨页面共享的状态：
+回滚：只回退上述单个文件变更。
 
-- API 基址和后端健康状态。
-- 当前用户界面主题配置（当前仍使用固定 Ant Design 中文主题）。
-- 当前路由。
-- 当前选中的任务 ID。
+### 阶段 2：拆 App 的只读编排层
 
-这些状态放在 `app/providers.tsx` 或路由层，不放回单个页面组件。
+建议文件范围：
 
-### 6.2 服务端状态
+- frontend/src/App.tsx。
+- 新建 frontend/src/app/useWorkspaceCatalog.ts。
+- 新建 frontend/src/app/useTaskHistory.ts。
+- 新建 frontend/src/app/useTaskMutations.ts。
+- 新建 frontend/src/pages/*。
 
-由资源 API 和 feature Hooks 管理：
+不改变 API、路由、页面结构和 CSS。先移动状态读取和 mutation，再移动 JSX。
 
-- `options`、`quality`、`health`
-- 任务历史分页
-- 单任务详情
-- 分析运行快照
-- 评论预览和评论详情
-- 导入、标注、分析、重试、删除 mutation
+验证：单测、构建、任务/导入/标注/分析/Agent E2E、四视口截图。
 
-第一阶段继续使用现有 `fetch`、`useReducer`、AbortController 和小型 Hooks，不强制引入 TanStack Query。应先统一 query key、请求取消、失效和轮询策略。若后续增加告警、任务筛选、多页面并发请求后，手写缓存产生重复问题，再单独评估 TanStack Query。
+回滚：保留旧 App.tsx，按页面容器切换恢复。
 
-### 6.3 URL 状态
+### 阶段 3：统一 feature API 和领域类型
 
-以下状态必须能通过 URL 恢复：
+建议文件范围：
 
-- 当前任务 ID
-- 任务结果 Tab
-- 任务中心分页和筛选
-- 人工复核筛选条件
-- Agent 模式
+- frontend/src/api.ts。
+- frontend/src/shared/api/*。
+- frontend/src/types.ts。
+- 新建 features/*/model/types.ts。
+- frontend/src/analysis-draft.ts。
+- frontend/src/features/datasets/model/dataset-options.ts。
 
-URL 状态优先于 localStorage，localStorage 只负责恢复未提交分析草稿和本机备注。
+先保持旧 re-export，再迁移调用方。API 请求路径、参数和响应包络必须逐项对比 api.contract.test.ts。
 
-### 6.4 Feature 局部状态
+验证：API 契约测试、TypeScript build、真实隔离导入/标注/分析/Agent 流程。
 
-以下状态保留在业务 feature 内：
+回滚：保留 api.ts 和旧 types.ts 作为适配层。
 
-- 导入文件对象、上传进度和上传阶段
-- 标注表单展开状态
-- 分析高级设置展开状态
-- Agent 问题输入框
-- 数据预览抽屉的商品和页码
-- 详情 Drawer、删除 Modal 和确认状态
+### 阶段 4：样式和共享 UI 收口
 
-局部状态不能直接修改任务历史或全局 draft；通过明确的回调或 mutation 触发刷新。
+建议文件范围：
 
-### 6.5 数据一致性规则
+- frontend/src/styles.css。
+- frontend/src/features/analysis/review-analysis.css。
+- frontend/src/features/agent/assistant.css。
+- frontend/src/features/tasks/task-reports.css。
+- 新建 frontend/src/shared/styles/components.css。
+- 新建 frontend/src/shared/ui/*。
 
-- 任务提交后以服务端返回的 `task_id` 为准。
-- 任务历史只保存后端任务摘要，备注继续保持浏览器本地。
-- `analysis` 任务必须区分固定分析结果和 Agent 结果。
-- `run_id` 只用于固定分析快照；Agent 结果直接来自任务结果。
-- 删除导入数据后必须同时刷新 options、quality、任务详情和任务历史。
-- 切换任务时取消旧请求，迟到响应不能覆盖新任务。
+只迁移重复样式和页面头，不改变视觉值和布局断点。
 
-## 7. API 分层方案
+验证：1440、1024、768、390 截图，对比横向溢出、文本裁切、独立滚动和导航高亮。
 
-### 7.1 HTTP 基础层
+回滚：按 CSS 文件回退，不回退业务组件。
 
-`shared/api/http-client.ts` 只负责：
+### 阶段 5：任务类型和 Agent 读取优化
 
-- 拼接 `VITE_API_BASE_URL`。
-- 添加 `Accept`、JSON Content-Type 和 `Idempotency-Key`。
-- 30 秒请求超时和 AbortSignal 合并。
-- 解析 `{status:"ok", result}`。
-- 将 `{status:"error", error}` 转为统一 `ApiError`。
-- 处理非 JSON、网络失败和 HTTP 错误。
+范围：replay 明确展示策略、Agent 历史任务缓存、任务类型判别联合。
 
-上传继续使用 XMLHttpRequest，以保留浏览器真实字节进度；上传服务应补充取消入口和卸载时的清理。
+验证：任务历史、直接 URL、浏览器前进后退、Agent 刷新恢复、失败重连、重试和导出。
 
-### 7.2 资源 API 层
+回滚：保留旧任务详情和逐任务读取路径。
 
-| 模块 | 负责接口 | 调用方 |
-| --- | --- | --- |
-| `catalog-api.ts` | `/options`、`/quality`、`/products` | datasets、analysis、annotations |
-| `dataset-api.ts` | `/import-files`、`/reviews`、`/reviews/{id}` | datasets |
-| `task-api.ts` | `/tasks`、`/tasks/{id}`、`retry`、删除接口 | tasks、datasets、annotations、analysis、agent |
-| `analysis-api.ts` | `/analysis-runs/{id}`、必要时 `/analytics/*` | analysis、results |
-| `review-api.ts` | `/reviews`、人工复核相关接口 | annotations、ReviewWorkbench |
-| `workbench-api.ts` | 独立 `/api` 服务的原始响应和 CSRF | 迁移前的人工复核页面 |
+### 阶段 6：兼容入口收口
 
-feature 不直接调用 `fetch`，也不拼接 URL。所有后端字段解释和参数转换放在 API 层或 feature model 层。
+只有确认外部调用方、文档、测试和动态引用都迁移完成后，才评估删除：
 
-### 7.3 类型层
+- frontend/src/DataPreview.tsx。
+- frontend/src/ImportProgress.tsx。
+- 未使用的 barrel re-export。
 
-将当前 `types.ts` 拆为资源类型，并把任务结果改为判别联合：
+验证：全仓搜索、npm test、npm run build、E2E、独立 workbench 打包和启动检查。
 
-```ts
-type TaskInput =
-  | { kind: 'import'; parameters: ImportParameters }
-  | { kind: 'label'; parameters: LabelParameters }
-  | { kind: 'analysis'; parameters: AnalysisParameters }
-  | { kind: 'replay'; parameters: ReplayParameters };
+回滚：保留原文件恢复导入路径。
 
-type AnalysisTaskResult =
-  | { kind: 'structured'; run_id: string }
-  | { kind: 'agent'; agent: true; results: Record<string, AgentToolResult> };
-```
+## 10. 阶段 0 后的第一批低风险修改清单
 
-迁移过程中先通过适配器兼容旧任务 JSON，确认历史任务可恢复后，再收紧字段类型。后端 API 类型以实际 Pydantic/OpenAPI 契约为准，不在前端复制业务计算规则。
+本清单是下一阶段建议，不代表本阶段已经执行：
 
-## 8. AppLayout 与页面设计
+| 文件 | 修改 | 收益 | 风险 | 验证 |
+|---|---|---|---|---|
+| frontend/src/styles.css | 删除 .form-grid、.span-two | 减少无效 CSS | 低 | rg + 单测 + build |
+| frontend/src/features/datasets/index.ts | 清理未使用的 hook re-export | 减少无意义公共入口 | 低到中 | 全仓 import 搜索 + build |
+| frontend/src/app/router.test.tsx | 增加 replay 缺口保护测试 | 冻结当前行为边界 | 低 | Vitest |
+| frontend/README.md | 更新旧文件和入口说明 | 避免后续误删兼容入口 | 低 | 文档链接检查 |
 
-### 8.1 AppLayout
-
-统一布局包含三层：
-
-1. **导航区**：品牌、分析工作台、任务中心、人工复核入口。
-2. **顶部状态区**：API/Worker 健康、刷新、当前任务入口和任务数量。
-3. **内容区**：页面标题、范围摘要、业务内容、错误和加载状态。
-
-布局组件只管理视觉结构和导航，不负责提交任务、解释结果或读取后端字段。
-
-### 8.2 分析工作台
-
-页面顺序固定为：
-
-1. 当前数据集和商品选择。
-2. 当前分析时间与基线时间。
-3. 标注版本和可选备注。
-4. 数据预览、准备数据、Agent 问答、开始分析。
-5. 导入数据作为独立流程入口。
-
-页面应保持当前“没有可用成功标注时先准备数据”的引导逻辑。
-
-### 8.3 任务中心
-
-任务中心替代当前 Drawer 中的历史任务实现，统一提供：
-
-- 分页和任务类型。
-- 任务状态、创建时间、当前阶段和进度。
-- 当前查看任务标记。
-- 打开任务详情。
-- 失败/部分完成任务重试。
-- 已完成任务删除。
-
-任务中心不直接展示完整结果；完整结果由 `TaskDetailPage` 按任务类型渲染。
-
-## 9. Design Tokens
-
-优先复用现有 Ant Design Token，并将当前散落在 `main.tsx` 和 `styles.css` 中的值集中到 `shared/styles/tokens.css`。
-
-```css
-:root {
-  --color-primary: #127568;
-  --color-primary-hover: #0f655b;
-  --color-text: #243331;
-  --color-text-secondary: #76827e;
-  --color-border: #dce5e1;
-  --color-surface: #ffffff;
-  --color-background: #f5f7f6;
-  --color-success: #378773;
-  --color-warning: #a87e36;
-  --color-danger: #b55c50;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --content-max-width: 1200px;
-}
-```
-
-Token 使用规则：
-
-- 颜色、边框、圆角、间距和断点不在业务 JSX 中重复写字面量。
-- Ant Design `ConfigProvider` 与 CSS Token 使用同一组语义值。
-- 图表颜色使用 `--color-primary`、`--color-warning` 等语义 Token。
-- 表格、证据卡、指标卡和任务状态统一使用 shared UI。
-- 现有 600、760、1000 像素断点先保留；迁移后再根据实际截图和 E2E 结果调整。
-
-## 10. 分阶段迁移计划
-
-### 阶段 0：基线冻结与回归清单
-
-**目标**：建立重构前行为基线，代码不变。
-
-**文件范围**：
-
-- 只读检查 `frontend/src`、`frontend/workbench`、`frontend/tests`。
-- 新增计划文档和迁移记录，不修改业务代码。
-
-**验收标准**：
-
-- 记录当前 API 请求和响应类型。
-- 记录导入、标注、固定分析、Agent、重试、删除、导出和刷新恢复路径。
-- 记录现有 aria-label、按钮名称和 E2E 关键选择器。
-- 确认 Git 工作区没有既有改动被迁移覆盖。
-
-**风险**：基线遗漏会导致后续把现有行为误认为重构缺陷。
-
-**回滚方式**：不产生业务代码变更；删除本阶段新增文档即可回到原状态。
-
-### 阶段 1A：抽取 AppLayout 与布局样式
-
-**目标**：基于阶段 0 的验收记录，先独立抽取页面壳；保持现有 `/`、交互和业务行为。
-
-**文件范围**：`App.tsx`、`main.tsx`、`styles.css`、新增 `app/AppLayout.tsx` 和 `shared/styles/{tokens,globals,layout}.css`；维护现有 E2E 及布局采集辅助文件。
-
-**主要动作**：
-
-- AppLayout 负责品牌、顶部状态、工作台操作、范围摘要和内容容器；只接收展示状态与回调。
-- App 继续负责请求、任务编排、错误提示和所有 Drawer/Modal 的开关。
-- Ant Design 与布局样式共用 CSS Token；保留现有绿色视觉和响应式断点。
-- 修复基线已确认的导入 Modal 关闭同步问题；隔离验收显式使用 local 标注模式。
-- 使用现有真实隔离 API/Worker 验证原流程，采集 1440、1024、768、390 px 截图。
-
-**验收标准**：既有单元测试、构建和 E2E 通过；导航、刷新、历史任务、导入、标注、分析和 Agent 操作保持；无新增页面溢出、文字裁切或对话框越界。
-
-**范围限制**：本阶段不迁移 API、路由、任务中心或人工复核页面；不为单一布局再增加 AppShell 包装层。
-
-**风险与回滚**：保持 Portal 挂载位置和所有选择器；如有回归，仅撤回本阶段 AppLayout 接入、样式拆分和入口引用，不撤回既有文件或后端。
-
-**完成记录**：见 [阶段 1A 验收记录](frontend-refactor-phase1a.md)。完成后停止，阶段 1B 另行推进。
-
-### 阶段 1B：抽取 API 基础层
-
-**目标**：不改变页面路径和业务行为，拆分 HTTP 基础层和资源 API。
-
-**文件范围**：
-
-- `frontend/src/api.ts` 及对应测试
-- 新建 `frontend/src/shared/api/*`
-
-**主要动作**：
-
-- 将 `api.ts` 拆为基础 HTTP 层和资源 API 层。
-- 保留现有 `/` 入口，用适配层承接旧组件。
-- 保留现有 API 地址、超时、错误消息和幂等键。
-
-**验收标准**：
-
-- 现有单元测试全部通过。
-- 任务历史、刷新、健康状态和错误提示行为不变。
-- 1366、1024、768、390 像素布局无新增横向溢出。
-- API 请求 URL 和请求体与基线一致。
-
-**风险**：拆分可能影响超时、请求取消、上传字节进度或错误解析。
-
-**回滚方式**：通过原 `api.ts` 导出保持调用兼容；若验收失败，只撤回 API 分层，不回退已完成的布局或后端。
-
-### 阶段 2：迁移 datasets 和 annotations
-
-**目标**：把导入和标注变成两个独立业务 feature。
-
-**文件范围**：
-
-- `Composer.tsx` 中的数据集/商品选择部分
-- `LabelForm.tsx`
-- `ImportProgress.tsx`
-- `DataPreview.tsx`
-- `analysis-draft.ts` 中的数据集和商品推导部分
-- 新建 `features/datasets/*`
-- 新建 `features/annotations/*`
-
-**主要动作**：
-
-- `ImportDialog` 管理文件选择、上传和导入任务提交。
-- `DataPreviewDrawer` 管理评论分页和原文详情。
-- `AnnotationForm` 只负责标注参数，不负责任务历史或页面布局。
-- 共享 `DatasetSelector`、`ProductSelector` 和 `AnnotationVersionSelect`。
-
-**验收标准**：
-
-- CSV、JSONL、JSONL.GZ 文件选择和 512 MiB 校验保持一致。
-- 上传完成但服务端未确认时仍显示等待确认。
-- 导入进度仍区分上传、读取、校验、入库和部分完成。
-- 标注批量、并发、失败重试和刷新恢复保持一致。
-- 数据预览的商品、分页、字段详情和原文导出保持一致。
-
-**风险**：Form 状态和 draft 状态重复，拆分时可能丢失用户输入。
-
-**回滚方式**：保留旧组件导出；通过 feature flag 或页面适配器切回旧 Import/Label 组件。
-
-### 阶段 3：迁移 analysis 和 results
-
-**目标**：形成分析工作台和固定分析结果的分组结构。
-
-**文件范围**：
-
-- `Composer.tsx`
-- `ResultCards.tsx`
-- `Chart.tsx`
-- `analysis-draft.ts`
-- 新建 `features/analysis/*`
-- 新建 `entities/analysis-run/*`
-- 新建 shared 指标、表格和证据组件
-
-**主要动作**：
-
-- 将分析表单拆成范围、日期、版本和操作区。
-- 将结果拆成摘要、趋势、商品对比、负面问题和原文证据。
-- 统一 `rate`、覆盖率、成功标注分母、空分母和样本有限展示。
-- 保留 ECharts 懒加载和当前图表数据结构。
-
-**验收标准**：
-
-- 固定分析仍只创建一个 analysis task。
-- `run_id` 恢复后结果与后端快照逐项一致。
-- 结果包含当前窗口、基线、商品、问题、证据和规则状态。
-- “—”仍代表分母为空，不显示为 `0%`。
-- JSON 下载内容与当前分析快照一致。
-
-**风险**：结果拆分可能丢失历史字段或误把 Agent 结果当作结构化快照。
-
-**回滚方式**：保留原 `ResultCards`，新结果容器通过任务详情页开关切换。
-
-### 阶段 4：迁移 tasks 和路由
-
-**目标**：建立任务中心、任务详情页和可恢复 URL。
-
-**文件范围**：
-
-- `useTask.ts`
-- `task-state.ts`
-- `local-history.ts`
-- `App.tsx` 中的任务历史、删除和重试逻辑
-- 新建 `features/tasks/*`
-- 新建 `pages/TaskCenterPage/*`
-- 新建 `pages/TaskDetailPage/*`
-- 新建 `app/router.ts`
-
-**主要动作**：
-
-- 将任务历史从 Drawer 内联 JSX 提取为任务中心。
-- 将任务进度、任务操作和任务列表拆分。
-- 使用 URL 保存任务 ID和结果 Tab。
-- 兼容旧 localStorage 的 `selected` 和 `notes`。
-- 保留当前任务轮询间隔、网络失败重连和迟到响应隔离。
-
-**验收标准**：
-
-- 直接打开 `/tasks/:taskId` 可以恢复任务。
-- 刷新、重试、删除任务记录、删除导入数据均保持原行为。
-- 历史任务分页和当前查看标记保持一致。
-- 任务类型、状态、阶段和错误码展示不丢失。
-
-**风险**：URL 路由和旧 localStorage 的优先级处理不当会改变刷新恢复行为。
-
-**回滚方式**：保留 `/` 旧入口和旧 `selected` 恢复逻辑；路由解析失败时回退到分析工作台。
-
-### 阶段 5：迁移 agent
-
-**目标**：让 Agent 明确依赖当前分析上下文，并与固定结果复用同一套指标和证据组件。
-
-**文件范围**：
-
-- `AgentResults.tsx`
-- `agent-report.ts`
-- `Composer.tsx` 中的 Agent Modal
-- `useTask.ts` 中 Agent 结果判断
-- 新建 `features/agent/*`
-
-**主要动作**：
-
-- Agent 问题提交从分析范围中读取数据集、商品、日期、标注版本和截止时间。
-- Agent 结果按摘要、趋势、商品对比、问题、证据和执行校验分组。
-- 共享固定分析的指标表、证据详情和 JSON 导出。
-- 明确 Agent 结果直接从 task.result 恢复，不读取 `run_id`。
-
-**验收标准**：
-
-- Agent 任务参数包含当前分析上下文。
-- 刷新 Agent 结果不重复调用模型。
-- 工具结果 ID、原文证据、校验状态、调用次数和 warnings 保持一致。
-- “补齐当前范围标注”只打开标注表单，不自动提交任务。
-
-**风险**：共用 analysis task 类型容易出现结构化结果和 Agent 结果判别错误。
-
-**回滚方式**：保留 `agentResult` 旧分支；Agent 页面出现解析错误时回退到旧 `AgentResults`。
-
-### 阶段 6：人工复核页面迁移与收口
-
-**目标**：在验证 React 工作台稳定后，再决定是否把原生人工复核页面纳入统一 AppLayout。
-
-**文件范围**：
-
-- `frontend/workbench/index.html`
-- `frontend/workbench/workbench.js`
-- `frontend/workbench/workbench.css`
-- `src/data_analysis_agent/api/workbench.py` 只允许在单独 API 兼容任务中修改；本次前端重构默认不改它
-- `features/annotations` 和 `pages/ReviewWorkbenchPage`
-
-**主要动作**：
-
-- 先实现 `workbench-api.ts`，保持 `/api` 原始响应和 CSRF 行为。
-- 迁移筛选、评论列表、详情、原文定位、人工确认、人工纠错和历史记录。
-- 迁移期间保留原生页面作为回滚入口。
-
-**验收标准**：
-
-- 人工确认、纠错、并发冲突和历史追踪完全保持。
-- 模型原始观点不会被人工记录覆盖。
-- CSRF、Host、Origin 和纯文本渲染行为不弱化。
-- 独立人工复核服务仍可在 React 迁移失败时使用。
-
-**风险**：这是两套 API 协议和两套安全边界的合并，风险最高。
-
-**回滚方式**：保留 `frontend/workbench` 和 `api.workbench` 原入口；React 入口只做链接，不删除 legacy 页面。
-
-## 11. 总体验收标准
-
-每个阶段都必须满足以下通用标准：
-
-- Python API 不变，前端请求方法、路径、请求体和关键请求头不变。
-- 既有前端单元测试通过。
-- 适用的 Playwright 流程通过，浏览器无运行时错误。
-- 任务刷新恢复、网络失败重连、迟到响应隔离和终态停止轮询保持。
-- 桌面和窄屏页面没有新增横向溢出。
-- 页面不显示模型密钥、数据库 URL 或上传文件的绝对本机路径。
-- 固定分析和 Agent 的导出 JSON 与任务真实结果一致。
-- 失败任务、部分完成任务和导入删除流程可回滚或重试。
-
-## 12. 回滚总原则
-
-- 每个阶段只合并一个可独立回退的前端变更组。
-- 后端 API、数据库、任务表和模型配置不随前端重构修改。
-- 新组件先以适配器方式接入，旧组件保留到对应阶段验收完成。
-- 任务数据和历史结果始终由后端保留，浏览器 localStorage 只影响本机草稿和备注。
-- 发生结果口径、任务恢复或证据引用回归时，优先切回上一阶段页面容器，不删除已生成的后端任务和分析快照。
+本阶段完成后停止，等待确认再进入阶段 1。
 

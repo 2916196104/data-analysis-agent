@@ -1,13 +1,13 @@
 import type { ComponentProps } from 'react';
-import { Alert } from 'antd';
+import { Alert, Button } from 'antd';
 import LabelForm from '../../LabelForm';
 import './annotation.css';
 
-type AnnotationPageProps = ComponentProps<typeof LabelForm> & { error: string };
+type AnnotationPageProps = ComponentProps<typeof LabelForm> & { error: string; onReview?: () => void };
 
-export default function AnnotationPage({ error, ...formProps }: AnnotationPageProps) {
+export default function AnnotationPage({ error, onReview, ...formProps }: AnnotationPageProps) {
   return <section className="annotation-page" aria-labelledby="annotation-title">
-    <div className="review-page-heading"><div><h1 id="annotation-title">评论标注</h1><p>选择待处理的评论，提取观点供后续分析使用。</p></div></div>
+    <div className="review-page-heading"><div><h1 id="annotation-title">评论标注</h1><p>选择待处理的评论，提取观点供后续分析使用。</p></div>{onReview && <Button onClick={onReview}>进入人工复核</Button>}</div>
     <div className="annotation-form-content">
       {error && <Alert className="spaced-bottom" type="error" showIcon message="标注任务未提交" description={error} />}
       <LabelForm {...formProps} />

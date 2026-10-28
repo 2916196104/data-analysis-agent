@@ -1,6 +1,6 @@
 # 观数 · 评论分析工作台
 
-前端目录包含两套界面：`src/` 是 React 分析与模型标注工作台；`workbench/` 是独立人工复核页面，提供进度统计、状态筛选、原文定位和人工修正。人工复核页面由 `python -m data_analysis_agent.cli.workbench serve --db env:DATABASE_URL` 提供服务（默认端口 8765），无须 Vite 构建；启动方式见[人工复核工作台说明](../docs/review-workbench.md)。页面资源已从后端包移到此处，后端只保留服务和接口。Python 安装包仍会携带这些资源，安装后无需保留源码目录。
+前端目录包含 React 主工作台和一套保留兼容的原生工作台：`src/` 是 React 分析、模型标注与人工复核页面；`workbench/` 是独立人工复核入口，提供进度统计、状态筛选、原文定位和人工修正。React 页面通过 `/api/v1` 接口访问人工复核数据；需要独立启动时，仍可使用 `python -m data_analysis_agent.cli.workbench serve --db env:DATABASE_URL`（默认端口 8765），无须 Vite 构建。启动方式见[人工复核工作台说明](../docs/review-workbench.md)。页面资源已从后端包移到此处，后端只保留服务和接口。Python 安装包仍会携带这些资源，安装后无需保留源码目录。
 
 后端现支持 SQLite / PostgreSQL，前端接口和配置保持一致。PostgreSQL 配置及旧数据迁移见 [数据库接入说明](../docs/postgresql.md)；后端启动示例中的 `--db data/private/reviews.sqlite3` 可改为 `--db env:DATABASE_URL`。数据库凭据只配置在后端。
 
@@ -194,6 +194,6 @@ npm run test:e2e
 - 无取消任务；没有取消按钮。失败/部分完成才显示显式重试。
 - 无生成文件清单或下载接口；JSON 为浏览器导出，图表由后端统计数据渲染。
 - CSV/Excel 销售分析仅有 CLI；当前工作台仅接评论 HTTP API。
-- 前端分析需要已有标注版本；无版本时可使用页面内“准备数据”入口。未增加模型连接配置、人工复核或告警管理页面。
+- 前端分析需要已有标注版本；无版本时可使用页面内“准备数据”入口。人工复核页面位于 `/annotation/review`，模型连接配置和告警管理仍未提供。
 
-主要文件：`src/api.ts` 统一请求；`src/useTask.ts` 与 `src/task-state.ts` 管理轮询；`src/Composer.tsx` 管理分析输入；`src/ResultCards.tsx` 展示快照；`src/DataPreview.tsx` 展示当前原文；`src/App.tsx` 组合工作台。
+主要文件：`src/api.ts` 统一请求；`src/useTask.ts` 与 `src/task-state.ts` 管理轮询；`src/Composer.tsx` 管理分析输入；`src/ResultCards.tsx` 展示快照；`src/features/datasets/components/DataPreviewDrawer.tsx` 提供数据详情入口，内部由 `DatasetPreview.tsx` 展示当前原文；根目录 `src/DataPreview.tsx` 仅保留兼容导出；`src/App.tsx` 组合工作台。

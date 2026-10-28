@@ -6,6 +6,7 @@ export type AppRoute =
   | { page: 'assistant'; taskId?: string }
   | { page: 'datasets' }
   | { page: 'annotation'; defaults?: AnnotationDefaults }
+  | { page: 'annotation-review' }
   | { page: 'tasks' }
   | { page: 'task'; taskId: string; module: 'analysis' | 'annotation' };
 
@@ -18,6 +19,7 @@ export function routeUrl(route: AppRoute): string {
   switch (route.page) {
     case 'datasets': return '/data-management';
     case 'annotation': return '/annotation';
+    case 'annotation-review': return '/annotation/review';
     case 'assistant': return route.taskId ? `/assistant/tasks/${encodeURIComponent(route.taskId)}` : '/assistant';
     case 'tasks': return '/tasks';
     case 'task': return `${route.module === 'annotation' ? '/annotation/tasks' : '/tasks'}/${encodeURIComponent(route.taskId)}`;
@@ -30,6 +32,7 @@ export function parseRoute(path: string, search = '', legacyTask: string | null 
   if (pathname === '/' && legacyTask) return taskRoute(legacyTask);
   if (pathname === '/data-management') return { page: 'datasets' };
   if (pathname === '/annotation' || pathname === '/annotation/prepare') return { page: 'annotation', defaults };
+  if (pathname === '/annotation/review') return { page: 'annotation-review' };
   if (pathname === '/tasks') return { page: 'tasks' };
   if (pathname === '/assistant' || (pathname === '/analysis/new' && new URLSearchParams(search).get('mode') === 'agent')) return { page: 'assistant' };
   const assistantTask = pathname.match(/^\/assistant\/tasks\/([^/]+)$/);

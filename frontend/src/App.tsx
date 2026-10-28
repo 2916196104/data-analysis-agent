@@ -15,6 +15,7 @@ import Composer from './Composer';
 import { analysisDates, analysisParameters, datasetKey } from './analysis-draft';
 import AnnotationPage from './features/annotations/AnnotationPage';
 import { AnnotationNextSteps, AnnotationProgress } from './features/annotations/AnnotationTaskContent';
+import ReviewWorkbenchPage from './features/annotations/review-workbench/ReviewWorkbenchPage';
 import TaskReportsPage from './features/tasks/TaskReportsPage';
 import ResultCards from './ResultCards';
 import AiAssistantPage from './features/agent/AiAssistantPage';
@@ -62,7 +63,7 @@ function progressStatus(task: TaskSummary['status']): 'exception' | 'success' | 
 export default function App() {
   const [local, setLocal] = useState(readHistory);
   const route = useAppRoute(local.selected);
-  const section = route.page === 'task' ? route.module : route.page;
+  const section = route.page === 'task' ? route.module : route.page === 'annotation-review' ? 'annotation' : route.page;
   const selectedTaskId = route.page === 'task' ? route.taskId : null;
   const [datasetPage, setDatasetPage] = useState(1);
   const [options, setOptions] = useState<Options>(emptyOptions);
@@ -434,10 +435,10 @@ export default function App() {
           onRefresh={() => void fetchHistory()} onPage={value => { setPendingDelete(undefined); setPage(value); }}
           onSelect={selectTask} onDelete={confirmDeleteTask} onConfirmDelete={() => void executeDelete()}
           onCancelDelete={() => { if (!deleteBusy) setPendingDelete(undefined); }}
-        /> : route.page === 'annotation' ? !labelDefaults || (loading && !options.products.length) ? <Skeleton active paragraph={{ rows: 6 }} /> : <AnnotationPage
+        /> : route.page === 'annotation-review' ? <ReviewWorkbenchPage onRefresh={() => void load()} /> : route.page === 'annotation' ? !labelDefaults || (loading && !options.products.length) ? <Skeleton active paragraph={{ rows: 6 }} /> : <AnnotationPage
           options={options} initialDataset={labelDefaults.dataset} initialProducts={labelDefaults.products}
           initialLimit={labelDefaults.limit} initialWorkers={labelDefaults.workers} initialScope={labelDefaults.scope}
-          initialRetryFailed={labelDefaults.retryFailed} busy={busy} error={submitError}
+          initialRetryFailed={labelDefaults.retryFailed} busy={busy} error={submitError} onReview={() => navigate({ page: 'annotation-review' })}
           onSubmit={parameters => {
             setDraft(previous => {
               const dataset = JSON.stringify([parameters.source, parameters.dataset_version]);
