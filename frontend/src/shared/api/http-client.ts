@@ -10,14 +10,22 @@ export class ApiError extends Error {
 }
 
 /** 统一处理超时、JSON 响应和后端错误结构，调用方只接收已解包的 result。 */
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {},
+  options: { timeoutMs?: number; networkErrorMessage?: string } = {}): Promise<T> {
+  const deadline = AbortSignal.timeout(options.timeoutMs ?? 30_000);
+  const signal = init.signal ? AbortSignal.any([init.signal, deadline]) : deadline;
+  const networkError = () => {
+    const hint = init.method === 'POST' ? ' 提交结果暂未确认，可再次提交确认同一任务。' : '';
+    return new ApiError(0, {
+      code: 'network_error',
+      message: options.networkErrorMessage ?? `无法连接后端，请检查服务、网络及允许的前端来源。${hint}`,
+    });
+  };
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, {
       ...init,
-      signal: init.signal
-        ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)])
-        : AbortSignal.timeout(30_000),
+      signal,
       headers: {
         Accept: 'application/json',
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
@@ -26,17 +34,16 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     });
   } catch (error) {
     if (init.signal?.aborted) throw error;
-    const hint = init.method === 'POST' ? ' 提交结果暂未确认，可再次提交确认同一任务。' : '';
-    throw new ApiError(0, {
-      code: 'network_error',
-      message: `无法连接后端，请检查服务、网络及允许的前端来源。${hint}`,
-    });
+    throw networkError();
   }
 
   let payload: { status?: string; result?: unknown; error?: ApiErrorBody };
   try {
     payload = await response.json();
-  } catch {
+  } catch (error) {
+    // 等待响应正文也受同一截止时间与取消信号控制，不能误报为 JSON 格式错误。
+    if (init.signal?.aborted) throw error;
+    if (signal.aborted) throw networkError();
     throw new ApiError(response.status, {
       code: 'invalid_response',
       message: '服务返回的内容不是有效 JSON，请检查 API 地址。',

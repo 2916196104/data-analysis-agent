@@ -13,7 +13,7 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from data_analysis_agent.api.responses import ErrorBody, ErrorResult, Result, error_response, ok_result
-from data_analysis_agent.api.routes import analytics, monitoring, reviews, tasks
+from data_analysis_agent.api.routes import analytics, chat, monitoring, reviews, tasks
 from data_analysis_agent.core.config import ConfigurationError, read_settings
 from data_analysis_agent.core.database import DatabaseError, database_target
 from data_analysis_agent.core.errors import ReviewDataError
@@ -144,6 +144,7 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
             "redis_queue": redis_health,
         })
 
+    router.include_router(chat.create_router(env_file))
     router.include_router(reviews.create_router(db))
     router.include_router(analytics.create_router(db))
     router.include_router(monitoring.create_router(db))

@@ -20,7 +20,7 @@ import TaskReportsPage from './features/tasks/TaskReportsPage';
 import ResultCards from './ResultCards';
 import AiAssistantPage from './features/agent/AiAssistantPage';
 import { useAgentChat } from './features/agent/useAgentChat';
-import { isAgentTask } from './features/agent/chat-state';
+import { isAgentTask, type ChatMode } from './features/agent/chat-state';
 import { DataPreviewDrawer, ImportDialog, ImportProgress, useImportTask } from './features/datasets';
 import { exportResult, readHistory, writeHistory } from './local-history';
 import { canRetry, isActive, kindLabels, progressPercent, stageLabels, statusLabels } from './task-state';
@@ -71,6 +71,8 @@ export default function App() {
   const [catalogRevision, setCatalogRevision] = useState(0);
   const [health, setHealth] = useState<Health>();
   const [draft, setDraft] = useState(local.draft);
+  const [chatMode, setChatMode] = useState<ChatMode>('basic');
+  const [basicInput, setBasicInput] = useState('');
   const { dataset, productIds, profileId } = draft;
   const [history, setHistory] = useState<Page<TaskSummary>>();
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -404,10 +406,13 @@ export default function App() {
   const chatDates = analysisDates(draft, quality);
   const chatContext = `${currentProducts[0]?.dataset_version || '尚未选择数据集'} · ${productIds.length ? currentProducts.map(product => product.product_title || product.product_id).join('、') : `全部商品（${currentProducts.length} 款）`} · ${chatDates.current[0]} — ${chatDates.current[1]}（UTC）`;
   const sendChat = async () => {
-    const question = draft.agentQuestion?.trim();
-    if (!chatParameters || !question || chat.pending) return;
+    const question = (chatMode === 'basic' ? basicInput : draft.agentQuestion)?.trim();
+    if (!question || chat.pending || (chatMode === 'analysis' && !chatParameters)) return;
     if (route.page === 'assistant' && route.taskId) navigate({ page: 'assistant' });
-    if (await chat.send(chatParameters, question)) setDraft(previous => previous.agentQuestion?.trim() === question ? { ...previous, agentQuestion: '' } : previous);
+    const sent = chatMode === 'basic' ? await chat.sendBasic(question) : await chat.send(chatParameters!, question);
+    if (!sent) return;
+    if (chatMode === 'basic') setBasicInput(previous => previous.trim() === question ? '' : previous);
+    else setDraft(previous => previous.agentQuestion?.trim() === question ? { ...previous, agentQuestion: '' } : previous);
   };
   const datasetSummary = productSummary(currentProducts, task?.parameters.dataset_version as string);
   return <>
@@ -426,7 +431,8 @@ export default function App() {
         {storageError && <Alert className="spaced-bottom" type="warning" showIcon message="浏览器存储不可用，问题备注和当前选择在刷新后可能丢失；后端任务仍会保留。" />}
         {submitError && !importOpen && route.page !== 'annotation' && <Alert className="spaced-bottom" type="error" showIcon message="请求未完成" description={submitError} />}
         {route.page === 'assistant' ? <AiAssistantPage chat={chat} parameters={chatParameters} context={chatContext}
-          input={draft.agentQuestion || ''} onInput={agentQuestion => setDraft(previous => ({ ...previous, agentQuestion }))}
+          mode={chatMode} onMode={setChatMode} input={chatMode === 'basic' ? basicInput : draft.agentQuestion || ''}
+          onInput={value => chatMode === 'basic' ? setBasicInput(value) : setDraft(previous => ({ ...previous, agentQuestion: value }))}
           onSend={() => void sendChat()} onPrepare={prepareAgent} onAnalysis={() => selectTask(null)}
           onNewQuestion={() => { chat.release(); navigate({ page: 'assistant' }); }}
         /> : section === 'tasks' ? <TaskReportsPage tasks={history} page={page} loading={historyLoading} error={historyError}
@@ -473,7 +479,7 @@ export default function App() {
             {task.kind === 'analysis' && task.status === 'succeeded' && !run && !isAgentTask(task) && !taskState.error && <div className="loading-result"><Spin /> 正在读取分析快照…</div>}
           </>}
         </>}
-        {health && !health.worker_available && <p className="executor-note" role="status"><Badge status="warning" /><span>后台执行器离线</span> · 提交的任务将排队等待执行器启动。</p>}
+        {route.page !== 'assistant' && health && !health.worker_available && <p className="executor-note" role="status"><Badge status="warning" /><span>后台执行器离线</span> · 提交的任务将排队等待执行器启动。</p>}
     </AppLayout>
     <DataPreviewDrawer open={previewOpen} onClose={() => setPreviewOpen(false)} products={currentProducts} options={options} profileId={previewProfile} onDetail={showDetail} />
     <Drawer title={detail?.title} width={650} open={!!detail} onClose={() => setDetail(undefined)} closable={{ 'aria-label': '关闭数据详情' }} extra={<Button icon={<DownloadOutlined />} onClick={() => exportResult(detail?.value, 'analysis-detail')}>下载 JSON</Button>}><pre className="json-view">{JSON.stringify(detail?.value, null, 2)}</pre></Drawer>

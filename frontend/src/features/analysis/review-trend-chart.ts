@@ -6,6 +6,8 @@ type Month = Run['results']['trend']['buckets'][number];
 
 /** 仅裁掉首尾无评论月份，保留中间的空月，避免把断档误画成连续数据。 */
 export function reviewTrendOption(buckets: Month[]): EChartsCoreOption {
+  const tokens = getComputedStyle(document.documentElement);
+  const color = (name: string) => tokens.getPropertyValue(`--color-${name}`).trim();
   const first = buckets.findIndex(row => row.review_count > 0);
   let last = buckets.length - 1;
   while (last >= first && buckets[last]?.review_count === 0) last -= 1;
@@ -25,29 +27,29 @@ export function reviewTrendOption(buckets: Month[]): EChartsCoreOption {
     ].join('\n');
   };
   const monthAxis = { type: 'category', boundaryGap: true, data: months.map(row => row.bucket),
-    axisTick: { show: false }, axisLine: { lineStyle: { color: '#dce5e1' } },
-    axisLabel: { color: '#858585', fontSize: 10, hideOverlap: true } };
+    axisTick: { show: false }, axisLine: { lineStyle: { color: color('border') } },
+    axisLabel: { color: color('text-secondary'), fontSize: 10, hideOverlap: true } };
   // 顶部圆角让柱体更柔和，底边保持与零点基线贴齐。
   const barStyle = { borderRadius: [6, 6, 0, 0], shadowBlur: 4, shadowOffsetY: 2 };
 
   return {
-    color: ['#789e8c', '#d5b176'],
+    color: [color('primary'), '#d5b176'],
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, renderMode: 'richText', confine: true, formatter },
-    legend: { top: 0, icon: 'roundRect', itemWidth: 12, itemHeight: 8, textStyle: { color: '#76827e', fontSize: 11 } },
+    legend: { top: 0, icon: 'roundRect', itemWidth: 12, itemHeight: 8, textStyle: { color: color('text-secondary'), fontSize: 11 } },
     grid: { top: 34, left: 4, right: 8, bottom: scrollable ? 44 : 4, containLabel: true },
     // 同步月份轴保留现有居中重叠与滑块联动。
     xAxis: [monthAxis, { ...monthAxis, show: false, axisPointer: { type: 'none' } }],
     yAxis: { type: 'value', min: 0, minInterval: 1, splitNumber: 3,
-      axisLabel: { color: '#858585', fontSize: 10 }, splitLine: { lineStyle: { color: '#e7e7e7' } } },
+      axisLabel: { color: color('text-secondary'), fontSize: 10 }, splitLine: { lineStyle: { color: color('border') } } },
     // 长跨度默认展示最近 12 个月；拖动滑块可查看更早月份，原始统计不截断。
     dataZoom: scrollable ? [{ type: 'slider', xAxisIndex: [0, 1], bottom: 0, height: 16, showDetail: false, brushSelect: false,
       startValue: months.length - 12, endValue: months.length - 1, maxValueSpan: 11,
-      borderColor: '#dce5e1', fillerColor: 'rgba(78,116,104,0.15)' }] : [],
+      borderColor: color('border'), fillerColor: color('chart-fill') }] : [],
     series: [
       { name: '总评论数', type: 'bar', xAxisIndex: 0, yAxisIndex: 0, barWidth: 24, z: 1,
-        itemStyle: { ...barStyle, shadowColor: 'rgba(78,116,104,0.12)',
+        itemStyle: { ...barStyle, shadowColor: color('chart-shadow'),
           color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [
-            { offset: 0, color: '#87aa9d' }, { offset: 1, color: '#6a9281' },
+            { offset: 0, color: color('primary-hover') }, { offset: 1, color: color('primary') },
           ] } },
         data: months.map(row => row.review_count) },
       { name: '差评数', type: 'bar', xAxisIndex: 1, yAxisIndex: 0, barWidth: 24, z: 2,

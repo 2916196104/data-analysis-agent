@@ -5,6 +5,7 @@ import { datasetApi } from './shared/api/dataset-api';
 import { taskApi } from './shared/api/task-api';
 import { reviewApi } from './shared/api/review-api';
 import { analysisApi } from './shared/api/analysis-api';
+import { chatApi } from './shared/api/chat-api';
 
 export { API_BASE, ApiError, errorMessage, request } from './shared/api/http-client';
 
@@ -16,4 +17,5 @@ export const api = {
   ...taskApi,
   ...reviewApi,
   ...analysisApi,
+  ...chatApi,
 };

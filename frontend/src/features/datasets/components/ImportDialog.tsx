@@ -40,7 +40,7 @@ export default function ImportDialog({
   >
     <div className="import-dialog-intro">
       <p>添加评论文件后，系统会先上传并等待服务端确认，再读取、校验并写入数据库。</p>
-      <div className="import-dialog-rules"><Tag color="green">CSV</Tag><Tag color="green">JSONL</Tag><Tag color="green">JSONL.GZ</Tag><span>单文件最大 512 MiB</span></div>
+      <div className="import-dialog-rules"><Tag color="blue">CSV</Tag><Tag color="blue">JSONL</Tag><Tag color="blue">JSONL.GZ</Tag><span>单文件最大 512 MiB</span></div>
     </div>
     <Steps className="import-steps" size="small" current={uploadAttempted ? 1 : 0} items={[{ title: '选择文件' }, { title: '上传确认' }, { title: '读取入库' }]} />
     {submitError && <Alert className="spaced-bottom" type="error" showIcon closable={!busy} onClose={() => onError('')} message={submitError} />}

@@ -34,7 +34,19 @@ export default function AppLayout({
 }: AppLayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const content = useRef<HTMLDivElement>(null);
-  useEffect(() => { content.current?.scrollTo(0, 0); }, [section]);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => { content.current?.scrollTo(0, 0); setMenuOpen(false); }, [section]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        menuTrigger.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [menuOpen]);
   const navigate = (action: () => void) => { action(); setMenuOpen(false); };
   const pageName = section === 'assistant' ? 'AI 助手' : section === 'tasks' ? '任务与报告' : section === 'annotation' ? '评论标注' : section === 'datasets' ? '数据管理' : '评论分析';
   return <div className="workbench">
@@ -48,7 +60,7 @@ export default function AppLayout({
           <div className="header-actions">
             <Tooltip title="通知 · 未开放"><Button type="text" aria-label="通知（未开放）" aria-disabled="true" icon={<BellOutlined />} /></Tooltip>
             <Tooltip title="用户中心 · 未开放"><Button type="text" aria-label="用户中心（未开放）" aria-disabled="true" icon={<UserOutlined />} /></Tooltip>
-            <Button className="mobile-menu-trigger" type="text" aria-label="工作空间导航" aria-controls="workspace-navigation" aria-expanded={menuOpen} icon={<MenuOutlined />} onClick={() => setMenuOpen(value => !value)} />
+            <Button ref={menuTrigger} className="mobile-menu-trigger" type="text" aria-label="工作空间导航" aria-controls="workspace-navigation" aria-expanded={menuOpen} icon={<MenuOutlined />} onClick={() => setMenuOpen(value => !value)} />
           </div>
         </div>
       </header>
@@ -66,16 +78,16 @@ export default function AppLayout({
           <div className="sidebar-tools">
             <span className="connection-label"><Badge status={connection.status} text={connection.text} /></span>
             <div className="workspace-actions" role="group" aria-label="工作台操作">
-              <Tooltip title="导入数据"><Button type="text" aria-label="导入数据文件" icon={<ImportOutlined />} onClick={onImport} /></Tooltip>
-              <Tooltip title="准备数据"><Button type="text" aria-label="准备数据" icon={<CheckOutlined />} onClick={onPrepare} /></Tooltip>
-              <Tooltip title="数据详情"><Button type="text" aria-label="数据详情" icon={<FolderOpenOutlined />} disabled={!hasProducts} onClick={onPreview} /></Tooltip>
-              <Tooltip title="刷新数据"><Button type="text" icon={<ReloadOutlined />} aria-label="刷新数据" loading={loading} onClick={onRefresh} /></Tooltip>
+              <Tooltip title="导入数据"><Button type="text" aria-label="导入数据文件" icon={<ImportOutlined />} onClick={() => navigate(onImport)} /></Tooltip>
+              <Tooltip title="准备数据"><Button type="text" aria-label="准备数据" icon={<CheckOutlined />} onClick={() => navigate(onPrepare)} /></Tooltip>
+              <Tooltip title="数据详情"><Button type="text" aria-label="数据详情" icon={<FolderOpenOutlined />} disabled={!hasProducts} onClick={() => navigate(onPreview)} /></Tooltip>
+              <Tooltip title="刷新数据"><Button type="text" icon={<ReloadOutlined />} aria-label="刷新数据" loading={loading} onClick={() => navigate(onRefresh)} /></Tooltip>
             </div>
           </div>
         </aside>
         <div className={`workspace-content ${fillContent ? 'workspace-content-fill' : ''}`} ref={content}>
           <main className="main-content">{children}</main>
-          <footer className="workspace-footer"><span className="context-summary" title={datasetSummary}>{datasetSummary}</span><span>观数 · 数据有据</span></footer>
+          {!fillContent && <footer className="workspace-footer"><span className="context-summary" title={datasetSummary}>{datasetSummary}</span><span>观数 · 数据有据</span></footer>}
         </div>
       </div>
     </div>

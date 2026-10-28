@@ -92,6 +92,7 @@ try {
   await page.getByRole('heading', { name: 'AI 评论分析助手', exact: true }).waitFor();
   assert.equal(new URL(page.url()).pathname, '/assistant');
   assert.equal(await page.getByRole('dialog').count(), 0);
+  await page.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
   await page.getByRole('textbox', { name: '评论分析问题' }).fill('界面验证，未提交');
   await page.getByRole('button', { name: '新建分析', exact: true }).click();
   await page.locator('.ai-assistant').waitFor({ state: 'hidden' });

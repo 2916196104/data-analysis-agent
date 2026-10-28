@@ -7,3 +7,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--color-focus); o
 button:disabled { cursor: not-allowed; }
 h1, h2, p { margin-top: 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* 浅蓝 Hover 上使用深色文字，保持小字号按钮文字的对比度。 */
+.ant-btn.ant-btn-primary:not(:disabled):not(.ant-btn-dangerous):hover { color: var(--color-on-primary-hover); }
+.ant-btn.ant-btn-primary:not(:disabled):not(.ant-btn-dangerous):active { color: var(--color-surface); }

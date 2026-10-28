@@ -156,8 +156,8 @@ try {
   assert.equal(await page.getByRole('combobox', { name: '标注版本', exact: true }).isVisible(), false);
   const startBox = await page.getByRole('button', { name: '开始分析', exact: true }).boundingBox();
   assert.ok(startBox && startBox.y + startBox.height <= 768, 'main action must fit above the fold');
-  // The reference shell reserves a 230px sidebar; task history remains a drawer.
-  assert.equal((await page.locator('.workspace-sidebar').boundingBox()).width, 230);
+  // 桌面侧栏固定，主内容随可用宽度伸缩。
+  assert.equal((await page.locator('.workspace-sidebar').boundingBox()).width, 200);
   assert.ok((await page.locator('.main-content').boundingBox()).width > 650);
   await page.getByRole('button', { name: '任务记录', exact: true }).focus();
   await page.keyboard.press('Enter');
@@ -649,6 +649,7 @@ try {
   await agentPage.getByRole('heading', { name: 'AI 评论分析助手', exact: true }).waitFor();
   assert.equal(new URL(agentPage.url()).pathname, '/assistant');
   assert.equal(await agentPage.getByRole('dialog').count(), 0);
+  await agentPage.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
   await agentPage.getByRole('button', { name: '按日查看评论趋势', exact: true }).click();
   assert.equal(await agentPage.getByRole('textbox', { name: '评论分析问题' }).inputValue(), '按日查看评论趋势');
   await captureLayout(agentPage, artifacts, 'agent-question', layoutMeasurements);

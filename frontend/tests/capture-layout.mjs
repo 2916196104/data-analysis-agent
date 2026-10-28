@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const viewports = [
+  { width: 1920, height: 900 },
   { width: 1440, height: 900 }, { width: 1024, height: 768 },
   { width: 768, height: 1024 }, { width: 390, height: 844 },
 ];
@@ -26,10 +27,12 @@ export async function captureLayout(page, artifacts, name, measurements) {
           documentWidth: document.documentElement.scrollWidth,
           documentHeight: document.scrollingElement.scrollHeight,
           viewportHeight: innerHeight,
+          shell: rect(document.querySelector('.workspace-main')),
           main: rect(document.querySelector('.main-content')),
+          fillContent: document.querySelector('.workspace-content').classList.contains('workspace-content-fill'),
           header: rect(document.querySelector('.topbar-inner')),
           sidebar: rect(document.querySelector('.workspace-sidebar')),
-          footer: rect(document.querySelector('.workspace-footer')),
+          footer: document.querySelector('.workspace-footer') ? rect(document.querySelector('.workspace-footer')) : null,
           dialogs: [...document.querySelectorAll('[role="dialog"]')].filter(visible).map(rect),
           clippedButtons: [...document.querySelectorAll('.header-actions button, .workspace-actions button, .sidebar-nav button')]
             .filter(visible).filter(element => element.scrollWidth > element.clientWidth + 1)
@@ -42,16 +45,20 @@ export async function captureLayout(page, artifacts, name, measurements) {
       measurements.push({ name, viewport, screenshot, ...measurement });
       await writeFile(path.join(artifacts, 'layout-measurements.json'), JSON.stringify(measurements, null, 2));
       assert.ok(measurement.documentWidth <= viewport.width + 1, `${name}: page overflows at ${viewport.width}`);
+      assert.equal(measurement.shell.x, 0, 'workspace starts at viewport edge');
+      assert.equal(measurement.shell.y, 0, 'workspace starts at viewport top');
+      assert.equal(measurement.shell.width, viewport.width, 'workspace fills viewport width');
+      assert.equal(measurement.shell.height, viewport.height, 'workspace fills viewport height');
       assert.ok(measurement.documentHeight <= measurement.viewportHeight + 1, `${name}: document must not scroll`);
       assert.ok(measurement.main.x >= measurement.header.x, `${name}: main must be inside frame`);
-      assert.equal(measurement.footer.x, measurement.main.x, `${name}: footer left alignment`);
-      assert.equal(measurement.footer.width, measurement.main.width, `${name}: footer right alignment`);
-      if (viewport.width > 700) {
-        assert.ok(measurement.sidebar.width >= 160 && measurement.sidebar.width <= 230, 'sidebar width');
-        assert.ok(measurement.main.x >= measurement.sidebar.x + measurement.sidebar.width + 20, 'sidebar content gap');
+      if (measurement.footer) assert.equal(measurement.footer.x, measurement.main.x, `${name}: footer left alignment`);
+      if (measurement.footer) assert.equal(measurement.footer.width, measurement.main.width, `${name}: footer right alignment`);
+      if (viewport.width >= 992) {
+        assert.equal(measurement.sidebar.width, 200, 'desktop sidebar keeps its fixed width');
+        assert.ok(measurement.main.x >= measurement.sidebar.x + measurement.sidebar.width + (measurement.fillContent ? 0 : 16), 'sidebar and main do not overlap; regular pages retain their padding');
       } else assert.equal(measurement.sidebar.width, 0, 'mobile navigation collapses');
       assert.deepEqual(measurement.clippedButtons, [], `${name}: clipped navigation text`);
-      assert.equal(measurement.primaryColor, 'rgb(78, 116, 104)', 'reference green token');
+      assert.equal(measurement.primaryColor, 'rgb(9, 88, 217)', 'brand blue token');
       for (const dialog of measurement.dialogs) {
         assert.ok(dialog.x >= -1 && dialog.x + dialog.width <= viewport.width + 1, `${name}: dialog overflows`);
       }
@@ -84,7 +91,7 @@ export async function checkShellScrolling(page, artifacts, prefix = 'scroll') {
   try {
     for (const viewport of [...viewports, { width: 1440, height: 480 }, { width: 390, height: 480 }]) {
       await page.setViewportSize(viewport);
-      const mobile = viewport.width <= 700;
+      const mobile = viewport.width < 992;
       if (mobile) await page.getByRole('button', { name: '工作空间导航', exact: true }).click();
       await page.locator('.workspace-content').evaluate(element => element.scrollTo(0, 0));
       const before = await snapshot();
@@ -277,6 +284,11 @@ export async function checkAssistantChat(page, artifacts) {
       assert.equal(await page.locator('.sidebar-nav button[aria-label="AI 助手"]').getAttribute('aria-current'), 'page');
       const before = await snapshot();
       assert.ok(before.scrollHeight > before.clientHeight, 'real questions and replies must create a scrolling conversation');
+      assert.equal(await page.locator('.workspace-footer, .chat-input-hint, .chat-context').count(), 0);
+      const stack = await page.locator('.chat-message-stack').boundingBox();
+      const inputBox = await page.locator('.chat-input-box').boundingBox();
+      assert.ok(stack.width <= 960 && inputBox.width <= 960, 'conversation reading width');
+      assert.ok(Math.abs(stack.x + stack.width / 2 - inputBox.x - inputBox.width / 2) <= 1, 'messages and composer align');
       assert.ok(before.clientHeight > 60 && before.input.y + before.input.height <= viewport.height, 'input stays inside content');
       assert.ok(!before.overflowX && before.documentWidth <= viewport.width + 1, 'chat horizontal overflow');
       assert.ok(before.documentHeight <= viewport.height + 1 && before.outerHeight <= before.outerClient + 1, 'chat must not create outer scrolling');

@@ -19,6 +19,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ConfigProvider locale={zhCN} theme={{ token: {
       colorPrimary: token('color-primary'), colorInfo: token('color-primary'),
+      colorPrimaryHover: token('color-primary-hover'), colorPrimaryActive: token('color-primary-active'),
+      colorPrimaryBg: token('color-primary-soft'), colorPrimaryBgHover: token('color-primary-soft'),
+      colorPrimaryBorder: token('color-primary-border'), colorLink: token('color-primary'),
+      colorLinkHover: token('color-primary'), colorLinkActive: token('color-primary-active'),
+      colorTextDisabled: token('color-disabled'), colorBgContainerDisabled: token('color-surface-muted'),
       colorText: token('color-text'), colorTextSecondary: token('color-text-secondary'),
       colorBorder: token('color-border'), colorBgLayout: token('color-background'),
       borderRadius: parseFloat(token('radius-md')), fontFamily: token('font-family'),
