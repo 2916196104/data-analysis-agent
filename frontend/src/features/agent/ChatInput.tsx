@@ -17,6 +17,5 @@ export default function ChatInput({ value, onChange, onSend, pending, disabled }
       <Button type="primary" shape="circle" aria-label="提交问题" icon={<SendOutlined />} loading={pending}
         disabled={pending || disabled || !value.trim()} onClick={onSend} />
     </div>
-    <p className="chat-input-hint">Enter 发送 · Shift + Enter 换行 · 每次独立查询，不向模型发送聊天历史</p>
   </div>;
 }

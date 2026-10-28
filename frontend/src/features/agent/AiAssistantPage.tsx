@@ -25,7 +25,6 @@ export default function AiAssistantPage({ chat, parameters, context, input, onIn
   }, [chat.session, chat.focusedTaskId, chat.activeTurn, chat.activeState.task?.status, chat.activeState.task?.result, chat.errors]);
   return <section className="ai-assistant" aria-labelledby="ai-assistant-title">
     <header className="chat-heading"><h1 id="ai-assistant-title">AI 评论分析助手</h1>
-      <p>查询已有评论标注，分析趋势、对比商品并查找原文证据。</p><p className="chat-context" title={context}>{context}</p>
     </header>
     {!parameters && <Alert className="chat-notice" type="info" showIcon message="请先选择可用标注版本与分析范围" action={<Button size="small" onClick={onAnalysis}>前往评论分析</Button>} />}
     {chat.storageError && <Alert className="chat-notice" type="warning" showIcon message="本机聊天记录无法保存或读取，刷新后可能丢失；后端任务仍可从任务与报告查看。" />}
