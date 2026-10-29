@@ -34,6 +34,15 @@
 .composer-wrap .advanced-settings > summary span { color: var(--color-text-secondary); font-size: 11px; }
 .composer-wrap .advanced-content { padding-top: 10px; }
 .composer-wrap .advanced-content .ant-form-item { margin-bottom: 18px; }
+.profile-option { display: flex; flex-direction: column; gap: 3px; line-height: 1.4; }
+.profile-option-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.profile-option-main > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.profile-option-main .ant-tag { margin-inline-end: 0; font-size: 10px; line-height: 18px; }
+.profile-option-meta, .profile-option-warning, .profile-selection-summary { color: var(--color-text-secondary); font-size: 11px; line-height: 18px; }
+.profile-option-warning { color: #a87e36; }
+.profile-selection-summary { margin: -8px 0 16px; }
+.profile-selection-summary .ant-alert { margin-top: 8px; padding: 7px 10px; }
+.profile-selection-summary .ant-alert-message, .profile-selection-summary .ant-alert-description { font-size: 11px; line-height: 18px; }
 .data-management-controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
 .data-management-controls > .ant-select { width: min(100%, 380px); }
 .executor-note { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 18px 0 0; font-size: 11px; line-height: 20px; color: #8c733c; }

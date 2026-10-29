@@ -47,7 +47,7 @@ export function useAgentChat(routeTaskId?: string) {
     commit(current => {
       const turn: ChatTurn = existing ?? { kind: 'analysis', id: crypto.randomUUID(), taskId: task.task_id,
         requestKey: crypto.randomUUID(), question: String(task.parameters.question ?? task.result?.question ?? ''),
-        parameters: { ...task.parameters, product_ids: Array.isArray(task.parameters.product_ids) ? task.parameters.product_ids : [] } as unknown as AnalysisParameters };
+        parameters: { ...task.parameters, product_ids: Array.isArray(task.parameters.product_ids) ? [...task.parameters.product_ids] : [] } as unknown as AnalysisParameters };
       return { turns: existing ? current.turns : [...current.turns, turn], activeId: turn.id };
     });
   }, [routeTaskId, task, commit]);
@@ -76,7 +76,9 @@ export function useAgentChat(routeTaskId?: string) {
     const previous = analysisSession(sessionRef.current).turns.at(-1);
     const turn: ChatTurn = previous?.kind === 'analysis' && !previous.taskId && previous.question === text
       && JSON.stringify(previous.parameters) === JSON.stringify(parameters) ? previous
-      : { kind: 'analysis', id: crypto.randomUUID(), requestKey: crypto.randomUUID(), question: text, parameters };
+      // 每条问题独立保存范围，后续修改草稿及商品数组不会改写历史任务。
+      : { kind: 'analysis', id: crypto.randomUUID(), requestKey: crypto.randomUUID(), question: text,
+        parameters: { ...parameters, product_ids: [...parameters.product_ids] } };
     if (turn !== previous) commit(current => ({ turns: [...current.turns, turn], activeId: turn.id }));
     return submitTurn(turn);
   }

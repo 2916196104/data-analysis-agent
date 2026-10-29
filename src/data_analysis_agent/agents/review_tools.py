@@ -14,6 +14,7 @@ from data_analysis_agent.core.serialization import canonical_json
 from data_analysis_agent.core.validation import Input, Text
 from data_analysis_agent.reviews import analytics
 from data_analysis_agent.reviews.opinions import ASPECTS, SENTIMENTS, Aspect
+from data_analysis_agent.reviews.parameters import BaselineScope
 
 
 class ProductSelection(Input):
@@ -23,6 +24,25 @@ class ProductSelection(Input):
 
 class TrendInput(ProductSelection):
     period: Literal["day", "month"] = Field(default="month", description="按 UTC 日或月统计")
+
+
+class WindowInput(ProductSelection):
+    window: Literal["current", "baseline"] = "current"
+
+
+class AspectTrendInput(TrendInput):
+    aspect: Aspect | None = Field(default=None, description="省略时返回全部六维度；统计负面评论")
+
+
+class RatingInput(WindowInput):
+    group_by: Literal["product", "month", "all"] = "product"
+
+
+class WindowComparisonInput(ProductSelection):
+    date_from: str | None = Field(default=None, description="自定义当前开始日 YYYY-MM-DD；四个日期必须一起传入")
+    date_to: str | None = None
+    baseline_from: str | None = None
+    baseline_to: str | None = None
 
 
 class EvidenceInput(ProductSelection):
@@ -77,24 +97,44 @@ class ReviewToolContext:
             summary = analytics.get_trend(self.connection, **scope)["summary"]
             kind, data = "context", {"scope": self.scope, "products": self.products, "summary": summary,
                                      "aspects": ASPECTS, "sentiments": SENTIMENTS}
-        elif name == "get_trend":
+        elif name in ("get_trend", "get_aspect_trend"):
             start, end = date.fromisoformat(scope["date_from"]), date.fromisoformat(scope["date_to"])
             buckets = (end - start).days + 1 if values["period"] == "day" else (end.year-start.year)*12 + end.month-start.month + 1
             if buckets > (366 if values["period"] == "day" else 240):
                 raise ReviewDataError("Agent 趋势最多返回 366 天或 240 个月，请调整时间范围或统计周期。")
-            kind, data = "trend", analytics.get_trend(self.connection, **scope, **values)
+            kind, data = (("trend", analytics.get_trend(self.connection, **scope, **values)) if name == "get_trend"
+                          else ("aspect_trend", analytics.get_aspect_trend(self.connection, **scope, **values)))
+        elif name == "get_data_quality":
+            kind, data = "quality", analytics.get_data_quality(self.connection, **scope)
+        elif name == "get_rating_distribution":
+            kind, data = "ratings", analytics.get_rating_distribution(self.connection, **scope, **values)
+        elif name == "compare_time_windows":
+            dates = {key: value for key, value in values.items() if value is not None}
+            if dates and len(dates) != 4:
+                raise ReviewDataError("自定义比较必须同时提供当前和基线的四个日期。")
+            selected = BaselineScope.model_validate({**scope, "baseline_from": self.scope["baseline_from"],
+                                                    "baseline_to": self.scope["baseline_to"], **dates}).model_dump()
+            allowed = [(self.scope["date_from"], self.scope["date_to"]),
+                       (self.scope["baseline_from"], self.scope["baseline_to"])]
+            for start, end in [(selected["date_from"], selected["date_to"]),
+                               (selected["baseline_from"], selected["baseline_to"])]:
+                if not any(a <= start <= end <= b for a, b in allowed):
+                    raise ReviewDataError("自定义窗口必须完整位于本次当前或基线范围内；扩大日期请先切换范围。")
+            kind, data = "window_comparison", analytics.compare_time_windows(self.connection, **selected)
         elif name == "compare_products":
             kind, data = "comparison", analytics.compare_products(self.connection, **scope)
         elif name == "get_top_issues":
             kind, data = "issues", analytics.get_top_issues(
                 self.connection, **scope, baseline_from=self.scope["baseline_from"], baseline_to=self.scope["baseline_to"])
-        else:
+        elif name == "get_evidence":
             if values["sentiment"] == "all":
                 values["sentiment"] = None
             kind, data = "evidence", analytics.get_evidence(self.connection, **scope, **values)
             # 原文引用保留文件指纹和行号，不向模型提供服务器文件路径。
             for item in data["items"]:
                 item.pop("file_path", None)
+        else:
+            raise ReviewDataError("不支持的评论分析工具。")
         result_id = "overview" if kind == "context" else "r" + str(len(self.results))
         result = {"result_id": result_id, "kind": kind, "parameters": parameters, "data": data}
         self.results[result_id], self.cache[key] = result, result_id
@@ -146,7 +186,11 @@ def create_review_registry(context):
     registry = ReviewRegistry(context)
     for name, description, parameters in (
         ("get_analysis_context", "查询绑定范围、商品 ID、标注覆盖率、维度及情感枚举。", Input),
-        ("get_trend", "查询当前窗口按日/月的评论量、负面评论量、覆盖率和占比；不支持单维度趋势。", TrendInput),
+        ("get_trend", "查询当前窗口按日/月的评论量、负面评论量、覆盖率和占比。", TrendInput),
+        ("get_data_quality", "查询当前或基线窗口缺失正文、失败类型、待标注、覆盖率和导入来源指纹。", WindowInput),
+        ("get_aspect_trend", "按日/月查看包装、物流等六维度的负面评论数、占比及覆盖率。", AspectTrendInput),
+        ("get_rating_distribution", "按商品/月/总体查询原始 1–5 星分布；可选择当前或基线窗口，不依赖标注。", RatingInput),
+        ("compare_time_windows", "比较已选当前/基线窗口的计数、覆盖率、负面占比及六维度变化；可传四个日期缩小窗口，不能超出绑定范围。", WindowComparisonInput),
         ("compare_products", "比较已选商品在当前窗口的评论量、覆盖率、负面数量和占比。", ProductSelection),
         ("get_top_issues", "比较当前窗口与已选基线的六维度负面数量和占比变化。", ProductSelection),
         ("get_evidence", "分页查询带原文位置的评论证据，可筛选维度、情感、商品子集和当前/基线窗口。", EvidenceInput),

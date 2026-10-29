@@ -11,9 +11,18 @@ export interface AnalysisDraft {
   agentQuestion?: string;
 }
 
+export const DEFAULT_ANALYSIS_MODEL = 'Pro/deepseek-ai/DeepSeek-V3.2';
+
+/** 优先使用产品默认的 V3.2；旧数据库没有该模型时回退到服务端默认版本。 */
+export function defaultProfileId(options: Options): number | undefined {
+  return options.profiles.find(profile => profile.requested_model === DEFAULT_ANALYSIS_MODEL)?.profile_id
+    ?? options.selected_profile_id
+    ?? options.profiles[0]?.profile_id;
+}
+
 export const emptyDraft = (): AnalysisDraft => ({ dataset: '', productIds: [], note: '' });
 
-export const datasetKey = (product: Product): string => (
+export const datasetKey = (product: Pick<Product, 'source' | 'dataset_version'>): string => (
   JSON.stringify([product.source, product.dataset_version])
 );
 
@@ -35,11 +44,14 @@ export function datasets(products: Product[]): Array<{
 export function analysisDates(
   draft: AnalysisDraft,
   quality?: Quality,
+  options?: Options,
 ): { current: [string, string]; baseline: [string, string] } {
-  const latest = dayjs(quality?.published_at_end?.slice(0, 10));
+  const dataset = options?.datasets?.find(item => datasetKey(item) === draft.dataset);
+  // 有数据集目录时只使用当前数据集的日期，避免继承其他数据集的全库时间。
+  const latest = dayjs((options?.datasets ? dataset?.published_at_end : quality?.published_at_end)?.slice(0, 10));
   const currentEnd = latest.isValid() ? latest : dayjs();
   const current: [string, string] = draft.current ?? [
-    currentEnd.startOf('month').format('YYYY-MM-DD'),
+    dataset?.published_at_start?.slice(0, 10) ?? currentEnd.startOf('month').format('YYYY-MM-DD'),
     currentEnd.format('YYYY-MM-DD'),
   ];
   const currentMonth = dayjs(current[0]).startOf('month');
@@ -57,7 +69,7 @@ export function analysisParameters(
 ): AnalysisParameters | undefined {
   const product = options.products.find(item => datasetKey(item) === draft.dataset);
   const profile = options.profiles.find(item => item.profile_id === draft.profileId);
-  const { current, baseline } = analysisDates(draft, quality);
+  const { current, baseline } = analysisDates(draft, quality, options);
 
   const invalidDates = current[0] > current[1]
     || baseline[0] > baseline[1]

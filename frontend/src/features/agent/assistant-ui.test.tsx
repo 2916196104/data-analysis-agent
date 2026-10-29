@@ -8,6 +8,7 @@ import type { Options, Task } from '../../types';
 import { useTask } from '../../useTask';
 import ChatMessage from './ChatMessage';
 import { useAgentChat } from './useAgentChat';
+import { analysisApi } from '../../shared/api/analysis-api';
 
 vi.mock('../../useTask', () => ({ useTask: vi.fn() }));
 // 导航布局已有独立单测和真实浏览器验收，此处聚焦 App 的模式分流与消息交互。
@@ -30,6 +31,9 @@ beforeEach(() => {
   vi.spyOn(api, 'tasks').mockResolvedValue({ total: 0, page: 1, page_size: 15, items: [] });
   vi.spyOn(api, 'submit').mockResolvedValue({ task, reused: false });
   vi.spyOn(api, 'retry');
+  vi.spyOn(analysisApi, 'trend').mockResolvedValue({ summary: { review_count: 10, eligible_text_reviews: 10,
+    successful_reviews: 10, failed_reviews: 0, unprocessed_reviews: 0, negative_review_count: 2,
+    labeling_coverage: 1, negative_rate: 0.2 }, buckets: [] });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 

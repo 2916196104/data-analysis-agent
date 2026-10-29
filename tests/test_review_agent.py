@@ -40,7 +40,8 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
             body = json.loads(request.content)
             requests.append(body)
             self.assertEqual({item["function"]["name"] for item in body["tools"]},
-                             {"get_analysis_context", "get_trend", "compare_products", "get_top_issues", "get_evidence"})
+                             {"get_analysis_context", "get_trend", "compare_products", "get_top_issues", "get_evidence",
+                              "get_data_quality", "get_aspect_trend", "get_rating_distribution", "compare_time_windows"})
             item = next(sequence)
             if isinstance(item, Exception):
                 raise item
@@ -194,7 +195,7 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
             response = client.post("/api/v1/tasks", json=body, headers={"Idempotency-Key": "agent-question"})
             self.assertEqual(response.status_code, 202, response.text)
             task = response.json()["result"]["task"]
-            self.assertEqual(task["parameters"]["model_identity"]["prompt_version"], "review-agent-v1")
+            self.assertEqual(task["parameters"]["model_identity"]["prompt_version"], "review-agent-v2")
             repeated = client.post("/api/v1/tasks", json=body, headers={"Idempotency-Key": "agent-question"})
             self.assertTrue(repeated.json()["result"]["reused"])
             worker = TaskWorker(self.db, task_db, **options)

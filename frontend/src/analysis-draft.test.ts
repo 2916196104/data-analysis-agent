@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analysisDates, analysisParameters, datasetKey, emptyDraft } from './analysis-draft';
+import { analysisDates, analysisParameters, datasetKey, defaultProfileId, emptyDraft } from './analysis-draft';
 import { readHistory, writeHistory } from './local-history';
 import type { Options, Quality } from './types';
 
@@ -9,6 +9,32 @@ const options: Options = { profiles: [{ profile_id: 2, requested_model: 'model',
     review_count: 48, pending_count: 0, success_count: 48 }], aspects: {}, sentiments: {}, processing_statuses: {}, human_statuses: {} };
 
 describe('分析范围与衔接', () => {
+  it('按来源和版本匹配数据集真实首末日期，不继承全库的较新日期', () => {
+    const catalog = { ...options, datasets: [
+      { source: 'source', dataset_version: 'v1', review_count: 48, product_count: 1, eligible_text_reviews: 48,
+        published_at_start: '2018-07-10T00:00:00Z', published_at_end: '2018-09-12T23:59:59Z', profiles: [] },
+      { source: 'another', dataset_version: 'v1', review_count: 2, product_count: 1, eligible_text_reviews: 2,
+        published_at_start: '2024-03-02T00:00:00Z', published_at_end: '2024-03-03T00:00:00Z', profiles: [] },
+    ] };
+    const draft = { ...emptyDraft(), dataset: '["source","v1"]', profileId: 2 };
+    expect(analysisDates(draft, quality, catalog)).toEqual({ current: ['2018-07-10', '2018-09-12'], baseline: ['2018-06-01', '2018-06-30'] });
+    expect(analysisParameters(draft, catalog, quality)).toMatchObject({ date_from: '2018-07-10', date_to: '2018-09-12' });
+    expect(analysisDates({ ...draft, dataset: '["another","v1"]' }, quality, catalog).current).toEqual(['2024-03-02', '2024-03-03']);
+    const manual = { ...draft, current: ['2018-08-01', '2018-08-31'] as [string, string], baseline: ['2018-07-01', '2018-07-31'] as [string, string] };
+    expect(analysisDates(manual, quality, catalog)).toEqual({ current: manual.current, baseline: manual.baseline });
+  });
+  it('新目录缺少有效日期时不冒用全库的日期', () => {
+    const draft = { ...emptyDraft(), dataset: '["source","v1"]' };
+    expect(analysisDates(draft, quality, { ...options, datasets: [] }).current).not.toEqual(['2023-02-01', '2023-02-24']);
+  });
+  it('默认优先选择 V3.2，缺少时回退服务端默认版本', () => {
+    const profiles = [
+      { profile_id: 1, requested_model: 'deepseek-ai/DeepSeek-V4-Flash', base_url: 'http://local', prompt_version: 'v1' },
+      { profile_id: 2, requested_model: 'Pro/deepseek-ai/DeepSeek-V3.2', base_url: 'http://local', prompt_version: 'v1' },
+    ];
+    expect(defaultProfileId({ ...options, profiles, selected_profile_id: 1 })).toBe(2);
+    expect(defaultProfileId({ ...options, profiles: [profiles[0]], selected_profile_id: 1 })).toBe(1);
+  });
   it('按数据最新月份给出分析时间和上月对比，跨年仍有效', () => {
     expect(analysisDates(emptyDraft(), quality)).toEqual({ current: ['2023-02-01', '2023-02-24'], baseline: ['2023-01-01', '2023-01-31'] });
     expect(analysisDates({ ...emptyDraft(), current: ['2023-01-01', '2023-01-20'] }, quality).baseline).toEqual(['2022-12-01', '2022-12-31']);

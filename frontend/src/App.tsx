@@ -12,7 +12,7 @@ import { navigate, routeUrl, taskRoute, useAppRoute } from './app/router';
 import DataManagement from './features/datasets/components/DataManagement';
 import { api, API_BASE, errorMessage } from './api';
 import Composer from './Composer';
-import { analysisDates, analysisParameters, datasetKey } from './analysis-draft';
+import { analysisDates, analysisParameters, datasetKey, defaultProfileId } from './analysis-draft';
 import AnnotationPage from './features/annotations/AnnotationPage';
 import { AnnotationNextSteps, AnnotationProgress } from './features/annotations/AnnotationTaskContent';
 import ReviewWorkbenchPage from './features/annotations/review-workbench/ReviewWorkbenchPage';
@@ -78,6 +78,7 @@ export default function App() {
   // 数据集 ID 沿用现有的 source + dataset_version 复合键，并由 App 作为全局唯一状态持有。
   const selectedDatasetId = dataset;
   const datasetRef = useRef(dataset);
+  const profileInitialized = useRef(false);
   datasetRef.current = dataset;
   const [history, setHistory] = useState<Page<TaskSummary>>();
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -140,6 +141,8 @@ export default function App() {
     const [optionResult, qualityResult, healthResult] = results;
     if (optionResult.status === 'fulfilled') {
       const next = optionResult.value;
+      const useDefaultProfile = !profileInitialized.current;
+      profileInitialized.current = true;
       setOptions(next);
       if (datasetRef.current && !next.products.some(product => datasetKey(product) === datasetRef.current)) {
         setDatasetNotice(next.products.length
@@ -155,9 +158,8 @@ export default function App() {
         const dataset = currentDatasetExists
           ? previous.dataset
           : next.products[0] ? datasetKey(next.products[0]) : '';
-        const current = qualityResult.status === 'fulfilled'
-          ? analysisDates(previous, qualityResult.value).current
-          : undefined;
+        const current = analysisDates({ ...previous, dataset },
+          qualityResult.status === 'fulfilled' ? qualityResult.value : undefined, next).current;
         const productIds = previous.productIds.filter(id => next.products.some(
           product => datasetKey(product) === dataset && product.product_id === id,
         ));
@@ -171,9 +173,9 @@ export default function App() {
           baseline: currentDatasetExists ? previous.baseline : undefined,
           agentQuestion: currentDatasetExists ? previous.agentQuestion : undefined,
           productIds: currentDatasetExists ? productIds : [],
-          profileId: profileExists
-            ? previous.profileId
-            : next.selected_profile_id ?? undefined,
+          profileId: useDefaultProfile || !profileExists
+            ? defaultProfileId(next)
+            : previous.profileId,
         };
       });
     } else {
@@ -402,7 +404,7 @@ export default function App() {
       : productIds,
     profileId: previewProfile,
   };
-  const preparedDates = analysisDates(preparedDraft, quality);
+  const preparedDates = analysisDates(preparedDraft, quality, options);
   const analyzeLabeled = (start: boolean) => {
     if (!task) return;
     setDraft(preparedDraft);
@@ -433,8 +435,6 @@ export default function App() {
       scope: { date_from: result.scope.date_from, date_to: result.scope.date_to, as_of: result.scope.as_of }, retryFailed: true } });
   };
   const chatParameters = analysisParameters(draft, options, quality);
-  const chatDates = analysisDates(draft, quality);
-  const chatContext = `${currentProducts[0]?.dataset_version || '尚未选择数据集'} · ${productIds.length ? currentProducts.map(product => product.product_title || product.product_id).join('、') : `全部商品（${currentProducts.length} 款）`} · ${chatDates.current[0]} — ${chatDates.current[1]}（UTC）`;
   const sendChat = async () => {
     const question = (chatMode === 'basic' ? basicInput : draft.agentQuestion)?.trim();
     if (!question || chat.pending || (chatMode === 'analysis' && !chatParameters)) return;
@@ -463,10 +463,15 @@ export default function App() {
         {datasetNotice && <Alert className="spaced-bottom" type="info" showIcon message={datasetNotice} closable onClose={() => setDatasetNotice('')} />}
         {storageError && <Alert className="spaced-bottom" type="warning" showIcon message="浏览器存储不可用，问题备注和当前选择在刷新后可能丢失；后端任务仍会保留。" />}
         {submitError && !importOpen && route.page !== 'annotation' && <Alert className="spaced-bottom" type="error" showIcon message="请求未完成" description={submitError} />}
-        {route.page === 'assistant' ? <AiAssistantPage chat={chat} parameters={chatParameters} context={chatContext}
+        {route.page === 'assistant' ? <AiAssistantPage chat={chat} parameters={chatParameters}
+          draft={draft} options={options} quality={quality} loading={loading} refreshKey={catalogRevision}
+          onApplyScope={scope => {
+            setPreviewOpen(false); setDatasetPage(1); setDatasetNotice(''); setSubmitError('');
+            setDraft(previous => ({ ...previous, ...scope }));
+          }}
           mode={chatMode} onMode={setChatMode} input={chatMode === 'basic' ? basicInput : draft.agentQuestion || ''}
           onInput={value => chatMode === 'basic' ? setBasicInput(value) : setDraft(previous => ({ ...previous, agentQuestion: value }))}
-          onSend={() => void sendChat()} onPrepare={prepareAgent} onAnalysis={() => selectTask(null)}
+          onSend={() => void sendChat()} onPrepare={prepareAgent}
           onNewQuestion={() => { chat.release(); navigate({ page: 'assistant' }); }}
         /> : section === 'tasks' ? <TaskReportsPage tasks={history} page={page} loading={historyLoading} error={historyError}
           notes={local.notes} selectedId={local.selected} deleteBusy={deleteBusy} formatCreatedAt={dateLabel}

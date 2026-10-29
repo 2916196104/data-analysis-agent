@@ -40,6 +40,14 @@ class TrendQuery(AnalysisQuery):
     period: Literal["day", "month"] = "month"
 
 
+class AspectTrendQuery(TrendQuery):
+    aspect: Aspect | None = None
+
+
+class RatingQuery(AnalysisQuery):
+    group_by: Literal["product", "month", "all"] = "product"
+
+
 class IssueQuery(BaselineQuery):
     top_n: int = Field(default=6, ge=1, le=6)
 

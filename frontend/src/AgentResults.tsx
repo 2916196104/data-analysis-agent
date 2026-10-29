@@ -5,12 +5,17 @@ import { exportResult } from './local-history';
 import { rate } from './ResultCards';
 import { comparisonRows, sampleState, sectionSummary } from './agent-report';
 import type { AgentResult, AgentToolResult, Summary } from './types';
+import ExtendedResults from './features/agent/ExtendedResults';
+import { exportAgentReport } from './features/agent/report-export';
 
 const toolNames: Record<string, string> = {
   get_analysis_context: '读取分析范围', get_trend: '查询评论趋势', compare_products: '比较商品',
   get_top_issues: '比较维度问题', get_evidence: '查询原文证据',
+  get_data_quality: '查看数据质量', get_aspect_trend: '查询维度趋势',
+  get_rating_distribution: '查询星级分布', compare_time_windows: '比较时间窗口',
 };
-const sectionNames = { context: '分析范围', trend: '评论趋势', comparison: '商品对比', issues: '六维度问题', evidence: '原文证据' };
+const sectionNames = { context: '分析范围', trend: '评论趋势', comparison: '商品对比', issues: '六维度问题', evidence: '原文证据',
+  quality: '数据质量', aspect_trend: '维度趋势', ratings: '星级分布', window_comparison: '时间窗口对比' };
 const countColumns = [
   { title: '评论数', dataIndex: 'review_count', width: 85 },
   { title: '成功标注（分母）', dataIndex: 'successful_reviews', width: 135 },
@@ -103,7 +108,7 @@ export default function AgentResults({ result, onDetail, onPrepare, idPrefix = '
             { title: '负面占比', dataIndex: 'negative_rate', render: (value: number | null) => value === null ? '暂无成功标注' : rate(value) },
             { title: '较基线（百分点）', dataIndex: 'negative_rate_change_pp', render: (value: number | null) => value === null ? '样本不足' : `${value > 0 ? '+' : ''}${value.toFixed(1)}` },
           ]} />
-        </> : <p>{sectionSummary(item)}</p>}
+        </> : item.kind === 'context' ? <p>{sectionSummary(item)}</p> : <ExtendedResults item={item} />}
     </Card>)}
     <Card title="执行与校验" extra={<Button onClick={() => onDetail(result, 'Agent 完整结果')}>详情</Button>}>
       {result.validation ? <>
@@ -117,6 +122,7 @@ export default function AgentResults({ result, onDetail, onPrepare, idPrefix = '
         {result.warnings?.map(warning => <p key={warning} className="muted">{warning}</p>)}
       </details>
       <Button className="spaced" aria-label="下载 Agent JSON" icon={<DownloadOutlined />} onClick={() => exportResult(result, 'review-agent')}>下载 Agent JSON</Button>
+      <Button className="spaced" icon={<DownloadOutlined />} onClick={() => exportAgentReport(result)}>导出 Markdown 报告</Button>
     </Card>
     <p className="result-footnote">标注版本：{result.scope.model} / {result.scope.prompt_version} · 范围：{result.scope.date_from} — {result.scope.date_to}（UTC） · 查询时刻 {result.snapshot_at} · 准备新数据后需重新分析。</p>
   </div>;

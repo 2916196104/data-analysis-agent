@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createWriteStream } from 'node:fs';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
@@ -32,6 +32,18 @@ async function port() {
   await new Promise(resolve => server.close(resolve));
   return value;
 }
+async function choose(page, name, label) {
+  const input = page.getByRole('combobox', { name, exact: true });
+  await page.locator('.ant-select').filter({ has: input }).click();
+  await page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option').filter({ hasText: label }).click();
+  await input.press('Escape');
+}
+async function dates(page, name, from, to) {
+  const inputs = page.locator('.ant-picker').filter({ has: page.getByRole('textbox', { name, exact: true }) }).locator('input');
+  await inputs.nth(0).fill(from); await inputs.nth(0).press('Enter');
+  await inputs.nth(1).fill(to); await inputs.nth(1).press('Enter');
+  await inputs.nth(1).press('Escape');
+}
 function launch(command, args, name, env = {}) {
   const log = createWriteStream(path.join(artifacts, `${name}.log`));
   logs.push(log);
@@ -40,9 +52,10 @@ function launch(command, args, name, env = {}) {
   child.stdout.pipe(log); child.stderr.pipe(log); children.push(child);
   return child;
 }
-async function capture(page, name) {
+async function capture(page, name, target) {
   for (const width of [1440, 1024, 768, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    if (target) await target.scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(artifacts, `${name}-${width}.png`), animations: 'disabled' });
     const measure = await page.evaluate(() => {
       const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
@@ -54,12 +67,17 @@ async function capture(page, name) {
         messagesOverflow: messages.scrollWidth > messages.clientWidth + 1,
         outerOverflow: outer.scrollHeight > outer.clientHeight + 1,
         dialogs: document.querySelectorAll('[role="dialog"]').length,
+        scope: document.querySelector('.assistant-scope-bar') ? rect('.assistant-scope-bar') : null,
         primary: getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() };
     });
     assert.ok(measure.documentWidth <= width + 1, `${name}: horizontal overflow ${width}`);
     assert.ok(!measure.messagesOverflow && !measure.outerOverflow, `${name}: overflow ${width}`);
     assert.ok(measure.documentHeight <= measure.height + 1, `${name}: document scroll ${width}`);
     assert.ok(measure.input.y + measure.input.height <= measure.height + 1, 'composer inside viewport');
+    if (measure.scope) {
+      assert.ok(measure.scope.y + measure.scope.height <= measure.input.y + 1, 'scope above composer');
+      assert.ok(measure.scope.y >= 0 && measure.scope.x >= 0, 'scope inside viewport');
+    }
     assert.ok(Math.abs(measure.stack.x + measure.stack.width / 2 - measure.box.x - measure.box.width / 2) <= 1, 'composer alignment');
     assert.equal(measure.dialogs, 0);
     screenshots.push({ name, filename: `${name}-${width}.png`, ...measure });
@@ -71,6 +89,21 @@ try {
   const apiUrl = `http://127.0.0.1:${apiPort}/api/v1`, web = `http://127.0.0.1:${webPort}`;
   const fixture = launch(python, ['scripts/frontend_fixture.py', '--output', artifacts], 'fixture');
   await new Promise((resolve, reject) => { fixture.once('error', reject); fixture.once('exit', code => code === 0 ? resolve() : reject(new Error('Fixture failed'))); });
+  await promisify(execFile)(python, ['-c', `
+import json, sys
+from pathlib import Path
+from data_analysis_agent.reviews.store import import_amazon_jsonl
+from data_analysis_agent.reviews.label_store import pending_reviews, save_annotation
+root = Path(sys.argv[1]); db = root/'reviews.sqlite3'
+rows = [json.loads(line) for line in (root/'simulated.jsonl').read_text(encoding='utf-8').splitlines()]
+path = root/'scope-b.jsonl'; path.write_text('\\n'.join(json.dumps(row) for row in rows[24:27]), encoding='utf-8')
+import_amazon_jsonl(db, reviews_path=path, dataset_version='SIMULATED-scope-b')
+identity = dict(model='SIMULATED-ANNOTATIONS', base_url='https://offline.invalid/v1', prompt_version='fixture-v1')
+for review in pending_reviews(db, **identity, limit=1000):
+    save_annotation(db, review, **identity, status='success', opinions=[])
+for review in pending_reviews(db, **dict(identity, model='SIMULATED-SECOND'), product_ids=['DEMO-A'], date_from='2023-02-01', date_to='2023-02-02', limit=1000):
+    save_annotation(db, review, **dict(identity, model='SIMULATED-SECOND'), status='success', opinions=[])
+`, artifacts], { cwd: root, windowsHide: true, env: { ...process.env, PYTHONUTF8: '1' } });
   modelServer = createServer(async (request, response) => {
     let raw = ''; for await (const chunk of request) raw += chunk;
     const body = JSON.parse(raw);
@@ -82,6 +115,8 @@ try {
       message = ids.length ? { role: 'assistant', content: JSON.stringify({ status: 'ok', result_ids: ids }) }
         : { role: 'assistant', content: null, tool_calls: [
           ['get_trend', { period: 'month' }], ['get_evidence', { aspect: 'packaging', sentiment: 'negative' }],
+          ['get_data_quality', {}], ['get_aspect_trend', { period: 'month' }],
+          ['get_rating_distribution', { group_by: 'product' }], ['compare_time_windows', {}],
         ].map(([name, parameters], i) => ({ id: `tool-${i}`, type: 'function', function: { name, arguments: JSON.stringify(parameters) } })) };
     } else {
       basicCalls++;
@@ -155,12 +190,23 @@ try {
       dataset: JSON.stringify(['amazon_reviews_2023', 'SIMULATED-frontend']), productIds: ['DEMO-A'], profileId,
       current: ['2023-02-01', '2023-02-24'], baseline: ['2023-01-01', '2023-01-31'], note: '',
     } }));
-  }, { key: `review-workbench:${apiUrl}`, profileId: options.profiles[0].profile_id });
+  }, { key: `review-workbench:${apiUrl}`, profileId: options.profiles.find(item => item.requested_model === 'SIMULATED-ANNOTATIONS').profile_id });
   const analysis = await analysisContext.newPage();
   activePage = analysis;
   analysis.on('pageerror', error => errors.push(error.message));
   await analysis.goto(`${web}/assistant`);
   await analysis.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
+  await analysis.getByRole('button', { name: '切换范围', exact: true }).click();
+  await choose(analysis, '助手标注版本', 'SIMULATED-ANNOTATIONS');
+  await analysis.getByRole('button', { name: '应用范围', exact: true }).click();
+  await analysis.getByText(/覆盖率 100.0%/).waitFor();
+  const catalogSummary = analysis.getByRole('region', { name: '数据集摘要', exact: true });
+  assert.match(await catalogSummary.innerText(), /评论数\s+96/);
+  assert.match(await catalogSummary.innerText(), /商品数\s+2/);
+  await catalogSummary.locator('summary').click();
+  assert.match(await catalogSummary.getByRole('row').filter({hasText:'SIMULATED-SECOND'}).innerText(), /2.1%/);
+  await capture(analysis, 'dataset-profile-summary');
+  await catalogSummary.locator('summary').click();
   await analysis.getByRole('textbox', { name: '评论分析问题' }).fill('你能做什么？（明确选择评论分析，不自动切换基础问答）');
   await analysis.getByRole('button', { name: '提交问题', exact: true }).click();
   await analysis.locator('.chat-report > summary').waitFor();
@@ -170,16 +216,127 @@ try {
   assert.equal(basicCalls, 2);
   assert.ok(await analysis.locator('.chat-report table').count() > 0);
   await capture(analysis, 'analysis-result');
+  for (const [title, name] of [['数据质量', 'quality'], ['维度趋势', 'aspect-trend'], ['星级分布', 'ratings'], ['时间窗口对比', 'windows']]) {
+    const card = analysis.locator('.chat-report .ant-card').filter({ has: analysis.locator('.ant-card-head-title').filter({ hasText: title }) });
+    assert.equal(await card.count(), 1);
+    assert.ok(await card.locator('table').count() > 0);
+    await capture(analysis, `capability-${name}`, card);
+  }
+  const download = analysis.waitForEvent('download');
+  await analysis.getByRole('button', { name: '导出分析报告', exact: true }).first().click();
+  const downloaded = await download;
+  assert.ok(downloaded.suggestedFilename().endsWith('.md'));
+  const reportPath = path.join(artifacts, 'analysis-report.md');
+  await downloaded.saveAs(reportPath);
+  const exported = await readFile(reportPath, 'utf8');
+  for (const text of ['SIMULATED-frontend', '2023-02-01 — 2023-02-24', '2023-01-01 — 2023-01-31',
+    'review-agent-v2', 'file_sha256', 'sha256:', 'rating_rate_denominator', '原始星级']) assert.ok(exported.includes(text), text);
+  await analysis.setViewportSize({ width: 1440, height: 900 });
+  const firstRange = await analysis.locator('.chat-turn-scope').first().innerText();
+  const firstTurn = await analysis.evaluate(() => JSON.parse(localStorage[Object.keys(localStorage).find(key => key.startsWith('review-agent-chat:'))]).turns[0]);
+  const scope = analysis.getByRole('region', { name: '助手分析范围', exact: true });
+  await scope.getByRole('button', { name: '切换范围', exact: true }).click();
+  assert.equal(await analysis.getByRole('button', { name: '提交问题', exact: true }).isDisabled(), true);
+  await capture(analysis, 'scope-editor');
+  for (const width of [1440, 1024, 768, 390]) {
+    await analysis.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await analysis.getByRole('textbox', { name: '助手当前窗口', exact: true }).first().click();
+    const calendar = analysis.locator('.assistant-scope-calendar:not(.ant-picker-dropdown-hidden)');
+    await calendar.waitFor();
+    const bounds = await calendar.boundingBox();
+    assert.ok(bounds.x >= -1 && bounds.x + bounds.width <= width + 1, 'calendar inside viewport');
+    await analysis.screenshot({ path: path.join(artifacts, `scope-calendar-${width}.png`), animations: 'disabled' });
+    screenshots.push({ name: 'scope-calendar', filename: `scope-calendar-${width}.png`, width, bounds });
+    await analysis.getByRole('textbox', { name: '助手当前窗口', exact: true }).first().press('Escape');
+  }
+  await analysis.setViewportSize({ width: 1440, height: 900 });
+  await choose(analysis, '助手数据集', 'SIMULATED-scope-b');
+  await scope.getByRole('button', { name: '取消', exact: true }).click();
+  assert.match(await scope.innerText(), /SIMULATED-frontend/);
+  assert.equal(await analysis.locator('.chat-turn-scope').first().innerText(), firstRange);
+
+  await scope.getByRole('button', { name: '切换范围', exact: true }).click();
+  await choose(analysis, '助手标注版本', 'SIMULATED-SECOND');
+  await choose(analysis, '助手分析商品', 'DEMO-B');
+  await dates(analysis, '助手当前窗口', '2023-02-02', '2023-02-20');
+  await dates(analysis, '助手基线窗口', '2023-02-01', '2023-02-10');
+  assert.equal(await scope.getByRole('button', { name: '应用范围', exact: true }).isDisabled(), true);
+  await dates(analysis, '助手基线窗口', '2023-01-05', '2023-01-20');
+  await scope.getByRole('button', { name: '应用范围', exact: true }).click();
+  await scope.getByText(/覆盖率 2.6%/).waitFor();
+  assert.equal(await analysis.locator('.chat-turn-scope').first().innerText(), firstRange);
+  async function send(question) {
+    const response = analysis.waitForResponse(item => item.url() === `${apiUrl}/tasks` && item.request().method() === 'POST');
+    await analysis.getByRole('textbox', { name: '评论分析问题' }).fill(question);
+    await analysis.getByRole('button', { name: '提交问题', exact: true }).click();
+    const task = (await (await response).json()).result.task;
+    await until(async () => {
+      const saved = (await (await fetch(`${apiUrl}/tasks/${task.task_id}`)).json()).result;
+      assert.notEqual(saved.status, 'failed', JSON.stringify(saved.error));
+      return saved.status === 'succeeded';
+    }, 'scope task finished');
+    await until(async () => !await analysis.getByRole('button', { name: '切换范围', exact: true }).isDisabled(), 'scope task rendered');
+    return task;
+  }
+  const secondTask = await send('按月查看新范围趋势和证据');
+  assert.deepEqual(secondTask.parameters.product_ids, ['DEMO-A', 'DEMO-B']);
+  assert.equal(secondTask.parameters.model, 'SIMULATED-SECOND');
+  assert.equal(secondTask.parameters.date_from, '2023-02-02');
+  assert.equal(secondTask.parameters.baseline_to, '2023-01-20');
+  await capture(analysis, 'scope-limited-sample');
+
+  await scope.getByRole('button', { name: '切换范围', exact: true }).click();
+  await choose(analysis, '助手数据集', 'SIMULATED-scope-b');
+  await choose(analysis, '助手标注版本', 'SIMULATED-ANNOTATIONS');
+  await scope.getByRole('button', { name: '应用范围', exact: true }).click();
+  await scope.getByText(/覆盖率 100.0%/).waitFor();
+  assert.equal(await analysis.locator('.header-actions .ant-select-selection-item').textContent(), 'SIMULATED-scope-b');
+  const thirdTask = await send('按月查看另一数据集趋势');
+  assert.equal(thirdTask.parameters.dataset_version, 'SIMULATED-scope-b');
+  assert.equal(thirdTask.parameters.date_from, '2023-02-01');
+  assert.equal(thirdTask.parameters.date_to, '2023-02-03');
+  assert.deepEqual(thirdTask.parameters.product_ids, []);
+  assert.equal(await analysis.locator('.chat-turn-scope').first().innerText(), firstRange);
+  await capture(analysis, 'scope-dataset-b');
+  const historyDownload = analysis.waitForEvent('download');
+  await analysis.getByRole('button', { name: '导出分析报告', exact: true }).first().click();
+  const historyPath = path.join(artifacts, 'analysis-report-after-switch.md');
+  await (await historyDownload).saveAs(historyPath);
+  assert.equal(await readFile(historyPath, 'utf8'), exported, 'historical report must retain its original scope and results');
+
+  await choose(analysis, '全局数据集', 'SIMULATED-frontend');
+  await scope.getByText(/覆盖率 100.0%/).waitFor();
+  await analysis.route(`${apiUrl}/analytics/trend?*`, route => route.abort());
+  await scope.getByRole('button', { name: '切换范围', exact: true }).click();
+  await choose(analysis, '助手分析商品', 'DEMO-B');
+  await scope.getByRole('button', { name: '应用范围', exact: true }).click();
+  await scope.getByText(/覆盖率读取失败/).waitFor();
+  await capture(analysis, 'scope-coverage-error');
+  await analysis.unroute(`${apiUrl}/analytics/trend?*`);
+  await scope.getByRole('button', { name: '重试覆盖率', exact: true }).click();
+  await scope.getByText(/覆盖率 100.0%/).waitFor();
+
   await analysis.reload();
-  await analysis.locator('.chat-report').waitFor();
+  await analysis.locator('.chat-report').first().waitFor();
   assert.equal(await analysis.getByRole('radio', { name: '基础问答', exact: true }).isChecked(), true);
-  assert.equal(analysisCalls, 2, 'restoring analysis must not invoke model again');
+  assert.equal(analysisCalls, 6, 'restoring analysis must not invoke model again');
+  assert.equal(await analysis.locator('.chat-turn-scope').first().innerText(), firstRange);
+  await analysis.goto(`${web}/assistant/tasks/${firstTurn.taskId}`);
+  await until(async () => await analysis.evaluate(id => JSON.parse(localStorage[Object.keys(localStorage).find(key => key.startsWith('review-agent-chat:'))]).activeId === id, firstTurn.id), 'historical task restored');
+  assert.equal(await analysis.locator('.chat-turn-scope').first().innerText(), firstRange);
+  assert.equal(analysisCalls, 6);
+  await capture(analysis, 'scope-history-restored');
+  report.scopeTasks = [firstTurn, secondTask, thirdTask].map(task => ({ id: task.task_id ?? task.taskId, parameters: task.parameters }));
   await analysisContext.close();
   assert.deepEqual(errors, []);
   report.status = 'passed';
   report.checks = ['basic without scope', 'no keyword routing', 'Markdown answer', 'no basic task polling',
     'basic failure and resend', 'memory-only messages and draft', 'analysis scope requirement',
-    'existing analysis tools, tables and evidence', 'analysis refresh restore without model call', 'responsive screenshots'];
+    'existing analysis tools, tables and evidence', 'data quality, aspect trends, ratings, window comparisons',
+    'Markdown download with scope, model identities, source hashes and frozen historical results',
+    'analysis refresh restore without model call', 'responsive screenshots',
+    'staged scope editing and cancellation', 'overlapping baseline blocked', 'product multi-selection and profile-specific coverage',
+    'dataset and global selection synchronization', 'scope snapshots unchanged across changes and URL restore', 'coverage error and retry'];
 } catch (error) {
   report.status = 'failed'; report.error = String(error); process.exitCode = 1;
   if (activePage && !activePage.isClosed()) await activePage.screenshot({ path: path.join(artifacts, 'failure.png') }).catch(() => {});
@@ -193,5 +350,6 @@ try {
   for (const log of logs) log.end();
   report.basicModelCalls = basicCalls; report.analysisModelCalls = analysisCalls;
   await writeFile(path.join(artifacts, 'acceptance.json'), JSON.stringify(report, null, 2));
-  console.log(JSON.stringify(report, null, 2));
+  console.log(JSON.stringify({ status: report.status, artifacts, screenshots: screenshots.length, checks: report.checks,
+    basicModelCalls: basicCalls, analysisModelCalls: analysisCalls, errors, error: report.error }, null, 2));
 }

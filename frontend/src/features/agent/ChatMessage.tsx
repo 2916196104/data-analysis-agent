@@ -9,6 +9,7 @@ import type { AgentResult } from '../../types';
 import type { BasicChatTurn, ChatTurn, ConversationTurn } from './chat-state';
 import type { AgentChat } from './useAgentChat';
 import Markdown from './Markdown';
+import { exportAgentReport } from './report-export';
 
 export default function ChatMessage({ turn, chat, onPrepare }: {
   turn: ConversationTurn; chat: AgentChat; onPrepare: (result: AgentResult, products: string[]) => void;
@@ -46,7 +47,16 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
   const result = task?.result?.agent === true ? task.result as unknown as AgentResult : undefined;
   const [detail, setDetail] = useState<{ value: unknown; title: string }>();
   return <MessageFrame turn={turn}>
-        <details className="chat-turn-scope"><summary>查询范围 · {turn.parameters.dataset_version}</summary><p>{turn.parameters.source} / {turn.parameters.dataset_version} · {turn.parameters.product_ids.length ? turn.parameters.product_ids.join('、') : '全部商品'} · {turn.parameters.date_from} — {turn.parameters.date_to}（UTC）</p></details>
+        <section className="chat-turn-scope" aria-label="本次问题的固定范围"><strong>本次查询范围</strong>
+          <dl className="assistant-scope-values">
+            <div><dt>数据集</dt><dd>{turn.parameters.source} / {turn.parameters.dataset_version}</dd></div>
+            <div><dt>标注版本</dt><dd>{turn.parameters.model} · {turn.parameters.prompt_version}<br />{turn.parameters.base_url}</dd></div>
+            <div><dt>商品</dt><dd>{turn.parameters.product_ids.length ? turn.parameters.product_ids.join('、') : '全部商品'}</dd></div>
+            <div><dt>当前窗口（UTC）</dt><dd>{turn.parameters.date_from} — {turn.parameters.date_to}</dd></div>
+            <div><dt>基线窗口（UTC）</dt><dd>{turn.parameters.baseline_from} — {turn.parameters.baseline_to}</dd></div>
+            {turn.parameters.as_of && <div><dt>评论截止时间</dt><dd>{turn.parameters.as_of}</dd></div>}
+          </dl>
+        </section>
         {!turn.taskId && (chat.posting && active ? <div className="chat-status" role="status"><Spin size="small" /> 正在提交问题…</div>
           : <Alert type="error" showIcon message="问题尚未确认提交" description={chat.errors[turn.id] || '提交结果待确认，请重试确认同一任务。'}
             action={<Button disabled={chat.pending} onClick={() => void chat.retry(turn)}>重试提交</Button>} />)}
@@ -58,6 +68,7 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
         {task && canRetry(task.status) && <Button className="spaced" loading={active && chat.posting} disabled={chat.pending} onClick={() => void chat.retry(turn)}>重试任务</Button>}
         {result && <>
           <Markdown text={result.answer || (result.status === 'ok' ? '查询结果已保存，可展开统计依据与原文证据查看结果。' : '查询未完成，请查看任务错误与执行记录。')} />
+          <Button size="small" onClick={() => exportAgentReport(result, turn.taskId)}>导出分析报告</Button>
           <details className="chat-report"><summary>查看统计、证据与执行记录</summary>
             <AgentResults result={result} idPrefix={`agent-${turn.id}`} onDetail={(value, title) => setDetail({ value, title })} onPrepare={products => onPrepare(result, products)} />
           </details>

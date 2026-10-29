@@ -25,6 +25,22 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('AI 聊天提交与恢复', () => {
+  it('提交时复制完整范围，草稿和商品数组变化不会改写内存、请求或刷新后的历史', async () => {
+    const submit = vi.spyOn(api, 'submit').mockResolvedValue({ task: savedTask('frozen'), reused: false });
+    const mutable = { ...parameters, product_ids: ['A'], as_of: '2023-02-28T23:59:59Z' };
+    const frozen = structuredClone(mutable);
+    const hook = renderHook(() => useAgentChat());
+    await act(async () => { await hook.result.current.send(mutable, '固定范围'); });
+    mutable.dataset_version = 'other'; mutable.product_ids.push('B'); mutable.date_from = '2024-01-01';
+    mutable.baseline_to = '2023-12-31'; mutable.model = 'new-model';
+    expect(hook.result.current.session.turns[0].parameters).toEqual(frozen);
+    expect(submit.mock.calls[0][0]).toEqual({ kind: 'analysis', parameters: { ...frozen, question: '固定范围' } });
+    hook.unmount();
+    const restored = renderHook(() => useAgentChat());
+    expect(restored.result.current.session.turns[0].parameters).toEqual(frozen);
+    expect(submit).toHaveBeenCalledOnce();
+  });
+
   it('提交未确认时重试复用幂等键，不增加重复消息', async () => {
     const submit = vi.spyOn(api, 'submit').mockRejectedValueOnce(new Error('连接中断'))
       .mockResolvedValueOnce({ task: savedTask('saved'), reused: true });

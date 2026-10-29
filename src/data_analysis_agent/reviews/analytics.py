@@ -45,7 +45,8 @@ def _rounded(value: Decimal) -> float:
     return float(value.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP))
 
 
-def _rate(count: int, denominator: int) -> float | None:
+def count_rate(count: int, denominator: int) -> float | None:
+    """统计和数据集摘要共用六位小数占比；空分母保留空值。"""
     if not denominator:
         return None
     return _rounded(Decimal(count) / denominator)
@@ -59,14 +60,14 @@ def _summary(row: Any = None) -> dict[str, Any]:
         "negative_review_count",
     )
     result = {name: raw.get(name, 0) for name in count_fields}
-    result["labeling_coverage"] = _rate(result["successful_reviews"], result["eligible_text_reviews"])
-    result["negative_rate"] = _rate(result["negative_review_count"], result["successful_reviews"])
+    result["labeling_coverage"] = count_rate(result["successful_reviews"], result["eligible_text_reviews"])
+    result["negative_rate"] = count_rate(result["negative_review_count"], result["successful_reviews"])
     result["aspects"] = {}
     for aspect in ASPECTS:
         negative_count = raw.get("negative_" + aspect, 0)
         result["aspects"][aspect] = {
             "negative_review_count": negative_count,
-            "negative_rate": _rate(negative_count, result["successful_reviews"]),
+            "negative_rate": count_rate(negative_count, result["successful_reviews"]),
         }
     return result
 
@@ -275,6 +276,95 @@ def compare_products(
     seen = {item["product_id"] for item in products}
     return {"scope": scope, "definitions": dict(DEFINITIONS), "products": products,
             "no_reviews_product_ids": [pid for pid in scope["product_ids"] if pid not in seen]}
+
+
+def get_data_quality(db_path, **scope):
+    """按当前正文和标注身份统计缺失、失败、待处理及覆盖率。"""
+    identity, where, filters, normalized = analysis_scope(**scope)
+    with _snapshot(db_path) as connection:
+        summary = _summary(_summaries(connection, identity, where, filters)[0])
+        cte, parameters = current_reviews_sql(connection, identity)
+        failures = [dict(row) for row in connection.execute(
+            cte + "SELECT c.error_code, COUNT(*) review_count FROM current c WHERE " + where
+            + " AND c.processing_status='failed' GROUP BY c.error_code ORDER BY review_count DESC,c.error_code",
+            (*parameters, *filters))]
+        sources = [dict(row) for row in connection.execute(
+            cte + "SELECT i.file_sha256, COUNT(*) review_count FROM current c "
+            "JOIN import_runs i ON i.id=c.import_run_id WHERE " + where
+            + " GROUP BY i.file_sha256 ORDER BY i.file_sha256", (*parameters, *filters))]
+    return {"scope": normalized, "definitions": {**DEFINITIONS, "missing_text_rate_denominator": "review_count",
+                                                  "failed_rate_denominator": "eligible_text_reviews"}, "summary": summary,
+            "missing_text_rate": count_rate(summary["empty_text_reviews"], summary["review_count"]),
+            "failed_rate": count_rate(summary["failed_reviews"], summary["eligible_text_reviews"]),
+            "failures": failures, "sources": sources}
+
+
+def get_aspect_trend(db_path, *, aspect=None, period="month", **scope):
+    """复用去重评论口径；同一评论的多条观点不会重复计数。"""
+    if aspect is not None and aspect not in ASPECTS:
+        raise ReviewDataError("aspect 必须是六个有效维度之一。")
+    result = get_trend(db_path, period=period, **scope)
+    selected = {key: label for key, label in ASPECTS.items() if aspect is None or key == aspect}
+    for row in [result["summary"], *result["buckets"]]:
+        row["aspects"] = {key: row["aspects"][key] for key in selected}
+    return {**result, "aspects": selected}
+
+
+def get_rating_distribution(db_path, *, group_by="product", **scope):
+    """星级来自原始评分，不依赖标注；非整数星级单列，不作四舍五入。"""
+    if group_by not in ("product", "month", "all"):
+        raise ReviewDataError("group_by 必须是 product、month 或 all。")
+    identity, where, filters, normalized = analysis_scope(**scope)
+    grouping = {"product": "c.product_id", "month": "substr(c.published_at,1,7)", "all": "'all'"}[group_by]
+    with _snapshot(db_path) as connection:
+        cte, parameters = current_reviews_sql(connection, identity)
+        rows = connection.execute(
+            cte + "SELECT c.source,c.dataset_version," + grouping + " group_key,c.rating,COUNT(*) review_count "
+            "FROM current c WHERE " + where + " GROUP BY c.source,c.dataset_version,group_key,c.rating "
+            "ORDER BY c.source,c.dataset_version,group_key,c.rating", (*parameters, *filters)).fetchall()
+    grouped = {}
+    for row in rows:
+        key = (row["source"], row["dataset_version"], row["group_key"])
+        item = grouped.setdefault(key, {"source": key[0], "dataset_version": key[1], "group": key[2],
+            "review_count": 0, "rated_reviews": 0, "missing_rating_reviews": 0, "other_rating_reviews": 0,
+            "stars": [{"star": star, "review_count": 0} for star in range(1, 6)]})
+        rating, count = row["rating"], row["review_count"]
+        item["review_count"] += count
+        if rating is None:
+            item["missing_rating_reviews"] += count
+        elif rating in (1, 2, 3, 4, 5):
+            item["rated_reviews"] += count
+            item["stars"][int(rating) - 1]["review_count"] += count
+        else:
+            item["other_rating_reviews"] += count
+    if not grouped and group_by == "all":
+        grouped["empty"] = {"source": normalized["source"], "dataset_version": normalized["dataset_version"],
+            "group": "all", "review_count": 0, "rated_reviews": 0, "missing_rating_reviews": 0,
+            "other_rating_reviews": 0, "stars": [{"star": star, "review_count": 0} for star in range(1, 6)]}
+    for item in grouped.values():
+        for star in item["stars"]:
+            star["rate"] = count_rate(star["review_count"], item["rated_reviews"])
+    return {"scope": normalized, "group_by": group_by, "groups": list(grouped.values()),
+            "definitions": {"count_unit": "distinct_reviews", "rating_source": "raw_review_rating",
+                            "rating_rate_denominator": "rated_reviews", "valid_stars": [1, 2, 3, 4, 5],
+                            "other_rating_policy": "excluded_without_rounding", "rate_unit": "fraction_0_to_1"}}
+
+
+def compare_time_windows(db_path, *, baseline_from, baseline_to, **scope):
+    """比较任意两个不重叠窗口；百分点由未舍入的计数计算。"""
+    result = get_top_issues(db_path, baseline_from=baseline_from, baseline_to=baseline_to, **scope)
+    current, baseline = result["current"], result["baseline"]
+    changes = {key: current[key] - baseline[key] for key in (
+        "review_count", "eligible_text_reviews", "successful_reviews", "failed_reviews",
+        "unprocessed_reviews", "empty_text_reviews", "negative_review_count")}
+    for metric, numerator, denominator in (("negative_rate", "negative_review_count", "successful_reviews"),
+                                           ("labeling_coverage", "successful_reviews", "eligible_text_reviews")):
+        a, b = current[denominator], baseline[denominator]
+        changes[metric + "_pp"] = (_rounded((Decimal(current[numerator]) / a
+                                              - Decimal(baseline[numerator]) / b) * 100) if a and b else None)
+    return {**result, "changes": changes,
+            "current_days": (parse_day(scope["date_to"], "date_to") - parse_day(scope["date_from"], "date_from")).days + 1,
+            "baseline_days": (parse_day(baseline_to, "baseline_to") - parse_day(baseline_from, "baseline_from")).days + 1}
 
 
 def get_evidence(

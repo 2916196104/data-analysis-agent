@@ -24,20 +24,27 @@ def _rate(value):
 
 def grounded_answer(status, results):
     if status == "unsupported":
-        return "当前问题超出所选范围或可用分析能力。请使用已选商品和时间，查询整体趋势、商品对比、六维度问题变化或原文证据；原因判断需要额外业务证据。"
+        return "当前问题超出所选范围或可用分析能力。可查询数据质量、整体或维度趋势、星级分布、商品或时间窗口对比及原文证据；扩大日期请先切换范围，原因判断需要额外业务证据。"
     parts = []
     for result in results:
         data, reference = result["data"], f"[{result['result_id']}]"
         kind = result["kind"]
-        if kind in ("context", "trend"):
+        if kind in ("context", "trend", "quality", "aspect_trend"):
             summary = data["summary"]
-            parts.append(f"{reference} 当前窗口共 {summary['review_count']} 条评论，成功标注 {summary['successful_reviews']} 条，"
+            parts.append(f"{reference} 查询窗口共 {summary['review_count']} 条评论，成功标注 {summary['successful_reviews']} 条，"
                          f"标注覆盖率 {_rate(summary['labeling_coverage'])}（{summary['successful_reviews']}/{summary['eligible_text_reviews']} 条有效正文）。")
             if summary["successful_reviews"]:
                 parts.append(f"负面占比 {_rate(summary['negative_rate'])}（{summary['negative_review_count']}/{summary['successful_reviews']} 条成功标注）。")
             else:
                 parts.append(f"暂无成功标注，待标注 {summary['unprocessed_reviews']} 条、失败 {summary['failed_reviews']} 条；"
                              "请检查标注版本或补齐数据后重新分析。没有有效正文时需补充带正文的评论。")
+            if kind == "quality":
+                parts.append(f"{reference} 缺失正文 {summary['empty_text_reviews']} 条，占全部评论 {_rate(data['missing_text_rate'])}；"
+                             f"失败标注 {summary['failed_reviews']} 条，占有效正文 {_rate(data['failed_rate'])}；待标注 {summary['unprocessed_reviews']} 条。")
+            if kind == "aspect_trend":
+                parts.append(f"{reference} 已按{'日' if data['period'] == 'day' else '月'}统计 "
+                             + "、".join(data["aspects"].values()) + f"，共 {len(data['buckets'])} 个时间桶；"
+                             "各维度负面占比均以该时间桶成功标注评论为分母，详见维度趋势表。")
             if kind == "trend" and data["buckets"]:
                 first, last = data["buckets"][0], data["buckets"][-1]
                 parts.append(f"{reference} 按{'日' if data['period'] == 'day' else '月'}统计共 {len(data['buckets'])} 个时间桶。"
@@ -52,12 +59,25 @@ def grounded_answer(status, results):
             parts.append(f"{reference} 商品对比：共 {len(products) + missing} 款商品，{ready} 款可计算负面占比"
                          f"（其中 {limited} 款样本有限），{len(products) - ready} 款暂无成功标注，{missing} 款在窗口内无评论。"
                          "逐商品的计数、分母和覆盖率见对比表。")
-        elif kind == "issues":
+        elif kind in ("issues", "window_comparison"):
+            if kind == "window_comparison":
+                current, baseline = data["current"], data["baseline"]
+                parts.append(f"{reference} 当前 {data['scope']['date_from']}—{data['scope']['date_to']}（{data['current_days']} 天）"
+                             f"共 {current['review_count']} 条评论；基线 {data['baseline_scope']['date_from']}—{data['baseline_scope']['date_to']}"
+                             f"（{data['baseline_days']} 天）共 {baseline['review_count']} 条评论。"
+                             "窗口长度不同时，不宜仅按评论数量判断问题变化。")
             parts.append(reference + " 六维度问题：" + "；".join(
                 f"{item['aspect_label']}负面 {item['negative_review_count']} 条，占比 {_rate(item['negative_rate'])}，"
                 + ("较基线无法计算" if item["negative_rate_change_pp"] is None
                    else f"较基线变化 {item['negative_rate_change_pp']:+.1f} 个百分点") for item in data["issues"]))
-        else:
+        elif kind == "ratings":
+            parts.append(f"{reference} 原始星级分布，按 " + {"product": "商品", "month": "月份", "all": "总体"}[data["group_by"]]
+                         + f"汇总 {len(data['groups'])} 组。占比分母为有效 1–5 整数星级评论，独立于标注覆盖率。")
+            for row in data["groups"]:
+                parts.append(f"{reference} {row['group']}：有效星级 {row['rated_reviews']} 条，缺失 {row['missing_rating_reviews']} 条，"
+                             f"其他评分 {row['other_rating_reviews']} 条；" + "；".join(
+                                 f"{star['star']} 星 {star['review_count']} 条（{_rate(star['rate'])}）" for star in row["stars"]))
+        elif kind == "evidence":
             parts.append(f"{reference} 找到 {data['total']} 条匹配证据，本页展示 {len(data['items'])} 条。")
             for item in data["items"]:
                 quotes = "；".join(dict.fromkeys(opinion["quote"] for opinion in item["opinions"]))

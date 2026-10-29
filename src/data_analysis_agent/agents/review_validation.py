@@ -6,12 +6,12 @@ import math
 def result_summaries(results):
     for item in results:
         data = item["data"]
-        if item["kind"] in ("context", "trend"):
+        if item["kind"] in ("context", "trend", "quality", "aspect_trend"):
             yield data["summary"]
             yield from data.get("buckets", [])
         elif item["kind"] == "comparison":
             yield from data["products"]
-        elif item["kind"] == "issues":
+        elif item["kind"] in ("issues", "window_comparison"):
             yield data["current"]
             yield data["baseline"]
 
@@ -44,7 +44,7 @@ def validate_report(results, result_ids):
             counts_ok &= type(count) is int and 0 <= count <= success
             rates_ok &= _matches_rate(aspect["negative_rate"], count, success)
 
-    quotes_ok, quote_count = True, 0
+    quotes_ok, quote_count, additional_ok = True, 0, True
     for item in results.values():
         data = item["data"]
         if item["kind"] == "evidence":
@@ -55,7 +55,7 @@ def validate_report(results, result_ids):
                     start, end = opinion["quote_start"], opinion["quote_end"]
                     quotes_ok &= (type(start) is int and type(end) is int and 0 <= start < end <= len(evidence["text"])
                                   and evidence["text"][start:end] == opinion["quote"])
-        elif item["kind"] == "issues":
+        elif item["kind"] in ("issues", "window_comparison"):
             current, baseline = data["current"], data["baseline"]
             for issue in data["issues"]:
                 now = current["aspects"][issue["aspect"]]
@@ -68,6 +68,32 @@ def validate_report(results, result_ids):
                 rates_ok &= _matches_rate(issue["negative_rate_change_pp"],
                                           now["negative_review_count"] * b - before["negative_review_count"] * a,
                                           a * b, 100)
+            if item["kind"] == "window_comparison":
+                for key, change in data["changes"].items():
+                    if not key.endswith("_pp"):
+                        additional_ok &= change == current[key] - baseline[key]
+                for metric, count, denominator in (("negative_rate", "negative_review_count", "successful_reviews"),
+                                                   ("labeling_coverage", "successful_reviews", "eligible_text_reviews")):
+                    a, b = current[denominator], baseline[denominator]
+                    additional_ok &= _matches_rate(data["changes"][metric + "_pp"],
+                        current[count] * b - baseline[count] * a, a * b, 100)
+        elif item["kind"] == "quality":
+            row = data["summary"]
+            additional_ok &= row["empty_text_reviews"] == row["review_count"] - row["eligible_text_reviews"]
+            additional_ok &= _matches_rate(data["missing_text_rate"], row["empty_text_reviews"], row["review_count"])
+            additional_ok &= _matches_rate(data["failed_rate"], row["failed_reviews"], row["eligible_text_reviews"])
+            additional_ok &= sum(row["review_count"] for row in data["failures"]) == data["summary"]["failed_reviews"]
+            additional_ok &= sum(row["review_count"] for row in data["sources"]) == data["summary"]["review_count"]
+        elif item["kind"] == "ratings":
+            for row in data["groups"]:
+                counts = [row[key] for key in ("review_count", "rated_reviews", "missing_rating_reviews", "other_rating_reviews")]
+                additional_ok &= all(type(value) is int and value >= 0 for value in counts)
+                additional_ok &= row["review_count"] == sum(counts[1:])
+                additional_ok &= [star["star"] for star in row["stars"]] == [1, 2, 3, 4, 5]
+                additional_ok &= sum(star["review_count"] for star in row["stars"]) == row["rated_reviews"]
+                for star in row["stars"]:
+                    additional_ok &= type(star["review_count"]) is int and star["review_count"] >= 0
+                    additional_ok &= _matches_rate(star["rate"], star["review_count"], row["rated_reviews"])
 
     refs_ok = (len(set(result_ids)) == len(result_ids) and bool(set(result_ids) - {"overview"})
                and set(result_ids) <= set(results) and set(results) - {"overview"} <= set(result_ids))
@@ -77,6 +103,7 @@ def validate_report(results, result_ids):
          "detail": f"复核 {len(rows)} 行统计的计数及占比；{missing} 行无成功标注，保留空占比"},
         {"name": "覆盖率", "passed": bool(coverage_ok), "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母"},
         {"name": "原文引用", "passed": bool(quotes_ok), "detail": f"核对 {quote_count} 处引文的原文位置及文件引用"},
+        {"name": "扩展统计", "passed": bool(additional_ok), "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值"},
         {"name": "查询结果完整性", "passed": refs_ok, "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证"},
     ]
     return {"status": "passed" if all(check["passed"] for check in checks) else "failed", "checks": checks}

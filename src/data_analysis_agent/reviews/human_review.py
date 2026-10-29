@@ -8,6 +8,7 @@ from data_analysis_agent.core.database import insert_id, table_names
 from data_analysis_agent.core.validation import validate_integer
 
 from data_analysis_agent.reviews.label_store import check_labeling_schema
+from data_analysis_agent.reviews.catalog import dataset_summaries
 from data_analysis_agent.reviews.opinions import ASPECTS, SENTIMENTS, OpinionValidationError, validate_opinions
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.reviews.scope import current_reviews_sql, review_scope
@@ -121,6 +122,7 @@ def workbench_options(db_path, profile_id=None):
             for product in products:
                 product["key"] = json.dumps([product["source"], product["dataset_version"], product["product_id"]])
             return {"profiles": profiles, "selected_profile_id": selected, "products": products,
+                    "datasets": dataset_summaries(connection, profiles),
                     "aspects": ASPECTS, "sentiments": SENTIMENTS,
                     "processing_statuses": PROCESSING_STATUSES, "human_statuses": HUMAN_STATUSES}
 

@@ -1,0 +1,87 @@
+import { Table } from 'antd';
+import { rate } from '../../ResultCards';
+import type { AgentToolResult, RatingGroup } from '../../types';
+
+export default function ExtendedResults({ item }: { item: AgentToolResult }) {
+  if (item.kind === 'quality') {
+    const { summary, scope } = item.data;
+    return <>
+      <p className="muted">{scope.date_from} — {scope.date_to}（UTC）。缺失正文占全部评论；失败率和覆盖率以有效正文为分母。</p>
+      <Table size="small" rowKey="name" pagination={false} dataSource={[
+        { name: '全部评论', count: summary.review_count, ratio: null },
+        { name: '缺失正文', count: summary.empty_text_reviews, ratio: item.data.missing_text_rate },
+        { name: '有效正文', count: summary.eligible_text_reviews, ratio: null },
+        { name: '成功标注 / 覆盖率', count: summary.successful_reviews, ratio: summary.labeling_coverage },
+        { name: '失败标注 / 失败率', count: summary.failed_reviews, ratio: item.data.failed_rate },
+        { name: '待标注', count: summary.unprocessed_reviews, ratio: null },
+      ]} columns={[{ title: '指标', dataIndex: 'name' }, { title: '评论数', dataIndex: 'count' },
+        { title: '占比', dataIndex: 'ratio', render: rate }]} />
+      {!!item.data.failures.length && <p>失败类型：{item.data.failures.map(row => `${row.error_code || '未知'} ${row.review_count} 条`).join('；')}</p>}
+      <details><summary>导入来源指纹（{item.data.sources.length} 个文件）</summary>
+        {item.data.sources.map(row => <p key={row.file_sha256} className="result-footnote">sha256:{row.file_sha256} · {row.review_count} 条</p>)}
+      </details>
+    </>;
+  }
+  if (item.kind === 'aspect_trend') {
+    const rows = item.data.buckets.flatMap(row => Object.entries(row.aspects).map(([aspect, counts]) => ({
+      key: `${row.bucket}-${aspect}`, bucket: row.bucket, aspect: item.data.aspects[aspect],
+      ...counts, successful_reviews: row.successful_reviews, labeling_coverage: row.labeling_coverage,
+    })));
+    return <>
+      <p className="muted">每个维度按评论去重；占比分母为该时间段全部成功标注评论。首末时间段可能不完整。</p>
+      <Table size="small" rowKey="key" dataSource={rows} pagination={{ pageSize: 12, hideOnSinglePage: true }} scroll={{ x: 680 }} columns={[
+        { title: item.data.period === 'day' ? '日期（UTC）' : '月份（UTC）', dataIndex: 'bucket', width: 140 },
+        { title: '维度', dataIndex: 'aspect' }, { title: '负面数', dataIndex: 'negative_review_count' },
+        { title: '成功标注（分母）', dataIndex: 'successful_reviews' },
+        { title: '负面占比', dataIndex: 'negative_rate', render: rate },
+        { title: '覆盖率', dataIndex: 'labeling_coverage', render: rate },
+      ]} />
+    </>;
+  }
+  if (item.kind === 'ratings') return <>
+    <p className="muted">{item.data.scope.date_from} — {item.data.scope.date_to}（UTC）。来源为原始评分，独立于标注。分母仅包括 1–5 整数星级；缺失及其他评分单列，不四舍五入。</p>
+    <Table size="small" rowKey={row => JSON.stringify([row.source, row.dataset_version, row.group])} dataSource={item.data.groups}
+      pagination={{ pageSize: 8, hideOnSinglePage: true }} scroll={{ x: 1040 }} columns={[
+        { title: { product: '商品', month: '月份（UTC）', all: '范围' }[item.data.group_by], dataIndex: 'group', width: 140,
+          render: (value: string) => value === 'all' && item.data.group_by === 'all' ? '全部已选商品' : value },
+        { title: '评论数', dataIndex: 'review_count', width: 85 },
+        { title: '有效星级（分母）', dataIndex: 'rated_reviews', width: 140 },
+        ...[1, 2, 3, 4, 5].map(star => ({ title: `${star} 星`, key: star, width: 105, render: (_: unknown, row: RatingGroup) => {
+          const value = row.stars.find(entry => entry.star === star);
+          return value ? <>{value.review_count} 条<div className="muted">{rate(value.rate)}</div></> : '—';
+        } })),
+        { title: '缺失评分', dataIndex: 'missing_rating_reviews', width: 90 },
+        { title: '其他评分', dataIndex: 'other_rating_reviews', width: 90 },
+      ]} />
+  </>;
+  if (item.kind === 'window_comparison') {
+    const data = item.data;
+    const rows = [
+      ['review_count', '评论数'], ['eligible_text_reviews', '有效正文'], ['successful_reviews', '成功标注'],
+      ['failed_reviews', '失败标注'], ['unprocessed_reviews', '待标注'], ['negative_review_count', '负面评论数'],
+      ['labeling_coverage', '标注覆盖率'], ['negative_rate', '负面占比'],
+    ].map(([key, name]) => {
+      const percentage = key === 'labeling_coverage' || key === 'negative_rate';
+      const current = data.current[key as keyof typeof data.current];
+      const baseline = data.baseline[key as keyof typeof data.baseline];
+      const change = data.changes[key + (percentage ? '_pp' : '')];
+      return { key, name, current: percentage ? rate(current ?? null) : current, baseline: percentage ? rate(baseline ?? null) : baseline,
+        change: change == null ? '—' : `${change > 0 ? '+' : ''}${percentage ? change.toFixed(1) + ' 个百分点' : change}` };
+    });
+    return <>
+      <p>当前：{data.scope.date_from} — {data.scope.date_to}（{data.current_days} 天）<br />
+        基线：{data.baseline_scope.date_from} — {data.baseline_scope.date_to}（{data.baseline_days} 天）</p>
+      <p className="muted">均按 UTC 整日统计。窗口长度不同时，不宜只按评论数量判断问题变化；空分母不计算占比变化。</p>
+      <Table size="small" rowKey="key" dataSource={rows} pagination={false} scroll={{ x: 560 }} columns={[
+        { title: '指标', dataIndex: 'name' }, { title: '当前', dataIndex: 'current' },
+        { title: '基线', dataIndex: 'baseline' }, { title: '变化', dataIndex: 'change' },
+      ]} />
+      <Table className="spaced" size="small" rowKey="aspect" dataSource={data.issues} pagination={false} scroll={{ x: 560 }} columns={[
+        { title: '维度', dataIndex: 'aspect_label' }, { title: '当前负面占比', dataIndex: 'negative_rate', render: rate },
+        { title: '基线负面占比', dataIndex: 'baseline_negative_rate', render: rate },
+        { title: '变化（百分点）', dataIndex: 'negative_rate_change_pp', render: (value: number | null) => value == null ? '—' : value.toFixed(1) },
+      ]} />
+    </>;
+  }
+  return null;
+}

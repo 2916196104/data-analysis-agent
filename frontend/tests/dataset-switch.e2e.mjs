@@ -50,19 +50,23 @@ try {
   // Isolated SQLite only; never touch the user's business database or model provider.
   await promisify(execFile)(python, ['-c', `
 import json, sys
+from datetime import datetime, timezone
 from pathlib import Path
 from scripts.frontend_fixture import create_fixture
 from data_analysis_agent.reviews.store import import_amazon_jsonl
 from data_analysis_agent.reviews.label_store import pending_reviews, save_annotation
 root = Path(sys.argv[1]); create_fixture(root)
 rows = [json.loads(line) for line in (root/'simulated.jsonl').read_text(encoding='utf-8').splitlines()]
-rows = [dict(row, user_id='dataset-b-'+str(i)) for i,row in enumerate(rows[24:27])]
+rows = [dict(row, user_id='dataset-b-'+str(i), timestamp=int(datetime(2018,7,10+i,tzinfo=timezone.utc).timestamp()*1000)) for i,row in enumerate(rows[24:27])]
 file = root/'dataset-b.jsonl'; file.write_text('\\n'.join(json.dumps(row) for row in rows),encoding='utf-8')
 result=import_amazon_jsonl(root/'reviews.sqlite3',reviews_path=file,dataset_version='SIMULATED-B')
 assert result['imports'][0]['inserted_records']==3, result
 identity=dict(model='SIMULATED-ANNOTATIONS',base_url='https://offline.invalid/v1',prompt_version='fixture-v1')
 for review in pending_reviews(root/'reviews.sqlite3',**identity,limit=1000):
     save_annotation(root/'reviews.sqlite3',review,**identity,status='success',opinions=[])
+second = dict(identity,model='SIMULATED-SECOND')
+for review in pending_reviews(root/'reviews.sqlite3',**second,dataset_version='SIMULATED-frontend',limit=2):
+    save_annotation(root/'reviews.sqlite3',review,**second,status='success',opinions=[])
 `, artifacts], { cwd: root, windowsHide: true, env: { ...process.env, PYTHONUTF8: '1' } });
   model = createServer(async (request, response) => {
     let raw=''; for await (const chunk of request) raw+=chunk;
@@ -86,21 +90,32 @@ for review in pending_reviews(root/'reviews.sqlite3',**identity,limit=1000):
   const errors=[]; page.on('pageerror',e=>errors.push(e.message));
   page.on('request', r => { if (r.url().includes('/analytics/') || r.url().endsWith('/tasks') && r.method()==='POST' || r.url().includes('/reviews?')) evidence.requests.push({url:r.url(),method:r.method(),body:r.postDataJSON()}); });
   await page.goto(`${webUrl}/data-management`);
-  await page.locator('.data-management tbody tr.ant-table-row').first().waitFor();
+  await page.locator('.data-management > .ant-table-wrapper tbody tr.ant-table-row').first().waitFor();
   await choose('全局数据集','SIMULATED-frontend');
   assert.match(await page.locator('.data-management').innerText(), /DEMO-B/);
   await nav('新建分析');
-  await until(async()=> (await page.locator('.review-metric strong').first().textContent())==='48','A statistics');
+  await until(async()=> (await page.locator('.review-metric strong').first().textContent())==='96','A statistics');
   await choose('分析商品','DEMO-B');
   await page.getByRole('combobox', {name:'分析商品',exact:true}).press('Escape');
-  await until(async()=> (await page.locator('.review-metric strong').first().textContent())==='24','A product filter');
+  await until(async()=> (await page.locator('.review-metric strong').first().textContent())==='48','A product filter');
   await choose('全局数据集','SIMULATED-B');
   await until(async()=> (await page.locator('.review-metric strong').first().textContent())==='3','B statistics');
+  assert.deepEqual(await page.getByRole('textbox',{name:'当前窗口',exact:true}).evaluateAll(inputs=>inputs.map(input=>input.value)),['2018-07-10','2018-07-12']);
+  assert.ok(evidence.requests.some(r=>r.url.includes('/analytics/trend') && new URL(r.url).searchParams.get('dataset_version')==='SIMULATED-B'
+    && new URL(r.url).searchParams.get('date_from')==='2018-07-10' && new URL(r.url).searchParams.get('date_to')==='2018-07-12'));
   assert.ok(evidence.requests.some(r=>r.url.includes('/analytics/trend') && new URL(r.url).searchParams.get('dataset_version')==='SIMULATED-B'));
-  evidence.checks.push('A to B: actual trend counts 48 to 3 and API scope');
+  evidence.checks.push('A to B: actual trend counts 96 to 3; B default range 2018-07-10 to 2018-07-12, isolated from global 2023 data');
   await nav('数据管理');
   assert.equal(await page.locator('.data-management-controls .ant-select-selection-item').textContent(),'SIMULATED-B');
-  assert.doesNotMatch(await page.locator('.data-management tbody').innerText(), /DEMO-B/);
+  assert.doesNotMatch(await page.locator('.data-management > .ant-table-wrapper tbody').innerText(), /DEMO-B/);
+  const datasetSummary = page.getByRole('region',{name:'数据集摘要',exact:true});
+  assert.match(await datasetSummary.innerText(), /评论数\s+3/);
+  assert.match(await datasetSummary.innerText(), /商品数\s+1/);
+  assert.match(await datasetSummary.innerText(), /2018-07-10 — 2018-07-12/);
+  assert.match(await datasetSummary.getByRole('row').filter({hasText:'SIMULATED-ANNOTATIONS'}).innerText(),/100.0%/);
+  assert.match(await datasetSummary.getByRole('row').filter({hasText:'SIMULATED-SECOND'}).innerText(),/0.0%/);
+  evidence.datasetSummaries=(await get('/options')).datasets;
+  evidence.checks.push('dataset summary: real review/product counts, dates, and both profile coverages with zero preserved');
   await choose('数据集','SIMULATED-frontend');
   assert.equal(await page.locator('.header-actions .ant-select-selection-item').textContent(),'SIMULATED-frontend');
   await choose('全局数据集','SIMULATED-B');
@@ -121,7 +136,7 @@ for review in pending_reviews(root/'reviews.sqlite3',**identity,limit=1000):
   await choose('全局数据集','SIMULATED-frontend');
   await sendAnalysis('查询当前数据集的趋势','SIMULATED-frontend');
   assert.equal((await get(`/tasks/${bTask}`)).parameters.dataset_version,'SIMULATED-B');
-  assert.ok(await page.locator('.chat-turn-scope summary').filter({hasText:'SIMULATED-B'}).count());
+  assert.ok(await page.locator('.chat-turn-scope').filter({hasText:'SIMULATED-B'}).count());
   evidence.checks.push('AI B then A: real POST parameters and persisted task association');
   await page.reload();
   await page.getByRole('combobox',{name:'全局数据集'}).waitFor();
@@ -150,7 +165,7 @@ for review in pending_reviews(root/'reviews.sqlite3',**identity,limit=1000):
   for (const [route,name] of [['/analysis/new','analysis'],['/data-management','data'],['/annotation','annotation'],['/annotation/review','review'],['/assistant','assistant'],['/tasks','tasks']]) {
     await page.goto(webUrl+route); await page.getByRole('combobox',{name:'全局数据集'}).waitFor();
     if (name==='analysis') await page.locator('.review-trend canvas').waitFor();
-    if (name==='data') await page.locator('.data-management .ant-table-row').first().waitFor();
+    if (name==='data') await page.locator('.data-management > .ant-table-wrapper .ant-table-row').first().waitFor();
     if (name==='annotation') await page.getByRole('combobox',{name:'标注数据集',exact:true}).waitFor();
     if (name==='review') await page.locator('.review-workbench-filter').waitFor();
     if (name==='assistant') await page.locator('.chat-turn').nth(1).waitFor();
@@ -171,7 +186,7 @@ for review in pending_reviews(root/'reviews.sqlite3',**identity,limit=1000):
       await choose('全局数据集','SIMULATED-B');
       await until(async()=> (await page.locator('.review-metric strong').first().textContent())==='3','390px switch');
       await choose('全局数据集','SIMULATED-frontend');
-      await until(async()=> (await page.locator('.review-metric strong').first().textContent())==='48','390px switch back');
+      await until(async()=> (await page.locator('.review-metric strong').first().textContent())==='96','390px switch back');
       evidence.checks.push('390px selector interaction and statistics refresh');
     }
   }

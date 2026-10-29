@@ -16,6 +16,10 @@ export function sampleState(row: Summary): { label: string; color?: string; reas
 export function sectionSummary(item: AgentToolResult): string {
   const data = item.data;
   switch (item.kind) {
+    case 'quality': return `缺失正文 ${item.data.summary.empty_text_reviews ?? 0} 条，失败标注 ${item.data.summary.failed_reviews} 条，待标注 ${item.data.summary.unprocessed_reviews} 条。`;
+    case 'aspect_trend': return `按${item.data.period === 'day' ? '日' : '月'}查看 ${Object.values(item.data.aspects).join('、')}，共 ${item.data.buckets.length} 个时间段。`;
+    case 'ratings': return `按${{ product: '商品', month: '月份', all: '总体' }[item.data.group_by]}汇总 ${item.data.groups.length} 组原始星级；占比分母为有效 1–5 整数星级评论。`;
+    case 'window_comparison': return `当前 ${item.data.current_days} 天与基线 ${item.data.baseline_days} 天对比；占比变化由各自分母计算。`;
     case 'context': return `当前范围共 ${item.data.summary.review_count} 条评论，成功标注 ${item.data.summary.successful_reviews} 条。`;
     case 'trend': return `按${item.data.period === 'day' ? '日' : '月'}汇总 ${item.data.buckets.length} 个时间段，共 ${item.data.summary.review_count} 条评论，成功标注 ${item.data.summary.successful_reviews} 条。`;
     case 'comparison': {

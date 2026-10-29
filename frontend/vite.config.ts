@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: { port: 5173, strictPort: true },
   preview: { port: 4173, strictPort: true },
-  test: { environment: 'jsdom', clearMocks: true, restoreMocks: true },
+  test: { environment: 'jsdom', clearMocks: true, restoreMocks: true, testTimeout: 10_000 },
   build: {
     rollupOptions: {
       output: {

@@ -95,7 +95,18 @@ export interface Profile {
   base_url: string;
   prompt_version: string;
 }
+export interface DatasetSummary {
+  source: string;
+  dataset_version: string;
+  review_count: number;
+  product_count: number;
+  eligible_text_reviews: number;
+  published_at_start: string | null;
+  published_at_end: string | null;
+  profiles: { profile_id: number; successful_reviews: number; labeling_coverage: number | null }[];
+}
 export interface Options {
+  datasets?: DatasetSummary[];
   profiles: Profile[];
   selected_profile_id: number | null;
   products: Product[];
@@ -166,12 +177,28 @@ export interface AgentEvidence {
   opinion_source: string;
   opinions: Opinion[];
 }
+export interface AspectSummary extends Summary {
+  aspects: Record<string, { negative_review_count: number; negative_rate: number | null }>;
+}
+export interface RatingGroup {
+  source: string; dataset_version: string; group: string; review_count: number; rated_reviews: number;
+  missing_rating_reviews: number; other_rating_reviews: number;
+  stars: { star: number; review_count: number; rate: number | null }[];
+}
 export type AgentToolResult = { result_id: string; parameters: Record<string, unknown> } & (
   { kind: 'context'; data: { summary: Summary; products?: { product_id: string; title: string | null }[] } }
   | { kind: 'trend'; data: { period: string; summary: Summary; buckets: (Summary & { bucket: string })[] } }
   | { kind: 'comparison'; data: { products: (Summary & { product_id: string })[]; no_reviews_product_ids?: string[] } }
   | { kind: 'issues'; data: { issues: Issue[]; current?: Summary; baseline?: Summary } }
   | { kind: 'evidence'; data: { total: number; page: number; items: AgentEvidence[] } }
+  | { kind: 'quality'; data: { scope: AnalysisScope; summary: Summary; missing_text_rate: number | null; failed_rate: number | null;
+      failures: { error_code: string | null; review_count: number }[]; sources: { file_sha256: string; review_count: number }[] } }
+  | { kind: 'aspect_trend'; data: { scope: AnalysisScope; period: string; aspects: Record<string, string>;
+      summary: AspectSummary; buckets: (AspectSummary & { bucket: string })[] } }
+  | { kind: 'ratings'; data: { scope: AnalysisScope; group_by: 'product' | 'month' | 'all'; groups: RatingGroup[] } }
+  | { kind: 'window_comparison'; data: { scope: AnalysisScope; baseline_scope: AnalysisScope;
+      current: Summary; baseline: Summary; current_days: number; baseline_days: number;
+      changes: Record<string, number | null>; issues: Issue[] } }
 );
 export interface AgentResult {
   agent: true;
@@ -179,8 +206,9 @@ export interface AgentResult {
   question: string;
   answer?: string;
   answer_sections?: { result_id: string; kind: AgentToolResult['kind']; text: string }[];
-  scope: AnalysisScope;
+  scope: AnalysisScope & Partial<Pick<AnalysisParameters, 'baseline_from' | 'baseline_to'>>;
   snapshot_at: string;
+  agent_model_identity?: { model: string; base_url: string; prompt_version: string };
   result_ids?: string[];
   results: Record<string, AgentToolResult>;
   warnings?: string[];

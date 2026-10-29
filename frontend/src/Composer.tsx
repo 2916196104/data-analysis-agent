@@ -40,7 +40,7 @@ export default function Composer({
     product => !draft.productIds.length || draft.productIds.includes(product.product_id),
   );
   const profile = options.profiles.find(item => item.profile_id === draft.profileId);
-  const dates = analysisDates(draft, quality);
+  const dates = analysisDates(draft, quality, options);
   const datasetOptions = datasetSelectOptions(options.products);
   const productOptions = productSelectOptions(availableProducts);
   const profileOptions = options.profiles.map(item => ({
@@ -66,7 +66,7 @@ export default function Composer({
     if (changed.current?.every(Boolean)) {
       next.current = changed.current.map(date => date.format('YYYY-MM-DD')) as [string, string];
       if (!draft.baseline) {
-        const automaticBaseline = analysisDates(next, quality).baseline.map(date => dayjs(date));
+        const automaticBaseline = analysisDates(next, quality, options).baseline.map(date => dayjs(date));
         form.setFieldValue('baseline', automaticBaseline);
       }
     }
@@ -84,7 +84,7 @@ export default function Composer({
   function resetBaseline(): void {
     const next = { ...draft, baseline: undefined };
     setDraft(next);
-    form.setFieldValue('baseline', analysisDates(next, quality).baseline.map(date => dayjs(date)));
+    form.setFieldValue('baseline', analysisDates(next, quality, options).baseline.map(date => dayjs(date)));
   }
 
   return <div className="composer-wrap">

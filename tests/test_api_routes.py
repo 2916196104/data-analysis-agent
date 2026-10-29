@@ -44,6 +44,12 @@ class BusinessRouterTests(unittest.TestCase):
         review_id = next(iter(self.fixture.annotations))
         alert_id = self.run["alert_occurrences"][0]["alert_id"]
         self.assertEqual(self.get("/quality")["review_count"], 25)
+        catalog = self.get("/options")
+        self.assertIn("datasets", catalog)
+        self.assertEqual(sum(item["review_count"] for item in catalog["datasets"]), 25)
+        for dataset in catalog["datasets"]:
+            self.assertEqual({item["profile_id"] for item in dataset["profiles"]},
+                             {item["profile_id"] for item in catalog["profiles"]})
         self.assertFalse(self.get("/health")["worker_available"])
         paths = [
             ("/products", None), ("/options", None), ("/reviews", None),
@@ -52,6 +58,10 @@ class BusinessRouterTests(unittest.TestCase):
             ("/analytics/trend", self.scope), ("/analytics/compare-products", self.scope),
             ("/analytics/top-issues", {**self.scope, "baseline_from": "2019-12-01", "baseline_to": "2019-12-31"}),
             ("/analytics/evidence", {**self.scope, "sentiment": "all"}),
+            ("/analytics/data-quality", self.scope),
+            ("/analytics/aspect-trend", {**self.scope, "aspect": "packaging"}),
+            ("/analytics/rating-distribution", {**self.scope, "group_by": "month"}),
+            ("/analytics/compare-windows", {**self.scope, "baseline_from": "2019-12-01", "baseline_to": "2019-12-31"}),
             ("/analysis-runs", None), (f"/analysis-runs/{self.run['run_id']}", None),
             ("/alerts", None), (f"/alerts/{alert_id}", None), ("/tasks", None),
         ]
@@ -61,6 +71,17 @@ class BusinessRouterTests(unittest.TestCase):
         summary = self.get("/analytics/trend", self.scope)["summary"]
         self.assertEqual(summary["review_count"], 4)
         self.assertEqual(summary["negative_review_count"], 3)
+
+    def test_extended_analytics_reject_invalid_dimensions_and_overlapping_windows(self):
+        for path, extra in [
+            ("aspect-trend", {"aspect": "unknown"}), ("rating-distribution", {"group_by": "rating"}),
+            ("compare-windows", {"baseline_from": self.scope["date_from"], "baseline_to": self.scope["date_to"]}),
+            ("data-quality", {"unexpected": "field"}),
+        ]:
+            with self.subTest(path=path):
+                response = self.client.get("/api/v1/analytics/" + path, params={**self.scope, **extra})
+                self.assertEqual(response.status_code, 422, response.text)
+                self.assertEqual(response.json()["status"], "error")
 
     def test_write_routes_keep_status_location_idempotency_and_retry(self):
         review_id, annotation_id = next(iter(self.fixture.annotations.items()))
