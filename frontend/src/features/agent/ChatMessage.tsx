@@ -46,7 +46,7 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
   const result = task?.result?.agent === true ? task.result as unknown as AgentResult : undefined;
   const [detail, setDetail] = useState<{ value: unknown; title: string }>();
   return <MessageFrame turn={turn}>
-        <details className="chat-turn-scope"><summary>查询范围</summary><p>{turn.parameters.dataset_version} · {turn.parameters.product_ids.length ? turn.parameters.product_ids.join('、') : '全部商品'} · {turn.parameters.date_from} — {turn.parameters.date_to}（UTC）</p></details>
+        <details className="chat-turn-scope"><summary>查询范围 · {turn.parameters.dataset_version}</summary><p>{turn.parameters.source} / {turn.parameters.dataset_version} · {turn.parameters.product_ids.length ? turn.parameters.product_ids.join('、') : '全部商品'} · {turn.parameters.date_from} — {turn.parameters.date_to}（UTC）</p></details>
         {!turn.taskId && (chat.posting && active ? <div className="chat-status" role="status"><Spin size="small" /> 正在提交问题…</div>
           : <Alert type="error" showIcon message="问题尚未确认提交" description={chat.errors[turn.id] || '提交结果待确认，请重试确认同一任务。'}
             action={<Button disabled={chat.pending} onClick={() => void chat.retry(turn)}>重试提交</Button>} />)}

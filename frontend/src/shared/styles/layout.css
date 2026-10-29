@@ -8,6 +8,8 @@
 .brand-copy strong { font-size: 22px; font-weight: 700; letter-spacing: -.5px; white-space: nowrap; }
 .brand-copy > span { font-size: 16px; color: var(--color-text-secondary); white-space: nowrap; }
 .header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.header-actions > .ant-select { width: min(240px, 28vw); min-width: 150px; }
+.header-actions > .ant-select .ant-select-selector { border-radius: 999px; }
 .header-actions .ant-btn { font-size: 18px; color: var(--color-text-secondary); }
 .header-actions [aria-disabled] { cursor: default; }
 .mobile-menu-trigger.ant-btn { display: none; }
@@ -53,8 +55,9 @@
   .brand { gap: 8px; }
   .brand-mark { width: 32px; height: 32px; font-size: 20px; border-radius: 8px; }
   .brand-copy strong { font-size: 20px; }
-  .brand-copy > span { font-size: 12px; }
+  .brand-copy > span { display: none; }
   .header-actions { gap: 0; }
+  .header-actions > .ant-select { width: min(170px, calc(100vw - 224px)); min-width: 0; font-size: 12px; }
   .header-actions .ant-btn { width: 32px; padding: 4px; font-size: 16px; }
   .sidebar-nav > button { gap: 8px; padding-inline: 8px; }
   .workspace-footer { flex-wrap: wrap; gap: 8px; margin-top: 24px; }

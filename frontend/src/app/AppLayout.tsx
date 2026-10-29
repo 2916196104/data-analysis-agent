@@ -5,6 +5,7 @@ import {
   DatabaseOutlined, FolderOpenOutlined, HistoryOutlined, ImportOutlined,
   MenuOutlined, ReloadOutlined, RobotOutlined, TagsOutlined, UserOutlined,
 } from '@ant-design/icons';
+import DatasetSelector from '../features/datasets/components/DatasetSelector';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -24,6 +25,10 @@ interface AppLayoutProps {
   onNewAnalysis: () => void;
   onDatasets: () => void;
   onAgent: () => void;
+  selectedDatasetId?: string;
+  datasetOptions?: { value: string; label: string }[];
+  datasetLoading?: boolean;
+  onDatasetChange?: (value: string) => void;
 }
 
 /** 一级模块高亮由当前路由归属决定。 */
@@ -31,6 +36,7 @@ export default function AppLayout({
   children, connection, loading, taskCount, datasetSummary, fillContent = false,
   hasProducts, section, onRefresh, onHistory, onImport, onPrepare, onAnnotation,
   onPreview, onNewAnalysis, onDatasets, onAgent,
+  selectedDatasetId, datasetOptions = [], datasetLoading = false, onDatasetChange,
 }: AppLayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const content = useRef<HTMLDivElement>(null);
@@ -58,6 +64,10 @@ export default function AppLayout({
             <div className="brand-copy"><strong>观数</strong><span>/ {pageName}</span></div>
           </div>
           <div className="header-actions">
+            {onDatasetChange && <DatasetSelector
+              value={selectedDatasetId} options={datasetOptions} disabled={datasetLoading}
+              onChange={onDatasetChange} ariaLabel="全局数据集"
+            />}
             <Tooltip title="通知 · 未开放"><Button type="text" aria-label="通知（未开放）" aria-disabled="true" icon={<BellOutlined />} /></Tooltip>
             <Tooltip title="用户中心 · 未开放"><Button type="text" aria-label="用户中心（未开放）" aria-disabled="true" icon={<UserOutlined />} /></Tooltip>
             <Button ref={menuTrigger} className="mobile-menu-trigger" type="text" aria-label="工作空间导航" aria-controls="workspace-navigation" aria-expanded={menuOpen} icon={<MenuOutlined />} onClick={() => setMenuOpen(value => !value)} />

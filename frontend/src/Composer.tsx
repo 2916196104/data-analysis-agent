@@ -24,13 +24,14 @@ interface ComposerProps {
   busy: boolean;
   refreshKey: number;
   onAgent: () => void;
+  onDatasetChange: (value: string) => void;
   onSubmit: (parameters: AnalysisParameters, note: string) => void;
   onPreview: () => void;
   onLabel: () => void;
 }
 
 export default function Composer({
-  options, quality, draft, setDraft, busy, refreshKey, onAgent, onSubmit, onPreview, onLabel,
+  options, quality, draft, setDraft, busy, refreshKey, onDatasetChange, onAgent, onSubmit, onPreview, onLabel,
 }: ComposerProps) {
   const [form] = Form.useForm<Values>();
   const advanced = useRef<HTMLDetailsElement>(null);
@@ -129,7 +130,7 @@ export default function Composer({
           <summary>高级设置 <span>数据集、对比时间、标注版本、备注</span></summary>
           <div className="advanced-content">
             <Form.Item label="数据集">
-              <DatasetSelector value={draft.dataset} options={datasetOptions} disabled={busy} onChange={dataset => setDraft(previous => ({ ...previous, dataset, productIds: [] }))} />
+              <DatasetSelector value={draft.dataset} options={datasetOptions} disabled={busy} onChange={onDatasetChange} />
             </Form.Item>
             <p className="scope-summary">{selectedProducts.length} 款商品 · 共 {selectedProducts.reduce((sum, product) => sum + product.review_count, 0).toLocaleString()} 条评论（目录全部日期）<br />对比 {dates.baseline[0]} 至 {dates.baseline[1]} · 日期按 UTC</p>
             <Form.Item label="对比时间" name="baseline" dependencies={['current']} rules={[{ required: true, message: '请选择对比时间' }, ({ getFieldValue }) => ({ validator(_, value) {

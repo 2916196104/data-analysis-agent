@@ -14,7 +14,7 @@ export function useDatasetPreview(selectedProductKey: string | undefined, profil
     const controller = new AbortController();
     setLoading(true); setError(''); setData(undefined);
     reviewApi.reviews(selectedProductKey, profileId, page, controller.signal)
-      .then(setData)
+      .then(result => { if (!controller.signal.aborted) setData(result); })
       .catch(requestError => { if (!controller.signal.aborted) setError(errorMessage(requestError)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();

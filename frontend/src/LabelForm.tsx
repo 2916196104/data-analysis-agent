@@ -21,6 +21,7 @@ interface LabelFormProps {
   initialRetryFailed?: boolean;
   busy: boolean;
   onSubmit: (parameters: LabelParameters) => void;
+  onDatasetChange?: (value: string) => void;
 }
 
 export default function LabelForm({
@@ -33,6 +34,7 @@ export default function LabelForm({
   initialRetryFailed = false,
   busy,
   onSubmit,
+  onDatasetChange,
 }: LabelFormProps) {
   const [form] = Form.useForm<Values>();
   const advanced = useRef<HTMLDetailsElement>(null);
@@ -84,7 +86,7 @@ export default function LabelForm({
           aria-label="标注数据集"
           disabled={busy || !!initialScope}
           placeholder="请选择数据集"
-          onChange={() => form.setFieldValue('product_ids', [])}
+          onChange={value => { form.setFieldValue('product_ids', []); onDatasetChange?.(value); }}
           options={availableDatasets.map(item => ({
             value: item.key,
             label: `${item.source} / ${item.version}`,

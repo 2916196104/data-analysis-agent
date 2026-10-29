@@ -22,6 +22,7 @@ import AiAssistantPage from './features/agent/AiAssistantPage';
 import { useAgentChat } from './features/agent/useAgentChat';
 import { isAgentTask, type ChatMode } from './features/agent/chat-state';
 import { DataPreviewDrawer, ImportDialog, ImportProgress, useImportTask } from './features/datasets';
+import { datasetSelectOptions } from './features/datasets/model/dataset-options';
 import { exportResult, readHistory, writeHistory } from './local-history';
 import { canRetry, isActive, kindLabels, progressPercent, stageLabels, statusLabels } from './task-state';
 import { useTask } from './useTask';
@@ -74,11 +75,16 @@ export default function App() {
   const [chatMode, setChatMode] = useState<ChatMode>('basic');
   const [basicInput, setBasicInput] = useState('');
   const { dataset, productIds, profileId } = draft;
+  // 数据集 ID 沿用现有的 source + dataset_version 复合键，并由 App 作为全局唯一状态持有。
+  const selectedDatasetId = dataset;
+  const datasetRef = useRef(dataset);
+  datasetRef.current = dataset;
   const [history, setHistory] = useState<Page<TaskSummary>>();
   const [historyLoading, setHistoryLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState('');
+  const [datasetNotice, setDatasetNotice] = useState('');
   const [historyError, setHistoryError] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [storageError, setStorageError] = useState(false);
@@ -135,6 +141,13 @@ export default function App() {
     if (optionResult.status === 'fulfilled') {
       const next = optionResult.value;
       setOptions(next);
+      if (datasetRef.current && !next.products.some(product => datasetKey(product) === datasetRef.current)) {
+        setDatasetNotice(next.products.length
+          ? '原数据集已不可用，已切换到第一个可用数据集并清空筛选。'
+          : '暂无可用数据集，请导入数据或确认访问权限。');
+        setDatasetPage(1);
+        setPreviewOpen(false);
+      }
       setDraft(previous => {
         const currentDatasetExists = next.products.some(
           product => datasetKey(product) === previous.dataset,
@@ -154,14 +167,17 @@ export default function App() {
         return {
           ...previous,
           dataset,
-          current: previous.current ?? current,
-          productIds,
+          current: currentDatasetExists ? previous.current ?? current : undefined,
+          baseline: currentDatasetExists ? previous.baseline : undefined,
+          agentQuestion: currentDatasetExists ? previous.agentQuestion : undefined,
+          productIds: currentDatasetExists ? productIds : [],
           profileId: profileExists
             ? previous.profileId
             : next.selected_profile_id ?? undefined,
         };
       });
     } else {
+      setOptions(emptyOptions);
       failures.push(errorMessage(optionResult.reason));
     }
     if (qualityResult.status === 'fulfilled') {
@@ -208,7 +224,7 @@ export default function App() {
     setPendingDelete(undefined);
   }, [route]);
   useEffect(() => {
-    if (route.page === 'annotation' && !route.defaults && !loading) {
+    if (route.page === 'annotation' && (!route.defaults || route.defaults.dataset !== dataset) && !loading) {
       navigate({ page: 'annotation', defaults: { dataset, products: productIds } }, true);
     }
   }, [route, loading, dataset, productIds]);
@@ -346,6 +362,10 @@ export default function App() {
     const scoped = task?.kind === 'import' || task?.kind === 'label';
     setSubmitError('');
     setPendingDelete(undefined);
+    if (scoped) setDraft(previous => ({ ...previous,
+      dataset: JSON.stringify([taskSource || 'amazon_reviews_2023', task.parameters.dataset_version]),
+      productIds: task.parameters.product_ids as string[] || [],
+    }));
     navigate({ page: 'annotation', defaults: {
       dataset: scoped
         ? JSON.stringify([
@@ -397,8 +417,18 @@ export default function App() {
     }
   };
   const showDetail = (value: unknown, title: string) => setDetail({ title, value });
+  const setSelectedDatasetId = (value: string) => {
+    if (value === dataset || !options.products.some(product => datasetKey(product) === value)) return;
+    setDatasetNotice('');
+    setDatasetPage(1);
+    setPreviewOpen(false);
+    setSubmitError('');
+    setDraft(previous => ({ ...previous, dataset: value, productIds: [], current: undefined, baseline: undefined, agentQuestion: undefined }));
+    if (route.page === 'annotation') navigate({ page: 'annotation', defaults: { dataset: value, products: [] } }, true);
+  };
   const prepareAgent = (result: AgentResult, products: string[]) => {
     setSubmitError('');
+    setDraft(previous => ({ ...previous, dataset: JSON.stringify([result.scope.source, result.scope.dataset_version]), productIds: products }));
     navigate({ page: 'annotation', defaults: { dataset: JSON.stringify([result.scope.source, result.scope.dataset_version]), products,
       scope: { date_from: result.scope.date_from, date_to: result.scope.date_to, as_of: result.scope.as_of }, retryFailed: true } });
   };
@@ -420,6 +450,8 @@ export default function App() {
       connection={{ status: !health ? 'error' : health.worker_available ? 'success' : 'warning', text: !health ? '连接待确认' : health.worker_available ? '服务已连接' : '执行器离线' }}
       loading={loading} taskCount={history?.total} fillContent={route.page === 'assistant'}
       datasetSummary={datasetSummary} hasProducts={!!currentProducts.length} section={section}
+      selectedDatasetId={selectedDatasetId} datasetOptions={datasetSelectOptions(options.products)}
+      datasetLoading={loading || busy} onDatasetChange={setSelectedDatasetId}
       onDatasets={() => navigate({ page: 'datasets' })}
       onAnnotation={() => { if (route.page !== 'annotation') navigate({ page: 'annotation' }); }}
       onAgent={() => navigate({ page: 'assistant' })}
@@ -428,6 +460,7 @@ export default function App() {
       onImport={() => { setSubmitError(''); setImportOpen(true); }}
       onPrepare={openLabel} onPreview={() => setPreviewOpen(true)} onNewAnalysis={() => selectTask(null)}>
         {connectionError && <Alert className="spaced-bottom" type="error" showIcon message="无法完整加载工作空间" description={<>{connectionError}<div className="api-address">API：{API_BASE}</div></>} action={<Button onClick={() => void load()}>重新连接</Button>} />}
+        {datasetNotice && <Alert className="spaced-bottom" type="info" showIcon message={datasetNotice} closable onClose={() => setDatasetNotice('')} />}
         {storageError && <Alert className="spaced-bottom" type="warning" showIcon message="浏览器存储不可用，问题备注和当前选择在刷新后可能丢失；后端任务仍会保留。" />}
         {submitError && !importOpen && route.page !== 'annotation' && <Alert className="spaced-bottom" type="error" showIcon message="请求未完成" description={submitError} />}
         {route.page === 'assistant' ? <AiAssistantPage chat={chat} parameters={chatParameters} context={chatContext}
@@ -441,8 +474,8 @@ export default function App() {
           onRefresh={() => void fetchHistory()} onPage={value => { setPendingDelete(undefined); setPage(value); }}
           onSelect={selectTask} onDelete={confirmDeleteTask} onConfirmDelete={() => void executeDelete()}
           onCancelDelete={() => { if (!deleteBusy) setPendingDelete(undefined); }}
-        /> : route.page === 'annotation-review' ? <ReviewWorkbenchPage onRefresh={() => void load()} /> : route.page === 'annotation' ? !labelDefaults || (loading && !options.products.length) ? <Skeleton active paragraph={{ rows: 6 }} /> : <AnnotationPage
-          options={options} initialDataset={labelDefaults.dataset} initialProducts={labelDefaults.products}
+        /> : route.page === 'annotation-review' ? <ReviewWorkbenchPage datasetId={dataset} onRefresh={() => void load()} /> : route.page === 'annotation' ? !labelDefaults || (loading && !options.products.length) ? <Skeleton active paragraph={{ rows: 6 }} /> : <AnnotationPage key={labelDefaults.dataset}
+          options={options} onDatasetChange={setSelectedDatasetId} initialDataset={labelDefaults.dataset} initialProducts={labelDefaults.products}
           initialLimit={labelDefaults.limit} initialWorkers={labelDefaults.workers} initialScope={labelDefaults.scope}
           initialRetryFailed={labelDefaults.retryFailed} busy={busy} error={submitError} onReview={() => navigate({ page: 'annotation-review' })}
           onSubmit={parameters => {
@@ -456,7 +489,7 @@ export default function App() {
               limit: parameters.limit, workers: parameters.workers, retryFailed: parameters.retry_failed } }, true);
             void submit({ kind: 'label', parameters }, `准备数据 · 最多 ${parameters.limit} 条`);
           }}
-        /> : section === 'datasets' ? <DataManagement options={options} dataset={dataset} page={datasetPage} onPage={setDatasetPage} onDataset={value => { setDatasetPage(1); setDraft(previous => ({ ...previous, dataset: value, productIds: [] })); }} onImport={() => { setSubmitError(''); setImportOpen(true); }} onPreview={() => setPreviewOpen(true)} /> : !selectedTaskId ? loading && !options.products.length ? <Skeleton active paragraph={{ rows: 6 }} /> : <Composer key={dataset} options={options} quality={quality} draft={draft} setDraft={setDraft} busy={busy} refreshKey={catalogRevision} onAgent={() => navigate({ page: 'assistant' })} onSubmit={(parameters: AnalysisParameters, question: string) => void submit({ kind: 'analysis', parameters }, question)} onPreview={() => setPreviewOpen(true)} onLabel={openLabel} /> : <>
+        /> : section === 'datasets' ? <DataManagement options={options} dataset={dataset} page={datasetPage} onPage={setDatasetPage} onDataset={setSelectedDatasetId} onImport={() => { setSubmitError(''); setImportOpen(true); }} onPreview={() => setPreviewOpen(true)} /> : !selectedTaskId ? loading && !options.products.length ? <Skeleton active paragraph={{ rows: 6 }} /> : <Composer key={dataset} onDatasetChange={setSelectedDatasetId} options={options} quality={quality} draft={draft} setDraft={setDraft} busy={busy} refreshKey={catalogRevision} onAgent={() => navigate({ page: 'assistant' })} onSubmit={(parameters: AnalysisParameters, question: string) => void submit({ kind: 'analysis', parameters }, question)} onPreview={() => setPreviewOpen(true)} onLabel={openLabel} /> : <>
           {taskState.loading && !task && <Skeleton active paragraph={{ rows: 5 }} />}
           {taskState.error && <Alert className="spaced-bottom" type="error" showIcon message="任务连接异常" description={<>{taskState.error}<div>保留最后一次已知状态，正在尝试重新连接。</div></>} action={<Button onClick={taskState.refresh}>立即重连</Button>} />}
           {task && <>

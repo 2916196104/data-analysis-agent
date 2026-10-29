@@ -66,7 +66,11 @@ function productProgress(products: WorkbenchProduct[]) {
   }));
 }
 
-export default function ReviewWorkbenchPage({ onRefresh }: { onRefresh?: () => void }) {
+export default function ReviewWorkbenchPage(props: { datasetId: string; onRefresh?: () => void }) {
+  return <DatasetReviewWorkbench key={props.datasetId} {...props} />;
+}
+
+function DatasetReviewWorkbench({ datasetId, onRefresh }: { datasetId: string; onRefresh?: () => void }) {
   const [options, setOptions] = useState<WorkbenchOptions>();
   const [profileId, setProfileId] = useState<number>();
   const [filters, setFilters] = useState<ReviewFilters>(emptyFilters);
@@ -87,21 +91,34 @@ export default function ReviewWorkbenchPage({ onRefresh }: { onRefresh?: () => v
   const textRef = useRef<HTMLDivElement>(null);
   const requestRevision = useRef(0);
   const detailRevision = useRef(0);
+  const optionsRevision = useRef(0);
 
   const loadOptions = useCallback(async (nextProfile?: number) => {
+    const revision = ++optionsRevision.current;
     try {
       const next = await workbenchApi.options(nextProfile);
+      if (revision !== optionsRevision.current) return;
       setOptions(next);
       setProfileId(next.selected_profile_id ?? nextProfile);
       setError('');
     } catch (requestError) {
-      setError(errorMessage(requestError));
+      if (revision === optionsRevision.current) setError(errorMessage(requestError));
     }
   }, []);
 
   const loadReviews = useCallback(async (nextPage = 1) => {
     if (!options) return;
     const revision = ++requestRevision.current;
+    ++detailRevision.current;
+    setReviews(undefined);
+    setSelectedId(undefined);
+    setDetail(undefined);
+    setDetailLoading(false);
+    // /reviews 目前仅支持 product_key，不能发出不带范围的跨数据集查询。
+    if (!options.products.some(product => JSON.stringify([product.source, product.dataset_version]) === datasetId && product.key === filters.product_key)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const result = await workbenchApi.reviews({
@@ -120,11 +137,12 @@ export default function ReviewWorkbenchPage({ onRefresh }: { onRefresh?: () => v
     } finally {
       if (revision === requestRevision.current) setLoading(false);
     }
-  }, [filters, options, pageSize, profileId]);
+  }, [datasetId, filters, options, pageSize, profileId]);
 
   const openDetail = useCallback(async (id: number) => {
     const revision = ++detailRevision.current;
     setSelectedId(id);
+    setDetail(undefined);
     setDetailLoading(true);
     setHighlighted(undefined);
     try {
@@ -146,11 +164,17 @@ export default function ReviewWorkbenchPage({ onRefresh }: { onRefresh?: () => v
 
   useEffect(() => { void loadOptions(); }, [loadOptions]);
   useEffect(() => { void loadReviews(1); }, [loadReviews]);
+  useEffect(() => () => {
+    ++requestRevision.current;
+    ++detailRevision.current;
+    ++optionsRevision.current;
+  }, []);
 
-  const products = useMemo(() => productProgress(options?.products || []), [options?.products]);
+  const products = useMemo(() => productProgress((options?.products || []).filter(product =>
+    JSON.stringify([product.source, product.dataset_version]) === datasetId)), [datasetId, options?.products]);
   const selectedReview = detail?.review;
   const canEdit = !!selectedReview && selectedReview.processing_status === 'success' && !!detail?.annotation;
-  const productOptions = [{ value: '', label: '全部商品' }, ...(options?.products || []).map(product => ({
+  const productOptions = [{ value: '', label: '请选择当前数据集的商品' }, ...products.map(product => ({
     value: product.key,
     label: `${product.product_id} · ${product.product_title || '商品名称缺失'}`,
   }))];
@@ -241,6 +265,7 @@ export default function ReviewWorkbenchPage({ onRefresh }: { onRefresh?: () => v
         ]} locale={{ emptyText: '暂无模型标注数据' }} />
       </Card>
       <Card className="review-workbench-filter" title="筛选评论">
+        <p className="muted">仅显示当前数据集的商品。现有复核接口按商品查询，请选择商品后应用筛选。</p>
         <div className="review-workbench-filter-grid">
           <label>模型 / 提示词版本<Select value={profileId} onChange={value => { setProfileId(value); void loadOptions(value); }} options={options.profiles.map(profile => ({ value: profile.profile_id, label: `${profile.requested_model} · ${profile.prompt_version.slice(0, 32)}` }))} placeholder="选择模型版本" /></label>
           <label>商品<Select value={draftFilters.product_key || ''} onChange={value => updateFilter('product_key', value)} options={productOptions} /></label>
@@ -255,7 +280,7 @@ export default function ReviewWorkbenchPage({ onRefresh }: { onRefresh?: () => v
       </Card>
       <div className="review-workbench-grid">
         <Card title={`评论与观点${reviews ? ` · 共 ${reviews.total} 条` : ''}`} loading={loading} className="review-workbench-list">
-          {!reviews?.items.length ? <Empty description="没有符合条件的评论" /> : <div>{reviews.items.map(item => <article className={`review-workbench-card ${selectedId === item.id ? 'selected' : ''}`} key={item.id}>
+          {!reviews?.items.length ? <Empty description={!filters.product_key ? '请选择当前数据集的商品并应用筛选' : '没有符合条件的评论'} /> : <div>{reviews.items.map(item => <article className={`review-workbench-card ${selectedId === item.id ? 'selected' : ''}`} key={item.id}>
             <div className="review-workbench-card-heading"><strong>#{item.id} · {item.product_id}</strong><Tag>{reviewStatusLabel(options, item.processing_status)}</Tag><Tag color={item.human_status === 'corrected' ? 'green' : item.human_status === 'confirmed' ? 'blue' : undefined}>{reviewStatusLabel(options, item.human_status)}</Tag></div>
             <p className="muted">{formatDate(item.published_at)} · 评分 {item.rating ?? '缺失'}</p><p className="review-workbench-body">{item.text || '（空正文）'}</p><OpinionList opinions={item.opinions} options={options} />
             <Button size="small" onClick={() => void openDetail(item.id)}>查看原文与复核</Button>

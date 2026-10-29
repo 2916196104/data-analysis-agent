@@ -52,13 +52,14 @@ describe('首页真实统计', () => {
     await waitFor(() => expect(screen.getByText('0.0%')).toBeTruthy());
   });
 
-  it('切换范围取消旧请求，迟到结果不覆盖新范围', async () => {
+  it('切换数据集取消旧请求，同名商品的迟到结果不覆盖新数据集', async () => {
     let resolveFirst!: (value: Run['results']['trend']) => void;
     const first = new Promise<Run['results']['trend']>(resolve => { resolveFirst = resolve; });
     const fetcher = vi.spyOn(analysisApi, 'trend').mockReturnValueOnce(first).mockResolvedValueOnce(trend(0.2));
     const { rerender } = render(<ReviewDashboard parameters={parameters} productCount={1} hasProducts />);
-    rerender(<ReviewDashboard parameters={{ ...parameters, product_ids: ['B'] }} productCount={1} hasProducts />);
+    rerender(<ReviewDashboard parameters={{ ...parameters, dataset_version: 'v2' }} productCount={1} hasProducts />);
     expect(fetcher.mock.calls[0][1]?.aborted).toBe(true);
+    expect(fetcher.mock.calls[1][0]).toMatchObject({ dataset_version: 'v2', product_ids: ['A'] });
     await screen.findByText('20.0%');
     await act(async () => { resolveFirst(trend(0.8)); });
     expect(screen.queryByText('80.0%')).toBeNull();
@@ -71,6 +72,15 @@ describe('首页真实统计', () => {
     fireEvent.click(screen.getByRole('button', { name: '重试统计' }));
     await screen.findByText('0.0%');
     expect(screen.queryByText('统计服务不可用')).toBeNull();
+  });
+
+  it('新数据集查询失败时撤下旧统计，不将旧数据当作新结果', async () => {
+    vi.spyOn(analysisApi, 'trend').mockResolvedValueOnce(trend(0.2)).mockRejectedValueOnce(new Error('B 查询失败'));
+    const { rerender } = render(<ReviewDashboard parameters={parameters} productCount={1} hasProducts />);
+    await screen.findByText('20.0%');
+    rerender(<ReviewDashboard parameters={{ ...parameters, dataset_version: 'B' }} productCount={1} hasProducts />);
+    await screen.findByText('B 查询失败');
+    expect(screen.queryByText('20.0%')).toBeNull();
   });
 
   it('刷新目录后，即使筛选不变也重新读取统计', async () => {
