@@ -115,16 +115,8 @@ for review in pending_reviews(db, **dict(identity, model='SIMULATED-SECOND'), pr
     if (body.tools) {
       analysisCalls++;
       const question = body.messages.find(item => item.role === 'user').content.split('\n\n<bound_context>')[0];
-      let selectedTools = [
-        ['get_trend', { period: 'month' }], ['get_evidence', { aspect: 'packaging', sentiment: 'negative' }],
-        ['get_data_quality', {}], ['get_aspect_trend', { period: 'month' }],
-        ['get_rating_distribution', { group_by: 'product' }], ['compare_time_windows', {}],
-      ];
-      if (question.startsWith('执行本轮已确认的只读查询')) {
-        const selected = JSON.parse(question.slice(question.indexOf('\n') + 1));
-        selectedTools = [[selected.tool, selected.parameters]];
-      } else if (question === '按日查看包装问题趋势') selectedTools = [['get_aspect_trend', { aspect: 'packaging', period: 'day' }]];
-      else if (question === '查询包装负面评论的原文') selectedTools = [['get_evidence', { aspect: 'packaging', sentiment: 'negative', page: 1, page_size: 5 }]];
+      const plan = JSON.parse(body.messages.find(item => item.role === 'user').content.split('<query_plan>\n')[1].split('\n</query_plan>')[0]);
+      const selectedTools = plan.requirements.map(query => [query.tool, query.parameters]);
       const ids = body.messages.filter(item => item.role === 'tool').map(item => JSON.parse(item.content).data?.result_id).filter(Boolean);
       message = ids.length ? { role: 'assistant', content: JSON.stringify({ status: 'ok', result_ids: ids }) }
         : { role: 'assistant', content: null, tool_calls: selectedTools.map(([name, parameters], i) => ({ id: `tool-${i}`, type: 'function', function: { name, arguments: JSON.stringify(parameters) } })) };
@@ -217,7 +209,7 @@ for review in pending_reviews(db, **dict(identity, model='SIMULATED-SECOND'), pr
   assert.match(await catalogSummary.getByRole('row').filter({hasText:'SIMULATED-SECOND'}).innerText(), /2.1%/);
   await capture(analysis, 'dataset-profile-summary');
   await catalogSummary.locator('summary').click();
-  await analysis.getByRole('textbox', { name: '评论分析问题' }).fill('你能做什么？（明确选择评论分析，不自动切换基础问答）');
+  await analysis.getByRole('textbox', { name: '评论分析问题' }).fill('数据质量、包装按月趋势、星级分布、比较当前窗口与基线、包装负面原文');
   await analysis.getByRole('button', { name: '提交问题', exact: true }).click();
   await analysis.locator('.chat-report > summary').waitFor();
   await analysis.locator('.chat-report > summary').click();
@@ -240,7 +232,7 @@ for review in pending_reviews(db, **dict(identity, model='SIMULATED-SECOND'), pr
   await downloaded.saveAs(reportPath);
   const exported = await readFile(reportPath, 'utf8');
   for (const text of ['SIMULATED-frontend', '2023-02-01 — 2023-02-24', '2023-01-01 — 2023-01-31',
-    'review-agent-v3', 'file_sha256', 'sha256:', 'rating_rate_denominator', '原始星级']) assert.ok(exported.includes(text), text);
+    'review-agent-v5', 'file_sha256', 'sha256:', 'rating_rate_denominator', '原始星级']) assert.ok(exported.includes(text), text);
   await analysis.setViewportSize({ width: 1440, height: 900 });
   const firstRange = await analysis.locator('.chat-turn-scope').first().innerText();
   const firstTurn = await analysis.evaluate(() => JSON.parse(localStorage[Object.keys(localStorage).find(key => key.startsWith('review-agent-chat:'))]).turns[0]);
@@ -404,6 +396,32 @@ for review in pending_reviews(db, **dict(identity, model='SIMULATED-SECOND'), pr
   report.followups = { daily: daily.task_id, logistics: logistics.task_id, monthly: monthly.task_id, originals: originals.task_id,
     evidenceFirst: evidenceFirst.task_id, evidenceNext: evidenceNext.task_id, clarified: confirmed.taskId };
   report.scopeTasks = [firstTurn, secondTask, thirdTask].map(task => ({ id: task.task_id ?? task.taskId, parameters: task.parameters }));
+  // 阶段 2：真实本机 API/Worker/模拟模型生成正向结果，受控任务响应验证保守终态展示。
+  await analysis.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
+  const positiveTask = await send('好评主要集中在哪些方面？');
+  const savedPositive = (await (await fetch(`${apiUrl}/tasks/${positiveTask.task_id}`)).json()).result;
+  assert.equal(savedPositive.status, 'succeeded');
+  assert.equal(savedPositive.result.model_tool_attempts, 1);
+  assert.equal(savedPositive.result.query_executions, 2);
+  assert.equal(savedPositive.result.results.r1.kind, 'positive_aspects');
+  assert.ok(!Object.values(savedPositive.result.results).some(item => item.kind === 'evidence'));
+  const last = analysis.locator('.chat-turn').last();
+  await last.locator('.chat-report > summary').click();
+  await last.getByRole('columnheader', { name: '占正向观点评论比例', exact: true }).waitFor();
+  await capture(analysis, 'phase2-positive', last.getByRole('columnheader', { name: '占正向观点评论比例', exact: true }));
+  for (const status of ['failed', 'partial']) {
+    await analysis.route(`${apiUrl}/tasks/${positiveTask.task_id}`, route => route.fulfill({ json: { status: 'ok', result: {
+      ...savedPositive, status, error: { code: 'timeout', message: '模拟工具完成后超时' },
+    } } }));
+    await analysis.reload();
+    await analysis.locator('.chat-turn').last().getByRole('button', { name: '重试任务', exact: true }).waitFor();
+    assert.equal(await analysis.locator('.chat-turn').last().locator('.chat-report').count(), 0);
+    assert.equal(await analysis.locator('.chat-turn').last().getByRole('button', { name: '导出分析报告' }).count(), 0);
+    await capture(analysis, `phase2-${status}`, analysis.locator('.chat-turn').last());
+    await analysis.unroute(`${apiUrl}/tasks/${positiveTask.task_id}`);
+  }
+  report.phase2 = { positiveTask: savedPositive.task_id, modelToolAttempts: savedPositive.result.model_tool_attempts,
+    queryExecutions: savedPositive.result.query_executions, statusViews: 'controlled failed/partial API responses; actual backend failure verified by Python tests' };
   await analysisContext.close();
   assert.deepEqual(errors, []);
   report.status = 'passed';

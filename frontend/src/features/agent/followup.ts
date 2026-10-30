@@ -14,9 +14,9 @@ export interface QueryParent { id: string; taskId?: string; parameters: Analysis
 
 const aspects: Record<string, string> = { 质量: 'quality', 效果: 'effectiveness', 包装: 'packaging', 物流: 'logistics', 客服: 'service', 服务: 'service', 价格: 'price' };
 const names: Record<QueryIntent['kind'], string> = { trend: '评论趋势', aspect_trend: '维度趋势', evidence: '原文证据',
-  comparison: '商品对比', issues: '问题分布', quality: '数据质量', ratings: '星级分布', window_comparison: '时间窗口对比' };
+  comparison: '商品对比', issues: '问题分布', quality: '数据质量', ratings: '星级分布', window_comparison: '时间窗口对比', positive_aspects: '正向维度' };
 const tools: Record<QueryIntent['kind'], string> = { trend: 'get_trend', aspect_trend: 'get_aspect_trend', evidence: 'get_evidence',
-  comparison: 'compare_products', issues: 'get_top_issues', quality: 'get_data_quality', ratings: 'get_rating_distribution', window_comparison: 'compare_time_windows' };
+  comparison: 'compare_products', issues: 'get_top_issues', quality: 'get_data_quality', ratings: 'get_rating_distribution', window_comparison: 'compare_time_windows', positive_aspects: 'get_positive_aspects' };
 const scopeKeys = ['source', 'dataset_version', 'model', 'base_url', 'prompt_version', 'date_from', 'date_to', 'baseline_from', 'baseline_to', 'as_of'] as const;
 
 function copyScope(scope: AnalysisParameters): AnalysisParameters {
@@ -31,7 +31,7 @@ function operation(text: string) {
   const aspect = value.match(/^(?:只看|仅看|只查|换成|改成)?(质量|效果|包装|物流|客服|服务|价格)(?:问题|方面)?$/)?.[1];
   if (aspect) return { type: 'aspect' as const, value: aspects[aspect] };
   if (/^(?:换成|改成|改为)?按(月|日|天)(?:看|查看|统计)?$/.test(value)) return { type: 'period' as const, value: value.includes('月') ? 'month' : 'day' };
-  if (/^(?:继续(?:查|查看)?(?:原文|证据)|(?:查|查看)(?:原文|证据)|(?:原文|证据)?下一页)$/.test(value)) return { type: 'evidence' as const, value: '' };
+  if (/^(?:继续(?:查|查看)?(?:原文|证据|下一页)|(?:查|查看)(?:原文|证据)|(?:原文|证据)?下一页)$/.test(value)) return { type: 'evidence' as const, value: '' };
   if (/^(继续|换成|改成|改为|只看|仅看|再看|再查)|这个|那个|这些|那些|它|上面|上述|同样|那.*呢[？?]?$/.test(value)) return { type: 'ambiguous' as const, value: '' };
   return undefined;
 }
@@ -78,7 +78,7 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
     } else {
       candidates = results.filter(item => item.kind === 'aspect_trend').map(item => ({ kind: 'evidence', parameters: {
         product_ids: item.parameters.product_ids ?? [], aspect: item.parameters.aspect ?? null,
-        sentiment: 'negative', window: 'current', page: 1, page_size: 5,
+        sentiment: 'negative', window: 'current', page: 1, page_size: 3,
       } }));
       if (!candidates.length) return clarify('要查哪一类原文？请明确维度和情感，例如“查询物流负面评论的原文”。');
     }

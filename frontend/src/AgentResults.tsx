@@ -11,11 +11,11 @@ import { exportAgentReport } from './features/agent/report-export';
 const toolNames: Record<string, string> = {
   get_analysis_context: '读取分析范围', get_trend: '查询评论趋势', compare_products: '比较商品',
   get_top_issues: '比较维度问题', get_evidence: '查询原文证据',
-  get_data_quality: '查看数据质量', get_aspect_trend: '查询维度趋势',
+  get_data_quality: '查看数据质量', get_aspect_trend: '查询维度趋势', get_positive_aspects: '查询正向维度',
   get_rating_distribution: '查询星级分布', compare_time_windows: '比较时间窗口',
 };
 const sectionNames = { context: '分析范围', trend: '评论趋势', comparison: '商品对比', issues: '六维度问题', evidence: '原文证据',
-  quality: '数据质量', aspect_trend: '维度趋势', ratings: '星级分布', window_comparison: '时间窗口对比' };
+  quality: '数据质量', aspect_trend: '维度趋势', ratings: '星级分布', window_comparison: '时间窗口对比', positive_aspects: '正向维度' };
 const countColumns = [
   { title: '评论数', dataIndex: 'review_count', width: 85 },
   { title: '成功标注（分母）', dataIndex: 'successful_reviews', width: 135 },
@@ -66,12 +66,16 @@ export default function AgentResults({ result, onDetail, onPrepare, idPrefix = '
   idPrefix?: string;
 }) {
   const selected = (result.result_ids || []).map(id => result.results[id]).filter(Boolean);
+  if (result.status === 'error' || result.validation?.status === 'failed') {
+    return <Alert type="error" message="分析未完成，统计与原文暂不展示。" />;
+  }
+  if (result.status === 'unsupported') return <Alert type="info" message={result.answer || '当前查询能力不足，请调整问题。'} />;
   const overview = Object.values(result.results).find(item => item.kind === 'context');
   const titles = new Map(overview?.data.products?.map(product => [product.product_id, product.title]));
   const summary = overview?.data.summary;
   return <div className="results-stack spaced agent-results" aria-label="Agent 分析结果">
     <div className="section-heading"><h2>Agent 分析结果</h2><Tag>只读查询</Tag></div>
-    <Card title={result.status === 'unsupported' ? '当前问题需要调整' : '分析摘要'}>
+    <Card title="分析摘要">
       {result.status === 'ok' ? <ul className="agent-summary">{selected.map(item => <li key={item.result_id}>
         <a href={`#${idPrefix}-${item.result_id}`}>{sectionNames[item.kind]} [{item.result_id}]</a><span>{sectionSummary(item)}</span>
       </li>)}</ul> : <p className="agent-answer">{result.answer || '分析未完成，请查看任务错误和执行记录。'}</p>}

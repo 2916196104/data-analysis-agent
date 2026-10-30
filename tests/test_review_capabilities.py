@@ -8,11 +8,11 @@ from copy import deepcopy
 
 from test_agent import tools, final
 import test_review_agent as agent_fixture
-from test_review_workbench import WorkbenchFixture, IDENTITY
+from test_review_workbench import WorkbenchFixture, IDENTITY, opinion
 from data_analysis_agent.agents.review_tools import ReviewToolContext, create_review_registry
 from data_analysis_agent.agents.review_validation import validate_report
 from data_analysis_agent.reviews.analytics import (
-    get_aspect_trend, get_data_quality, get_rating_distribution, compare_time_windows,
+    get_aspect_trend, get_data_quality, get_positive_aspects, get_rating_distribution, compare_time_windows,
 )
 from data_analysis_agent.reviews.loader import SOURCE, DATASET_VERSION
 from data_analysis_agent.reviews.store import connect_review_database
@@ -95,6 +95,93 @@ class CapabilityTests(WorkbenchFixture, unittest.TestCase):
             registry = create_review_registry(ReviewToolContext(connection, scope, self.root, 30))
             self.assertEqual(registry.execute_tool("compare_time_windows", json.dumps(values)).to_dict()["status"], "success")
 
+    def test_positive_aspects_are_deduplicated_and_use_two_explicit_denominators(self):
+        before = hashlib.sha256(self.db.read_bytes()).hexdigest()
+        current_scope = {key: value for key, value in self.scope().items() if key not in ("baseline_from", "baseline_to")}
+        data = get_positive_aspects(self.db, **current_scope)
+        self.assertEqual(data["analysis_type"], "positive_aspects")
+        self.assertEqual(data["sentiment"], "positive")
+        self.assertEqual(data["data_status"], "ok")
+        self.assertEqual(data["summary"]["review_count"], 6)
+        self.assertEqual(data["summary"]["successful_reviews"], 3)
+        self.assertEqual(data["summary"]["positive_review_count"], 3)
+        self.assertGreater(sum(item["positive_review_count"] for item in data["aspects"]),
+                           data["summary"]["positive_review_count"])
+        self.assertEqual([item["aspect"] for item in data["aspects"][:4]],
+                         ["effectiveness", "logistics", "price", "quality"])
+        effectiveness = data["aspects"][0]
+        self.assertEqual(effectiveness["positive_review_count"], 2)
+        self.assertEqual(effectiveness["positive_rate_denominator"], 3)
+        self.assertEqual(effectiveness["positive_success_rate_denominator"], 3)
+        self.assertEqual(effectiveness["positive_rate"], 0.666667)
+        self.assertEqual(effectiveness["positive_success_rate"], 0.666667)
+        self.assertEqual(before, hashlib.sha256(self.db.read_bytes()).hexdigest())
+
+    def test_positive_aspects_honor_human_replacement(self):
+        self.save(rid=2, expected_revision_id=None, opinions=[opinion("service", "positive", "物流很快")])
+        data = get_positive_aspects(self.db, **{key: value for key, value in self.scope().items()
+                                                if key not in ("baseline_from", "baseline_to")})
+        counts = {item["aspect"]: item["positive_review_count"] for item in data["aspects"]}
+        self.assertEqual(counts["service"], 1)
+        self.assertEqual(counts["logistics"], 0)
+        self.assertEqual(counts["quality"], 0)
+        self.assertEqual(data["summary"]["positive_review_count"], 3)
+
+    def test_positive_aspects_zero_denominators_have_explicit_status(self):
+        empty_scope = {key: value for key, value in self.scope(date_from="2023-01-03", date_to="2023-01-03").items()
+                       if key not in ("baseline_from", "baseline_to")}
+        empty = get_positive_aspects(self.db, **empty_scope)
+        self.assertEqual(empty["data_status"], "insufficient_data")
+        self.assertEqual(empty["summary"]["successful_reviews"], 0)
+        self.assertTrue(all(item["positive_rate"] is None for item in empty["aspects"]))
+        for rid in (1, 2, 6):
+            self.save(rid=rid, expected_revision_id=None, opinions=[])
+        none = get_positive_aspects(self.db, **{key: value for key, value in self.scope().items()
+                                                if key not in ("baseline_from", "baseline_to")})
+        self.assertEqual(none["data_status"], "no_positive_mentions")
+        self.assertEqual(none["summary"]["positive_review_count"], 0)
+        self.assertTrue(all(item["positive_rate"] is None for item in none["aspects"]))
+
+    def test_positive_result_validation_rejects_wrong_count_semantics_and_scope(self):
+        current_scope = {key: value for key, value in self.scope().items() if key not in ("baseline_from", "baseline_to")}
+        data = get_positive_aspects(self.db, **current_scope)
+        result = {"r1": {"result_id": "r1", "kind": "positive_aspects", "parameters": {}, "data": data}}
+        self.assertEqual(validate_report(result, ["r1"], sentiment_intent="positive", expected_scope=self.scope())["status"], "passed")
+        changed = deepcopy(result)
+        changed["r1"]["data"]["aspects"][0]["positive_review_count"] = 99
+        self.assertEqual(validate_report(changed, ["r1"], sentiment_intent="positive", expected_scope=self.scope())["status"], "failed")
+        changed = deepcopy(result)
+        changed["r1"]["data"]["scope"]["dataset_version"] = "other"
+        self.assertEqual(validate_report(changed, ["r1"], sentiment_intent="positive", expected_scope=self.scope())["status"], "failed")
+        negative = get_aspect_trend(self.db, **self.scope())
+        negative_result = {"r1": {"result_id": "r1", "kind": "aspect_trend", "parameters": {}, "data": negative}}
+        self.assertEqual(validate_report(negative_result, ["r1"], sentiment_intent="positive")["status"], "failed")
+
+    def test_positive_tool_guard_rejects_negative_statistics(self):
+        with closing(connect_review_database(self.db, readonly=True)) as connection, connection:
+            connection.execute("BEGIN")
+            registry = create_review_registry(ReviewToolContext(
+                connection, self.scope(), self.root, 10, sentiment_intent="positive",
+            ))
+            rejected = registry.execute_tool("get_trend", json.dumps({"period": "month"})).to_dict()
+            self.assertEqual(rejected["status"], "error")
+            self.assertIn("get_positive_aspects", rejected["error"]["message"])
+            accepted = registry.execute_tool("get_positive_aspects", json.dumps({})).to_dict()
+            self.assertEqual(accepted["status"], "success")
+            self.assertEqual(accepted["data"]["kind"], "positive_aspects")
+
+    def test_negative_tool_guard_keeps_existing_negative_statistics(self):
+        with closing(connect_review_database(self.db, readonly=True)) as connection, connection:
+            connection.execute("BEGIN")
+            registry = create_review_registry(ReviewToolContext(
+                connection, self.scope(), self.root, 10, sentiment_intent="negative",
+            ))
+            rejected = registry.execute_tool("get_positive_aspects", json.dumps({})).to_dict()
+            self.assertEqual(rejected["status"], "error")
+            accepted = registry.execute_tool("get_aspect_trend", json.dumps({"period": "month"})).to_dict()
+            self.assertEqual(accepted["status"], "success")
+            self.assertEqual(accepted["data"]["kind"], "aspect_trend")
+
 
 class AgentCapabilityTests(WorkbenchFixture, unittest.TestCase):
     # 共享真实 SDK + 模拟模型的执行助手，避免重复整个历史回归测试类。
@@ -106,7 +193,8 @@ class AgentCapabilityTests(WorkbenchFixture, unittest.TestCase):
         before = hashlib.sha256(self.db.read_bytes()).hexdigest()
         result, _ = self.run_script([tools(("get_data_quality", {}), ("get_aspect_trend", {"aspect": "packaging"}),
                                           ("get_rating_distribution", {"group_by": "product"}), ("compare_time_windows", {})),
-                                     final("ok", "r1", "r2", "r3", "r4")])
+                                     final("ok", "r1", "r2", "r3", "r4")],
+                                    question="数据质量、包装按月趋势、星级分布、比较当前窗口与基线")
         self.assertEqual(result["status"], "ok", result)
         self.assertEqual(result["validation"]["status"], "passed")
         self.assertIn("缺失正文 1 条", result["answer"])

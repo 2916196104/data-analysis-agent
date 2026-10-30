@@ -44,7 +44,9 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
   const archivedState = useTask(active ? null : turn.taskId ?? null);
   const state = active ? chat.activeState : archivedState;
   const task = state.id === turn.taskId ? state.task : null;
-  const result = task?.result?.agent === true ? task.result as unknown as AgentResult : undefined;
+  const savedResult = task?.result?.agent === true ? task.result as unknown as AgentResult : undefined;
+  const result = task?.status === 'succeeded' && !task.error && savedResult
+    && ['ok', 'unsupported'].includes(savedResult.status) && savedResult.validation?.status !== 'failed' ? savedResult : undefined;
   const [detail, setDetail] = useState<{ value: unknown; title: string }>();
   return <MessageFrame turn={turn}>
         <section className="chat-turn-scope" aria-label="本次问题的固定范围"><strong>本次查询范围</strong>
@@ -77,6 +79,9 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
         {state.error && <Alert type="error" showIcon message="任务连接异常" description={state.error} action={<Button onClick={state.refresh}>重新连接</Button>} />}
         {task && isActive(task.status) && <div className="chat-status" role="status"><Spin size="small" /> {stageLabels[task.progress.stage] || '正在分析…'}</div>}
         {task?.error && <Alert type="error" showIcon message={task.error.message} description={<details><summary>错误详情</summary>{task.error.code}</details>} />}
+        {task?.status === 'partial' && <Alert type="warning" showIcon message="任务部分完成" description="完整回答尚未确认，统计与原文暂不展示。可以重试任务。" />}
+        {task?.status === 'failed' && <p role="status">分析未完成，未发布统计与原文。请重试任务。</p>}
+        {task?.status === 'succeeded' && savedResult && !result && <Alert type="error" message="分析结果未通过校验，未发布回答。" />}
         {chat.errors[turn.id] && turn.taskId && <Alert type="error" showIcon message="重试未完成" description={chat.errors[turn.id]} />}
         {task && canRetry(task.status) && <Button className="spaced" loading={active && chat.posting} disabled={chat.pending} onClick={() => void chat.retry(turn)}>重试任务</Button>}
         {result && <>
@@ -86,7 +91,7 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
             <AgentResults result={result} idPrefix={`agent-${turn.id}`} onDetail={(value, title) => setDetail({ value, title })} onPrepare={products => onPrepare(result, products)} />
           </details>
         </>}
-        {detail && <section className="chat-inline-detail" aria-label="数据详情">
+        {result && detail && <section className="chat-inline-detail" aria-label="数据详情">
           <h3>{detail.title}</h3><Space wrap><Button aria-label="关闭数据详情" onClick={() => setDetail(undefined)}>关闭详情</Button><Button onClick={() => exportResult(detail.value, 'agent-detail')}>下载 JSON</Button></Space>
           <pre className="json-view">{JSON.stringify(detail.value, null, 2)}</pre>
         </section>}

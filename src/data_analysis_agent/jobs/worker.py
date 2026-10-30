@@ -244,7 +244,14 @@ class TaskWorker:
                     parameters.pop("rules")
                     result = run_review_agent(self.business_db, question, scope=parameters,
                                               settings=settings, progress=report_progress)
-                    if result["status"] == "error":
+                    if result.get("status") not in ("ok", "unsupported") or (
+                        result.get("validation", {}).get("status") == "failed"
+                    ):
+                        result["status"] = "error"
+                        result.setdefault("error", {"code": "agent_error", "message": "分析结果未通过校验，请重试。"})
+                        # 部分工具结果保留用于排障；未经确认的正文不发布。
+                        result.pop("answer", None)
+                        result.pop("answer_sections", None)
                         finish_task(self.task_db, task["task_id"], self.worker_id,
                                     status="failed", result=result, error=result["error"])
                         logger.warning("任务失败 task_id=%s kind=analysis error_code=%s 耗时=%.2fs",

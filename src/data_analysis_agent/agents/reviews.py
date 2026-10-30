@@ -6,8 +6,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import perf_counter
 
-from data_analysis_agent.agents.review_prompts import PROMPT_VERSION, SYSTEM_PROMPT
+from data_analysis_agent.agents.review_prompts import PROMPT_VERSION, SYSTEM_PROMPT, detect_sentiment_intent
 from data_analysis_agent.agents.review_validation import result_summaries, validate_report
+from data_analysis_agent.agents.review_plan import build_query_plan
 from data_analysis_agent.agents.runtime import (
     AgentExecutionError, FinalResponseFormatError, build_agent, execution_failure, create_llm, validate_final_result,
 )
@@ -26,6 +27,8 @@ def grounded_answer(status, results):
     if status == "unsupported":
         return "当前问题超出所选范围或可用分析能力。可查询数据质量、整体或维度趋势、星级分布、商品或时间窗口对比及原文证据；扩大日期请先切换范围，原因判断需要额外业务证据。"
     parts = []
+    if any(item["kind"] == "positive_aspects" for item in results):
+        results = [item for item in results if item["kind"] != "context"]
     for result in results:
         data, reference = result["data"], f"[{result['result_id']}]"
         kind = result["kind"]
@@ -77,6 +80,21 @@ def grounded_answer(status, results):
                 parts.append(f"{reference} {row['group']}：有效星级 {row['rated_reviews']} 条，缺失 {row['missing_rating_reviews']} 条，"
                              f"其他评分 {row['other_rating_reviews']} 条；" + "；".join(
                                  f"{star['star']} 星 {star['review_count']} 条（{_rate(star['rate'])}）" for star in row["stars"]))
+        elif kind == "positive_aspects":
+            summary = data["summary"]
+            if data["data_status"] == "insufficient_data":
+                parts.append(f"{reference} 正向维度分析数据不足：范围共 {summary['review_count']} 条评论，成功标注 0 条，无法计算正向观点占比。")
+            elif data["data_status"] == "no_positive_mentions":
+                parts.append(f"{reference} 共 {summary['successful_reviews']} 条成功标注评论，但没有 sentiment=positive 的有效观点，正向维度占比均为暂无数据。")
+            else:
+                ranked = [item for item in data["aspects"] if item["positive_review_count"] > 0]
+                details = "；".join(
+                    f"{item['aspect_label']} {item['positive_review_count']} 条"
+                    f"（{_rate(item['positive_rate'])}，分母为正向观点评论 {item['positive_rate_denominator']} 条；"
+                    f"占成功标注 {_rate(item['positive_success_rate'])}）" for item in ranked[:3])
+                parts.append(f"{reference} 正向维度统计：范围共 {summary['review_count']} 条评论，成功标注 {summary['successful_reviews']} 条，"
+                             f"至少包含一个正向观点的评论 {summary['positive_review_count']} 条；主要方面：{details}。"
+                             "各维度按评论 ID 去重，同一评论可计入多个维度。")
         elif kind == "evidence":
             parts.append(f"{reference} 找到 {data['total']} 条匹配证据，本页展示 {len(data['items'])} 条。")
             for item in data["items"]:
@@ -86,10 +104,17 @@ def grounded_answer(status, results):
     return "\n\n".join(parts)
 
 
+class UnsupportedReviewQuery(ValueError):
+    """明确不支持的任务在模型调用前结束，不发布替代方向的统计。"""
+
+
 def run_review_agent(db, question, *, scope, settings, progress=None):
     """模型仅选择只读工具及结果引用；所有数字和引文由代码整理。"""
     started = perf_counter()
+    sentiment_intent = detect_sentiment_intent(question)
+    analysis_intent = {"positive": "positive_aspects", "negative": "negative_aspects"}.get(sentiment_intent)
     result = {"agent": True, "status": "error", "question": question, "snapshot_at": utc_now(),
+              "sentiment_intent": sentiment_intent, "analysis_intent": analysis_intent,
               "agent_model_identity": {"model": settings.model, "base_url": settings.base_url,
                                        "prompt_version": PROMPT_VERSION}}
     context, agent, llm = None, None, None
@@ -111,15 +136,22 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
         if not scope["source"] or not scope["dataset_version"]:
             raise ReviewDataError("请选择明确的数据来源和数据集版本。")
         result["scope"] = scope
+        plan = build_query_plan(question, scope)
+        sentiment_intent = plan.sentiment
+        result.update(query_plan=plan.to_dict(), sentiment_intent=sentiment_intent,
+                      analysis_intent=plan.analysis_type)
+        if plan.unsupported_reason:
+            raise UnsupportedReviewQuery(plan.unsupported_reason)
         from data_analysis_agent.agents.review_tools import ReviewToolContext, create_review_registry
 
         with TemporaryDirectory(prefix="review-agent-") as temporary, closing(
             connect_review_database(db, readonly=True)
         ) as connection, connection:
             connection.execute("BEGIN")
-            context = ReviewToolContext(connection, scope, Path(temporary), settings.max_tool_calls, report)
+            context = ReviewToolContext(connection, scope, Path(temporary), settings.max_tool_calls, report,
+                                        sentiment_intent=sentiment_intent, query_plan=plan)
             registry = create_review_registry(context)
-            overview = registry.execute_tool("get_analysis_context", "{}")
+            overview = registry.execute_tool("get_analysis_context", "{}", automatic=True)
             if "overview" not in context.results:
                 raise ReviewDataError("无法读取当前评论范围，请检查标注表和数据集。")
             with create_llm(settings) as llm:
@@ -133,7 +165,9 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
                             "total": None, "unit": "tools"})
 
                 # 查询请求独立于不可信业务上下文，避免被当作待分析的数据而忽略。
-                prompt = question + "\n\n<bound_context>\n" + json.dumps(overview.to_dict()["data"], ensure_ascii=False) + "\n</bound_context>"
+                prompt = (question + "\n\n<bound_context>\n"
+                          + json.dumps(overview.to_dict()["data"], ensure_ascii=False) + "\n</bound_context>"
+                          + "\n<query_plan>\n" + json.dumps(plan.to_dict(), ensure_ascii=False) + "\n</query_plan>")
                 for attempt in range(2):
                     try:
                         text = agent.run(prompt, on_step=record_step)
@@ -148,6 +182,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
                         raise AgentExecutionError("模型达到调用或输出上限，任务未确认完成。")
                     try:
                         status, ids = validate_final_result(text, context)
+                        if status == "unsupported" and ids != ["overview"]:
+                            raise AgentExecutionError("能力不足的答复不能发布未校验的统计结果。")
                         if status == "ok":
                             unresolved = set()
                             for event in context.trace:
@@ -167,7 +203,15 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
                         prompt = "请只纠正最终 JSON 格式，不重复执行成功工具。只输出 status 和 result_ids，已有结果 ID：" + json.dumps(list(context.results))
                 selected = [context.get_result(value) for value in ids]
                 if status == "ok":
-                    result["validation"] = validate_report(context.results, ids)
+                    result["validation"] = validate_report(
+                        context.results, ids, sentiment_intent=sentiment_intent, query_plan=plan,
+                        expected_scopes={key: (scope if key == "overview" else {
+                            **context.query_scope(item["parameters"].get("product_ids", []),
+                                                  baseline=item["parameters"].get("window") == "baseline"),
+                            **{k: v for k, v in item["parameters"].items()
+                               if k in ("date_from", "date_to") and v is not None},
+                        }) for key, item in context.results.items()},
+                    )
                     if result["validation"]["status"] != "passed":
                         raise AgentExecutionError("统计或引用校验未通过，请检查执行记录。")
                     result["answer_sections"] = [
@@ -180,6 +224,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
             if any(item["successful_reviews"] < 20 or (item["labeling_coverage"] or 0) < 0.8 for item in summaries):
                 warnings.append("部分范围成功标注少于 20 条或覆盖率低于 80%，结论仅描述已有样本，请谨慎解释。")
             result["warnings"] = warnings
+    except UnsupportedReviewQuery as exc:
+        result.update(status="unsupported", answer=str(exc), result_ids=[])
     except Exception as exc:
         if progress_error is not None:
             raise progress_error
@@ -187,6 +233,9 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
         result.update(status="error", error={"code": code, "message": message})
     finally:
         result.update(results=context.results if context else {}, trace=context.trace if context else [],
+                      model_tool_attempts=context.model_tool_attempts if context else 0,
+                      cache_hits=context.cache_hits if context else 0,
+                      query_executions=context.query_executions if context else 0,
                       tool_calls=context.tool_calls if context else 0, model_calls=llm.budget.calls if llm else 0,
                       model_responses=model_responses, usage=usage or None,
                       elapsed_seconds=round(perf_counter() - started, 3))

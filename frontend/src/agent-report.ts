@@ -16,6 +16,7 @@ export function sampleState(row: Summary): { label: string; color?: string; reas
 export function sectionSummary(item: AgentToolResult): string {
   const data = item.data;
   switch (item.kind) {
+    case 'positive_aspects': return `正向维度：${item.data.summary.positive_review_count} 条正向观点评论；维度占比以正向观点评论数为分母。`;
     case 'quality': return `缺失正文 ${item.data.summary.empty_text_reviews ?? 0} 条，失败标注 ${item.data.summary.failed_reviews} 条，待标注 ${item.data.summary.unprocessed_reviews} 条。`;
     case 'aspect_trend': return `按${item.data.period === 'day' ? '日' : '月'}查看 ${Object.values(item.data.aspects).join('、')}，共 ${item.data.buckets.length} 个时间段。`;
     case 'ratings': return `按${{ product: '商品', month: '月份', all: '总体' }[item.data.group_by]}汇总 ${item.data.groups.length} 组原始星级；占比分母为有效 1–5 整数星级评论。`;

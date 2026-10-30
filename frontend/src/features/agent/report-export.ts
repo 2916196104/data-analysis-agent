@@ -14,6 +14,9 @@ const summaryTable = (rows: [string, Summary][]) => table(
 
 function statistics(item: AgentToolResult): string {
   switch (item.kind) {
+    case 'positive_aspects': return table(['维度', '正面提及评论数', '正向观点评论（分母）', '正向提及占比', '成功标注（分母）', '占成功标注比例'],
+      item.data.aspects.map(row => [row.aspect_label, row.positive_review_count, row.positive_rate_denominator,
+        percent(row.positive_rate), row.positive_success_rate_denominator, percent(row.positive_success_rate)]));
     case 'context': return summaryTable([['查询范围', item.data.summary]]);
     case 'quality': return summaryTable([['查询范围', item.data.summary]]) + '\n\n' + table(['文件 SHA-256', '评论数'],
       item.data.sources.map(row => [row.file_sha256, row.review_count]));
@@ -55,6 +58,7 @@ export function buildAgentReport(result: AgentResult, taskId?: string): string {
     '## 分析结论\n\n' + (result.answer || '未生成结论。').split('\n').map(clean).join('\n'),
     '## 统计口径与来源\n\n统计由 Python 计算，本报告只格式化已保存结果，不重新查询数据。'
       + '负面占比 = 去重负面评论数 / 成功标注评论数；覆盖率 = 成功标注数 / 有效正文数。'
+      + '正向维度提及占比以至少一个正向观点的评论数为分母；占成功标注比例另列，两者不可混用。'
       + '星级来自原始评分，以有效 1–5 整数星级评论为分母；缺失和其他评分不推断。空分母记为 —。'
       + '人工复核使用查询时最新快照；截止时间仅限制评论发布时间。子查询实际范围、定义及参数保存在附录。'
       + '文件指纹来自数据质量或原文证据查询；未查询原文时不补造引文。',

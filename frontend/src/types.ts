@@ -185,6 +185,11 @@ export interface RatingGroup {
   missing_rating_reviews: number; other_rating_reviews: number;
   stars: { star: number; review_count: number; rate: number | null }[];
 }
+export interface PositiveAspect {
+  rank: number; aspect: string; aspect_label: string; positive_review_count: number;
+  positive_rate: number | null; positive_success_rate: number | null;
+  positive_rate_denominator: number; positive_success_rate_denominator: number;
+}
 export type AgentToolResult = { result_id: string; parameters: Record<string, unknown> } & (
   { kind: 'context'; data: { summary: Summary; products?: { product_id: string; title: string | null }[] } }
   | { kind: 'trend'; data: { period: string; summary: Summary; buckets: (Summary & { bucket: string })[] } }
@@ -196,6 +201,9 @@ export type AgentToolResult = { result_id: string; parameters: Record<string, un
   | { kind: 'aspect_trend'; data: { scope: AnalysisScope; period: string; aspects: Record<string, string>;
       summary: AspectSummary; buckets: (AspectSummary & { bucket: string })[] } }
   | { kind: 'ratings'; data: { scope: AnalysisScope; group_by: 'product' | 'month' | 'all'; groups: RatingGroup[] } }
+  | { kind: 'positive_aspects'; data: { analysis_type: 'positive_aspects'; sentiment: 'positive';
+      data_status: 'ok' | 'no_positive_mentions' | 'insufficient_data'; scope: AnalysisScope;
+      summary: Summary & { positive_review_count: number }; aspects: PositiveAspect[] } }
   | { kind: 'window_comparison'; data: { scope: AnalysisScope; baseline_scope: AnalysisScope;
       current: Summary; baseline: Summary; current_days: number; baseline_days: number;
       changes: Record<string, number | null>; issues: Issue[] } }
@@ -215,6 +223,9 @@ export interface AgentResult {
   validation?: { status: 'passed' | 'failed'; checks: { name: string; passed: boolean; detail: string }[] };
   model_calls: number;
   tool_calls: number;
+  model_tool_attempts?: number;
+  cache_hits?: number;
+  query_executions?: number;
   elapsed_seconds: number;
   trace: { event: string; tool?: string; status?: string; elapsed_ms?: number; result_id?: string }[];
 }

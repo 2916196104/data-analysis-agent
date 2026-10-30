@@ -19,6 +19,8 @@ DEFINITIONS = {
     "count_unit": "distinct_reviews",
     "labeling_coverage_denominator": "eligible_text_reviews",
     "negative_rate_denominator": "successful_reviews",
+    "positive_aspect_rate_denominator": "positive_review_count",
+    "positive_success_rate_denominator": "successful_reviews",
     "rate_unit": "fraction_0_to_1",
     "human_policy": "latest_snapshot",
     "as_of_field": "published_at",
@@ -52,7 +54,7 @@ def count_rate(count: int, denominator: int) -> float | None:
     return _rounded(Decimal(count) / denominator)
 
 
-def _summary(row: Any = None) -> dict[str, Any]:
+def _summary(row: Any = None, *, include_positive: bool = False) -> dict[str, Any]:
     raw = dict(row) if row is not None else {}
     count_fields = (
         "review_count", "eligible_text_reviews", "successful_reviews", "failed_reviews",
@@ -62,6 +64,9 @@ def _summary(row: Any = None) -> dict[str, Any]:
     result = {name: raw.get(name, 0) for name in count_fields}
     result["labeling_coverage"] = count_rate(result["successful_reviews"], result["eligible_text_reviews"])
     result["negative_rate"] = count_rate(result["negative_review_count"], result["successful_reviews"])
+    if include_positive:
+        result["positive_review_count"] = raw.get("positive_review_count", 0)
+        result["positive_rate"] = count_rate(result["positive_review_count"], result["successful_reviews"])
     result["aspects"] = {}
     for aspect in ASPECTS:
         negative_count = raw.get("negative_" + aspect, 0)
@@ -69,6 +74,13 @@ def _summary(row: Any = None) -> dict[str, Any]:
             "negative_review_count": negative_count,
             "negative_rate": count_rate(negative_count, result["successful_reviews"]),
         }
+        if include_positive:
+            positive_count = raw.get("positive_" + aspect, 0)
+            result["aspects"][aspect].update(
+                positive_review_count=positive_count,
+                positive_rate=count_rate(positive_count, result["positive_review_count"]),
+                positive_success_rate=count_rate(positive_count, result["successful_reviews"]),
+            )
     return result
 
 
@@ -100,7 +112,9 @@ def _summaries(
         ("empty_text_reviews", "c.processing_status='empty'"),
         ("reviewed_reviews", "c.revision_id IS NOT NULL"),
         ("negative_review_count", "o.sentiment='negative'"),
+        ("positive_review_count", "o.sentiment='positive'"),
         *(("negative_" + aspect, f"o.sentiment='negative' AND o.aspect='{aspect}'") for aspect in ASPECTS),
+        *(("positive_" + aspect, f"o.sentiment='positive' AND o.aspect='{aspect}'") for aspect in ASPECTS),
     ):
         columns.append(f"COUNT(DISTINCT CASE WHEN {condition} THEN c.id END) {name}")
     cte, parameters = current_reviews_sql(connection, identity)
@@ -175,6 +189,76 @@ def get_trend(
             {"bucket": key, **(grouped[key] if key in grouped else _summary())}
             for key in keys
         ],
+    }
+
+
+def get_positive_aspects(
+    db_path: str,
+    *,
+    model: str,
+    base_url: str,
+    prompt_version: str,
+    date_from: str,
+    date_to: str,
+    product_ids: list[str] | None = None,
+    as_of: str | None = None,
+    source: str | None = None,
+    dataset_version: str | None = None,
+) -> dict[str, Any]:
+    """按正向观点统计六个业务维度；所有计数均按评论 ID 去重。"""
+    identity, where, filters, scope = analysis_scope(
+        model=model, base_url=base_url, prompt_version=prompt_version,
+        date_from=date_from, date_to=date_to, product_ids=product_ids,
+        as_of=as_of, source=source, dataset_version=dataset_version,
+    )
+    with _snapshot(db_path) as connection:
+        summary = _summary(_summaries(connection, identity, where, filters)[0], include_positive=True)
+
+    positive_review_count = summary["positive_review_count"]
+    successful_reviews = summary["successful_reviews"]
+    ranked = sorted(
+        ASPECTS,
+        key=lambda aspect: (-summary["aspects"][aspect]["positive_review_count"], aspect),
+    )
+    aspects = []
+    for rank, aspect in enumerate(ranked, 1):
+        positive_count = summary["aspects"][aspect]["positive_review_count"]
+        aspects.append({
+            "rank": rank,
+            "aspect": aspect,
+            "aspect_label": ASPECTS[aspect],
+            "positive_review_count": positive_count,
+            "positive_rate": count_rate(positive_count, positive_review_count),
+            "positive_success_rate": count_rate(positive_count, successful_reviews),
+            "positive_rate_denominator": positive_review_count,
+            "positive_success_rate_denominator": successful_reviews,
+        })
+
+    if successful_reviews == 0:
+        data_status = "insufficient_data"
+    elif positive_review_count == 0:
+        data_status = "no_positive_mentions"
+    else:
+        data_status = "ok"
+    return {
+        "analysis_type": "positive_aspects",
+        "sentiment": "positive",
+        "data_status": data_status,
+        "scope": scope,
+        "definitions": {
+            **DEFINITIONS,
+            "positive_count_unit": "distinct_reviews_with_positive_opinion",
+            "positive_aspect_rate_denominator": "positive_review_count",
+            "positive_success_rate_denominator": "successful_reviews",
+        },
+        "summary": summary,
+        "sample_size": {
+            "review_count": summary["review_count"],
+            "eligible_text_reviews": summary["eligible_text_reviews"],
+            "successful_reviews": successful_reviews,
+            "positive_review_count": positive_review_count,
+        },
+        "aspects": aspects,
     }
 
 

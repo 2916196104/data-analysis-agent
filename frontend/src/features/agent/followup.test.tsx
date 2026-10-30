@@ -42,13 +42,15 @@ describe('追问解析使用真实查询参数', () => {
     expect(monthly.query.queries?.[0].parameters).toMatchObject({ aspect: 'logistics', period: 'month', product_ids: ['A'] });
     const original = resolveQuery('继续查原文', scope, parent(logistics));
     expect(original.query.queries?.[0]).toEqual({ kind: 'evidence', parameters: {
-      aspect: 'logistics', product_ids: ['A'], sentiment: 'negative', window: 'current', page: 1, page_size: 5,
+      aspect: 'logistics', product_ids: ['A'], sentiment: 'negative', window: 'current', page: 1, page_size: 3,
     } });
     expect(original.query.parentTaskId).toBe('task-1');
     expect(logistics.parameters.period).toBe('day');
   });
 
   it('继续原文翻页保留基线和情感，到末页停止而不是重复查询', () => {
+    const nextExplicit = resolveQuery('继续查看下一页', scope, parent(evidence()));
+    expect(nextExplicit.query.queries?.[0].parameters).toEqual({ ...evidence().parameters, page: 2 });
     const next = resolveQuery('继续查原文', scope, parent(evidence()));
     expect(next.query.queries?.[0].parameters).toEqual({ ...evidence().parameters, page: 2 });
     expect(resolveQuery('下一页', scope, parent(evidence(3))).clarification?.message).toContain('最后一页');

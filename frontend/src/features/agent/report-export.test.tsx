@@ -56,6 +56,27 @@ it('数据质量与星级表保留不同分母，缺失评分显示空占比', (
   expect(screen.getByText('有效星级（分母）', { selector: 'thead th' })).toBeTruthy();
 });
 
+it('正向维度展示两个独立分母，零分母显示无数据，Markdown 保留正向字段', () => {
+  const positive: AgentToolResult = { result_id: 'p', kind: 'positive_aspects', parameters: {}, data: {
+    analysis_type: 'positive_aspects', sentiment: 'positive', data_status: 'ok', scope,
+    summary: { ...summary, successful_reviews: 5, positive_review_count: 2 }, aspects: [{ rank: 1, aspect: 'quality', aspect_label: '商品质量',
+      positive_review_count: 1, positive_rate: 0.5, positive_success_rate: 0.2,
+      positive_rate_denominator: 2, positive_success_rate_denominator: 5 }],
+  } };
+  const { rerender } = render(<ExtendedResults item={positive} />);
+  expect(screen.getByText('商品质量')).toBeTruthy();
+  expect(screen.getByText('50.0%')).toBeTruthy();
+  expect(screen.getByText('20.0%')).toBeTruthy();
+  expect(screen.getByText('分母 2 条正向观点评论')).toBeTruthy();
+  expect(screen.getByText('分母 5 条成功标注')).toBeTruthy();
+  expect(buildAgentReport({ ...result, results: { p: positive }, result_ids: ['p'] })).toContain('| 商品质量 | 1 | 2 | 50.0% | 5 | 20.0% |');
+  rerender(<ExtendedResults item={{ ...positive, data: { ...positive.data, data_status: 'insufficient_data',
+    aspects: [{ ...positive.data.aspects[0], positive_review_count: 0, positive_rate: null, positive_success_rate: null,
+      positive_rate_denominator: 0, positive_success_rate_denominator: 0 }] } }} />);
+  expect(screen.getAllByText('无数据')).toHaveLength(2);
+  expect(screen.queryByText('0.0%')).toBeNull();
+});
+
 it('维度趋势呈现月份和分母，窗口表使用后端给出的百分点', () => {
   const trend: AgentToolResult = { result_id: 'a', kind: 'aspect_trend', parameters: {}, data: { scope, period: 'month',
     aspects: { packaging: '包装' }, summary: { ...summary, aspects: {} }, buckets: [{ ...summary, bucket: '2023-02',

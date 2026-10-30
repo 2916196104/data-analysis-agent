@@ -119,8 +119,42 @@ describe('AI 聊天提交与恢复', () => {
     const hook = renderHook(() => useAgentChat());
     await act(async () => { await hook.result.current.send(parameters, '问题'); });
     render(<ChatMessage turn={hook.result.current.session.turns[0]} chat={hook.result.current} onPrepare={vi.fn()} />);
-    expect(screen.getByText('查询未完成，请查看任务错误与执行记录。')).toBeTruthy();
+    expect(screen.getByText('分析未完成，未发布统计与原文。请重试任务。')).toBeTruthy();
     expect(screen.queryByText('查询结果已保存，可展开统计依据与原文证据查看结果。')).toBeNull();
+  });
+  it.each(['failed', 'partial', 'running', 'invalid'] as const)('%s 结果隐藏正文、证据与导出，保留失败/部分任务重试', async status => {
+    const task: Task = { ...savedTask('unsafe'), status: status === 'invalid' ? 'succeeded' : status,
+      result: { agent: true, status: status === 'invalid' ? 'ok' : 'error', answer: '未经确认的统计结论',
+        validation: { status: 'failed', checks: [] }, scope: parameters, result_ids: ['r1'], results: {
+          r1: { kind: 'evidence', data: { total: 1, items: [{ text: '未校验原文' }] } },
+        } }, error: status === 'failed' ? { code: 'timeout', message: '模型调用超时' } : null };
+    vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id ? task : null, refresh: vi.fn() }));
+    vi.spyOn(api, 'submit').mockResolvedValue({ task, reused: false });
+    const retry = vi.spyOn(api, 'retry').mockResolvedValue({ task: savedTask('retry'), reused: false });
+    const hook = renderHook(() => useAgentChat());
+    await act(async () => { await hook.result.current.send(parameters, '分析'); });
+    render(<ChatMessage turn={hook.result.current.session.turns[0]} chat={hook.result.current} onPrepare={vi.fn()} />);
+    expect(screen.queryByText('未经确认的统计结论')).toBeNull();
+    expect(screen.queryByText('未校验原文')).toBeNull();
+    expect(screen.queryByRole('button', { name: '导出分析报告' })).toBeNull();
+    if (status === 'failed' || status === 'partial') {
+      fireEvent.click(screen.getByRole('button', { name: '重试任务' }));
+      await waitFor(() => expect(retry).toHaveBeenCalledWith('unsafe', expect.any(String)));
+    }
+    if (status === 'partial') expect(screen.getByText('任务部分完成')).toBeTruthy();
+    if (status === 'failed') expect(screen.getByText('模型调用超时')).toBeTruthy();
+  });
+
+  it('历史成功任务无新版校验字段时仍显示已保存回答', async () => {
+    const task: Task = { ...savedTask('old'), result: { agent: true, status: 'ok', answer: '历史成功回答',
+      scope: parameters, result_ids: [], results: {}, trace: [], elapsed_seconds: 1, tool_calls: 1, model_calls: 1 } };
+    vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id ? task : null, refresh: vi.fn() }));
+    vi.spyOn(api, 'submit').mockResolvedValue({ task, reused: false });
+    const hook = renderHook(() => useAgentChat());
+    await act(async () => { await hook.result.current.send(parameters, '分析'); });
+    render(<ChatMessage turn={hook.result.current.session.turns[0]} chat={hook.result.current} onPrepare={vi.fn()} />);
+    expect(screen.getByText('历史成功回答')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '导出分析报告' })).toBeTruthy();
   });
 });
 

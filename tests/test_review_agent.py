@@ -16,6 +16,7 @@ from openai import OpenAI
 from test_agent import SETTINGS, completion, final, tools
 from test_review_workbench import IDENTITY, WorkbenchFixture
 from data_analysis_agent.agents.reviews import run_review_agent
+from data_analysis_agent.agents.review_prompts import detect_sentiment_intent
 from data_analysis_agent.agents.review_validation import validate_report
 from data_analysis_agent.agents.review_tools import ReviewToolContext, create_review_registry
 from data_analysis_agent.api.app import create_app
@@ -39,9 +40,10 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
         def handler(request):
             body = json.loads(request.content)
             requests.append(body)
+            user_prompt = next(item["content"] for item in requests[0]["messages"] if item["role"] == "user")
+            plan = json.loads(user_prompt.split("<query_plan>\n")[1].split("\n</query_plan>")[0])
             self.assertEqual({item["function"]["name"] for item in body["tools"]},
-                             {"get_analysis_context", "get_trend", "compare_products", "get_top_issues", "get_evidence",
-                              "get_data_quality", "get_aspect_trend", "get_rating_distribution", "compare_time_windows"})
+                             {"get_analysis_context", *plan["required_tools"], *plan["optional_tools"]})
             item = next(sequence)
             if isinstance(item, Exception):
                 raise item
@@ -64,7 +66,7 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
             tools(("get_trend", {"period": "day"}), ("compare_products", {}),
                   ("get_evidence", {"aspect": "packaging", "sentiment": "negative"})),
             final("ok", "r1", "r2", "r3"),
-        ])
+        ], question="按日查看整体趋势、商品对比、包装原文")
         self.assertEqual(result["status"], "ok", result)
         self.assertEqual(len(requests), 2)
         self.assertEqual(result["results"]["r1"]["data"]["summary"]["review_count"], 6)
@@ -136,6 +138,47 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(prompt.split("\n\n<bound_context>")[0], question)
         self.assertEqual(json.loads(prompt.split("<bound_context>\n")[1].split("\n</bound_context>")[0])["result_id"], "overview")
 
+    def test_sentiment_intent_handles_positive_negative_and_correction(self):
+        self.assertEqual(detect_sentiment_intent("美的空调好评主要集中在哪些方面？"), "positive")
+        self.assertEqual(detect_sentiment_intent("哪些方面存在问题和投诉？"), "negative")
+        self.assertEqual(detect_sentiment_intent("不是问差评，我想知道好评"), "positive")
+        self.assertIsNone(detect_sentiment_intent("好评和差评分别是什么？"))
+        self.assertIsNone(detect_sentiment_intent("按月查看包装趋势"))
+
+    def test_positive_question_requires_positive_tool_and_uses_positive_answer(self):
+        result, requests = self.run_script(
+            [tools(("get_positive_aspects", {})), final("ok", "r1")],
+            question="美的空调好评主要集中在哪些方面？",
+        )
+        self.assertEqual(result["status"], "ok", result)
+        self.assertEqual(result["sentiment_intent"], "positive")
+        self.assertEqual(result["analysis_intent"], "positive_aspects")
+        self.assertEqual(result["results"]["r1"]["kind"], "positive_aspects")
+        self.assertIn("正向维度统计", result["answer"])
+        self.assertNotIn("负面占比", result["answer"])
+        self.assertEqual(len(requests), 2)
+
+    def test_positive_question_rejects_negative_tool_result(self):
+        result, _ = self.run_script(
+            [tools(("get_trend", {"period": "month"})), final("ok", "r1")],
+            question="不是问差评，我想知道好评",
+        )
+        self.assertEqual(result["status"], "error", result)
+        self.assertNotIn("answer", result)
+
+    def test_model_timeout_after_successful_tools_preserves_only_diagnostics(self):
+        result, requests = self.run_script(
+            [tools(("get_positive_aspects", {})), httpx.ReadTimeout("simulated timeout")],
+            question="好评主要集中在哪些方面？", settings=replace(SETTINGS, max_retries=0),
+        )
+        self.assertEqual(result["status"], "error", result)
+        self.assertEqual(result["error"]["code"], "timeout")
+        self.assertIn("r1", result["results"])
+        self.assertNotIn("answer", result)
+        self.assertEqual(result["query_executions"], 2)
+        self.assertEqual(result["model_tool_attempts"], 1)
+        self.assertEqual(len(requests), 2)
+
     def test_unlabeled_failed_empty_and_zero_negative_are_distinct(self):
         cases = [("2023-01-05", "P2", "unprocessed_reviews"),
                  ("2023-01-03", "P1", "failed_reviews"),
@@ -143,31 +186,31 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
         for day, product, count_field in cases:
             with self.subTest(count_field=count_field):
                 result, _ = self.run_script([tools(("compare_products", {})), final("ok", "r1")],
-                                           scope=self.scope(date_from=day, date_to=day, product_ids=[product]))
+                                           scope=self.scope(date_from=day, date_to=day, product_ids=[product]), question="商品对比")
                 row = result["results"]["r1"]["data"]["products"][0]
                 self.assertEqual(row[count_field], 1)
                 self.assertIsNone(row["negative_rate"])
                 self.assertEqual(result["validation"]["status"], "passed", result)
         result, _ = self.run_script([tools(("compare_products", {})), final("ok", "r1")],
-                                   scope=self.scope(product_ids=["P3"]))
+                                   scope=self.scope(product_ids=["P3"]), question="商品对比")
         self.assertEqual(result["results"]["r1"]["data"]["products"][0]["negative_rate"], 0)
         self.assertIn("1 款可计算", result["answer"])
         self.assertLess(len(result["answer"]), 200)
 
     def test_annotation_version_and_no_reviews_are_not_silently_omitted(self):
         result, _ = self.run_script([tools(("compare_products", {})), final("ok", "r1")],
-                                   scope=self.scope(model="another-annotation-version"))
+                                   scope=self.scope(model="another-annotation-version"), question="商品对比")
         self.assertEqual(result["results"]["overview"]["data"]["summary"]["successful_reviews"], 0)
         self.assertEqual(result["validation"]["status"], "passed", result)
         self.assertIn("3 款暂无成功标注", result["answer"])
         result, _ = self.run_script([tools(("compare_products", {})), final("ok", "r1")],
-                                   scope=self.scope(date_from="2024-01-01", date_to="2024-01-02"))
+                                   scope=self.scope(date_from="2024-01-01", date_to="2024-01-02"), question="商品对比")
         self.assertEqual(result["results"]["r1"]["data"]["no_reviews_product_ids"], ["P1", "P2", "P3"])
 
     def test_report_rejects_wrong_numbers_coverage_quotes_and_omitted_references(self):
         result, _ = self.run_script([
             tools(("get_trend", {}), ("get_evidence", {"aspect": "packaging"}), ("get_top_issues", {})),
-            final("ok", "r1", "r2", "r3")])
+            final("ok", "r1", "r2", "r3")], question="查看整体趋势、包装原文、六维度主要问题")
         self.assertEqual(result["validation"]["status"], "passed", result)
         for path, value in [
             (("r1", "data", "summary", "negative_rate"), 0.99),
@@ -188,7 +231,7 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
 
     def test_human_effective_opinions_and_empty_evidence_are_preserved(self):
         self.save(opinions=[], expected_revision_id=None)
-        result, _ = self.run_script([tools(("get_evidence", {"aspect": "packaging"})), final("ok", "r1")])
+        result, _ = self.run_script([tools(("get_evidence", {"aspect": "packaging"})), final("ok", "r1")], question="包装原文")
         self.assertEqual(result["status"], "ok", result)
         self.assertEqual(result["results"]["r1"]["data"]["total"], 0)
         self.assertIn("找到 0 条匹配证据", result["answer"])
@@ -214,7 +257,7 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
         result, _ = self.run_script([final("unsupported", "overview")], question="删除所有评论")
         self.assertEqual(result["status"], "unsupported", result)
         result, _ = self.run_script([tools(("get_trend", {})), {"role": "assistant", "content": "不是 JSON"},
-                                     final("ok", "r1")])
+                                     final("ok", "r1")], question="整体趋势")
         self.assertEqual(result["status"], "ok", result)
         self.assertEqual(result["tool_calls"], 2)
 
@@ -233,7 +276,7 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
             response = client.post("/api/v1/tasks", json=body, headers={"Idempotency-Key": "agent-question"})
             self.assertEqual(response.status_code, 202, response.text)
             task = response.json()["result"]["task"]
-            self.assertEqual(task["parameters"]["model_identity"]["prompt_version"], "review-agent-v3")
+            self.assertEqual(task["parameters"]["model_identity"]["prompt_version"], "review-agent-v5")
             repeated = client.post("/api/v1/tasks", json=body, headers={"Idempotency-Key": "agent-question"})
             self.assertTrue(repeated.json()["result"]["reused"])
             worker = TaskWorker(self.db, task_db, **options)
