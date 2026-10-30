@@ -1,5 +1,6 @@
 import { API_BASE } from '../../api';
 import type { AnalysisParameters, Task } from '../../types';
+import type { Clarification, QuerySnapshot } from './followup';
 
 export type ChatMode = 'basic' | 'analysis';
 
@@ -11,6 +12,8 @@ export interface ChatTurn {
   requestKey: string;
   taskId?: string;
   retry?: { taskId: string; key: string };
+  query?: QuerySnapshot;
+  clarification?: Clarification;
 }
 export interface BasicChatTurn {
   kind: 'basic';
@@ -25,7 +28,7 @@ export interface ChatSession { turns: ChatTurn[]; activeId?: string }
 export interface Conversation { turns: ConversationTurn[]; activeId?: string }
 export const CHAT_KEY = `review-agent-chat:${API_BASE}`;
 
-/** 保留旧页面的分析消息视图，也作为唯一允许持久化的历史内容。 */
+/** 分析及澄清快照持久化；基础问答仍只保留在内存。 */
 export function analysisSession(conversation: Conversation): ChatSession {
   const turns = conversation.turns.filter((turn): turn is ChatTurn => turn.kind === 'analysis');
   return { turns, activeId: turns.some(turn => turn.id === conversation.activeId) ? conversation.activeId : undefined };
@@ -46,7 +49,12 @@ export function readChatSession(): { session: ChatSession; error: boolean } {
       || (turn.taskId !== undefined && typeof turn.taskId !== 'string')
       || !turn.parameters || !Array.isArray(turn.parameters.product_ids)
       || !turn.parameters.product_ids.every(id => typeof id === 'string')
-      || typeof turn.parameters.date_from !== 'string' || typeof turn.parameters.date_to !== 'string')) throw new Error('Invalid chat history');
+      || typeof turn.parameters.date_from !== 'string' || typeof turn.parameters.date_to !== 'string'
+      || (turn.query !== undefined && (!turn.query || typeof turn.query.effectiveQuestion !== 'string' || typeof turn.query.createdAt !== 'string'))
+      || (turn.clarification !== undefined && (!turn.clarification || typeof turn.clarification.message !== 'string'
+        || !Array.isArray(turn.clarification.choices) || turn.clarification.choices.some(choice => !choice
+          || typeof choice.label !== 'string' || typeof choice.query?.effectiveQuestion !== 'string'
+          || !Array.isArray(choice.parameters?.product_ids)))))) throw new Error('Invalid chat history');
     // 旧记录没有 kind；恢复时补齐类型，不重新提交模型任务。
     const turns: ChatTurn[] = saved.turns.map((turn: ChatTurn) => ({ ...turn, kind: 'analysis' }));
     return { session: { turns, activeId: turns.some(turn => turn.id === saved.activeId)

@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, errorMessage } from '../../api';
 import { isActive } from '../../task-state';
 import { useTask } from '../../useTask';
-import type { AnalysisParameters } from '../../types';
+import type { AgentResult, AnalysisParameters } from '../../types';
 import { analysisSession, CHAT_KEY, isAgentTask, readChatSession, type BasicChatTurn, type Conversation, type ChatTurn } from './chat-state';
+import { isFollowup, resolveQuery, type QueryChoice, type QueryParent } from './followup';
 
 export function useAgentChat(routeTaskId?: string) {
   const [initial] = useState(readChatSession);
@@ -14,6 +15,7 @@ export function useAgentChat(routeTaskId?: string) {
   const [storageError, setStorageError] = useState(initial.error);
   const [posting, setPosting] = useState(false);
   const postLock = useRef(false);
+  const resolving = useRef(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const activeMessage = conversation.turns.find(turn => turn.id === conversation.activeId);
   const activeTurn = activeMessage?.kind === 'analysis' ? activeMessage : undefined;
@@ -61,7 +63,7 @@ export function useAgentChat(routeTaskId?: string) {
     try {
       const result = retry && turn.taskId
         ? await api.retry(turn.taskId, turn.retry!.key)
-        : await api.submit({ kind: 'analysis', parameters: { ...turn.parameters, question: turn.question } }, turn.requestKey);
+        : await api.submit({ kind: 'analysis', parameters: { ...turn.parameters, question: turn.query?.effectiveQuestion ?? turn.question } }, turn.requestKey);
       commit(current => ({ ...current, turns: current.turns.map(item => item.kind === 'analysis' && item.id === turn.id ? { ...item, taskId: result.task.task_id, retry: undefined } : item) }));
       return true;
     } catch (error) {
@@ -72,20 +74,52 @@ export function useAgentChat(routeTaskId?: string) {
 
   async function send(parameters: AnalysisParameters, question: string): Promise<boolean> {
     const text = question.trim();
-    if (!text || text.length > 4000 || postLock.current || pending) return false;
+    if (!text || text.length > 4000 || postLock.current || resolving.current || pending) return false;
     const previous = analysisSession(sessionRef.current).turns.at(-1);
-    const turn: ChatTurn = previous?.kind === 'analysis' && !previous.taskId && previous.question === text
-      && JSON.stringify(previous.parameters) === JSON.stringify(parameters) ? previous
-      // 每条问题独立保存范围，后续修改草稿及商品数组不会改写历史任务。
-      : { kind: 'analysis', id: crypto.randomUUID(), requestKey: crypto.randomUUID(), question: text,
-        parameters: { ...parameters, product_ids: [...parameters.product_ids] } };
-    if (turn !== previous) commit(current => ({ turns: [...current.turns, turn], activeId: turn.id }));
+    if (previous && !previous.taskId && !previous.clarification && previous.question === text
+      && JSON.stringify(previous.parameters) === JSON.stringify(parameters)) return submitTurn(previous);
+    const frozen = structuredClone(parameters);
+    let parent: QueryParent | undefined;
+    let readError = '';
+    if (isFollowup(text)) {
+      // 历史 URL 以正在查看的轮次为父轮；失败任务不回退到更早成功结果。
+      const turns = analysisSession(sessionRef.current).turns;
+      const active = turns.find(turn => turn.id === sessionRef.current.activeId);
+      const previousQuery = active && !active.clarification ? active : [...turns].reverse().find(turn => !turn.clarification);
+      if (previousQuery?.taskId) {
+        resolving.current = true;
+        setPosting(true);
+        try {
+          const saved = task?.task_id === previousQuery.taskId ? task : await api.task(previousQuery.taskId);
+          parent = { id: previousQuery.id, taskId: previousQuery.taskId, parameters: previousQuery.parameters,
+            result: saved.status === 'succeeded' && saved.result?.agent === true ? saved.result as unknown as AgentResult : undefined };
+        } catch (error) { readError = `无法读取上轮查询：${errorMessage(error)}。请恢复连接后重新发送追问。`; }
+        finally { resolving.current = false; setPosting(false); }
+      }
+    }
+    const resolution = resolveQuery(text, frozen, parent);
+    if (readError) resolution.clarification = { message: readError, choices: [] };
+    const turn: ChatTurn = { kind: 'analysis', id: crypto.randomUUID(), requestKey: crypto.randomUUID(), question: text,
+      parameters: frozen, ...resolution };
+    commit(current => ({ turns: [...current.turns, turn], activeId: turn.id }));
+    if (turn.clarification) return true;
     return submitTurn(turn);
+  }
+
+  async function clarify(turn: ChatTurn, choice: QueryChoice): Promise<void> {
+    if (postLock.current || resolving.current || pending || turn.clarification?.resolved
+      || sessionRef.current.activeId !== turn.id || !turn.clarification?.choices.includes(choice)) return;
+    const next: ChatTurn = { kind: 'analysis', id: crypto.randomUUID(), requestKey: crypto.randomUUID(),
+      question: `${turn.question}（${choice.label}）`, parameters: structuredClone(choice.parameters),
+      query: { ...structuredClone(choice.query), createdAt: new Date().toISOString() } };
+    commit(current => ({ turns: [...current.turns.map(item => item.id === turn.id && item.kind === 'analysis'
+      ? { ...item, clarification: { ...item.clarification!, resolved: true } } : item), next], activeId: next.id }));
+    await submitTurn(next);
   }
 
   async function sendBasic(question: string): Promise<boolean> {
     const text = question.trim();
-    if (!text || text.length > 4000 || postLock.current || pending) return false;
+    if (!text || text.length > 4000 || postLock.current || resolving.current || pending) return false;
     postLock.current = true;
     setPosting(true);
     const turn: BasicChatTurn = { kind: 'basic', id: crypto.randomUUID(), question: text, status: 'pending' };
@@ -104,13 +138,13 @@ export function useAgentChat(routeTaskId?: string) {
   }
 
   async function retry(turn: ChatTurn): Promise<void> {
-    if (postLock.current || pending) return;
+    if (postLock.current || resolving.current || pending || turn.clarification) return;
     const next = turn.taskId ? { ...turn, retry: turn.retry?.taskId === turn.taskId ? turn.retry : { taskId: turn.taskId, key: crypto.randomUUID() } } : turn;
     commit(current => ({ ...current, turns: current.turns.map(item => item.id === next.id ? next : item) }));
     await submitTurn(next, !!next.taskId);
   }
 
-  return { session, activeTurn, conversation, activeMessage, activeState, pending, posting, errors, storageError, restoreError, send, sendBasic, retry, focusedTaskId: routeTaskId,
+  return { session, activeTurn, conversation, activeMessage, activeState, pending, posting, errors, storageError, restoreError, send, sendBasic, retry, clarify, focusedTaskId: routeTaskId,
     release: () => commit(current => ({ ...current, activeId: undefined })) };
 }
 

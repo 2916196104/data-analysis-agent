@@ -57,7 +57,20 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
             {turn.parameters.as_of && <div><dt>评论截止时间</dt><dd>{turn.parameters.as_of}</dd></div>}
           </dl>
         </section>
-        {!turn.taskId && (chat.posting && active ? <div className="chat-status" role="status"><Spin size="small" /> 正在提交问题…</div>
+        {turn.query && <details className="chat-query-snapshot"><summary>查看本轮查询快照</summary>
+          <p>记录时间：{turn.query.createdAt}{turn.query.parentTaskId ? ` · 承接任务：${turn.query.parentTaskId}` : ' · 独立查询'}</p>
+          <pre>{turn.query.effectiveQuestion}</pre>
+          {result && <p>执行快照：{result.snapshot_at}</p>}
+          <Button size="small" onClick={() => exportResult({ question: turn.question, parameters: turn.parameters,
+            query: turn.query, clarification: turn.clarification, taskId: turn.taskId,
+            snapshot_at: result?.snapshot_at, results: result?.results }, 'query-snapshot')}>下载查询快照</Button>
+        </details>}
+        {turn.clarification && <Alert type="info" showIcon message={turn.clarification.resolved ? '已确认查询目标' : '需要澄清'}
+          description={<><p>{turn.clarification.message}</p><div className="chat-clarification-choices">
+            {turn.clarification.choices.map((choice, index) => <Button key={index} disabled={chat.pending || !active || turn.clarification?.resolved}
+              onClick={() => void chat.clarify(turn, choice)}>{choice.label}</Button>)}
+          </div>{!active && !turn.clarification.resolved && <p>该轮已保留，请在输入框重新提出问题。</p>}</>} />}
+        {!turn.taskId && !turn.clarification && (chat.posting && active ? <div className="chat-status" role="status"><Spin size="small" /> 正在提交问题…</div>
           : <Alert type="error" showIcon message="问题尚未确认提交" description={chat.errors[turn.id] || '提交结果待确认，请重试确认同一任务。'}
             action={<Button disabled={chat.pending} onClick={() => void chat.retry(turn)}>重试提交</Button>} />)}
         {turn.taskId && !task && !state.error && <div className="chat-status" role="status"><Spin size="small" /> 正在读取任务…</div>}

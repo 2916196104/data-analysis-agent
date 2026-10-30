@@ -132,7 +132,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
                     report({"stage": "agent_thinking", "completed": context.tool_calls,
                             "total": None, "unit": "tools"})
 
-                prompt = json.dumps({"question": question, "bound_context": overview.to_dict()["data"]}, ensure_ascii=False)
+                # 查询请求独立于不可信业务上下文，避免被当作待分析的数据而忽略。
+                prompt = question + "\n\n<bound_context>\n" + json.dumps(overview.to_dict()["data"], ensure_ascii=False) + "\n</bound_context>"
                 for attempt in range(2):
                     try:
                         text = agent.run(prompt, on_step=record_step)

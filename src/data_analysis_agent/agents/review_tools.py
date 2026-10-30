@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from datetime import date
+import json
 from pathlib import Path
 from typing import Literal
 
@@ -19,7 +20,7 @@ from data_analysis_agent.reviews.parameters import BaselineScope
 
 class ProductSelection(Input):
     product_ids: list[Text] = Field(default_factory=list, max_length=100,
-                                   description="当前范围内的商品 ID 子集；空数组表示沿用全部已选商品")
+                                   description="当前范围内的完整商品 ID 数组，每项为一个完整 ID，不能拆成字符；空数组沿用全部已选商品")
 
 
 class TrendInput(ProductSelection):
@@ -148,14 +149,25 @@ class ReviewTool(Tool):
 
     def get_parameters(self):
         schema = self.parameter_type.model_json_schema()
+        if "product_ids" in schema["properties"]:
+            # 把绑定范围写入声明，帮助真实模型准确填写 ID；执行时仍独立校验权限。
+            products = schema["properties"]["product_ids"]
+            if self.context.allowed_products:
+                products["items"]["enum"] = sorted(self.context.allowed_products)
+            else:
+                products["maxItems"] = 0
         return [ToolParameter(name=name, type=prop.get("type", "string"),
-                              description=prop.get("description", name), required=name in schema.get("required", []),
+                              description=prop.get("description", name), required=name == "period" or name in schema.get("required", []),
                               json_schema=prop) for name, prop in schema.get("properties", {}).items()]
 
     def run(self, parameters):
         try:
             values = self.parameter_type.model_validate(parameters).model_dump()
-            return ToolResponse.success("只读查询完成，请引用 result_id。", self.context.execute(self.name, values))
+            result = self.context.execute(self.name, values)
+            completed = [key for key in self.context.results if key != 'overview']
+            message = ('查询完成，不要重复此工具及参数。若本轮所需查询均完成，直接返回 '
+                       + json.dumps({"status": "ok", "result_ids": completed})) if completed else '绑定上下文已就绪，请按本轮问题调用业务查询工具。'
+            return ToolResponse.success(message, result)
         except ValidationError:
             return ToolResponse.error("INVALID_PARAM", "参数无效或超出已选范围，请依据工具声明和上下文修正。")
         except ReviewDataError as exc:

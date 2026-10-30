@@ -24,7 +24,7 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
   const messages = useRef<HTMLDivElement>(null);
   const [scopeEditing, setScopeEditing] = useState(false);
   const analysis = mode === 'analysis';
-  const suggestions = (analysis ? questions : basicQuestions).map(question => <Button key={question}
+  const suggestions = (analysis ? [...(chat.session.turns.some(turn => turn.taskId) ? ['只看物流', '换成按月', '继续查原文'] : []), ...questions] : basicQuestions).map(question => <Button key={question}
     disabled={chat.pending || (analysis && !parameters)} onClick={() => onInput(question)}>{question}</Button>);
   useEffect(() => {
     const element = messages.current;

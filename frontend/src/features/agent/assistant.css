@@ -48,6 +48,11 @@
 .markdown-table table { border-collapse: collapse; width: 100%; font-size: 12px; }
 .markdown-table th, .markdown-table td { border: 1px solid var(--color-border); padding: 6px 10px; text-align: left; }
 .chat-report { margin-top: 12px; }
+.chat-query-snapshot { margin: 12px 0; font-size: 12px; }
+.chat-query-snapshot summary { cursor: pointer; color: var(--color-primary); }
+.chat-query-snapshot pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: var(--color-surface-muted); border-radius: 8px; }
+.chat-clarification-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.chat-clarification-choices .ant-btn { height: auto; max-width: 100%; white-space: normal; text-align: left; }
 .chat-report > summary { cursor: pointer; font-size: 12px; color: var(--color-primary); }
 .chat-report .agent-results { margin-top: 14px; }
 .chat-report .section-heading h2 { font-size: 17px; }

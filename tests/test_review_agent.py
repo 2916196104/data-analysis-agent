@@ -98,6 +98,44 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
             with self.assertRaises(sqlite3.OperationalError):
                 connection.execute("DELETE FROM reviews")
 
+    def test_product_schema_lists_only_complete_ids_in_bound_scope(self):
+        with closing(connect_review_database(self.db, readonly=True)) as connection, connection:
+            connection.execute("BEGIN")
+            registry = create_review_registry(ReviewToolContext(connection, self.scope(product_ids=["P1"]), self.root, 20))
+            for name in ("compare_products", "get_evidence", "get_rating_distribution"):
+                schema = registry.get_tool(name).to_openai_schema()["function"]["parameters"]
+                self.assertEqual(schema["properties"]["product_ids"]["items"]["enum"], ["P1"])
+            rejected = registry.execute_tool("compare_products", json.dumps({"product_ids": ["P", "1"]})).to_dict()
+            self.assertEqual(rejected["status"], "error")
+            accepted = registry.execute_tool("compare_products", json.dumps({"product_ids": ["P1"]})).to_dict()
+            self.assertEqual(accepted["status"], "success")
+            empty = create_review_registry(ReviewToolContext(connection, self.scope(source="EMPTY"), self.root, 20))
+            products = empty.get_tool("compare_products").to_openai_schema()["function"]["parameters"]["properties"]["product_ids"]
+            self.assertNotIn("enum", products["items"])
+            self.assertEqual(products["maxItems"], 0)
+
+    def test_trend_schema_requires_period_and_success_response_guides_final_references(self):
+        with closing(connect_review_database(self.db, readonly=True)) as connection, connection:
+            connection.execute("BEGIN")
+            registry = create_review_registry(ReviewToolContext(connection, self.scope(), self.root, 20))
+            for name in ("get_trend", "get_aspect_trend"):
+                schema = registry.get_tool(name).to_openai_schema()["function"]["parameters"]
+                self.assertIn("period", schema["required"])
+                self.assertEqual(schema["properties"]["period"]["enum"], ["day", "month"])
+            response = registry.execute_tool("get_aspect_trend", '{"aspect":"packaging","period":"day"}').to_dict()
+            self.assertEqual(response["data"]["parameters"]["period"], "day")
+            final_value = json.loads(response["text"].split("直接返回 ", 1)[1])
+            self.assertEqual(final_value, {"status": "ok", "result_ids": [response["data"]["result_id"]]})
+
+    def test_query_is_separate_from_bound_business_context(self):
+        question = "按日查看包装趋势"
+        result, requests = self.run_script([tools(("get_aspect_trend", {"aspect": "packaging", "period": "day"})),
+                                           final("ok", "r1")], question=question)
+        self.assertEqual(result["status"], "ok")
+        prompt = next(item["content"] for item in requests[0]["messages"] if item["role"] == "user")
+        self.assertEqual(prompt.split("\n\n<bound_context>")[0], question)
+        self.assertEqual(json.loads(prompt.split("<bound_context>\n")[1].split("\n</bound_context>")[0])["result_id"], "overview")
+
     def test_unlabeled_failed_empty_and_zero_negative_are_distinct(self):
         cases = [("2023-01-05", "P2", "unprocessed_reviews"),
                  ("2023-01-03", "P1", "failed_reviews"),
@@ -195,7 +233,7 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
             response = client.post("/api/v1/tasks", json=body, headers={"Idempotency-Key": "agent-question"})
             self.assertEqual(response.status_code, 202, response.text)
             task = response.json()["result"]["task"]
-            self.assertEqual(task["parameters"]["model_identity"]["prompt_version"], "review-agent-v2")
+            self.assertEqual(task["parameters"]["model_identity"]["prompt_version"], "review-agent-v3")
             repeated = client.post("/api/v1/tasks", json=body, headers={"Idempotency-Key": "agent-question"})
             self.assertTrue(repeated.json()["result"]["reused"])
             worker = TaskWorker(self.db, task_db, **options)
