@@ -9,6 +9,7 @@ from time import perf_counter
 from data_analysis_agent.agents.review_prompts import PROMPT_VERSION, SYSTEM_PROMPT, detect_sentiment_intent
 from data_analysis_agent.agents.review_validation import result_summaries, validate_report
 from data_analysis_agent.agents.review_plan import build_query_plan
+from data_analysis_agent.agents.review_compression import build_analysis_artifacts, empty_public
 from data_analysis_agent.agents.runtime import (
     AgentExecutionError, FinalResponseFormatError, build_agent, execution_failure, create_llm, validate_final_result,
 )
@@ -224,6 +225,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
             if any(item["successful_reviews"] < 20 or (item["labeling_coverage"] or 0) < 0.8 for item in summaries):
                 warnings.append("部分范围成功标注少于 20 条或覆盖率低于 80%，结论仅描述已有样本，请谨慎解释。")
             result["warnings"] = warnings
+            if result["status"] == "ok":
+                result.update(build_analysis_artifacts({**result, "results": context.results}, plan))
     except UnsupportedReviewQuery as exc:
         result.update(status="unsupported", answer=str(exc), result_ids=[])
     except Exception as exc:
@@ -231,6 +234,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
             raise progress_error
         code, message = ("business_error", str(exc)) if isinstance(exc, ReviewDataError) else execution_failure(exc)
         result.update(status="error", error={"code": code, "message": message})
+        result.pop("answer", None)
+        result.pop("answer_sections", None)
     finally:
         result.update(results=context.results if context else {}, trace=context.trace if context else [],
                       model_tool_attempts=context.model_tool_attempts if context else 0,
@@ -239,4 +244,5 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
                       tool_calls=context.tool_calls if context else 0, model_calls=llm.budget.calls if llm else 0,
                       model_responses=model_responses, usage=usage or None,
                       elapsed_seconds=round(perf_counter() - started, 3))
+    result.setdefault("public_analysis", empty_public(result["status"]).model_dump())
     return json.loads(safe_json(result, settings.api_key))

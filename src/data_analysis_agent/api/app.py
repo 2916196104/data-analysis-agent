@@ -13,7 +13,7 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from data_analysis_agent.api.responses import ErrorBody, ErrorResult, Result, error_response, ok_result
-from data_analysis_agent.api.routes import analytics, chat, monitoring, reviews, tasks
+from data_analysis_agent.api.routes import analytics, chat, monitoring, reviews, tasks, public_analysis
 from data_analysis_agent.core.config import ConfigurationError, read_settings
 from data_analysis_agent.core.database import DatabaseError, database_target
 from data_analysis_agent.core.errors import ReviewDataError
@@ -34,11 +34,11 @@ def check_business_database(db):
 
 
 def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".env",
-               embedded_worker=True, allowed_origins=()):
+               embedded_worker=True, allowed_origins=(), public_only=False):
     db, task_db = database_target(db_path), database_target(task_db_path)
     import_root, env_file = FilePath(import_root).resolve(), FilePath(env_file).resolve()
     origins = set(allowed_origins)
-    worker = TaskWorker(db, task_db, import_root=import_root, env_file=env_file) if embedded_worker else None
+    worker = TaskWorker(db, task_db, import_root=import_root, env_file=env_file) if embedded_worker and not public_only else None
 
     @asynccontextmanager
     async def lifespan(app):
@@ -109,6 +109,11 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
 
     router = APIRouter(prefix="/api/v1", default_response_class=JSONResponse,
                        responses={code: {"model": ErrorResult} for code in (400, 403, 404, 409, 422, 500, 503)})
+    router.include_router(public_analysis.create_router(task_db))
+    if public_only:
+        # 能力隔离：公开实例没有旧任务/参数/原文/写操作路由，不能用 URL 切回审计视图。
+        app.include_router(router)
+        return app
 
     @router.get("/health", response_model=Result, tags=["服务"])
     def health():

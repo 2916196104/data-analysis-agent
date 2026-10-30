@@ -51,6 +51,7 @@ def main():
     serve.add_argument("--host", choices=("127.0.0.1", "localhost", "::1"), default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--no-worker", action="store_true", help="只运行 API，由独立 worker 消费任务")
+    serve.add_argument("--public-only", action="store_true", help="仅提供白名单公开分析读取，不启动 worker 或注册内部/写入接口")
     serve.add_argument("--allow-origin", action="append", default=[], help="可重复，仅允许指定 HTTP(S) Origin")
     tasks.add_argument("--status", choices=STATUSES)
     tasks.add_argument("--kind", choices=KINDS)
@@ -90,7 +91,7 @@ def main():
             except ModuleNotFoundError as exc:
                 raise ReviewDataError("HTTP 依赖未安装，请执行 .venv/Scripts/python.exe -m pip install -e .") from exc
             app = create_app(args.db, task_db, import_root=args.import_root, env_file=args.env_file,
-                             embedded_worker=not args.no_worker, allowed_origins=args.allow_origin)
+                             embedded_worker=not args.no_worker, allowed_origins=args.allow_origin, public_only=args.public_only)
             uvicorn.run(app, host=args.host, port=args.port, workers=1, access_log=True)
             return 0
         elif args.command == "worker":
