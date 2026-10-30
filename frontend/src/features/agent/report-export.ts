@@ -1,5 +1,6 @@
 import type { AgentResult, AgentToolResult, Summary } from '../../types';
 import { sectionSummary } from '../../agent-report';
+import { publicAnswerText } from './public-answer';
 
 const clean = (value: unknown) => String(value ?? '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/[\\`*_[\]#|]/g, '\\$&').replace(/\r?\n/g, ' ');
@@ -55,7 +56,8 @@ export function buildAgentReport(result: AgentResult, taskId?: string): string {
       ['执行模型', result.agent_model_identity?.model], ['执行服务', result.agent_model_identity?.base_url],
       ['助手提示词版本', result.agent_model_identity?.prompt_version],
     ]),
-    '## 分析结论\n\n' + (result.answer || '未生成结论。').split('\n').map(clean).join('\n'),
+    '## 分析结论\n\n' + (result.public_answer?.status === 'ok' ? publicAnswerText(result.public_answer)
+      : result.answer || '未生成结论。').split('\n').map(clean).join('\n'),
     '## 统计口径与来源\n\n统计由 Python 计算，本报告只格式化已保存结果，不重新查询数据。'
       + '负面占比 = 去重负面评论数 / 成功标注评论数；覆盖率 = 成功标注数 / 有效正文数。'
       + '正向维度提及占比以至少一个正向观点的评论数为分母；占成功标注比例另列，两者不可混用。'

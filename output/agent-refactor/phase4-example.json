@@ -1,0 +1,3013 @@
+{
+  "positive": {
+    "data_source": "controlled SQLite SQL + MockTransport; not production or real Midea data",
+    "question": "美的空调好评主要集中在哪些方面？",
+    "raw_tool_results_bytes": 4779,
+    "compact_context": {
+      "schema_version": "1.0",
+      "question": "美的空调好评主要集中在哪些方面？",
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope_summary": [
+        {
+          "scope_ref": "scope:17660bcc770a99cd",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-03-31",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "sample_summary": [
+        {
+          "sample_ref": "sample:9dc3d846e3cdffd7",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "review_count": 6,
+          "eligible_text_reviews": 5,
+          "successful_reviews": 3,
+          "failed_reviews": 1,
+          "unprocessed_reviews": 1,
+          "labeling_coverage": 0.6,
+          "positive_review_count": 3,
+          "empty_text_reviews": 1,
+          "reviewed_reviews": 0
+        }
+      ],
+      "key_findings": [
+        {
+          "source_result_id": "r1",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "type": "aspect_ranking",
+          "aspects": [
+            "effectiveness",
+            "logistics",
+            "price"
+          ],
+          "sentiment": "positive",
+          "finding_ref": "finding:7fc3c0dcbae77845c4f0"
+        }
+      ],
+      "statistics": [
+        {
+          "source_result_id": "r1",
+          "analysis_type": "positive_aspects",
+          "sentiment": "positive",
+          "group_id": "current",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "sample_ref": "sample:9dc3d846e3cdffd7",
+          "metrics": [
+            {
+              "name": "positive_review_count",
+              "value": 3,
+              "unit": "reviews"
+            },
+            {
+              "name": "positive_success_rate",
+              "value": 1.0,
+              "unit": "fraction_0_to_1",
+              "numerator": 3,
+              "denominator": 3,
+              "denominator_name": "successful_reviews"
+            }
+          ],
+          "aspects": [
+            {
+              "aspect": "effectiveness",
+              "aspect_label": "使用效果",
+              "rank": 1,
+              "metrics": [
+                {
+                  "name": "positive_review_count",
+                  "value": 2,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "positive_rate",
+                  "value": 0.666667,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 2,
+                  "denominator": 3,
+                  "denominator_name": "positive_review_count"
+                },
+                {
+                  "name": "positive_success_rate",
+                  "value": 0.666667,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 2,
+                  "denominator": 3,
+                  "denominator_name": "successful_reviews"
+                }
+              ],
+              "finding_ref": "finding:643846977edbaea77e73"
+            },
+            {
+              "aspect": "logistics",
+              "aspect_label": "物流",
+              "rank": 2,
+              "metrics": [
+                {
+                  "name": "positive_review_count",
+                  "value": 1,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "positive_rate",
+                  "value": 0.333333,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 1,
+                  "denominator": 3,
+                  "denominator_name": "positive_review_count"
+                },
+                {
+                  "name": "positive_success_rate",
+                  "value": 0.333333,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 1,
+                  "denominator": 3,
+                  "denominator_name": "successful_reviews"
+                }
+              ],
+              "finding_ref": "finding:30b9c26d01f0db3439c7"
+            },
+            {
+              "aspect": "price",
+              "aspect_label": "价格",
+              "rank": 3,
+              "metrics": [
+                {
+                  "name": "positive_review_count",
+                  "value": 1,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "positive_rate",
+                  "value": 0.333333,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 1,
+                  "denominator": 3,
+                  "denominator_name": "positive_review_count"
+                },
+                {
+                  "name": "positive_success_rate",
+                  "value": 0.333333,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 1,
+                  "denominator": 3,
+                  "denominator_name": "successful_reviews"
+                }
+              ],
+              "finding_ref": "finding:024d6117df4a9ed40c07"
+            }
+          ],
+          "trends": [],
+          "finding_ref": "finding:02e8ff96b7a3d4113778"
+        }
+      ],
+      "evidence": [],
+      "caveats": [
+        {
+          "code": "small_sample",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "sample_ref": "sample:9dc3d846e3cdffd7"
+        },
+        {
+          "code": "insufficient_coverage",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "sample_ref": "sample:9dc3d846e3cdffd7"
+        }
+      ],
+      "source_result_ids": [
+        "r1"
+      ]
+    },
+    "public_answer": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "根据当前已标注评论，好评主要集中在使用效果、物流、价格。",
+      "highlights": [
+        {
+          "finding_ref": "finding:643846977edbaea77e73",
+          "aspect_key": "effectiveness",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "使用效果：2 条，66.7%（2/3 条含正向观点评论）。"
+        },
+        {
+          "finding_ref": "finding:30b9c26d01f0db3439c7",
+          "aspect_key": "logistics",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "物流：1 条，33.3%（1/3 条含正向观点评论）。"
+        },
+        {
+          "finding_ref": "finding:024d6117df4a9ed40c07",
+          "aspect_key": "price",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "价格：1 条，33.3%（1/3 条含正向观点评论）。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:643846977edbaea77e73",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "values": [
+            {
+              "name": "positive_review_count",
+              "value": 2,
+              "unit": "reviews"
+            },
+            {
+              "name": "positive_rate",
+              "value": 0.666667,
+              "unit": "fraction_0_to_1",
+              "numerator": 2,
+              "denominator": 3,
+              "denominator_name": "positive_review_count"
+            },
+            {
+              "name": "positive_success_rate",
+              "value": 0.666667,
+              "unit": "fraction_0_to_1",
+              "numerator": 2,
+              "denominator": 3,
+              "denominator_name": "successful_reviews"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:30b9c26d01f0db3439c7",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "values": [
+            {
+              "name": "positive_review_count",
+              "value": 1,
+              "unit": "reviews"
+            },
+            {
+              "name": "positive_rate",
+              "value": 0.333333,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 3,
+              "denominator_name": "positive_review_count"
+            },
+            {
+              "name": "positive_success_rate",
+              "value": 0.333333,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 3,
+              "denominator_name": "successful_reviews"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:024d6117df4a9ed40c07",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "values": [
+            {
+              "name": "positive_review_count",
+              "value": 1,
+              "unit": "reviews"
+            },
+            {
+              "name": "positive_rate",
+              "value": 0.333333,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 3,
+              "denominator_name": "positive_review_count"
+            },
+            {
+              "name": "positive_success_rate",
+              "value": 0.333333,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 3,
+              "denominator_name": "successful_reviews"
+            }
+          ]
+        }
+      ],
+      "sample_note": "本次分析范围共 6 条评论，基于 3 条成功标注评论，其中 3 条包含正向观点。",
+      "evidence_refs": [],
+      "caveats": [
+        "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。",
+        "同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。"
+      ],
+      "generation_status": "template",
+      "source_result_ids": [
+        "r1"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:17660bcc770a99cd",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-03-31",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "details_available": true
+    },
+    "answer_generation": {
+      "strategy": "template",
+      "input_bytes": 4012,
+      "compact_bytes": 3072,
+      "input_budget_bytes": 16000,
+      "attempts": 0,
+      "error_code": null,
+      "timeout_seconds": 15,
+      "max_retries": 0,
+      "elapsed_seconds": 0.0,
+      "generation_status": "template",
+      "sent_input_bytes": 0,
+      "validated_draft": {
+        "summary": "根据当前已标注评论，好评主要集中在使用效果、物流、价格。",
+        "items": [
+          {
+            "finding_ref": "finding:643846977edbaea77e73",
+            "aspect_key": "effectiveness",
+            "explanation": "使用效果是已有正面提及的评价维度。"
+          },
+          {
+            "finding_ref": "finding:30b9c26d01f0db3439c7",
+            "aspect_key": "logistics",
+            "explanation": "物流是已有正面提及的评价维度。"
+          },
+          {
+            "finding_ref": "finding:024d6117df4a9ed40c07",
+            "aspect_key": "price",
+            "explanation": "价格是已有正面提及的评价维度。"
+          }
+        ],
+        "caveats": []
+      }
+    }
+  },
+  "sparse_trend": {
+    "data_source": "controlled SQLite SQL + MockTransport; not production or real Midea data",
+    "question": "按月查看包装和物流问题变化",
+    "raw_tool_results_bytes": 5617,
+    "compact_context": {
+      "schema_version": "1.0",
+      "question": "按月查看包装和物流问题变化",
+      "analysis_type": "aspect_trend",
+      "sentiment": null,
+      "scope_summary": [
+        {
+          "scope_ref": "scope:17660bcc770a99cd",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-03-31",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "sample_summary": [
+        {
+          "sample_ref": "sample:9dc3d846e3cdffd7",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "review_count": 6,
+          "eligible_text_reviews": 5,
+          "successful_reviews": 3,
+          "failed_reviews": 1,
+          "unprocessed_reviews": 1,
+          "labeling_coverage": 0.6,
+          "empty_text_reviews": 1,
+          "reviewed_reviews": 0
+        }
+      ],
+      "key_findings": [
+        {
+          "source_result_id": "r1",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "type": "trend",
+          "aspect": "packaging",
+          "period": "month",
+          "bucket_count": 3,
+          "empty_buckets": [
+            "2023-02",
+            "2023-03"
+          ],
+          "valid_bucket_count": 1,
+          "sufficient_bucket_count": 0,
+          "adjacent_valid_pair_count": 0,
+          "peak_bucket": "2023-01",
+          "trough_bucket": "2023-01",
+          "count_peak_bucket": "2023-01",
+          "first_valid_bucket": "2023-01",
+          "last_valid_bucket": "2023-01",
+          "first_last_change_pp": 0.0,
+          "direction": "insufficient_data",
+          "large_adjacent_changes": [],
+          "finding_ref": "finding:7c7892fabb4edb706298"
+        },
+        {
+          "source_result_id": "r2",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "type": "trend",
+          "aspect": "logistics",
+          "period": "month",
+          "bucket_count": 3,
+          "empty_buckets": [
+            "2023-02",
+            "2023-03"
+          ],
+          "valid_bucket_count": 1,
+          "sufficient_bucket_count": 0,
+          "adjacent_valid_pair_count": 0,
+          "peak_bucket": "2023-01",
+          "trough_bucket": "2023-01",
+          "count_peak_bucket": "2023-01",
+          "first_valid_bucket": "2023-01",
+          "last_valid_bucket": "2023-01",
+          "first_last_change_pp": 0.0,
+          "direction": "insufficient_data",
+          "large_adjacent_changes": [],
+          "finding_ref": "finding:bd3cc48d9a73e8680dfc"
+        }
+      ],
+      "statistics": [
+        {
+          "source_result_id": "r1",
+          "analysis_type": "aspect_trend",
+          "sentiment": "negative",
+          "group_id": "current",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "sample_ref": "sample:9dc3d846e3cdffd7",
+          "metrics": [],
+          "aspects": [],
+          "trends": [
+            {
+              "aspect": "packaging",
+              "period": "month",
+              "original_point_count": 3,
+              "omitted_point_count": 0,
+              "target_exceeded": false,
+              "points": [
+                {
+                  "bucket": "2023-01",
+                  "sample_size": {
+                    "review_count": 6,
+                    "eligible_text_reviews": 5,
+                    "successful_reviews": 3,
+                    "failed_reviews": 1,
+                    "unprocessed_reviews": 1,
+                    "labeling_coverage": 0.6,
+                    "empty_text_reviews": 1,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.333333,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 1,
+                    "denominator": 3,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-02",
+                  "sample_size": {
+                    "review_count": 0,
+                    "eligible_text_reviews": 0,
+                    "successful_reviews": 0,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": null,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": null,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 0,
+                    "denominator": 0,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-03",
+                  "sample_size": {
+                    "review_count": 0,
+                    "eligible_text_reviews": 0,
+                    "successful_reviews": 0,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": null,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": null,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 0,
+                    "denominator": 0,
+                    "denominator_name": "successful_reviews"
+                  }
+                }
+              ]
+            }
+          ],
+          "finding_ref": "finding:7991a815488f4fdbabd7"
+        },
+        {
+          "source_result_id": "r2",
+          "analysis_type": "aspect_trend",
+          "sentiment": "negative",
+          "group_id": "current",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "sample_ref": "sample:9dc3d846e3cdffd7",
+          "metrics": [],
+          "aspects": [],
+          "trends": [
+            {
+              "aspect": "logistics",
+              "period": "month",
+              "original_point_count": 3,
+              "omitted_point_count": 0,
+              "target_exceeded": false,
+              "points": [
+                {
+                  "bucket": "2023-01",
+                  "sample_size": {
+                    "review_count": 6,
+                    "eligible_text_reviews": 5,
+                    "successful_reviews": 3,
+                    "failed_reviews": 1,
+                    "unprocessed_reviews": 1,
+                    "labeling_coverage": 0.6,
+                    "empty_text_reviews": 1,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.0,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 0,
+                    "denominator": 3,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-02",
+                  "sample_size": {
+                    "review_count": 0,
+                    "eligible_text_reviews": 0,
+                    "successful_reviews": 0,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": null,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": null,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 0,
+                    "denominator": 0,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-03",
+                  "sample_size": {
+                    "review_count": 0,
+                    "eligible_text_reviews": 0,
+                    "successful_reviews": 0,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": null,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": null,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 0,
+                    "denominator": 0,
+                    "denominator_name": "successful_reviews"
+                  }
+                }
+              ]
+            }
+          ],
+          "finding_ref": "finding:5b1a6d34e3ac4c59aae3"
+        }
+      ],
+      "evidence": [],
+      "caveats": [
+        {
+          "code": "small_sample",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "sample_ref": "sample:9dc3d846e3cdffd7"
+        },
+        {
+          "code": "insufficient_coverage",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "sample_ref": "sample:9dc3d846e3cdffd7"
+        },
+        {
+          "code": "missing_time_buckets",
+          "scope_ref": "scope:17660bcc770a99cd"
+        },
+        {
+          "code": "limited_bucket_samples",
+          "scope_ref": "scope:17660bcc770a99cd"
+        },
+        {
+          "code": "boundary_buckets_may_be_partial",
+          "scope_ref": "scope:17660bcc770a99cd"
+        }
+      ],
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ]
+    },
+    "public_answer": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "包装可比较的标注样本不足，暂不能判断稳定趋势。物流可比较的标注样本不足，暂不能判断稳定趋势。",
+      "highlights": [
+        {
+          "finding_ref": "finding:7c7892fabb4edb706298",
+          "aspect_key": "packaging",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "包装已标注样本的占比峰值在 2023-01，为 33.3%（1/3 条成功标注评论）。"
+        },
+        {
+          "finding_ref": "finding:bd3cc48d9a73e8680dfc",
+          "aspect_key": "logistics",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "source_result_ids": [
+            "r2"
+          ],
+          "text": "物流已标注样本的占比峰值在 2023-01，为 0.0%（0/3 条成功标注评论）。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:7c7892fabb4edb706298",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "values": [
+            {
+              "bucket": "2023-01",
+              "name": "negative_rate",
+              "value": 0.333333,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 3,
+              "denominator_name": "successful_reviews",
+              "sample_size": {
+                "review_count": 6,
+                "eligible_text_reviews": 5,
+                "successful_reviews": 3,
+                "failed_reviews": 1,
+                "unprocessed_reviews": 1,
+                "labeling_coverage": 0.6,
+                "empty_text_reviews": 1,
+                "reviewed_reviews": 0
+              }
+            },
+            {
+              "name": "first_last_change_pp",
+              "value": 0.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-01"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:bd3cc48d9a73e8680dfc",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "values": [
+            {
+              "bucket": "2023-01",
+              "name": "negative_rate",
+              "value": 0.0,
+              "unit": "fraction_0_to_1",
+              "numerator": 0,
+              "denominator": 3,
+              "denominator_name": "successful_reviews",
+              "sample_size": {
+                "review_count": 6,
+                "eligible_text_reviews": 5,
+                "successful_reviews": 3,
+                "failed_reviews": 1,
+                "unprocessed_reviews": 1,
+                "labeling_coverage": 0.6,
+                "empty_text_reviews": 1,
+                "reviewed_reviews": 0
+              }
+            },
+            {
+              "name": "first_last_change_pp",
+              "value": 0.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-01"
+            }
+          ]
+        }
+      ],
+      "sample_note": "本次分析范围共 6 条评论，基于 3 条成功标注评论。",
+      "evidence_refs": [],
+      "caveats": [
+        "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。",
+        "存在无成功标注的时段，空数据不代表负面占比为零。",
+        "首末时间段可能不完整，变化不能直接解释为已证实的原因。"
+      ],
+      "generation_status": "llm",
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:17660bcc770a99cd",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-03-31",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "details_available": true
+    },
+    "answer_generation": {
+      "strategy": "llm",
+      "input_bytes": 3645,
+      "compact_bytes": 5166,
+      "input_budget_bytes": 16000,
+      "attempts": 1,
+      "error_code": null,
+      "timeout_seconds": 15,
+      "max_retries": 0,
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 10,
+        "total_tokens": 15,
+        "completion_tokens_details": null,
+        "prompt_tokens_details": null
+      },
+      "elapsed_seconds": 1.147,
+      "generation_status": "llm",
+      "sent_input_bytes": 3645,
+      "validated_draft": {
+        "summary": "包装可比较的标注样本不足，暂不能判断稳定趋势。物流可比较的标注样本不足，暂不能判断稳定趋势。",
+        "items": [
+          {
+            "finding_ref": "finding:7c7892fabb4edb706298",
+            "aspect_key": "packaging",
+            "explanation": "包装可比较的标注样本不足，暂不能判断稳定趋势。"
+          },
+          {
+            "finding_ref": "finding:bd3cc48d9a73e8680dfc",
+            "aspect_key": "logistics",
+            "explanation": "物流可比较的标注样本不足，暂不能判断稳定趋势。"
+          }
+        ],
+        "caveats": []
+      }
+    }
+  },
+  "supported_trend": {
+    "data_source": "controlled SQLite SQL + MockTransport; not production or real Midea data",
+    "question": "按月查看包装和物流问题变化",
+    "raw_tool_results_bytes": 7471,
+    "compact_context": {
+      "schema_version": "1.0",
+      "question": "按月查看包装和物流问题变化",
+      "analysis_type": "aspect_trend",
+      "sentiment": null,
+      "scope_summary": [
+        {
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "phase4-controlled",
+          "product_ids": [
+            "TREND-CONTROL"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-06-30",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "sample_summary": [
+        {
+          "sample_ref": "sample:89c846a8c6c83768",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "review_count": 150,
+          "eligible_text_reviews": 150,
+          "successful_reviews": 150,
+          "failed_reviews": 0,
+          "unprocessed_reviews": 0,
+          "labeling_coverage": 1.0,
+          "empty_text_reviews": 0,
+          "reviewed_reviews": 0
+        }
+      ],
+      "key_findings": [
+        {
+          "source_result_id": "r1",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "type": "trend",
+          "aspect": "packaging",
+          "period": "month",
+          "bucket_count": 6,
+          "empty_buckets": [],
+          "valid_bucket_count": 6,
+          "sufficient_bucket_count": 6,
+          "adjacent_valid_pair_count": 5,
+          "recent_adjacent_change": {
+            "from": "2023-05",
+            "to": "2023-06",
+            "change_pp": 20.0
+          },
+          "peak_bucket": "2023-03",
+          "trough_bucket": "2023-01",
+          "count_peak_bucket": "2023-03",
+          "first_valid_bucket": "2023-01",
+          "last_valid_bucket": "2023-06",
+          "first_last_change_pp": 20.0,
+          "direction": "fluctuating",
+          "large_adjacent_changes": [
+            {
+              "from": "2023-01",
+              "to": "2023-02",
+              "change_pp": 20.0
+            },
+            {
+              "from": "2023-02",
+              "to": "2023-03",
+              "change_pp": 40.0
+            },
+            {
+              "from": "2023-03",
+              "to": "2023-04",
+              "change_pp": -40.0
+            },
+            {
+              "from": "2023-04",
+              "to": "2023-05",
+              "change_pp": -20.0
+            },
+            {
+              "from": "2023-05",
+              "to": "2023-06",
+              "change_pp": 20.0
+            }
+          ],
+          "largest_adjacent_change": {
+            "from": "2023-02",
+            "to": "2023-03",
+            "change_pp": 40.0
+          },
+          "finding_ref": "finding:edb015c34e2a9afcba69"
+        },
+        {
+          "source_result_id": "r2",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "type": "trend",
+          "aspect": "logistics",
+          "period": "month",
+          "bucket_count": 6,
+          "empty_buckets": [],
+          "valid_bucket_count": 6,
+          "sufficient_bucket_count": 6,
+          "adjacent_valid_pair_count": 5,
+          "recent_adjacent_change": {
+            "from": "2023-05",
+            "to": "2023-06",
+            "change_pp": -4.0
+          },
+          "peak_bucket": "2023-01",
+          "trough_bucket": "2023-06",
+          "count_peak_bucket": "2023-01",
+          "first_valid_bucket": "2023-01",
+          "last_valid_bucket": "2023-06",
+          "first_last_change_pp": -40.0,
+          "direction": "down",
+          "large_adjacent_changes": [],
+          "largest_adjacent_change": {
+            "from": "2023-01",
+            "to": "2023-02",
+            "change_pp": -12.0
+          },
+          "finding_ref": "finding:45f1838361a079411967"
+        }
+      ],
+      "statistics": [
+        {
+          "source_result_id": "r1",
+          "analysis_type": "aspect_trend",
+          "sentiment": "negative",
+          "group_id": "current",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "sample_ref": "sample:89c846a8c6c83768",
+          "metrics": [],
+          "aspects": [],
+          "trends": [
+            {
+              "aspect": "packaging",
+              "period": "month",
+              "original_point_count": 6,
+              "omitted_point_count": 0,
+              "target_exceeded": false,
+              "points": [
+                {
+                  "bucket": "2023-01",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.2,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 5,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-02",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.4,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 10,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-03",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.8,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 20,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-04",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.4,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 10,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-05",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.2,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 5,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-06",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.4,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 10,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                }
+              ]
+            }
+          ],
+          "finding_ref": "finding:85780ef10e8771bc97a0"
+        },
+        {
+          "source_result_id": "r2",
+          "analysis_type": "aspect_trend",
+          "sentiment": "negative",
+          "group_id": "current",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "sample_ref": "sample:89c846a8c6c83768",
+          "metrics": [],
+          "aspects": [],
+          "trends": [
+            {
+              "aspect": "logistics",
+              "period": "month",
+              "original_point_count": 6,
+              "omitted_point_count": 0,
+              "target_exceeded": false,
+              "points": [
+                {
+                  "bucket": "2023-01",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.6,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 15,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-02",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.48,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 12,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-03",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.4,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 10,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-04",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.32,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 8,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-05",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.24,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 6,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-06",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.2,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 5,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                }
+              ]
+            }
+          ],
+          "finding_ref": "finding:a2bde1c5daeb9ecd42a9"
+        }
+      ],
+      "evidence": [],
+      "caveats": [
+        {
+          "code": "boundary_buckets_may_be_partial",
+          "scope_ref": "scope:f2c41cccea0da6bd"
+        }
+      ],
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ]
+    },
+    "public_answer": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "包装在已有标注样本中的负面占比有升有降、呈现波动。物流在已有标注样本中的负面占比呈下降变化。",
+      "highlights": [
+        {
+          "finding_ref": "finding:edb015c34e2a9afcba69",
+          "aspect_key": "packaging",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "包装已标注样本的占比峰值在 2023-03，为 80.0%（20/25 条成功标注评论）。最近可比较的相邻时段 2023-05 至 2023-06 变化 +20.0 个百分点。"
+        },
+        {
+          "finding_ref": "finding:45f1838361a079411967",
+          "aspect_key": "logistics",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source_result_ids": [
+            "r2"
+          ],
+          "text": "物流已标注样本的占比峰值在 2023-01，为 60.0%（15/25 条成功标注评论）。最近可比较的相邻时段 2023-05 至 2023-06 变化 -4.0 个百分点。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:edb015c34e2a9afcba69",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "values": [
+            {
+              "bucket": "2023-03",
+              "name": "negative_rate",
+              "value": 0.8,
+              "unit": "fraction_0_to_1",
+              "numerator": 20,
+              "denominator": 25,
+              "denominator_name": "successful_reviews",
+              "sample_size": {
+                "review_count": 25,
+                "eligible_text_reviews": 25,
+                "successful_reviews": 25,
+                "failed_reviews": 0,
+                "unprocessed_reviews": 0,
+                "labeling_coverage": 1.0,
+                "empty_text_reviews": 0,
+                "reviewed_reviews": 0
+              }
+            },
+            {
+              "name": "recent_change_pp",
+              "value": 20.0,
+              "unit": "percentage_points",
+              "from": "2023-05",
+              "to": "2023-06",
+              "from_metric": {
+                "name": "negative_rate",
+                "value": 0.2,
+                "unit": "fraction_0_to_1",
+                "numerator": 5,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              },
+              "to_metric": {
+                "name": "negative_rate",
+                "value": 0.4,
+                "unit": "fraction_0_to_1",
+                "numerator": 10,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              }
+            },
+            {
+              "name": "first_last_change_pp",
+              "value": 20.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-06"
+            },
+            {
+              "name": "largest_adjacent_change_pp",
+              "value": 40.0,
+              "unit": "percentage_points",
+              "from": "2023-02",
+              "to": "2023-03"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:45f1838361a079411967",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "values": [
+            {
+              "bucket": "2023-01",
+              "name": "negative_rate",
+              "value": 0.6,
+              "unit": "fraction_0_to_1",
+              "numerator": 15,
+              "denominator": 25,
+              "denominator_name": "successful_reviews",
+              "sample_size": {
+                "review_count": 25,
+                "eligible_text_reviews": 25,
+                "successful_reviews": 25,
+                "failed_reviews": 0,
+                "unprocessed_reviews": 0,
+                "labeling_coverage": 1.0,
+                "empty_text_reviews": 0,
+                "reviewed_reviews": 0
+              }
+            },
+            {
+              "name": "recent_change_pp",
+              "value": -4.0,
+              "unit": "percentage_points",
+              "from": "2023-05",
+              "to": "2023-06",
+              "from_metric": {
+                "name": "negative_rate",
+                "value": 0.24,
+                "unit": "fraction_0_to_1",
+                "numerator": 6,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              },
+              "to_metric": {
+                "name": "negative_rate",
+                "value": 0.2,
+                "unit": "fraction_0_to_1",
+                "numerator": 5,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              }
+            },
+            {
+              "name": "first_last_change_pp",
+              "value": -40.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-06"
+            },
+            {
+              "name": "largest_adjacent_change_pp",
+              "value": -12.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-02"
+            }
+          ]
+        }
+      ],
+      "sample_note": "本次分析范围共 150 条评论，基于 150 条成功标注评论。",
+      "evidence_refs": [],
+      "caveats": [
+        "首末时间段可能不完整，变化不能直接解释为已证实的原因。"
+      ],
+      "generation_status": "llm",
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "phase4-controlled",
+          "product_ids": [
+            "TREND-CONTROL"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-06-30",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "details_available": true
+    },
+    "answer_generation": {
+      "strategy": "llm",
+      "input_bytes": 4650,
+      "compact_bytes": 7506,
+      "input_budget_bytes": 16000,
+      "attempts": 1,
+      "error_code": null,
+      "timeout_seconds": 15,
+      "max_retries": 0,
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 10,
+        "total_tokens": 15,
+        "completion_tokens_details": null,
+        "prompt_tokens_details": null
+      },
+      "elapsed_seconds": 0.003,
+      "generation_status": "llm",
+      "sent_input_bytes": 4650,
+      "validated_draft": {
+        "summary": "包装在已有标注样本中的负面占比有升有降、呈现波动。物流在已有标注样本中的负面占比呈下降变化。",
+        "items": [
+          {
+            "finding_ref": "finding:edb015c34e2a9afcba69",
+            "aspect_key": "packaging",
+            "explanation": "包装在已有标注样本中的负面占比有升有降、呈现波动。"
+          },
+          {
+            "finding_ref": "finding:45f1838361a079411967",
+            "aspect_key": "logistics",
+            "explanation": "物流在已有标注样本中的负面占比呈下降变化。"
+          }
+        ],
+        "caveats": []
+      }
+    }
+  },
+  "comparison": {
+    "data_source": "controlled SQLite SQL + MockTransport; not production or real Midea data",
+    "question": "比较两个商品的主要负面问题",
+    "raw_tool_results_bytes": 7106,
+    "compact_context": {
+      "schema_version": "1.0",
+      "question": "比较两个商品的主要负面问题",
+      "analysis_type": "composite",
+      "sentiment": "negative",
+      "scope_summary": [
+        {
+          "scope_ref": "scope:9bd9c34e32637d91",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-06",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        },
+        {
+          "scope_ref": "scope:2b98bc7dfbe41202",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-06",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        },
+        {
+          "scope_ref": "scope:8c251efdad72ded8",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P2"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-06",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        },
+        {
+          "scope_ref": "scope:099e4dd585c1e7d5",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2"
+          ],
+          "date_from": "2022-12-01",
+          "date_to": "2022-12-31",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "sample_summary": [
+        {
+          "sample_ref": "sample:5117e067e81eb1ec",
+          "scope_ref": "scope:2b98bc7dfbe41202",
+          "review_count": 3,
+          "eligible_text_reviews": 2,
+          "successful_reviews": 1,
+          "failed_reviews": 1,
+          "unprocessed_reviews": 0,
+          "labeling_coverage": 0.5,
+          "empty_text_reviews": 1,
+          "reviewed_reviews": 0
+        },
+        {
+          "sample_ref": "sample:d0efd324006043e6",
+          "scope_ref": "scope:8c251efdad72ded8",
+          "review_count": 2,
+          "eligible_text_reviews": 2,
+          "successful_reviews": 1,
+          "failed_reviews": 0,
+          "unprocessed_reviews": 1,
+          "labeling_coverage": 0.5,
+          "empty_text_reviews": 0,
+          "reviewed_reviews": 0
+        },
+        {
+          "sample_ref": "sample:59c8ed7c913d7fed",
+          "scope_ref": "scope:9bd9c34e32637d91",
+          "review_count": 5,
+          "eligible_text_reviews": 4,
+          "successful_reviews": 2,
+          "failed_reviews": 1,
+          "unprocessed_reviews": 1,
+          "labeling_coverage": 0.5,
+          "empty_text_reviews": 1,
+          "reviewed_reviews": 0
+        },
+        {
+          "sample_ref": "sample:a72769ccc269664c",
+          "scope_ref": "scope:099e4dd585c1e7d5",
+          "review_count": 0,
+          "eligible_text_reviews": 0,
+          "successful_reviews": 0,
+          "failed_reviews": 0,
+          "unprocessed_reviews": 0,
+          "labeling_coverage": null,
+          "empty_text_reviews": 0,
+          "reviewed_reviews": 0
+        }
+      ],
+      "key_findings": [
+        {
+          "source_result_id": "r1",
+          "scope_ref": "scope:2b98bc7dfbe41202",
+          "type": "aspect_ranking",
+          "aspects": [
+            "packaging",
+            "service"
+          ],
+          "sentiment": "negative",
+          "finding_ref": "finding:fa248d4592d2a04a6a16"
+        },
+        {
+          "source_result_id": "r2",
+          "scope_ref": "scope:9bd9c34e32637d91",
+          "type": "aspect_ranking",
+          "aspects": [
+            "packaging",
+            "service"
+          ],
+          "sentiment": "negative",
+          "finding_ref": "finding:5169555382c4d4c9094f"
+        }
+      ],
+      "statistics": [
+        {
+          "source_result_id": "r1",
+          "analysis_type": "comparison",
+          "sentiment": "negative",
+          "group_id": "P1",
+          "scope_ref": "scope:2b98bc7dfbe41202",
+          "sample_ref": "sample:5117e067e81eb1ec",
+          "metrics": [
+            {
+              "name": "negative_review_count",
+              "value": 1,
+              "unit": "reviews"
+            },
+            {
+              "name": "negative_rate",
+              "value": 1.0,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 1,
+              "denominator_name": "successful_reviews"
+            }
+          ],
+          "aspects": [
+            {
+              "aspect": "packaging",
+              "aspect_label": "包装",
+              "rank": 1,
+              "metrics": [
+                {
+                  "name": "negative_review_count",
+                  "value": 1,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "negative_rate",
+                  "value": 1.0,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 1,
+                  "denominator": 1,
+                  "denominator_name": "successful_reviews"
+                }
+              ],
+              "finding_ref": "finding:c73684d3c3e0bf592b0b"
+            },
+            {
+              "aspect": "service",
+              "aspect_label": "客服",
+              "rank": 2,
+              "metrics": [
+                {
+                  "name": "negative_review_count",
+                  "value": 1,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "negative_rate",
+                  "value": 1.0,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 1,
+                  "denominator": 1,
+                  "denominator_name": "successful_reviews"
+                }
+              ],
+              "finding_ref": "finding:83b39a5e6fde04bf942f"
+            }
+          ],
+          "trends": [],
+          "finding_ref": "finding:d7b365e1e13a510df4c5"
+        },
+        {
+          "source_result_id": "r1",
+          "analysis_type": "comparison",
+          "sentiment": "negative",
+          "group_id": "P2",
+          "scope_ref": "scope:8c251efdad72ded8",
+          "sample_ref": "sample:d0efd324006043e6",
+          "metrics": [
+            {
+              "name": "negative_review_count",
+              "value": 0,
+              "unit": "reviews"
+            },
+            {
+              "name": "negative_rate",
+              "value": 0.0,
+              "unit": "fraction_0_to_1",
+              "numerator": 0,
+              "denominator": 1,
+              "denominator_name": "successful_reviews"
+            }
+          ],
+          "aspects": [
+            {
+              "aspect": "effectiveness",
+              "aspect_label": "使用效果",
+              "rank": 1,
+              "metrics": [
+                {
+                  "name": "negative_review_count",
+                  "value": 0,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "negative_rate",
+                  "value": 0.0,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 0,
+                  "denominator": 1,
+                  "denominator_name": "successful_reviews"
+                }
+              ],
+              "finding_ref": "finding:869dff9f97ab4fe2aff7"
+            },
+            {
+              "aspect": "logistics",
+              "aspect_label": "物流",
+              "rank": 2,
+              "metrics": [
+                {
+                  "name": "negative_review_count",
+                  "value": 0,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "negative_rate",
+                  "value": 0.0,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 0,
+                  "denominator": 1,
+                  "denominator_name": "successful_reviews"
+                }
+              ],
+              "finding_ref": "finding:4c44c5b806769a9446a3"
+            },
+            {
+              "aspect": "packaging",
+              "aspect_label": "包装",
+              "rank": 3,
+              "metrics": [
+                {
+                  "name": "negative_review_count",
+                  "value": 0,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "negative_rate",
+                  "value": 0.0,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 0,
+                  "denominator": 1,
+                  "denominator_name": "successful_reviews"
+                }
+              ],
+              "finding_ref": "finding:e92afd27f8c62d04919f"
+            }
+          ],
+          "trends": [],
+          "finding_ref": "finding:0cd4c011a55e06f7c1cf"
+        },
+        {
+          "source_result_id": "r2",
+          "analysis_type": "issues",
+          "sentiment": "negative",
+          "group_id": "current",
+          "scope_ref": "scope:9bd9c34e32637d91",
+          "sample_ref": "sample:59c8ed7c913d7fed",
+          "metrics": [
+            {
+              "name": "negative_review_count",
+              "value": 1,
+              "unit": "reviews"
+            },
+            {
+              "name": "negative_rate",
+              "value": 0.5,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 2,
+              "denominator_name": "successful_reviews"
+            }
+          ],
+          "aspects": [
+            {
+              "aspect": "packaging",
+              "aspect_label": "包装",
+              "rank": 1,
+              "metrics": [
+                {
+                  "name": "negative_review_count",
+                  "value": 1,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "negative_rate",
+                  "value": 0.5,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 1,
+                  "denominator": 2,
+                  "denominator_name": "successful_reviews"
+                },
+                {
+                  "name": "negative_rate_change_pp",
+                  "value": null,
+                  "unit": "percentage_points"
+                }
+              ],
+              "finding_ref": "finding:46604c94cfded0b4168d"
+            },
+            {
+              "aspect": "service",
+              "aspect_label": "客服",
+              "rank": 2,
+              "metrics": [
+                {
+                  "name": "negative_review_count",
+                  "value": 1,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "negative_rate",
+                  "value": 0.5,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 1,
+                  "denominator": 2,
+                  "denominator_name": "successful_reviews"
+                },
+                {
+                  "name": "negative_rate_change_pp",
+                  "value": null,
+                  "unit": "percentage_points"
+                }
+              ],
+              "finding_ref": "finding:e6bdebdb198e9aba6002"
+            }
+          ],
+          "trends": [],
+          "finding_ref": "finding:69c29fdcf8621e71a5db"
+        },
+        {
+          "source_result_id": "r2",
+          "analysis_type": "issues",
+          "sentiment": "negative",
+          "group_id": "baseline",
+          "scope_ref": "scope:099e4dd585c1e7d5",
+          "sample_ref": "sample:a72769ccc269664c",
+          "metrics": [
+            {
+              "name": "negative_review_count",
+              "value": 0,
+              "unit": "reviews"
+            },
+            {
+              "name": "negative_rate",
+              "value": null,
+              "unit": "fraction_0_to_1",
+              "numerator": 0,
+              "denominator": 0,
+              "denominator_name": "successful_reviews"
+            }
+          ],
+          "aspects": [
+            {
+              "aspect": "effectiveness",
+              "aspect_label": "使用效果",
+              "rank": 1,
+              "metrics": [
+                {
+                  "name": "negative_review_count",
+                  "value": 0,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "negative_rate",
+                  "value": null,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 0,
+                  "denominator": 0,
+                  "denominator_name": "successful_reviews"
+                }
+              ],
+              "finding_ref": "finding:fd2cb2cfa077904154e7"
+            },
+            {
+              "aspect": "logistics",
+              "aspect_label": "物流",
+              "rank": 2,
+              "metrics": [
+                {
+                  "name": "negative_review_count",
+                  "value": 0,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "negative_rate",
+                  "value": null,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 0,
+                  "denominator": 0,
+                  "denominator_name": "successful_reviews"
+                }
+              ],
+              "finding_ref": "finding:98b87846acea10a82a08"
+            },
+            {
+              "aspect": "packaging",
+              "aspect_label": "包装",
+              "rank": 3,
+              "metrics": [
+                {
+                  "name": "negative_review_count",
+                  "value": 0,
+                  "unit": "reviews"
+                },
+                {
+                  "name": "negative_rate",
+                  "value": null,
+                  "unit": "fraction_0_to_1",
+                  "numerator": 0,
+                  "denominator": 0,
+                  "denominator_name": "successful_reviews"
+                }
+              ],
+              "finding_ref": "finding:4fcb4cc14154d053391a"
+            }
+          ],
+          "trends": [],
+          "finding_ref": "finding:bc5ba70134b3189f8ccf"
+        }
+      ],
+      "evidence": [],
+      "caveats": [
+        {
+          "code": "small_sample",
+          "scope_ref": "scope:2b98bc7dfbe41202",
+          "sample_ref": "sample:5117e067e81eb1ec"
+        },
+        {
+          "code": "insufficient_coverage",
+          "scope_ref": "scope:2b98bc7dfbe41202",
+          "sample_ref": "sample:5117e067e81eb1ec"
+        },
+        {
+          "code": "small_sample",
+          "scope_ref": "scope:8c251efdad72ded8",
+          "sample_ref": "sample:d0efd324006043e6"
+        },
+        {
+          "code": "insufficient_coverage",
+          "scope_ref": "scope:8c251efdad72ded8",
+          "sample_ref": "sample:d0efd324006043e6"
+        },
+        {
+          "code": "small_sample",
+          "scope_ref": "scope:9bd9c34e32637d91",
+          "sample_ref": "sample:59c8ed7c913d7fed"
+        },
+        {
+          "code": "insufficient_coverage",
+          "scope_ref": "scope:9bd9c34e32637d91",
+          "sample_ref": "sample:59c8ed7c913d7fed"
+        },
+        {
+          "code": "no_successful_annotations",
+          "scope_ref": "scope:099e4dd585c1e7d5",
+          "sample_ref": "sample:a72769ccc269664c"
+        },
+        {
+          "code": "insufficient_coverage",
+          "scope_ref": "scope:099e4dd585c1e7d5",
+          "sample_ref": "sample:a72769ccc269664c"
+        }
+      ],
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ]
+    },
+    "public_answer": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "各商品的主要负面问题如下，占比均以各自成功标注评论为分母。",
+      "highlights": [
+        {
+          "finding_ref": "finding:c73684d3c3e0bf592b0b",
+          "aspect_key": "packaging",
+          "scope_ref": "scope:2b98bc7dfbe41202",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "包装是已有负面提及的评价维度。商品 P1：包装：1 条，100.0%（1/1 条成功标注评论）。"
+        },
+        {
+          "finding_ref": "finding:0cd4c011a55e06f7c1cf",
+          "aspect_key": null,
+          "scope_ref": "scope:8c251efdad72ded8",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "现有数据不足以给出维度排名。商品 P2：成功标注评论中暂无匹配的有效负面观点，无法给出维度排名。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:c73684d3c3e0bf592b0b",
+          "scope_ref": "scope:2b98bc7dfbe41202",
+          "values": [
+            {
+              "name": "negative_review_count",
+              "value": 1,
+              "unit": "reviews"
+            },
+            {
+              "name": "negative_rate",
+              "value": 1.0,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 1,
+              "denominator_name": "successful_reviews"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:0cd4c011a55e06f7c1cf",
+          "scope_ref": "scope:8c251efdad72ded8",
+          "values": [
+            {
+              "name": "negative_review_count",
+              "value": 0,
+              "unit": "reviews"
+            },
+            {
+              "name": "negative_rate",
+              "value": 0.0,
+              "unit": "fraction_0_to_1",
+              "numerator": 0,
+              "denominator": 1,
+              "denominator_name": "successful_reviews"
+            }
+          ]
+        }
+      ],
+      "sample_note": "",
+      "evidence_refs": [],
+      "caveats": [
+        "部分范围暂无成功标注，无法判断其正负面占比。",
+        "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。",
+        "同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。"
+      ],
+      "generation_status": "llm",
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:9bd9c34e32637d91",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-06",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        },
+        {
+          "scope_ref": "scope:2b98bc7dfbe41202",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-06",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        },
+        {
+          "scope_ref": "scope:8c251efdad72ded8",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P2"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-06",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        },
+        {
+          "scope_ref": "scope:099e4dd585c1e7d5",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2"
+          ],
+          "date_from": "2022-12-01",
+          "date_to": "2022-12-31",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "details_available": true
+    },
+    "answer_generation": {
+      "strategy": "llm",
+      "input_bytes": 4501,
+      "compact_bytes": 8552,
+      "input_budget_bytes": 16000,
+      "attempts": 1,
+      "error_code": null,
+      "timeout_seconds": 15,
+      "max_retries": 0,
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 10,
+        "total_tokens": 15,
+        "completion_tokens_details": null,
+        "prompt_tokens_details": null
+      },
+      "elapsed_seconds": 0.002,
+      "generation_status": "llm",
+      "sent_input_bytes": 4501,
+      "validated_draft": {
+        "summary": "各商品的主要负面问题如下，占比均以各自成功标注评论为分母。",
+        "items": [
+          {
+            "finding_ref": "finding:c73684d3c3e0bf592b0b",
+            "aspect_key": "packaging",
+            "explanation": "包装是已有负面提及的评价维度。"
+          },
+          {
+            "finding_ref": "finding:0cd4c011a55e06f7c1cf",
+            "aspect_key": null,
+            "explanation": "现有数据不足以给出维度排名。"
+          }
+        ],
+        "caveats": []
+      }
+    }
+  },
+  "timeout_fallback": {
+    "data_source": "controlled SQLite SQL + MockTransport; not production or real Midea data",
+    "question": "按月查看包装和物流问题变化",
+    "raw_tool_results_bytes": 7471,
+    "compact_context": {
+      "schema_version": "1.0",
+      "question": "按月查看包装和物流问题变化",
+      "analysis_type": "aspect_trend",
+      "sentiment": null,
+      "scope_summary": [
+        {
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "phase4-controlled",
+          "product_ids": [
+            "TREND-CONTROL"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-06-30",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "sample_summary": [
+        {
+          "sample_ref": "sample:89c846a8c6c83768",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "review_count": 150,
+          "eligible_text_reviews": 150,
+          "successful_reviews": 150,
+          "failed_reviews": 0,
+          "unprocessed_reviews": 0,
+          "labeling_coverage": 1.0,
+          "empty_text_reviews": 0,
+          "reviewed_reviews": 0
+        }
+      ],
+      "key_findings": [
+        {
+          "source_result_id": "r1",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "type": "trend",
+          "aspect": "packaging",
+          "period": "month",
+          "bucket_count": 6,
+          "empty_buckets": [],
+          "valid_bucket_count": 6,
+          "sufficient_bucket_count": 6,
+          "adjacent_valid_pair_count": 5,
+          "recent_adjacent_change": {
+            "from": "2023-05",
+            "to": "2023-06",
+            "change_pp": 20.0
+          },
+          "peak_bucket": "2023-03",
+          "trough_bucket": "2023-01",
+          "count_peak_bucket": "2023-03",
+          "first_valid_bucket": "2023-01",
+          "last_valid_bucket": "2023-06",
+          "first_last_change_pp": 20.0,
+          "direction": "fluctuating",
+          "large_adjacent_changes": [
+            {
+              "from": "2023-01",
+              "to": "2023-02",
+              "change_pp": 20.0
+            },
+            {
+              "from": "2023-02",
+              "to": "2023-03",
+              "change_pp": 40.0
+            },
+            {
+              "from": "2023-03",
+              "to": "2023-04",
+              "change_pp": -40.0
+            },
+            {
+              "from": "2023-04",
+              "to": "2023-05",
+              "change_pp": -20.0
+            },
+            {
+              "from": "2023-05",
+              "to": "2023-06",
+              "change_pp": 20.0
+            }
+          ],
+          "largest_adjacent_change": {
+            "from": "2023-02",
+            "to": "2023-03",
+            "change_pp": 40.0
+          },
+          "finding_ref": "finding:edb015c34e2a9afcba69"
+        },
+        {
+          "source_result_id": "r2",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "type": "trend",
+          "aspect": "logistics",
+          "period": "month",
+          "bucket_count": 6,
+          "empty_buckets": [],
+          "valid_bucket_count": 6,
+          "sufficient_bucket_count": 6,
+          "adjacent_valid_pair_count": 5,
+          "recent_adjacent_change": {
+            "from": "2023-05",
+            "to": "2023-06",
+            "change_pp": -4.0
+          },
+          "peak_bucket": "2023-01",
+          "trough_bucket": "2023-06",
+          "count_peak_bucket": "2023-01",
+          "first_valid_bucket": "2023-01",
+          "last_valid_bucket": "2023-06",
+          "first_last_change_pp": -40.0,
+          "direction": "down",
+          "large_adjacent_changes": [],
+          "largest_adjacent_change": {
+            "from": "2023-01",
+            "to": "2023-02",
+            "change_pp": -12.0
+          },
+          "finding_ref": "finding:45f1838361a079411967"
+        }
+      ],
+      "statistics": [
+        {
+          "source_result_id": "r1",
+          "analysis_type": "aspect_trend",
+          "sentiment": "negative",
+          "group_id": "current",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "sample_ref": "sample:89c846a8c6c83768",
+          "metrics": [],
+          "aspects": [],
+          "trends": [
+            {
+              "aspect": "packaging",
+              "period": "month",
+              "original_point_count": 6,
+              "omitted_point_count": 0,
+              "target_exceeded": false,
+              "points": [
+                {
+                  "bucket": "2023-01",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.2,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 5,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-02",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.4,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 10,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-03",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.8,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 20,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-04",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.4,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 10,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-05",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.2,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 5,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-06",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.4,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 10,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                }
+              ]
+            }
+          ],
+          "finding_ref": "finding:85780ef10e8771bc97a0"
+        },
+        {
+          "source_result_id": "r2",
+          "analysis_type": "aspect_trend",
+          "sentiment": "negative",
+          "group_id": "current",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "sample_ref": "sample:89c846a8c6c83768",
+          "metrics": [],
+          "aspects": [],
+          "trends": [
+            {
+              "aspect": "logistics",
+              "period": "month",
+              "original_point_count": 6,
+              "omitted_point_count": 0,
+              "target_exceeded": false,
+              "points": [
+                {
+                  "bucket": "2023-01",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.6,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 15,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-02",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.48,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 12,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-03",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.4,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 10,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-04",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.32,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 8,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-05",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.24,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 6,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                },
+                {
+                  "bucket": "2023-06",
+                  "sample_size": {
+                    "review_count": 25,
+                    "eligible_text_reviews": 25,
+                    "successful_reviews": 25,
+                    "failed_reviews": 0,
+                    "unprocessed_reviews": 0,
+                    "labeling_coverage": 1.0,
+                    "empty_text_reviews": 0,
+                    "reviewed_reviews": 0
+                  },
+                  "metric": {
+                    "name": "negative_rate",
+                    "value": 0.2,
+                    "unit": "fraction_0_to_1",
+                    "numerator": 5,
+                    "denominator": 25,
+                    "denominator_name": "successful_reviews"
+                  }
+                }
+              ]
+            }
+          ],
+          "finding_ref": "finding:a2bde1c5daeb9ecd42a9"
+        }
+      ],
+      "evidence": [],
+      "caveats": [
+        {
+          "code": "boundary_buckets_may_be_partial",
+          "scope_ref": "scope:f2c41cccea0da6bd"
+        }
+      ],
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ]
+    },
+    "public_answer": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "包装在已有标注样本中的负面占比有升有降、呈现波动。物流在已有标注样本中的负面占比呈下降变化。",
+      "highlights": [
+        {
+          "finding_ref": "finding:edb015c34e2a9afcba69",
+          "aspect_key": "packaging",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "包装已标注样本的占比峰值在 2023-03，为 80.0%（20/25 条成功标注评论）。最近可比较的相邻时段 2023-05 至 2023-06 变化 +20.0 个百分点。"
+        },
+        {
+          "finding_ref": "finding:45f1838361a079411967",
+          "aspect_key": "logistics",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source_result_ids": [
+            "r2"
+          ],
+          "text": "物流已标注样本的占比峰值在 2023-01，为 60.0%（15/25 条成功标注评论）。最近可比较的相邻时段 2023-05 至 2023-06 变化 -4.0 个百分点。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:edb015c34e2a9afcba69",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "values": [
+            {
+              "bucket": "2023-03",
+              "name": "negative_rate",
+              "value": 0.8,
+              "unit": "fraction_0_to_1",
+              "numerator": 20,
+              "denominator": 25,
+              "denominator_name": "successful_reviews",
+              "sample_size": {
+                "review_count": 25,
+                "eligible_text_reviews": 25,
+                "successful_reviews": 25,
+                "failed_reviews": 0,
+                "unprocessed_reviews": 0,
+                "labeling_coverage": 1.0,
+                "empty_text_reviews": 0,
+                "reviewed_reviews": 0
+              }
+            },
+            {
+              "name": "recent_change_pp",
+              "value": 20.0,
+              "unit": "percentage_points",
+              "from": "2023-05",
+              "to": "2023-06",
+              "from_metric": {
+                "name": "negative_rate",
+                "value": 0.2,
+                "unit": "fraction_0_to_1",
+                "numerator": 5,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              },
+              "to_metric": {
+                "name": "negative_rate",
+                "value": 0.4,
+                "unit": "fraction_0_to_1",
+                "numerator": 10,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              }
+            },
+            {
+              "name": "first_last_change_pp",
+              "value": 20.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-06"
+            },
+            {
+              "name": "largest_adjacent_change_pp",
+              "value": 40.0,
+              "unit": "percentage_points",
+              "from": "2023-02",
+              "to": "2023-03"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:45f1838361a079411967",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "values": [
+            {
+              "bucket": "2023-01",
+              "name": "negative_rate",
+              "value": 0.6,
+              "unit": "fraction_0_to_1",
+              "numerator": 15,
+              "denominator": 25,
+              "denominator_name": "successful_reviews",
+              "sample_size": {
+                "review_count": 25,
+                "eligible_text_reviews": 25,
+                "successful_reviews": 25,
+                "failed_reviews": 0,
+                "unprocessed_reviews": 0,
+                "labeling_coverage": 1.0,
+                "empty_text_reviews": 0,
+                "reviewed_reviews": 0
+              }
+            },
+            {
+              "name": "recent_change_pp",
+              "value": -4.0,
+              "unit": "percentage_points",
+              "from": "2023-05",
+              "to": "2023-06",
+              "from_metric": {
+                "name": "negative_rate",
+                "value": 0.24,
+                "unit": "fraction_0_to_1",
+                "numerator": 6,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              },
+              "to_metric": {
+                "name": "negative_rate",
+                "value": 0.2,
+                "unit": "fraction_0_to_1",
+                "numerator": 5,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              }
+            },
+            {
+              "name": "first_last_change_pp",
+              "value": -40.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-06"
+            },
+            {
+              "name": "largest_adjacent_change_pp",
+              "value": -12.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-02"
+            }
+          ]
+        }
+      ],
+      "sample_note": "本次分析范围共 150 条评论，基于 150 条成功标注评论。",
+      "evidence_refs": [],
+      "caveats": [
+        "首末时间段可能不完整，变化不能直接解释为已证实的原因。"
+      ],
+      "generation_status": "fallback",
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "phase4-controlled",
+          "product_ids": [
+            "TREND-CONTROL"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-06-30",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "details_available": true
+    },
+    "answer_generation": {
+      "strategy": "llm",
+      "input_bytes": 4650,
+      "compact_bytes": 7506,
+      "input_budget_bytes": 16000,
+      "attempts": 1,
+      "error_code": "generation_timeout",
+      "timeout_seconds": 15,
+      "max_retries": 0,
+      "elapsed_seconds": 0.002,
+      "generation_status": "fallback",
+      "sent_input_bytes": 4650,
+      "validated_draft": {
+        "summary": "包装在已有标注样本中的负面占比有升有降、呈现波动。物流在已有标注样本中的负面占比呈下降变化。",
+        "items": [
+          {
+            "finding_ref": "finding:edb015c34e2a9afcba69",
+            "aspect_key": "packaging",
+            "explanation": "包装在已有标注样本中的负面占比有升有降、呈现波动。"
+          },
+          {
+            "finding_ref": "finding:45f1838361a079411967",
+            "aspect_key": "logistics",
+            "explanation": "物流在已有标注样本中的负面占比呈下降变化。"
+          }
+        ],
+        "caveats": []
+      }
+    }
+  },
+  "budget_fallback": {
+    "public_answer": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "包装在已有标注样本中的负面占比有升有降、呈现波动。物流在已有标注样本中的负面占比呈下降变化。",
+      "highlights": [
+        {
+          "finding_ref": "finding:edb015c34e2a9afcba69",
+          "aspect_key": "packaging",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "包装已标注样本的占比峰值在 2023-03，为 80.0%（20/25 条成功标注评论）。最近可比较的相邻时段 2023-05 至 2023-06 变化 +20.0 个百分点。"
+        },
+        {
+          "finding_ref": "finding:45f1838361a079411967",
+          "aspect_key": "logistics",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source_result_ids": [
+            "r2"
+          ],
+          "text": "物流已标注样本的占比峰值在 2023-01，为 60.0%（15/25 条成功标注评论）。最近可比较的相邻时段 2023-05 至 2023-06 变化 -4.0 个百分点。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:edb015c34e2a9afcba69",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "values": [
+            {
+              "bucket": "2023-03",
+              "name": "negative_rate",
+              "value": 0.8,
+              "unit": "fraction_0_to_1",
+              "numerator": 20,
+              "denominator": 25,
+              "denominator_name": "successful_reviews",
+              "sample_size": {
+                "review_count": 25,
+                "eligible_text_reviews": 25,
+                "successful_reviews": 25,
+                "failed_reviews": 0,
+                "unprocessed_reviews": 0,
+                "labeling_coverage": 1.0,
+                "empty_text_reviews": 0,
+                "reviewed_reviews": 0
+              }
+            },
+            {
+              "name": "recent_change_pp",
+              "value": 20.0,
+              "unit": "percentage_points",
+              "from": "2023-05",
+              "to": "2023-06",
+              "from_metric": {
+                "name": "negative_rate",
+                "value": 0.2,
+                "unit": "fraction_0_to_1",
+                "numerator": 5,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              },
+              "to_metric": {
+                "name": "negative_rate",
+                "value": 0.4,
+                "unit": "fraction_0_to_1",
+                "numerator": 10,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              }
+            },
+            {
+              "name": "first_last_change_pp",
+              "value": 20.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-06"
+            },
+            {
+              "name": "largest_adjacent_change_pp",
+              "value": 40.0,
+              "unit": "percentage_points",
+              "from": "2023-02",
+              "to": "2023-03"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:45f1838361a079411967",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "values": [
+            {
+              "bucket": "2023-01",
+              "name": "negative_rate",
+              "value": 0.6,
+              "unit": "fraction_0_to_1",
+              "numerator": 15,
+              "denominator": 25,
+              "denominator_name": "successful_reviews",
+              "sample_size": {
+                "review_count": 25,
+                "eligible_text_reviews": 25,
+                "successful_reviews": 25,
+                "failed_reviews": 0,
+                "unprocessed_reviews": 0,
+                "labeling_coverage": 1.0,
+                "empty_text_reviews": 0,
+                "reviewed_reviews": 0
+              }
+            },
+            {
+              "name": "recent_change_pp",
+              "value": -4.0,
+              "unit": "percentage_points",
+              "from": "2023-05",
+              "to": "2023-06",
+              "from_metric": {
+                "name": "negative_rate",
+                "value": 0.24,
+                "unit": "fraction_0_to_1",
+                "numerator": 6,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              },
+              "to_metric": {
+                "name": "negative_rate",
+                "value": 0.2,
+                "unit": "fraction_0_to_1",
+                "numerator": 5,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              }
+            },
+            {
+              "name": "first_last_change_pp",
+              "value": -40.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-06"
+            },
+            {
+              "name": "largest_adjacent_change_pp",
+              "value": -12.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-02"
+            }
+          ]
+        }
+      ],
+      "sample_note": "本次分析范围共 150 条评论，基于 150 条成功标注评论。",
+      "evidence_refs": [],
+      "caveats": [
+        "首末时间段可能不完整，变化不能直接解释为已证实的原因。"
+      ],
+      "generation_status": "fallback",
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "phase4-controlled",
+          "product_ids": [
+            "TREND-CONTROL"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-06-30",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "details_available": true
+    },
+    "answer_generation": {
+      "strategy": "llm",
+      "input_bytes": 4650,
+      "compact_bytes": 7506,
+      "input_budget_bytes": 1024,
+      "attempts": 0,
+      "error_code": "input_budget_exceeded",
+      "timeout_seconds": 15,
+      "max_retries": 0,
+      "elapsed_seconds": 0.0,
+      "generation_status": "fallback",
+      "sent_input_bytes": 0,
+      "validated_draft": {
+        "summary": "包装在已有标注样本中的负面占比有升有降、呈现波动。物流在已有标注样本中的负面占比呈下降变化。",
+        "items": [
+          {
+            "finding_ref": "finding:edb015c34e2a9afcba69",
+            "aspect_key": "packaging",
+            "explanation": "包装在已有标注样本中的负面占比有升有降、呈现波动。"
+          },
+          {
+            "finding_ref": "finding:45f1838361a079411967",
+            "aspect_key": "logistics",
+            "explanation": "物流在已有标注样本中的负面占比呈下降变化。"
+          }
+        ],
+        "caveats": []
+      }
+    }
+  }
+}

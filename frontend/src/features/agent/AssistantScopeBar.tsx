@@ -34,6 +34,16 @@ export default function AssistantScopeBar({ draft, options, quality, disabled, r
   const pendingDates = analysisDates({ ...pending, note: '' }, quality, options);
   const pendingValid = !!analysisParameters({ ...pending, note: '' }, options, quality)
     && pending.productIds.every(id => pendingProducts.some(item => item.product_id === id));
+  const displayDataset = (value: string) => {
+    const match = datasetSelectOptions(options.products).find(item => item.value === value);
+    return match?.label || value || '未选择';
+  };
+  const displayProducts = (value: AssistantScope) => {
+    const products = productsForDataset(options, value.dataset).filter(item => !value.productIds.length || value.productIds.includes(item.product_id));
+    return value.productIds.length
+      ? products.map(item => item.product_title || item.product_id).join('、') || value.productIds.join('、')
+      : `全部商品（${products.length} 款）`;
+  };
 
   // 顶部全局范围或目录改变后，丢弃尚未应用的编辑，避免覆盖外部选择。
   useEffect(() => { setPending(applied); onEditing(false); }, [appliedKey, options]);
@@ -55,6 +65,7 @@ export default function AssistantScopeBar({ draft, options, quality, disabled, r
       </div>
     </div>
     <div className="assistant-scope-body">
+      <p className="assistant-scope-summary-line">当前数据集：{displayDataset(editing ? pending.dataset : draft.dataset)} · 商品：{displayProducts(editing ? pending : applied)}</p>
       {!editing && <DatasetSummary dataset={draft.dataset} options={options} compact />}
       {editing ? <div className="assistant-scope-controls">
         <div><label htmlFor="assistant-dataset">数据集</label><DatasetSelector id="assistant-dataset" value={pending.dataset}
@@ -78,13 +89,16 @@ export default function AssistantScopeBar({ draft, options, quality, disabled, r
           onChange={value => { if (value?.[0] && value[1]) update({ baseline: [value[0].format('YYYY-MM-DD'), value[1].format('YYYY-MM-DD')] }); }} /></div>
         {!pendingValid && <Alert className="assistant-scope-edit-warning" type="warning" showIcon
           message="请选择可用数据集与标注版本；基线结束日期必须早于当前窗口开始日期。" />}
-      </div> : <dl className="assistant-scope-values">
-        <div><dt>数据集</dt><dd>{selectedProducts[0] ? `${selectedProducts[0].dataset_version} · ${selectedProducts[0].source}` : '未选择可用数据集'}</dd></div>
-        <div><dt>标注版本</dt><dd>{profile ? `${profile.requested_model} · ${profile.prompt_version}` : '未选择可用标注版本'}</dd></div>
-        <div><dt>商品</dt><dd>{draft.productIds.length ? selectedProducts.map(item => item.product_title || item.product_id).join('、') : `全部商品（${selectedProducts.length} 款）`}</dd></div>
-        <div><dt>当前窗口（UTC）</dt><dd>{dates.current.join(' — ')}</dd></div>
-        <div><dt>基线窗口（UTC）</dt><dd>{dates.baseline.join(' — ')}</dd></div>
-      </dl>}
+      </div> : <details className="assistant-scope-details">
+        <summary>查看完整查询范围</summary>
+        <dl className="assistant-scope-values">
+          <div><dt>数据集</dt><dd>{selectedProducts[0] ? `${selectedProducts[0].dataset_version} · ${selectedProducts[0].source}` : '未选择可用数据集'}</dd></div>
+          <div><dt>标注版本</dt><dd>{profile ? `${profile.requested_model} · ${profile.prompt_version}` : '未选择可用标注版本'}</dd></div>
+          <div><dt>商品</dt><dd>{draft.productIds.length ? selectedProducts.map(item => item.product_title || item.product_id).join('、') : `全部商品（${selectedProducts.length} 款）`}</dd></div>
+          <div><dt>当前窗口（UTC）</dt><dd>{dates.current.join(' — ')}</dd></div>
+          <div><dt>基线窗口（UTC）</dt><dd>{dates.baseline.join(' — ')}</dd></div>
+        </dl>
+      </details>}
       {editing && <DatasetSummary dataset={pending.dataset} options={options} compact />}
     </div>
     <div className="assistant-scope-status" role="status">

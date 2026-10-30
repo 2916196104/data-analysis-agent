@@ -10,10 +10,12 @@ from data_analysis_agent.agents.review_prompts import PROMPT_VERSION, SYSTEM_PRO
 from data_analysis_agent.agents.review_validation import result_summaries, validate_report
 from data_analysis_agent.agents.review_plan import build_query_plan
 from data_analysis_agent.agents.review_compression import build_analysis_artifacts, empty_public
+from data_analysis_agent.agents.review_answers import NaturalLanguageAnswerGenerator, unavailable_answer
 from data_analysis_agent.agents.runtime import (
     AgentExecutionError, FinalResponseFormatError, build_agent, execution_failure, create_llm, validate_final_result,
 )
 from data_analysis_agent.core.clock import utc_now
+from data_analysis_agent.core.database import PostgresConnection
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.core.serialization import safe_json
 from data_analysis_agent.reviews.parameters import BaselineScope
@@ -112,6 +114,10 @@ class UnsupportedReviewQuery(ValueError):
 def run_review_agent(db, question, *, scope, settings, progress=None):
     """模型仅选择只读工具及结果引用；所有数字和引文由代码整理。"""
     started = perf_counter()
+    timings = {key: 0.0 for key in (
+        "planning_duration_ms", "query_duration_ms", "validation_duration_ms",
+        "compression_duration_ms", "answer_duration_ms", "total_duration_ms",
+    )}
     sentiment_intent = detect_sentiment_intent(question)
     analysis_intent = {"positive": "positive_aspects", "negative": "negative_aspects"}.get(sentiment_intent)
     result = {"agent": True, "status": "error", "question": question, "snapshot_at": utc_now(),
@@ -137,10 +143,12 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
         if not scope["source"] or not scope["dataset_version"]:
             raise ReviewDataError("请选择明确的数据来源和数据集版本。")
         result["scope"] = scope
+        planning_started = perf_counter()
         plan = build_query_plan(question, scope)
+        timings["planning_duration_ms"] = round((perf_counter() - planning_started) * 1000, 3)
         sentiment_intent = plan.sentiment
         result.update(query_plan=plan.to_dict(), sentiment_intent=sentiment_intent,
-                      analysis_intent=plan.analysis_type)
+                      analysis_intent=plan.analysis_type, analysis_question=plan.answer_question or question)
         if plan.unsupported_reason:
             raise UnsupportedReviewQuery(plan.unsupported_reason)
         from data_analysis_agent.agents.review_tools import ReviewToolContext, create_review_registry
@@ -149,76 +157,97 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
             connect_review_database(db, readonly=True)
         ) as connection, connection:
             connection.execute("BEGIN")
+            if isinstance(connection, PostgresConnection):
+                # 直接追问也受数据库超时保护，且保留服务器已有的更严格上限。
+                connection.execute("SELECT set_config('statement_timeout', "
+                    "LEAST(COALESCE(NULLIF(setting::int,0),30000),30000)::text,true) "
+                    "FROM pg_settings WHERE name='statement_timeout'")
             context = ReviewToolContext(connection, scope, Path(temporary), settings.max_tool_calls, report,
                                         sentiment_intent=sentiment_intent, query_plan=plan)
             registry = create_review_registry(context)
             overview = registry.execute_tool("get_analysis_context", "{}", automatic=True)
             if "overview" not in context.results:
                 raise ReviewDataError("无法读取当前评论范围，请检查标注表和数据集。")
-            with create_llm(settings) as llm:
-                agent = build_agent(settings, context, llm, system_prompt=SYSTEM_PROMPT,
-                                     name="review_analyst", tool_registry=registry)
+            status, ids = None, []
+            direct_query = question.startswith("执行本轮已确认的只读查询")
+            if direct_query:
+                # 确定性追问已经由上一轮成功结果生成并冻结计划，不再重复启动规划模型。
+                for request in plan.requirements:
+                    response = registry.execute_tool(request["tool"], json.dumps(request["parameters"], ensure_ascii=False), automatic=True)
+                    payload = response.to_dict()
+                    if payload.get("status") != "success":
+                        raise ReviewDataError(payload.get("message") or "已确认的追问执行失败。")
+                status, ids = "ok", [key for key in context.results if key != "overview"]
+            else:
+                with create_llm(settings) as llm:
+                    agent = build_agent(settings, context, llm, system_prompt=SYSTEM_PROMPT,
+                                         name="review_analyst", tool_registry=registry)
 
-                async def record_step(event):
-                    context.trace.append({"event": "model_response", "usage": event.data.get("usage"),
-                                          "finish_reason": event.data.get("finish_reason")})
-                    report({"stage": "agent_thinking", "completed": context.tool_calls,
-                            "total": None, "unit": "tools"})
+                    async def record_step(event):
+                        context.trace.append({"event": "model_response", "usage": event.data.get("usage"),
+                                              "finish_reason": event.data.get("finish_reason")})
+                        report({"stage": "agent_thinking", "completed": context.tool_calls,
+                                "total": None, "unit": "tools"})
 
-                # 查询请求独立于不可信业务上下文，避免被当作待分析的数据而忽略。
-                prompt = (question + "\n\n<bound_context>\n"
-                          + json.dumps(overview.to_dict()["data"], ensure_ascii=False) + "\n</bound_context>"
-                          + "\n<query_plan>\n" + json.dumps(plan.to_dict(), ensure_ascii=False) + "\n</query_plan>")
-                for attempt in range(2):
-                    try:
-                        text = agent.run(prompt, on_step=record_step)
-                    finally:
-                        if agent.last_run is not None:
-                            model_responses += agent.last_run.model_calls
-                            for key, value in (agent.last_run.usage or {}).items():
-                                usage[key] = usage.get(key, 0) + value
-                    if context.limit_reached:
-                        raise AgentExecutionError("已达到本次工具调用上限，任务未确认完成。")
-                    if agent.last_run.status != "completed":
-                        raise AgentExecutionError("模型达到调用或输出上限，任务未确认完成。")
-                    try:
-                        status, ids = validate_final_result(text, context)
-                        if status == "unsupported" and ids != ["overview"]:
-                            raise AgentExecutionError("能力不足的答复不能发布未校验的统计结果。")
-                        if status == "ok":
-                            unresolved = set()
-                            for event in context.trace:
-                                if event["event"] == "tool_call":
-                                    if event["status"] == "success":
-                                        unresolved.discard(event["tool"])
-                                    else:
-                                        unresolved.add(event["tool"])
-                            if unresolved or not set(ids) - {"overview"}:
-                                raise AgentExecutionError("部分工具查询未完成，任务未确认完成。")
-                            if set(context.results) - {"overview"} - set(ids):
-                                raise AgentExecutionError("最终答复遗漏已完成的分析结果，任务未确认完成。")
-                        break
-                    except FinalResponseFormatError:
-                        if attempt:
-                            raise
-                        prompt = "请只纠正最终 JSON 格式，不重复执行成功工具。只输出 status 和 result_ids，已有结果 ID：" + json.dumps(list(context.results))
-                selected = [context.get_result(value) for value in ids]
-                if status == "ok":
-                    result["validation"] = validate_report(
-                        context.results, ids, sentiment_intent=sentiment_intent, query_plan=plan,
-                        expected_scopes={key: (scope if key == "overview" else {
-                            **context.query_scope(item["parameters"].get("product_ids", []),
-                                                  baseline=item["parameters"].get("window") == "baseline"),
-                            **{k: v for k, v in item["parameters"].items()
-                               if k in ("date_from", "date_to") and v is not None},
-                        }) for key, item in context.results.items()},
-                    )
-                    if result["validation"]["status"] != "passed":
-                        raise AgentExecutionError("统计或引用校验未通过，请检查执行记录。")
-                    result["answer_sections"] = [
-                        {"result_id": item["result_id"], "kind": item["kind"], "text": grounded_answer(status, [item])}
-                        for item in selected]
-                result.update(status=status, result_ids=ids, answer=grounded_answer(status, selected))
+                    # 查询请求独立于不可信业务上下文，避免被当作待分析的数据而忽略。
+                    prompt = (question + "\n\n<bound_context>\n"
+                              + json.dumps(overview.to_dict()["data"], ensure_ascii=False) + "\n</bound_context>"
+                              + "\n<query_plan>\n" + json.dumps(plan.to_dict(), ensure_ascii=False) + "\n</query_plan>")
+                    for attempt in range(2):
+                        try:
+                            model_started = perf_counter()
+                            queries_before = context.query_duration_ms
+                            text = agent.run(prompt, on_step=record_step)
+                        finally:
+                            timings["planning_duration_ms"] += (perf_counter() - model_started) * 1000 - (context.query_duration_ms - queries_before)
+                            if agent.last_run is not None:
+                                model_responses += agent.last_run.model_calls
+                                for key, value in (agent.last_run.usage or {}).items():
+                                    usage[key] = usage.get(key, 0) + value
+                        if context.limit_reached:
+                            raise AgentExecutionError("已达到本次工具调用上限，任务未确认完成。")
+                        if agent.last_run.status != "completed":
+                            raise AgentExecutionError("模型达到调用或输出上限，任务未确认完成。")
+                        try:
+                            status, ids = validate_final_result(text, context)
+                            if status == "unsupported" and ids != ["overview"]:
+                                raise AgentExecutionError("能力不足的答复不能发布未校验的统计结果。")
+                            if status == "ok":
+                                unresolved = set()
+                                for event in context.trace:
+                                    if event["event"] == "tool_call":
+                                        if event["status"] == "success":
+                                            unresolved.discard(event["tool"])
+                                        else:
+                                            unresolved.add(event["tool"])
+                                if unresolved or not set(ids) - {"overview"}:
+                                    raise AgentExecutionError("部分工具查询未完成，任务未确认完成。")
+                                if set(context.results) - {"overview"} - set(ids):
+                                    raise AgentExecutionError("最终答复遗漏已完成的分析结果，任务未确认完成。")
+                            break
+                        except FinalResponseFormatError:
+                            if attempt:
+                                raise
+                            prompt = "请只纠正最终 JSON 格式，不重复执行成功工具。只输出 status 和 result_ids，已有结果 ID：" + json.dumps(list(context.results))
+            selected = [context.get_result(value) for value in ids]
+            if status == "ok":
+                validation_started = perf_counter()
+                result["validation"] = validate_report(
+                    context.results, ids, sentiment_intent=sentiment_intent, query_plan=plan,
+                    expected_scopes={key: (scope if key == "overview" else {
+                        **context.query_scope(item["parameters"].get("product_ids", []),
+                                              baseline=item["parameters"].get("window") == "baseline"),
+                        **{k: v for k, v in item["parameters"].items()
+                           if k in ("date_from", "date_to") and v is not None},
+                    }) for key, item in context.results.items()},
+                )
+                timings["validation_duration_ms"] = round((perf_counter() - validation_started) * 1000, 3)
+                if result["validation"]["status"] != "passed":
+                    raise AgentExecutionError("统计或引用校验未通过，请检查执行记录。")
+                result["answer_sections"] = [
+                    {"result_id": item["result_id"], "kind": item["kind"], "text": grounded_answer(status, [item])}
+                    for item in selected]
+            result.update(status=status, result_ids=ids, answer=grounded_answer(status, selected))
             summaries = list(result_summaries(context.results.values()))
             warnings = ["负面占比以成功标注评论为分母；无成功标注时保留空值，可检查版本或准备数据后重查。零条证据不表示没有问题。",
                         "原文是示例证据，不能仅凭评论确认问题根因；不完整的首末时间桶不宜直接比较。"]
@@ -226,7 +255,16 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
                 warnings.append("部分范围成功标注少于 20 条或覆盖率低于 80%，结论仅描述已有样本，请谨慎解释。")
             result["warnings"] = warnings
             if result["status"] == "ok":
+                compression_started = perf_counter()
                 result.update(build_analysis_artifacts({**result, "results": context.results}, plan))
+                timings["compression_duration_ms"] = round((perf_counter() - compression_started) * 1000, 3)
+        # 关闭只读事务和规划客户端后才解释已核验快照，生成阶段没有查询入口。
+        if result["status"] == "ok":
+            report({"stage": "answer_generating", "completed": 0, "total": 1, "unit": "answers"})
+            answer_started = perf_counter()
+            result["public_answer"], result["answer_generation"] = NaturalLanguageAnswerGenerator().generate(
+                result["analysis_question"], result["compact_context"], settings=settings, validated=result["validation"]["status"] == "passed")
+            timings["answer_duration_ms"] = round((perf_counter() - answer_started) * 1000, 3)
     except UnsupportedReviewQuery as exc:
         result.update(status="unsupported", answer=str(exc), result_ids=[])
     except Exception as exc:
@@ -236,13 +274,21 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
         result.update(status="error", error={"code": code, "message": message})
         result.pop("answer", None)
         result.pop("answer_sections", None)
+        result.pop("public_answer", None)
     finally:
+        timings["query_duration_ms"] = round(context.query_duration_ms if context else 0, 3)
+        timings["planning_duration_ms"] = round(timings["planning_duration_ms"], 3)
+        timings["total_duration_ms"] = round((perf_counter() - started) * 1000, 3)
+        result["performance"] = {**timings, "answer_input_bytes": result.get("answer_generation", {}).get("input_bytes", 0)}
         result.update(results=context.results if context else {}, trace=context.trace if context else [],
                       model_tool_attempts=context.model_tool_attempts if context else 0,
                       cache_hits=context.cache_hits if context else 0,
                       query_executions=context.query_executions if context else 0,
                       tool_calls=context.tool_calls if context else 0, model_calls=llm.budget.calls if llm else 0,
                       model_responses=model_responses, usage=usage or None,
-                      elapsed_seconds=round(perf_counter() - started, 3))
+                      answer_model_calls=result.get("answer_generation", {}).get("attempts", 0),
+                      total_model_calls=(llm.budget.calls if llm else 0) + result.get("answer_generation", {}).get("attempts", 0),
+                      elapsed_seconds=round(timings["total_duration_ms"] / 1000, 3))
     result.setdefault("public_analysis", empty_public(result["status"]).model_dump())
+    result.setdefault("public_answer", unavailable_answer("unsupported" if result["status"] == "unsupported" else "failed"))
     return json.loads(safe_json(result, settings.api_key))

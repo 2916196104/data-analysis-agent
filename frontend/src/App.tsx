@@ -106,7 +106,8 @@ export default function App() {
   const importTask = useImportTask({ onSubmit: submit, onBusyChange: setBusy, onError: setSubmitError });
   const task = taskState.id === selectedTaskId ? taskState.task : null;
   const run = taskState.id === selectedTaskId ? taskState.run : null;
-  const chat = useAgentChat(route.page === 'assistant' ? route.taskId : undefined);
+  const chat = useAgentChat(route.page === 'assistant' ? route.taskId : undefined,
+    JSON.stringify([draft.dataset, [...draft.productIds].sort(), draft.profileId, draft.current, draft.baseline]));
   const fetchHistory = useCallback(async () => {
     const requestId = ++historyRequest.current;
     setHistoryLoading(true);

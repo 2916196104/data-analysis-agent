@@ -40,6 +40,11 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
         def handler(request):
             body = json.loads(request.content)
             requests.append(body)
+            if not body.get("tools"):
+                payload = json.loads(body["messages"][-1]["content"])
+                return completion({"role": "assistant", "content": json.dumps({"summary": payload["summary_options"][0],
+                    "items": [{"finding_ref": fact["finding_ref"], "aspect_key": fact["aspect_key"],
+                               "explanation": fact["statements"][0]} for fact in payload["findings"]], "caveats": []})})
             user_prompt = next(item["content"] for item in requests[0]["messages"] if item["role"] == "user")
             plan = json.loads(user_prompt.split("<query_plan>\n")[1].split("\n</query_plan>")[0])
             self.assertEqual({item["function"]["name"] for item in body["tools"]},
@@ -68,7 +73,7 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
             final("ok", "r1", "r2", "r3"),
         ], question="按日查看整体趋势、商品对比、包装原文")
         self.assertEqual(result["status"], "ok", result)
-        self.assertEqual(len(requests), 2)
+        self.assertEqual(len(requests), 3)  # 两次原规划请求 + 一次无工具的解释请求。
         self.assertEqual(result["results"]["r1"]["data"]["summary"]["review_count"], 6)
         self.assertEqual(len(result["results"]["r2"]["data"]["products"]), 3)
         evidence = result["results"]["r3"]["data"]["items"][0]

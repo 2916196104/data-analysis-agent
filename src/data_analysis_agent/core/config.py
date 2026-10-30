@@ -35,6 +35,9 @@ class AgentSettings:
     max_tool_calls: int = 12
     timeout_seconds: float = 30
     max_retries: int = 1
+    answer_input_max_bytes: int = 16000
+    answer_timeout_seconds: float = 15
+    answer_max_retries: int = 0
 
     @classmethod
     def from_values(cls, values: dict[str, str]) -> "AgentSettings":
@@ -68,6 +71,12 @@ class AgentSettings:
                 raise ValueError
         except ValueError as exc:
             raise ConfigurationError("LLM_TIMEOUT_SECONDS 必须大于 0 且不超过 300。") from exc
+        try:
+            answer_timeout = float(values.get("ANSWER_TIMEOUT_SECONDS", "15"))
+            if not math.isfinite(answer_timeout) or not 0 < answer_timeout <= 60:
+                raise ValueError
+        except ValueError as exc:
+            raise ConfigurationError("ANSWER_TIMEOUT_SECONDS 必须大于 0 且不超过 60。") from exc
         return cls(
             model=values["LLM_MODEL_ID"].strip(),
             api_key=values["LLM_API_KEY"].strip(),
@@ -76,6 +85,9 @@ class AgentSettings:
             max_tool_calls=integer("AGENT_MAX_TOOL_CALLS", 12, 1, 40),
             timeout_seconds=timeout,
             max_retries=integer("LLM_MAX_RETRIES", 1, 0, 3),
+            answer_input_max_bytes=integer("ANSWER_INPUT_MAX_BYTES", 16000, 1024, 256000),
+            answer_timeout_seconds=answer_timeout,
+            answer_max_retries=integer("ANSWER_MAX_RETRIES", 0, 0, 1),
         )
 
 

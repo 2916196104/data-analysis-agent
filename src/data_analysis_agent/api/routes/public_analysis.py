@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Path
 
 from data_analysis_agent.agents.review_compression import read_public_analysis
+from data_analysis_agent.agents.review_answers import read_public_answer
 from data_analysis_agent.api.responses import Result, ok_result
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.jobs.store import get_task
@@ -20,6 +21,8 @@ def create_router(task_db):
         is_agent = isinstance(result, dict) and result.get("agent") is True
         if task["kind"] != "analysis" or not (is_agent or isinstance(task.get("parameters", {}).get("question"), str)):
             raise ReviewDataError("该任务不是评论 Agent 分析。")
-        return ok_result({"task_id": task["task_id"], "status": task["status"], "public_analysis": read_public_analysis(task)})
+        analysis = read_public_analysis(task)
+        return ok_result({"task_id": task["task_id"], "status": task["status"], "public_analysis": analysis,
+                          "public_answer": read_public_answer(task, public_analysis=analysis)})
 
     return router

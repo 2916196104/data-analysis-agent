@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from data_analysis_agent.agents.review_plan import TOOL_KINDS, ReviewQueryPlan
+from data_analysis_agent.agents.review_plan import ASPECT_WORDS, TOOL_KINDS, ReviewQueryPlan
 from data_analysis_agent.agents.review_results import (
     AnalysisModel, EvidenceReference, StructuredAnalysisResult,
     TrendPoint, TrendSeries, adapt_result,
@@ -85,6 +85,15 @@ def compress_trend(series: TrendSeries, options: CompressionOptions):
     changes = [(i, value) for i, value in changes if value is not None]
     findings = {"aspect": series.aspect, "period": series.period, "bucket_count": len(points),
                 "empty_buckets": [point.bucket for point in points if point.metric.value is None]}
+    findings["valid_bucket_count"] = len(valid)
+    findings["sufficient_bucket_count"] = sum(points[i].sample_size.successful_reviews >= 20
+        and (points[i].sample_size.labeling_coverage or 0) >= 0.8 for i in valid)
+    findings["adjacent_valid_pair_count"] = len(changes)
+    if changes:
+        recent_i, recent = changes[-1]
+        mandatory.update((recent_i - 1, recent_i))
+        findings["recent_adjacent_change"] = {"from": points[recent_i - 1].bucket,
+                                              "to": points[recent_i].bucket, "change_pp": recent}
     if valid:
         peak = max(valid, key=lambda i: points[i].metric.value)
         trough = min(valid, key=lambda i: points[i].metric.value)
@@ -92,6 +101,7 @@ def compress_trend(series: TrendSeries, options: CompressionOptions):
         mandatory.update((valid[0], valid[-1], peak, trough, count_peak))
         findings.update(peak_bucket=points[peak].bucket, trough_bucket=points[trough].bucket,
                         count_peak_bucket=points[count_peak].bucket,
+                        first_valid_bucket=points[valid[0]].bucket, last_valid_bucket=points[valid[-1]].bucket,
                         first_last_change_pp=_delta(points[valid[0]], points[valid[-1]]))
     else:
         findings["first_last_change_pp"] = None
@@ -177,9 +187,11 @@ class AnalysisResultCompressor:
                     if result.kind == "positive_aspects" and not group.sample_size.positive_review_count:
                         codes.append("no_positive_mentions")
                     caveats.extend({"code": code, "scope_ref": group_scope_ref, "sample_ref": sample_ref} for code in codes)
-                mentioned = [row for row in group.aspects if row.metrics[0].value > 0]
+                requested = {value for word, value in ASPECT_WORDS.items() if word in question.replace("数据质量", "")}
+                candidates = [row for row in group.aspects if not requested or row.aspect in requested]
+                mentioned = [row for row in candidates if row.metrics[0].value > 0]
                 rows = [{**row.model_dump(), "metrics": [_metric_payload(metric) for metric in row.metrics]}
-                        for row in (mentioned or group.aspects)[:self.options.top_aspects]]
+                        for row in (mentioned or candidates)[:self.options.top_aspects]]
                 trends = []
                 for series in group.trends:
                     compressed, trend_finding = compress_trend(series, self.options)
@@ -221,6 +233,13 @@ class AnalysisResultCompressor:
                 caveats.append({"code": "evidence_is_matching_sample_not_population", "scope_ref": scope_ref})
         # 背景样本只存一次；结果/窗口/商品仍保留独立的 scope_ref 与来源，不相加。
         unique_caveats = {canonical_json(item): item for item in caveats}
+        for finding in findings:
+            finding["finding_ref"] = "finding:" + content_sha256(finding)[:20]
+        for stat in statistics:
+            stat["finding_ref"] = "finding:" + content_sha256([stat["source_result_id"], stat["scope_ref"],
+                stat.get("group_id"), stat["analysis_type"]])[:20]
+            for aspect in stat.get("aspects", []):
+                aspect["finding_ref"] = "finding:" + content_sha256([stat["finding_ref"], aspect["aspect"]])[:20]
         return CompactAnalysisContext(question=question, analysis_type=plan.analysis_type, sentiment=plan.sentiment,
                                       scope_summary=list(scopes.values()), sample_summary=list(samples.values()),
                                       key_findings=findings, statistics=statistics, evidence=evidence,
@@ -248,7 +267,7 @@ def build_analysis_artifacts(result, plan, options=None):
     if not plan.satisfied(relevant):
         raise ValueError("完整结果未满足查询计划。")
     structured = [adapt_result(item, result["scope"]) for item in relevant]
-    context = AnalysisResultCompressor(options).compress(result["question"], plan, structured)
+    context = AnalysisResultCompressor(options).compress(result.get("analysis_question", result["question"]), plan, structured)
     return {"structured_analysis": [item.model_dump() for item in structured],
             "compact_context": context.model_dump(), "public_analysis": public_from_context(context).model_dump()}
 

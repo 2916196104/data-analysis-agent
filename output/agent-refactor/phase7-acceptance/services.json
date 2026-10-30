@@ -1,0 +1,11 @@
+{
+  "pgdata": "E:\\AllProject\\data-analysis-agent\\output\\agent-refactor\\phase7-acceptance\\pgdata",
+  "port": 59251,
+  "admin_url": "postgresql://phase7_test@127.0.0.1:59251/postgres",
+  "redis_container": "agent-phase7-ef2a8826b6654614949071c5cb7c5ac1",
+  "redis_url": "redis://127.0.0.1:63892/0",
+  "started": true,
+  "web_url": "postgresql://phase7_test@127.0.0.1:59251/agent_test_phase7_web_52f16ffba9744dba89430ba927e586b8",
+  "stopped": true,
+  "pgdata_removed": true
+}

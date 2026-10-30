@@ -1,0 +1,89 @@
+{
+  "capture": "final delivered source and evidence; live samples collected earlier as noted in report",
+  "files": {
+    "src/data_analysis_agent/agents/review_prompts.py": {
+      "bytes": 5807,
+      "sha256": "eaba115b22367ac807ee94052a4be1e2c52ab6f4e4c41aa3d86fffa206cef2d4"
+    },
+    "src/data_analysis_agent/agents/review_plan.py": {
+      "bytes": 10188,
+      "sha256": "4990bf566b257106fb8bb058daf49bd17d1b058845ae9b2958afea07b78b7fbf"
+    },
+    "src/data_analysis_agent/agents/reviews.py": {
+      "bytes": 22291,
+      "sha256": "ebb0fa922a8c687b2e415206c4347b51168d879fcae66f0dd3b8a077f13ba1e2"
+    },
+    "tests/test_public_analysis_api.py": {
+      "bytes": 5409,
+      "sha256": "1322f344899e962149816a6837cf5e7b28e588b2583bb40e7a7b56aa81f7c5cb"
+    },
+    "tests/test_phase7_acceptance.py": {
+      "bytes": 2790,
+      "sha256": "90b5e2d8f856c2041be8beea414d2b93ec7b8d6d2dc6af5beedbf6daa91d9756"
+    },
+    "tests/test_phase7_postgres.py": {
+      "bytes": 8475,
+      "sha256": "b2506ff53e47546f07e68f4844c1bd99927baa2bc3fb14f8931065fe8e7d1a61"
+    },
+    "scripts/phase7_cases.py": {
+      "bytes": 5756,
+      "sha256": "a8b090f48db86c6a0e6fa0f7c6c68f4c21cb37de1ef14b56760a648c44320504"
+    },
+    "scripts/phase7_evaluation.py": {
+      "bytes": 15850,
+      "sha256": "4af7036e9d2647410bf8e0bf29f671714fcaa7b724d42303a7a9c935642073ef"
+    },
+    "scripts/phase7_fixture.py": {
+      "bytes": 1646,
+      "sha256": "b1808c769aff7e68de9d29ebe73736cd8b59c2f9c12e7ec0bc735fc9223965ba"
+    },
+    "scripts/phase7_performance.py": {
+      "bytes": 7491,
+      "sha256": "1d3ad8cddb279e70e61c9ab89eb82fced74cc3f84f508495c72066833d2e922f"
+    },
+    "scripts/phase7_services.py": {
+      "bytes": 3353,
+      "sha256": "2d1906ab72b39a110388fc40d4b5360eb7a2f6e5fe75485e478f8fe888b4c112"
+    },
+    "frontend/tests/assistant.e2e.mjs": {
+      "bytes": 48487,
+      "sha256": "7c2179e69e6c1a559911678cc19162c03d2e344685169239b593112dff80bbd4"
+    },
+    "output/agent-refactor/phase7-acceptance/backend-accepted.log": {
+      "bytes": 77076,
+      "sha256": "0557e7d7100a423356cfb9bb63750b48ebc2cf9d087bedd97ad75ffbc34f99eb"
+    },
+    "output/agent-refactor/phase7-acceptance/offline-accepted/evaluation.json": {
+      "bytes": 1565529,
+      "sha256": "4c7bca295704e8d0db8a422be5a42828c19c6df6945b5ddb8297fa049da69fa7"
+    },
+    "output/agent-refactor/phase7-acceptance/live/evaluation-revalidated.json": {
+      "bytes": 494636,
+      "sha256": "2c026d16e01b24b09192e61b1582dfaf74d050bfcfc0a7ce8f17586de39db608"
+    },
+    "output/agent-refactor/phase7-acceptance/performance-accepted/performance.json": {
+      "bytes": 159478,
+      "sha256": "e7db82f7f081922942892dd1c1a114cc129a8fdbeaa4e2ecaed5c8e9fbfdb1f9"
+    },
+    "output/playwright/assistant-VJEXxY/acceptance.json": {
+      "bytes": 106128,
+      "sha256": "d880faaed69f7aed2a018d913b88772652b2608635bb1ff9e5d8f2db9b91a433"
+    },
+    "output/playwright/assistant-VJEXxY/phase7-business-examples.json": {
+      "bytes": 317432,
+      "sha256": "3ebd924b124440ca831d697eab6d0c8fa663aa27d4a64414db271769f7519801"
+    },
+    "output/playwright/assistant-VJEXxY/phase7-evidence-pages.json": {
+      "bytes": 61329,
+      "sha256": "8cbe27928f5809ad4cbb54ac56293917d7ae550c1e583cd21390d4222f303fcc"
+    },
+    "output/playwright/assistant-VJEXxY/phase7-failure-recovery.json": {
+      "bytes": 39173,
+      "sha256": "9e245aa96f562bbc1a65c1423586ae6c3e7ff2469a494b6a549c415b9912519e"
+    },
+    "docs/agent-refactor/final-acceptance-report.md": {
+      "bytes": 44077,
+      "sha256": "529fffd953a102017319f74f9249fc88d2b259a7f0abf13078ff3cc0875dff18"
+    }
+  }
+}

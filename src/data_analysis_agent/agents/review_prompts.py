@@ -6,7 +6,7 @@ import re
 PROMPT_VERSION = "review-agent-v5"
 
 _POSITIVE_TERMS = ("好评", "优点", "满意", "喜欢", "值得购买", "评价最好", "最受好评", "正向", "正面")
-_NEGATIVE_TERMS = ("差评", "缺点", "不满意", "投诉", "负面", "存在问题", "哪些问题", "主要问题", "不好", "痛点")
+_NEGATIVE_TERMS = ("差评", "缺点", "不满意", "投诉", "负面", "问题", "不好", "痛点")
 _NEGATION_PREFIX = re.compile(r"(?:不是|并非|不问|不想(?:看|知道)|别(?:看|查)|无需|不|没)[^，。！？]{0,10}$")
 
 
@@ -15,14 +15,8 @@ def detect_sentiment_intent(question: str) -> str | None:
     if not isinstance(question, str):
         return None
     text = re.sub(r"\s+", "", question)
-    positive_terms = "|".join(re.escape(term) for term in _POSITIVE_TERMS)
-    negative_terms = "|".join(re.escape(term) for term in _NEGATIVE_TERMS)
-    if re.search(rf"(?:不是|并非|不问|不想(?:看|知道)|别(?:看|查)|无需).{{0,12}}(?:{negative_terms})", text):
-        if re.search(rf"(?:{positive_terms})", text):
-            return "positive"
-    if re.search(rf"(?:不是|并非|不问|不想(?:看|知道)|别(?:看|查)|无需).{{0,12}}(?:{positive_terms})", text):
-        if re.search(rf"(?:{negative_terms})", text):
-            return "negative"
+    # 转折后的请求独立判断，否定不能跨逗号吞掉后面的真实目标。
+    text = re.sub(r"而是|我想(?:看|知道)|只想(?:看|知道)", "，", text)
     def unnegated_position(terms):
         positions = []
         for term in terms:

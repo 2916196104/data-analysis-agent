@@ -60,9 +60,10 @@ function ProductComparison({ item, titles, onPrepare }: {
   </>;
 }
 
-export default function AgentResults({ result, onDetail, onPrepare, idPrefix = 'agent' }: {
+export default function AgentResults({ result, onDetail, onPrepare, onEvidenceNext, idPrefix = 'agent' }: {
   result: AgentResult; onDetail: (value: unknown, title: string) => void;
   onPrepare?: (productIds: string[]) => void;
+  onEvidenceNext?: () => void;
   idPrefix?: string;
 }) {
   const selected = (result.result_ids || []).map(id => result.results[id]).filter(Boolean);
@@ -75,7 +76,7 @@ export default function AgentResults({ result, onDetail, onPrepare, idPrefix = '
   const summary = overview?.data.summary;
   return <div className="results-stack spaced agent-results" aria-label="Agent 分析结果">
     <div className="section-heading"><h2>Agent 分析结果</h2><Tag>只读查询</Tag></div>
-    <Card title="分析摘要">
+    {!result.public_answer && <Card title="分析摘要">
       {result.status === 'ok' ? <ul className="agent-summary">{selected.map(item => <li key={item.result_id}>
         <a href={`#${idPrefix}-${item.result_id}`}>{sectionNames[item.kind]} [{item.result_id}]</a><span>{sectionSummary(item)}</span>
       </li>)}</ul> : <p className="agent-answer">{result.answer || '分析未完成，请查看任务错误和执行记录。'}</p>}
@@ -89,7 +90,7 @@ export default function AgentResults({ result, onDetail, onPrepare, idPrefix = '
         description="暂无可用于负面占比的成功标注样本。可检查选用的标注版本，或准备数据后重新分析；这不表示负面占比为 0%。" />}
       {onPrepare && summary && summary.failed_reviews + summary.unprocessed_reviews > 0 && <Button className="spaced" onClick={() => onPrepare(result.scope.product_ids)}>补齐当前范围标注</Button>}
       <p className="muted spaced">负面占比 = 负面评论数 / 成功标注数；覆盖率 = 成功标注数 / 有效正文数。未标注评论不用于判断正负面。成功标注不足 20 条或覆盖率低于 80% 时标记为“样本有限”。</p>
-    </Card>
+    </Card>}
     {selected.map(item => <Card id={`${idPrefix}-${item.result_id}`} key={item.result_id} title={`${sectionNames[item.kind]} [${item.result_id}]`}
       extra={<Button size="small" onClick={() => onDetail(item, `统计依据 [${item.result_id}]`)}>统计依据</Button>}>
       {item.kind === 'trend' ? <>
@@ -105,29 +106,36 @@ export default function AgentResults({ result, onDetail, onPrepare, idPrefix = '
             {Array.from(new Set(row.opinions.map(opinion => opinion.quote))).map((quote, index) => <blockquote key={index}>{quote}</blockquote>)}
             <Button type="link" onClick={() => onDetail(row, `原文证据 #${row.review_id}`)}>查看原文 #{row.review_id}</Button>
           </article>)}</div> : <Alert type="info" message="当前条件没有匹配证据，可检查标注覆盖率、维度、情感和时间范围。" />}
+          {onEvidenceNext && item.data.items.length > 0 && item.data.total > item.data.page * item.data.items.length &&
+            <Button className="spaced" onClick={onEvidenceNext}>继续查看下一页</Button>}
         </> : item.kind === 'issues' ? <>
           <p className="muted">成功标注分母：当前 {item.data.current?.successful_reviews ?? '未知'} 条，基线 {item.data.baseline?.successful_reviews ?? '未知'} 条；任一窗口无成功标注时不计算占比变化。</p>
-          <Table size="small" rowKey="aspect" dataSource={item.data.issues} pagination={false} scroll={{ x: 560 }} columns={[
+          <Table size="small" rowKey="aspect" dataSource={item.data.issues.filter(row => !item.parameters.aspect || row.aspect === item.parameters.aspect)} pagination={false} scroll={{ x: 560 }} columns={[
             { title: '维度', dataIndex: 'aspect_label' }, { title: '负面数', dataIndex: 'negative_review_count' },
             { title: '负面占比', dataIndex: 'negative_rate', render: (value: number | null) => value === null ? '暂无成功标注' : rate(value) },
             { title: '较基线（百分点）', dataIndex: 'negative_rate_change_pp', render: (value: number | null) => value === null ? '样本不足' : `${value > 0 ? '+' : ''}${value.toFixed(1)}` },
           ]} />
         </> : item.kind === 'context' ? <p>{sectionSummary(item)}</p> : <ExtendedResults item={item} />}
     </Card>)}
-    <Card title="执行与校验" extra={<Button onClick={() => onDetail(result, 'Agent 完整结果')}>详情</Button>}>
-      {result.validation ? <>
-        <Tag color={result.validation.status === 'passed' ? 'green' : 'red'}>{result.validation.status === 'passed' ? '结果校验通过' : '结果校验未通过'}</Tag>
-        <ul>{result.validation.checks.map(check => <li key={check.name}>{check.name}：{check.passed ? '通过' : '未通过'} · {check.detail}</li>)}</ul>
-      </> : <p className="muted">此历史结果未保存自动校验记录；可通过统计依据核对分子、分母和原文。</p>}
-      <details><summary>查看工具任务清单与执行记录</summary>
-        <p className="muted">此清单记录实际查询及结果引用，不代表对问题语义的完整性保证。模型调用 {result.model_calls} 次 · 工具调用 {result.tool_calls} 次 · 耗时 {result.elapsed_seconds.toFixed(1)} 秒</p>
-        {result.trace.filter(event => event.event === 'tool_call').map((event, index) =>
-          <p key={index}>{index + 1}. {toolNames[event.tool || ''] || event.tool} · {event.status === 'success' ? '成功' : '失败'}{event.result_id ? ` [${event.result_id}]` : ''}</p>)}
-        {result.warnings?.map(warning => <p key={warning} className="muted">{warning}</p>)}
-      </details>
-      <Button className="spaced" aria-label="下载 Agent JSON" icon={<DownloadOutlined />} onClick={() => exportResult(result, 'review-agent')}>下载 Agent JSON</Button>
-      <Button className="spaced" icon={<DownloadOutlined />} onClick={() => exportAgentReport(result)}>导出 Markdown 报告</Button>
-    </Card>
-    <p className="result-footnote">标注版本：{result.scope.model} / {result.scope.prompt_version} · 范围：{result.scope.date_from} — {result.scope.date_to}（UTC） · 查询时刻 {result.snapshot_at} · 准备新数据后需重新分析。</p>
+    <details className="agent-audit">
+      <summary>开发调试与结果校验</summary>
+      <Card title="执行与校验" extra={<Button onClick={() => onDetail(result, 'Agent 完整结果')}>详情</Button>}>
+        {result.validation ? <>
+          <Tag color={result.validation.status === 'passed' ? 'green' : 'red'}>{result.validation.status === 'passed' ? '结果校验通过' : '结果校验未通过'}</Tag>
+          <ul>{result.validation.checks.map(check => <li key={check.name}>{check.name}：{check.passed ? '通过' : '未通过'} · {check.detail}</li>)}</ul>
+        </> : <p className="muted">此历史结果未保存自动校验记录；可通过统计依据核对分子、分母和原文。</p>}
+        <details><summary>查看工具任务清单与执行记录</summary>
+          <p className="muted">此清单记录实际查询及结果引用，不代表对问题语义的完整性保证。模型调用 {result.total_model_calls ?? result.model_calls} 次
+            {result.answer_model_calls !== undefined && `（规划 ${result.model_calls} 次，解释 ${result.answer_model_calls} 次）`} · 工具调用 {result.tool_calls} 次 · 耗时 {result.elapsed_seconds.toFixed(1)} 秒</p>
+          {result.performance && <p className="muted">阶段耗时：规划 {result.performance.planning_duration_ms.toFixed(1)} ms · 查询 {result.performance.query_duration_ms.toFixed(1)} ms · 校验 {result.performance.validation_duration_ms.toFixed(1)} ms · 压缩 {result.performance.compression_duration_ms.toFixed(1)} ms · 回答 {result.performance.answer_duration_ms.toFixed(1)} ms。</p>}
+          {result.trace.filter(event => event.event === 'tool_call').map((event, index) =>
+            <p key={index}>{index + 1}. {toolNames[event.tool || ''] || event.tool} · {event.status === 'success' ? '成功' : '失败'}{event.result_id ? ` [${event.result_id}]` : ''}</p>)}
+          {result.warnings?.map(warning => <p key={warning} className="muted">{warning}</p>)}
+        </details>
+        <Button className="spaced" aria-label="下载 Agent JSON" icon={<DownloadOutlined />} onClick={() => exportResult(result, 'review-agent')}>下载 Agent JSON</Button>
+        <Button className="spaced" icon={<DownloadOutlined />} onClick={() => exportAgentReport(result)}>导出 Markdown 报告</Button>
+      </Card>
+      <p className="result-footnote">标注版本：{result.scope.model} / {result.scope.prompt_version} · 范围：{result.scope.date_from} — {result.scope.date_to}（UTC） · 查询时刻 {result.snapshot_at} · 准备新数据后需重新分析。</p>
+    </details>
   </div>;
 }

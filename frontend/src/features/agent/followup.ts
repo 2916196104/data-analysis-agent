@@ -7,10 +7,11 @@ export interface QuerySnapshot {
   parentTurnId?: string;
   parentTaskId?: string;
   queries?: QueryIntent[];
+  referenceTime?: string;
 }
 export interface QueryChoice { label: string; parameters: AnalysisParameters; query: QuerySnapshot }
 export interface Clarification { message: string; choices: QueryChoice[]; resolved?: boolean }
-export interface QueryParent { id: string; taskId?: string; parameters: AnalysisParameters; result?: AgentResult }
+export interface QueryParent { id: string; taskId?: string; parameters: AnalysisParameters; selection?: AnalysisParameters; result?: AgentResult }
 
 const aspects: Record<string, string> = { 质量: 'quality', 效果: 'effectiveness', 包装: 'packaging', 物流: 'logistics', 客服: 'service', 服务: 'service', 价格: 'price' };
 const names: Record<QueryIntent['kind'], string> = { trend: '评论趋势', aspect_trend: '维度趋势', evidence: '原文证据',
@@ -28,7 +29,13 @@ function copyScope(scope: AnalysisParameters): AnalysisParameters {
 // 只解析有确定含义的追问；其他指代先要求补充，避免凭关键词猜商品或日期。
 function operation(text: string) {
   const value = text.replace(/[，。！？!?\s]/g, '');
-  const aspect = value.match(/^(?:只看|仅看|只查|换成|改成)?(质量|效果|包装|物流|客服|服务|价格)(?:问题|方面)?$/)?.[1];
+  if (/^(?:那|那么|然后)?(?:差评|负面|缺点|投诉)(?:呢|吧)?$/.test(value)) return { type: 'sentiment' as const, value: 'negative' };
+  if (/^(?:那|那么|然后)?(?:好评|正面|优点|满意方面)(?:呢|吧)?$/.test(value)) return { type: 'sentiment' as const, value: 'positive' };
+  if (/^(?:哪个|哪一个|哪个方面).*(?:优先|先).*(?:解决|处理|改进)/.test(value)) return { type: 'priority' as const, value: '' };
+  if (/前(?:三|3)个?月/.test(value)) return { type: 'ambiguous_range' as const, value: '' };
+  const recent = value.match(/最近(?:半年|六个月|六个?月|三个月|3个月|90天)/);
+  if (recent) return { type: 'range' as const, value: recent[0] };
+  const aspect = value.match(/^(?:只看|仅看|只查|换成|改成)?(质量|效果|包装|物流|客服|服务|价格)(?:问题|方面)?(?:呢)?$/)?.[1];
   if (aspect) return { type: 'aspect' as const, value: aspects[aspect] };
   if (/^(?:换成|改成|改为)?按(月|日|天)(?:看|查看|统计)?$/.test(value)) return { type: 'period' as const, value: value.includes('月') ? 'month' : 'day' };
   if (/^(?:继续(?:查|查看)?(?:原文|证据|下一页)|(?:查|查看)(?:原文|证据)|(?:原文|证据)?下一页)$/.test(value)) return { type: 'evidence' as const, value: '' };
@@ -36,30 +43,89 @@ function operation(text: string) {
   return undefined;
 }
 
-export const isFollowup = (text: string) => !!operation(text);
+export function historyReference(text: string) {
+  const match = text.match(/^(?:按|沿用|参考|回到|基于)?第([1-9]\d*|[一二三四五六七八九十])轮(?:分析|查询)?(?:的?范围)?[，,：:\s]*(.*)$/);
+  if (!match) return undefined;
+  const chinese = '一二三四五六七八九十';
+  return { index: /^\d+$/.test(match[1]) ? Number(match[1]) : chinese.indexOf(match[1]) + 1, text: match[2] };
+}
+
+export const isFollowup = (text: string) => !!operation(text) || !!historyReference(text);
 
 export function sameScope(a: AnalysisParameters, b: AnalysisParameters) {
   return scopeKeys.every(key => (a[key] ?? null) === (b[key] ?? null))
     && JSON.stringify([...a.product_ids].sort()) === JSON.stringify([...b.product_ids].sort());
 }
 
-export function resolveQuery(text: string, parameters: AnalysisParameters, parent?: QueryParent): { query: QuerySnapshot; clarification?: Clarification } {
+function dateOnly(value: string) { return new Date(`${value}T00:00:00Z`); }
+function isoDate(value: Date) { return value.toISOString().slice(0, 10); }
+function shiftMonths(value: string, amount: number) {
+  const date = dateOnly(value);
+  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + amount, 1));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(date.getUTCDate(), lastDay));
+  return isoDate(target);
+}
+function shiftDays(value: string, amount: number) {
+  const date = dateOnly(value); date.setUTCDate(date.getUTCDate() + amount); return isoDate(date);
+}
+function rangeParameters(parameters: AnalysisParameters, label: string, referenceTime: Date): AnalysisParameters {
+  const months = /半年|六个月|六个?月/.test(label) ? 6 : 3;
+  const end = parameters.as_of ? parameters.as_of.slice(0, 10) : isoDate(referenceTime);
+  const start = /90天/.test(label) ? shiftDays(end, -89) : shiftDays(shiftMonths(end, -months), 1);
+  const days = Math.max(1, Math.round((dateOnly(end).getTime() - dateOnly(start).getTime()) / 86_400_000) + 1);
+  const baselineTo = shiftDays(start, -1);
+  const baselineFrom = shiftDays(baselineTo, -(days - 1));
+  return { ...copyScope(parameters), date_from: start, date_to: end, baseline_from: baselineFrom, baseline_to: baselineTo };
+}
+
+export function resolveQuery(text: string, parameters: AnalysisParameters, parent?: QueryParent, referenceTime = new Date()): { query: QuerySnapshot; parameters?: AnalysisParameters; clarification?: Clarification } {
   const query: QuerySnapshot = { createdAt: new Date().toISOString(), effectiveQuestion: text };
   const clarify = (message: string, choices: QueryChoice[] = []) => ({ query, clarification: { message, choices } });
   const op = operation(text);
   if (!op) return { query };
-  if (!parent?.result || parent.result.status !== 'ok') return clarify('没有可承接的成功查询。请补充要查询的内容（如“按日查看物流问题趋势”），并确认下方数据范围。');
+  if (op.type === 'ambiguous_range') return clarify('“前三个月”可能指窗口开始的三个月，也可能指最近三个月。请明确起止日期或改问“最近三个月”。');
+  if (op.type === 'priority') return clarify('现有统计缺少严重程度、业务影响与成本信息，不能只凭负面占比认定商业优先级。可先复核相关原文，再结合业务记录决定。');
+  if (op.type === 'range') {
+    if (/安装|制冷|静音|不是|不看/.test(text)) return { query };
+    const next = rangeParameters(parameters, op.value, referenceTime);
+    query.referenceTime = next.as_of || referenceTime.toISOString();
+    query.effectiveQuestion = text.replace(/最近(?:半年|六个?月|三个?月|3个月|90天)/g, '本次范围');
+    if (!/主要|集中|方面|原文|证据|星级|评分|对比|比较|趋势|变化|按[月日天]|优点|缺点|好评|差评|满意|喜欢|投诉|负面|正面/.test(query.effectiveQuestion)) {
+      query.effectiveQuestion = '按月查看变化：' + query.effectiveQuestion;
+    }
+    if (/^(?:那|那么)?最近(?:半年|六个?月|三个?月|3个月|90天)(?:呢|吧)?[？?。]*$/.test(text.replace(/\s/g, ''))) {
+      if (!parent?.result || parent.result.validation?.status !== 'passed') return clarify('请明确这段时间要查看的指标或维度。');
+      const previous = Object.values(parent.result.results).filter(item => item.kind !== 'context');
+      if (previous.length !== 1) return clarify('上轮有多个分析目标，请明确本次时间范围对应哪个指标或维度。');
+      const item = previous[0];
+      const intent: QueryIntent = { kind: item.kind as QueryIntent['kind'], parameters: { ...item.parameters, product_ids: [...next.product_ids], ...(item.kind === 'evidence' ? { page: 1 } : {}) } };
+      query.parentTurnId = parent.id; query.parentTaskId = parent.taskId;
+      query.queries = [intent];
+      query.effectiveQuestion = `执行本轮已确认的只读查询\n${JSON.stringify({ tool: tools[intent.kind], parameters: intent.parameters })}`;
+    }
+    return { query, parameters: next };
+  }
+  if (!parent?.result || parent.result.status !== 'ok' || parent.result.validation?.status !== 'passed') return clarify('没有可承接的成功查询。请补充要查询的内容（如“按日查看物流问题趋势”），并确认下方数据范围。');
   query.parentTurnId = parent.id;
   query.parentTaskId = parent.taskId;
   if (op.type === 'ambiguous') return clarify('这次追问的对象或范围不明确。请写明要分析的商品、维度或统计方式；商品和日期请在下方“切换范围”中确认。');
   const results = Object.values(parent.result.results).filter(item => item.kind !== 'context');
   let candidates: QueryIntent[] = [];
   let multipleEvidenceTargets = false;
-  if (op.type === 'aspect') {
+  const inheritedParameters = parent.parameters;
+  if (op.type === 'sentiment') {
+    const kind = op.value === 'positive' ? 'positive_aspects' : 'issues';
+    const previous = results.find(item => ['positive_aspects', 'issues', 'evidence'].includes(item.kind));
+    candidates = previous?.kind === 'evidence' ? [{ kind: 'evidence', parameters: { ...previous.parameters, sentiment: op.value, page: 1 } }]
+      : [{ kind, parameters: { product_ids: parent.parameters.product_ids, ...(previous?.parameters.aspect ? { aspect: previous.parameters.aspect } : {}) } }];
+  } else if (op.type === 'aspect') {
     candidates = results.filter(item => ['evidence', 'aspect_trend', 'trend'].includes(item.kind)).map(item => ({
       kind: item.kind === 'evidence' ? 'evidence' : 'aspect_trend',
       parameters: { ...item.parameters, aspect: op.value, ...(item.kind === 'evidence' ? { page: 1 } : {}) },
     }));
+    if (!candidates.length) candidates = results.filter(item => item.kind === 'issues' || item.kind === 'positive_aspects')
+      .map(item => ({ kind: item.kind as QueryIntent['kind'], parameters: { ...item.parameters, aspect: op.value } }));
     if (!candidates.length) return clarify('上轮查询不支持直接按维度筛选。请明确要查看趋势还是原文，例如“按月查看物流问题趋势”或“查询物流负面评论的原文”。');
   } else if (op.type === 'period') {
     candidates = results.filter(item => ['trend', 'aspect_trend', ...(op.value === 'month' ? ['ratings'] : [])].includes(item.kind))
@@ -86,8 +152,8 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
   // 同一查询可能因多次工具调用重复出现，保留一个可解释的选择。
   candidates = candidates.filter((item, index) => candidates.findIndex(other => JSON.stringify(other) === JSON.stringify(item)) === index);
   if (!candidates.length) return clarify('上轮没有可转换的趋势或星级统计。请补充要按日/月查看的指标，例如“按月查看物流问题趋势”。');
-  const scopes = sameScope(parameters, parent.parameters) ? [{ label: '', parameters: parent.parameters }]
-    : [{ label: '沿用上轮范围 · ', parameters: parent.parameters }, { label: '使用当前范围 · ', parameters }];
+  const scopes = sameScope(parameters, parent.selection || inheritedParameters) ? [{ label: '', parameters: inheritedParameters }]
+      : [{ label: '沿用上轮范围 · ', parameters: inheritedParameters }, { label: '使用当前范围 · ', parameters }];
   const choices: QueryChoice[] = scopes.flatMap(scope => candidates.map(intent => {
     const selected = structuredClone(intent);
     // 切换范围时使用新的商品范围，并重新开始证据分页。
@@ -107,5 +173,5 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
   if (choices.length > 1 || multipleEvidenceTargets) return clarify(scopes.length > 1
     ? '当前范围与上轮不同。请选择沿用上轮范围，还是在当前范围重新查询；若有多个查询目标，也请一并选择。'
     : '上轮包含多个查询目标。请选择本轮要继续的目标（已到末页的原文不再列出）。', choices);
-  return { query: choices[0].query };
+  return { query: choices[0].query, parameters: choices[0].parameters };
 }

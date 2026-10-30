@@ -6,7 +6,7 @@ export default function ExtendedResults({ item }: { item: AgentToolResult }) {
   if (item.kind === 'positive_aspects') return <>
     <p>正面提及按评论去重，同一评论可命中多个维度。正向观点评论 {item.data.summary.positive_review_count} 条，成功标注 {item.data.summary.successful_reviews} 条。</p>
     {item.data.data_status !== 'ok' && <p role="status">{item.data.data_status === 'insufficient_data' ? '暂无成功标注，无法分析正向维度。' : '当前成功标注中没有正向观点，维度占比暂无数据。'}</p>}
-    <Table size="small" rowKey="aspect" pagination={false} dataSource={item.data.aspects} scroll={{ x: 600 }} columns={[
+    <Table size="small" rowKey="aspect" pagination={false} dataSource={item.data.aspects.filter(row => !item.parameters.aspect || row.aspect === item.parameters.aspect)} scroll={{ x: 600 }} columns={[
       { title: '维度', dataIndex: 'aspect_label' }, { title: '正面提及评论数', dataIndex: 'positive_review_count' },
       { title: '占正向观点评论比例', key: 'positive_rate', render: (_, row) => <>{row.positive_rate == null ? '无数据' : rate(row.positive_rate)}<div className="muted">分母 {row.positive_rate_denominator} 条正向观点评论</div></> },
       { title: '占成功标注评论比例', key: 'positive_success_rate', render: (_, row) => <>{row.positive_success_rate == null ? '无数据' : rate(row.positive_success_rate)}<div className="muted">分母 {row.positive_success_rate_denominator} 条成功标注</div></> },

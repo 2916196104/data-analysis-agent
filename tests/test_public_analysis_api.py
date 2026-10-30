@@ -1,7 +1,9 @@
 """公开实例只读白名单与旧本机审计/导出接口的隔离回归。"""
 
 from copy import deepcopy
+import hashlib
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -33,7 +35,8 @@ class PublicAnalysisApiTests(WorkbenchFixture, unittest.TestCase):
         response = self.client.get(f"/api/v1/public/tasks/{self.task_id}")
         self.assertEqual(response.status_code, 200, response.text)
         body = response.json()["result"]
-        self.assertEqual(set(body), {"task_id", "status", "public_analysis"})
+        self.assertEqual(set(body), {"task_id", "status", "public_analysis", "public_answer"})
+        self.assertEqual(body["public_answer"]["status"], "ok")
         self.assertEqual(body["public_analysis"]["status"], "ok")
         self.assertEqual(body["public_analysis"]["source_result_ids"], ["r1"])
         for marker in ("base_url", "prompt_version", "trace", "model_identity", "private-agent-marker", "results", "validation"):
@@ -59,6 +62,16 @@ class PublicAnalysisApiTests(WorkbenchFixture, unittest.TestCase):
         for headers in ({"Host": "untrusted.invalid"}, {"Origin": "https://untrusted.invalid"}):
             self.assertEqual(self.client.get(path, headers=headers).status_code, 403)
         self.assertEqual(self.client.get("/api/v1/public/tasks/missing").status_code, 404)
+
+    def test_historical_public_reads_do_not_requery_generate_or_write(self):
+        before = [hashlib.sha256(path.read_bytes()).hexdigest() for path in (self.db, self.tasks)]
+        with patch('data_analysis_agent.agents.reviews.run_review_agent', side_effect=AssertionError('no generation')) as agent, \
+             patch('data_analysis_agent.reviews.analytics.get_positive_aspects', side_effect=AssertionError('no statistics')) as query:
+            first = self.client.get(f'/api/v1/public/tasks/{self.task_id}').json()
+            self.assertEqual(self.client.get(f'/api/v1/public/tasks/{self.task_id}').json(), first)
+            agent.assert_not_called()
+            query.assert_not_called()
+        self.assertEqual([hashlib.sha256(path.read_bytes()).hexdigest() for path in (self.db, self.tasks)], before)
 
     def test_partial_and_unknown_historical_shape_do_not_publish(self):
         for status, result, expected in (("partial", deepcopy(self.full), "partial"), ("succeeded", [self.full], "failed")):

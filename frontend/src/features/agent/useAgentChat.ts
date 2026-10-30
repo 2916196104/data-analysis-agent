@@ -2,16 +2,46 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, errorMessage } from '../../api';
 import { isActive } from '../../task-state';
 import { useTask } from '../../useTask';
-import type { AgentResult, AnalysisParameters } from '../../types';
-import { analysisSession, CHAT_KEY, isAgentTask, readChatSession, type BasicChatTurn, type Conversation, type ChatTurn } from './chat-state';
-import { isFollowup, resolveQuery, type QueryChoice, type QueryParent } from './followup';
+import type { AgentResult, AnalysisParameters, Task } from '../../types';
+import { analysisSession, CHAT_KEY, isAgentTask, readChatSession, type BasicChatTurn, type Conversation, type ChatTurn, type ConversationAnalysisContext } from './chat-state';
+import { historyReference, isFollowup, resolveQuery, sameScope, type QueryChoice, type QueryParent } from './followup';
 
-export function useAgentChat(routeTaskId?: string) {
+function contextFromResult(conversationId: string, taskId: string, parameters: AnalysisParameters, result: AgentResult): ConversationAnalysisContext {
+  const selected = (result.result_ids || []).map(id => result.results[id]).filter(Boolean);
+  const evidence = selected.find(item => item.kind === 'evidence');
+  const aspects = [...new Set(selected.flatMap(item => {
+    if (item.kind === 'evidence' && item.parameters.aspect) return [String(item.parameters.aspect)];
+    if (item.kind === 'aspect_trend' && item.parameters.aspect) return [String(item.parameters.aspect)];
+    return [];
+  }))];
+  return { conversation_id: conversationId, last_successful_task_id: taskId,
+    dataset_id: parameters.source || undefined, dataset_version: parameters.dataset_version || undefined, product_ids: [...parameters.product_ids],
+    current_time_range: [parameters.date_from, parameters.date_to],
+    baseline_time_range: [parameters.baseline_from, parameters.baseline_to],
+    annotation_identity: { model: parameters.model || undefined, prompt_version: parameters.prompt_version || undefined },
+    analysis_type: result.analysis_intent, sentiment: result.sentiment_intent, aspect: aspects.length === 1 ? aspects[0] : null,
+    evidence_page: evidence?.data.page, evidence_page_size: evidence?.parameters.page_size as number | undefined,
+    previous_result_refs: [...(result.result_ids || [])] };
+}
+
+function validResult(task: Task | null): task is Task & { result: AgentResult } {
+  const result = task?.result as AgentResult | null | undefined;
+  return !!task && task.status === 'succeeded' && !task.error && result?.agent === true
+    && result.status === 'ok' && result.validation?.status === 'passed';
+}
+
+export function useAgentChat(routeTaskId?: string, scopeKey?: string) {
   const [initial] = useState(readChatSession);
   const [conversation, setConversation] = useState<Conversation>(initial.session);
   const sessionRef = useRef(conversation);
   const session = useMemo(() => analysisSession(conversation), [conversation]);
   const previousRoute = useRef(routeTaskId);
+  const conversationId = useRef(initial.session.context?.conversation_id || crypto.randomUUID());
+  const navigationEpoch = useRef(0);
+  const routeRef = useRef([routeTaskId, scopeKey]);
+  if (routeRef.current[0] !== routeTaskId || routeRef.current[1] !== scopeKey) {
+    routeRef.current = [routeTaskId, scopeKey]; navigationEpoch.current++;
+  }
   const [storageError, setStorageError] = useState(initial.error);
   const [posting, setPosting] = useState(false);
   const postLock = useRef(false);
@@ -50,9 +80,16 @@ export function useAgentChat(routeTaskId?: string) {
       const turn: ChatTurn = existing ?? { kind: 'analysis', id: crypto.randomUUID(), taskId: task.task_id,
         requestKey: crypto.randomUUID(), question: String(task.parameters.question ?? task.result?.question ?? ''),
         parameters: { ...task.parameters, product_ids: Array.isArray(task.parameters.product_ids) ? [...task.parameters.product_ids] : [] } as unknown as AnalysisParameters };
-      return { turns: existing ? current.turns : [...current.turns, turn], activeId: turn.id };
+      return { ...current, turns: existing ? current.turns : [...current.turns, turn], activeId: turn.id };
     });
   }, [routeTaskId, task, commit]);
+
+  useEffect(() => {
+    if (!activeTurn || task?.task_id !== activeTurn.taskId || !validResult(task)) return;
+    const next = contextFromResult(conversationId.current, task.task_id, activeTurn.parameters, task.result);
+    if (JSON.stringify(sessionRef.current.context) === JSON.stringify(next)) return;
+    commit(current => ({ ...current, context: next }));
+  }, [activeTurn, task, commit]);
 
   async function submitTurn(turn: ChatTurn, retry = false): Promise<boolean> {
     if (postLock.current || pending) return false;
@@ -79,29 +116,46 @@ export function useAgentChat(routeTaskId?: string) {
     if (previous && !previous.taskId && !previous.clarification && previous.question === text
       && JSON.stringify(previous.parameters) === JSON.stringify(parameters)) return submitTurn(previous);
     const frozen = structuredClone(parameters);
+    const epoch = navigationEpoch.current;
+    const reference = historyReference(text);
     let parent: QueryParent | undefined;
     let readError = '';
     if (isFollowup(text)) {
-      // 历史 URL 以正在查看的轮次为父轮；失败任务不回退到更早成功结果。
+      // 优先当前轮；当前轮失败时回退到最近一轮已校验成功的任务，不把失败结果写入上下文。
       const turns = analysisSession(sessionRef.current).turns;
       const active = turns.find(turn => turn.id === sessionRef.current.activeId);
-      const previousQuery = active && !active.clarification ? active : [...turns].reverse().find(turn => !turn.clarification);
-      if (previousQuery?.taskId) {
+      const referenced = reference ? turns.filter(turn => turn.taskId)[reference.index - 1] : undefined;
+      const candidates = (reference ? [referenced] : [active, ...[...turns].reverse().filter(turn => sameScope(turn.parameters, frozen))]).filter((turn, index, values): turn is ChatTurn =>
+        !!turn && !turn.clarification && !!turn.taskId && values.findIndex(item => item?.id === turn.id) === index);
+      if (candidates.length) {
         resolving.current = true;
         setPosting(true);
         try {
-          const saved = task?.task_id === previousQuery.taskId ? task : await api.task(previousQuery.taskId);
-          parent = { id: previousQuery.id, taskId: previousQuery.taskId, parameters: previousQuery.parameters,
-            result: saved.status === 'succeeded' && saved.result?.agent === true ? saved.result as unknown as AgentResult : undefined };
+          for (const candidate of candidates) {
+            const saved = task?.task_id === candidate.taskId ? task : await api.task(candidate.taskId!);
+            if (epoch !== navigationEpoch.current) return false;
+            if (validResult(saved)) {
+              parent = { id: candidate.id, taskId: candidate.taskId, parameters: candidate.parameters, selection: candidate.selection,
+                result: saved.result };
+              const context = contextFromResult(conversationId.current, candidate.taskId!, candidate.parameters, saved.result);
+              commit(current => ({ ...current, context }));
+              break;
+            }
+          }
         } catch (error) { readError = `无法读取上轮查询：${errorMessage(error)}。请恢复连接后重新发送追问。`; }
         finally { resolving.current = false; setPosting(false); }
       }
     }
-    const resolution = resolveQuery(text, frozen, parent);
+    const resolution = resolveQuery(reference?.text || text, reference && parent ? parent.parameters : frozen, parent);
+    if (reference && parent) {
+      resolution.query.parentTurnId = parent.id; resolution.query.parentTaskId = parent.taskId;
+      resolution.parameters = resolution.parameters || structuredClone(parent.parameters);
+    }
+    if (reference && !parent) resolution.clarification = { message: '所引用轮次不存在或未通过校验，请选择一个已完成的历史分析。', choices: [] };
     if (readError) resolution.clarification = { message: readError, choices: [] };
     const turn: ChatTurn = { kind: 'analysis', id: crypto.randomUUID(), requestKey: crypto.randomUUID(), question: text,
-      parameters: frozen, ...resolution };
-    commit(current => ({ turns: [...current.turns, turn], activeId: turn.id }));
+      selection: frozen, ...resolution, parameters: resolution.parameters || frozen };
+    commit(current => ({ ...current, turns: [...current.turns, turn], activeId: turn.id }));
     if (turn.clarification) return true;
     return submitTurn(turn);
   }
@@ -112,7 +166,7 @@ export function useAgentChat(routeTaskId?: string) {
     const next: ChatTurn = { kind: 'analysis', id: crypto.randomUUID(), requestKey: crypto.randomUUID(),
       question: `${turn.question}（${choice.label}）`, parameters: structuredClone(choice.parameters),
       query: { ...structuredClone(choice.query), createdAt: new Date().toISOString() } };
-    commit(current => ({ turns: [...current.turns.map(item => item.id === turn.id && item.kind === 'analysis'
+    commit(current => ({ ...current, turns: [...current.turns.map(item => item.id === turn.id && item.kind === 'analysis'
       ? { ...item, clarification: { ...item.clarification!, resolved: true } } : item), next], activeId: next.id }));
     await submitTurn(next);
   }
@@ -123,7 +177,7 @@ export function useAgentChat(routeTaskId?: string) {
     postLock.current = true;
     setPosting(true);
     const turn: BasicChatTurn = { kind: 'basic', id: crypto.randomUUID(), question: text, status: 'pending' };
-    commit(current => ({ turns: [...current.turns, turn], activeId: turn.id }), false);
+    commit(current => ({ ...current, turns: [...current.turns, turn], activeId: turn.id }), false);
     try {
       const reply = await api.chat(text);
       if (!reply || typeof reply.answer !== 'string' || !reply.answer.trim()) throw new Error('模型未返回有效回答，请重新发送。');
@@ -145,7 +199,7 @@ export function useAgentChat(routeTaskId?: string) {
   }
 
   return { session, activeTurn, conversation, activeMessage, activeState, pending, posting, errors, storageError, restoreError, send, sendBasic, retry, clarify, focusedTaskId: routeTaskId,
-    release: () => commit(current => ({ ...current, activeId: undefined })) };
+    release: () => { navigationEpoch.current++; commit(current => ({ ...current, activeId: undefined })); } };
 }
 
 export type AgentChat = ReturnType<typeof useAgentChat>;

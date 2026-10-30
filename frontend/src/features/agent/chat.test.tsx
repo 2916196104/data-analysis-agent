@@ -145,7 +145,7 @@ describe('AI 聊天提交与恢复', () => {
     if (status === 'failed') expect(screen.getByText('模型调用超时')).toBeTruthy();
   });
 
-  it('历史成功任务无新版校验字段时仍显示已保存回答', async () => {
+  it('历史成功任务无新版字段时保留详情与导出，聊天不回显旧正文', async () => {
     const task: Task = { ...savedTask('old'), result: { agent: true, status: 'ok', answer: '历史成功回答',
       scope: parameters, result_ids: [], results: {}, trace: [], elapsed_seconds: 1, tool_calls: 1, model_calls: 1 } };
     vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id ? task : null, refresh: vi.fn() }));
@@ -153,7 +153,8 @@ describe('AI 聊天提交与恢复', () => {
     const hook = renderHook(() => useAgentChat());
     await act(async () => { await hook.result.current.send(parameters, '分析'); });
     render(<ChatMessage turn={hook.result.current.session.turns[0]} chat={hook.result.current} onPrepare={vi.fn()} />);
-    expect(screen.getByText('历史成功回答')).toBeTruthy();
+    expect(screen.queryByText('历史成功回答')).toBeNull();
+    expect(screen.getByText('历史分析结果已保存，可展开统计详情查看已核验的指标与原文。')).toBeTruthy();
     expect(screen.getByRole('button', { name: '导出分析报告' })).toBeTruthy();
   });
 });

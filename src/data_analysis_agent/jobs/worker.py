@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 import time
+from datetime import datetime
 import uuid
 from pathlib import Path
 from typing import Any
@@ -244,6 +245,11 @@ class TaskWorker:
                     parameters.pop("rules")
                     result = run_review_agent(self.business_db, question, scope=parameters,
                                               settings=settings, progress=report_progress)
+                    performance = result.setdefault("performance", {})
+                    if task.get("started_at") and task.get("created_at"):
+                        performance["queue_duration_ms"] = max(0, round((
+                            datetime.fromisoformat(task["started_at"]) - datetime.fromisoformat(task["created_at"])
+                        ).total_seconds() * 1000, 3))
                     if result.get("status") not in ("ok", "unsupported") or (
                         result.get("validation", {}).get("status") == "failed"
                     ):

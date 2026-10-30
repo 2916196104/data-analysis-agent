@@ -1,0 +1,29 @@
+flowchart LR
+  subgraph Browser[React browser]
+    Q[User question] --> C[Conversation context and frozen scope]
+    C --> Submit[Submit or clarify]
+    Poll[Task polling] --> View[Public answer and evidence]
+  end
+  Submit --> API[Task API]
+  API --> Tasks[(PostgreSQL task store)]
+  Tasks --> Worker[TaskWorker]
+  Worker --> Plan[ReviewQueryPlan]
+  Plan --> Direct[Confirmed query]
+  Plan --> HA[HelloAgents SimpleAgent]
+  HA <--> LLM[Configured provider]
+  Direct --> Tools[ReviewToolContext and registry]
+  HA --> Tools
+  Tools --> SQL[(Readonly repeatable read SQL)]
+  SQL --> Validate[Statistical and semantic validation]
+  Validate --> Compress[AnalysisResultCompressor]
+  Compress --> Compact[CompactAnalysisContext]
+  Compact --> Generate[NaturalLanguageAnswerGenerator]
+  Generate <--> LLM
+  Generate --> Assemble[AnswerValidator and AnswerAssembler]
+  Assemble --> PA[PublicAnswer]
+  PA --> Tasks
+  Tasks --> Public[Owner API or public whitelist API]
+  Public --> Poll
+  Labels[Label workers] <--> Redis[(Existing Redis label queue)]
+  Labels --> Annotations[(Annotations and human corrections)]
+  Annotations --> SQL

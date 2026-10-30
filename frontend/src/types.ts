@@ -208,11 +208,28 @@ export type AgentToolResult = { result_id: string; parameters: Record<string, un
       current: Summary; baseline: Summary; current_days: number; baseline_days: number;
       changes: Record<string, number | null>; issues: Issue[] } }
 );
+export interface PublicAnswer {
+  schema_version: string;
+  status: 'ok' | 'unsupported' | 'failed' | 'partial' | 'queued' | 'running' | 'error';
+  summary: string;
+  highlights: { finding_ref: string; aspect_key: string | null; scope_ref: string; source_result_ids: string[]; text: string }[];
+  metrics: Record<string, unknown>[];
+  sample_note: string;
+  evidence_refs: Record<string, unknown>[];
+  caveats: string[];
+  generation_status: 'template' | 'llm' | 'fallback' | 'unavailable';
+  source_result_ids: string[];
+  scope_summary: Record<string, unknown>[];
+  details_available: boolean;
+}
 export interface AgentResult {
   agent: true;
   status: 'ok' | 'unsupported' | 'error';
   question: string;
+  analysis_intent?: string;
+  sentiment_intent?: string | null;
   answer?: string;
+  public_answer?: PublicAnswer;
   answer_sections?: { result_id: string; kind: AgentToolResult['kind']; text: string }[];
   scope: AnalysisScope & Partial<Pick<AnalysisParameters, 'baseline_from' | 'baseline_to'>>;
   snapshot_at: string;
@@ -222,11 +239,15 @@ export interface AgentResult {
   warnings?: string[];
   validation?: { status: 'passed' | 'failed'; checks: { name: string; passed: boolean; detail: string }[] };
   model_calls: number;
+  answer_model_calls?: number;
+  total_model_calls?: number;
   tool_calls: number;
   model_tool_attempts?: number;
   cache_hits?: number;
   query_executions?: number;
   elapsed_seconds: number;
+  performance?: { planning_duration_ms: number; query_duration_ms: number; validation_duration_ms: number;
+    compression_duration_ms: number; answer_duration_ms: number; total_duration_ms: number };
   trace: { event: string; tool?: string; status?: string; elapsed_ms?: number; result_id?: string }[];
 }
 export interface Run {

@@ -1,0 +1,1751 @@
+[
+  {
+    "id": "positive",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_positive_aspects": true
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "negative",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_top_issues": true
+    },
+    "actual": {
+      "analysis_type": "issues",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_top_issues",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_top_issues"
+      ]
+    }
+  },
+  {
+    "id": "satisfaction",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_positive_aspects": true
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "quality-issues",
+    "checks": {
+      "status": true,
+      "sentiment": false,
+      "get_top_issues": false
+    },
+    "actual": {
+      "analysis_type": "issues",
+      "sentiment": null,
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_top_issues",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_top_issues"
+      ]
+    }
+  },
+  {
+    "id": "logistics-issues",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_top_issues": false
+    },
+    "actual": {
+      "analysis_type": "issues",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_top_issues",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_top_issues"
+      ]
+    }
+  },
+  {
+    "id": "two-trends",
+    "checks": {
+      "status": true,
+      "sentiment": false,
+      "get_aspect_trend": true
+    },
+    "actual": {
+      "analysis_type": "aspect_trend",
+      "sentiment": null,
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_aspect_trend",
+          "parameters": {
+            "aspect": "packaging",
+            "period": "month"
+          }
+        },
+        {
+          "tool": "get_aspect_trend",
+          "parameters": {
+            "aspect": "logistics",
+            "period": "month"
+          }
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_aspect_trend"
+      ]
+    }
+  },
+  {
+    "id": "relative-unresolved-api",
+    "checks": {
+      "status": true,
+      "sentiment": false
+    },
+    "actual": {
+      "analysis_type": "composite",
+      "sentiment": null,
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": "相对时间尚未转换为确定日期，请明确起止日期或由会话确认参考时间后重试。",
+      "answer_question": null,
+      "required_tools": []
+    }
+  },
+  {
+    "id": "logistics-evidence",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_evidence": true
+    },
+    "actual": {
+      "analysis_type": "evidence",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_evidence",
+          "parameters": {
+            "sentiment": "negative",
+            "aspect": "logistics",
+            "page": 1,
+            "page_size": 3,
+            "window": "current"
+          }
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": true,
+      "max_evidence_pages": 1,
+      "max_evidence_items": 3,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_evidence"
+      ]
+    }
+  },
+  {
+    "id": "review-count",
+    "checks": {
+      "status": false,
+      "sentiment": true,
+      "get_data_quality": false
+    },
+    "actual": {
+      "analysis_type": "composite",
+      "sentiment": null,
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": "无法确定本轮需要的分析能力，请明确查询趋势、主要维度、数据质量、星级、对比或原文。",
+      "answer_question": null,
+      "required_tools": []
+    }
+  },
+  {
+    "id": "comparison",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "compare_products": true
+    },
+    "actual": {
+      "analysis_type": "comparison",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "compare_products",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "compare_products"
+      ]
+    }
+  },
+  {
+    "id": "negation-positive",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_positive_aspects": true
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "negation-negative",
+    "checks": {
+      "status": true,
+      "sentiment": false,
+      "get_top_issues": false
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "colloquial",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_positive_aspects": true
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "advantages",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_positive_aspects": true
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "best",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_positive_aspects": true
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "complaints",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_top_issues": false
+    },
+    "actual": {
+      "analysis_type": "issues",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_top_issues",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_top_issues"
+      ]
+    }
+  },
+  {
+    "id": "quality",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_data_quality": true
+    },
+    "actual": {
+      "analysis_type": "quality",
+      "sentiment": null,
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_data_quality",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_data_quality"
+      ]
+    }
+  },
+  {
+    "id": "ratings",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_rating_distribution": true
+    },
+    "actual": {
+      "analysis_type": "ratings",
+      "sentiment": null,
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_rating_distribution",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_rating_distribution"
+      ]
+    }
+  },
+  {
+    "id": "daily",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_trend": true
+    },
+    "actual": {
+      "analysis_type": "trend",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_trend",
+          "parameters": {
+            "period": "day"
+          }
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_trend"
+      ]
+    }
+  },
+  {
+    "id": "positive-trend",
+    "checks": {
+      "status": true,
+      "sentiment": true
+    },
+    "actual": {
+      "analysis_type": "trend",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_trend",
+          "parameters": {
+            "period": "month"
+          }
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": "当前支持正向维度汇总和正向原文，尚不支持正向趋势或正向对比；请改问好评主要方面。",
+      "answer_question": null,
+      "required_tools": [
+        "get_trend"
+      ]
+    }
+  },
+  {
+    "id": "mixed",
+    "checks": {
+      "status": true,
+      "sentiment": true
+    },
+    "actual": {
+      "analysis_type": "composite",
+      "sentiment": null,
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": "本轮情感方向或混合分析目标尚不明确，请分别说明正向或负向查询。",
+      "answer_question": null,
+      "required_tools": []
+    }
+  },
+  {
+    "id": "fine-dimension",
+    "checks": {
+      "status": true,
+      "sentiment": true
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": "现有六维标注不能单独统计制冷、静音或安装主题；使用效果或客服维度不能替代这些细分主题。请改用六维度或明确核对原文。",
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "installation",
+    "checks": {
+      "status": true,
+      "sentiment": true
+    },
+    "actual": {
+      "analysis_type": "issues",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_top_issues",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": "现有六维标注不能单独统计制冷、静音或安装主题；使用效果或客服维度不能替代这些细分主题。请改用六维度或明确核对原文。",
+      "answer_question": null,
+      "required_tools": [
+        "get_top_issues"
+      ]
+    }
+  },
+  {
+    "id": "unclear",
+    "checks": {
+      "status": true,
+      "sentiment": true
+    },
+    "actual": {
+      "analysis_type": "composite",
+      "sentiment": null,
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": "无法确定本轮需要的分析能力，请明确查询趋势、主要维度、数据质量、星级、对比或原文。",
+      "answer_question": null,
+      "required_tools": []
+    }
+  },
+  {
+    "id": "causality",
+    "checks": {
+      "status": true,
+      "sentiment": true
+    },
+    "actual": {
+      "analysis_type": "composite",
+      "sentiment": null,
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": "无法确定本轮需要的分析能力，请明确查询趋势、主要维度、数据质量、星级、对比或原文。",
+      "answer_question": null,
+      "required_tools": []
+    }
+  },
+  {
+    "id": "write",
+    "checks": {
+      "status": true,
+      "sentiment": true
+    },
+    "actual": {
+      "analysis_type": "composite",
+      "sentiment": null,
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": "无法确定本轮需要的分析能力，请明确查询趋势、主要维度、数据质量、星级、对比或原文。",
+      "answer_question": null,
+      "required_tools": []
+    }
+  },
+  {
+    "id": "evidence-budget",
+    "checks": {
+      "status": true,
+      "sentiment": true
+    },
+    "actual": {
+      "analysis_type": "evidence",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_evidence",
+          "parameters": {
+            "sentiment": "negative",
+            "aspect": null,
+            "page": 1,
+            "page_size": 10,
+            "window": "current"
+          }
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": true,
+      "max_evidence_pages": 1,
+      "max_evidence_items": 10,
+      "evidence_start_page": 1,
+      "evidence_page_size": 10,
+      "unsupported_reason": "每轮证据数量支持 1 至 10 条；需要更多时请显式追问下一页。",
+      "answer_question": null,
+      "required_tools": [
+        "get_evidence"
+      ]
+    }
+  },
+  {
+    "id": "positive-evidence",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_evidence": true
+    },
+    "actual": {
+      "analysis_type": "evidence",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_evidence",
+          "parameters": {
+            "sentiment": "positive",
+            "aspect": null,
+            "page": 1,
+            "page_size": 3,
+            "window": "current"
+          }
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": true,
+      "max_evidence_pages": 1,
+      "max_evidence_items": 3,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_evidence"
+      ]
+    }
+  },
+  {
+    "id": "empty-positive",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_positive_aspects": true
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-03-01",
+        "date_to": "2023-03-05",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "unlabeled",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_positive_aspects": true
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-UNLABELED",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "zero-positive",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_positive_aspects": true
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-02",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "missing-product",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_positive_aspects": true
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "MISSING"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "confirmed-negative",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_top_issues": true
+    },
+    "actual": {
+      "analysis_type": "issues",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_top_issues",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": "差评主要方面",
+      "required_tools": [
+        "get_top_issues"
+      ]
+    }
+  },
+  {
+    "id": "confirmed-logistics",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_top_issues": true
+    },
+    "actual": {
+      "analysis_type": "issues",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_top_issues",
+          "parameters": {
+            "aspect": "logistics"
+          }
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": "物流差评主要方面",
+      "required_tools": [
+        "get_top_issues"
+      ]
+    }
+  },
+  {
+    "id": "confirmed-next-page",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_evidence": true
+    },
+    "actual": {
+      "analysis_type": "evidence",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_evidence",
+          "parameters": {
+            "aspect": "packaging",
+            "sentiment": "negative",
+            "window": "current",
+            "page": 2,
+            "page_size": 3
+          }
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": true,
+      "max_evidence_pages": 1,
+      "max_evidence_items": 3,
+      "evidence_start_page": 2,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": "包装评论原文",
+      "required_tools": [
+        "get_evidence"
+      ]
+    }
+  },
+  {
+    "id": "confirmed-positive",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_positive_aspects": true
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": "好评主要方面",
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "windows",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "compare_time_windows": true
+    },
+    "actual": {
+      "analysis_type": "window_comparison",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "compare_time_windows",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "compare_time_windows"
+      ]
+    }
+  },
+  {
+    "id": "positive-price",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_positive_aspects": false
+    },
+    "actual": {
+      "analysis_type": "positive_aspects",
+      "sentiment": "positive",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_positive_aspects",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_positive_aspects"
+      ]
+    }
+  },
+  {
+    "id": "negative-price",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_top_issues": false
+    },
+    "actual": {
+      "analysis_type": "issues",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_top_issues",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_top_issues"
+      ]
+    }
+  },
+  {
+    "id": "named-products",
+    "checks": {
+      "status": true,
+      "sentiment": true,
+      "get_data_quality": true,
+      "compare_products": false
+    },
+    "actual": {
+      "analysis_type": "quality",
+      "sentiment": "negative",
+      "scope": {
+        "model": "SIMULATED-ANNOTATIONS",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "fixture-v1",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "SIMULATED-frontend",
+        "product_ids": [
+          "DEMO-A",
+          "DEMO-B"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-24",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-24"
+      },
+      "requirements": [
+        {
+          "tool": "get_data_quality",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": false,
+      "max_evidence_pages": 0,
+      "max_evidence_items": 0,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": null,
+      "required_tools": [
+        "get_data_quality"
+      ]
+    }
+  }
+]

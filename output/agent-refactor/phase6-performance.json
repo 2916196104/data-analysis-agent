@@ -1,0 +1,920 @@
+{
+  "source": "isolated SQLite SQL + synchronous controlled planner + in-memory MockTransport; no production supplier timing",
+  "baseline": "no reliable same-environment wall-time baseline; absolute values only",
+  "measurements": {
+    "positive_dimensions": {
+      "runs": [
+        {
+          "planning_duration_ms": 0.064,
+          "query_duration_ms": 6.198,
+          "validation_duration_ms": 0.099,
+          "compression_duration_ms": 0.609,
+          "answer_duration_ms": 1.279,
+          "total_duration_ms": 14.538,
+          "answer_input_bytes": 3982,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.048,
+          "query_duration_ms": 7.042,
+          "validation_duration_ms": 0.082,
+          "compression_duration_ms": 0.524,
+          "answer_duration_ms": 0.48,
+          "total_duration_ms": 13.335,
+          "answer_input_bytes": 3982,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.045,
+          "query_duration_ms": 8.375,
+          "validation_duration_ms": 0.076,
+          "compression_duration_ms": 0.498,
+          "answer_duration_ms": 0.505,
+          "total_duration_ms": 14.809,
+          "answer_input_bytes": 3982,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.044,
+          "query_duration_ms": 6.008,
+          "validation_duration_ms": 0.103,
+          "compression_duration_ms": 0.643,
+          "answer_duration_ms": 0.474,
+          "total_duration_ms": 12.39,
+          "answer_input_bytes": 3982,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.064,
+          "query_duration_ms": 5.758,
+          "validation_duration_ms": 0.077,
+          "compression_duration_ms": 0.499,
+          "answer_duration_ms": 0.512,
+          "total_duration_ms": 12.103,
+          "answer_input_bytes": 3982,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        }
+      ],
+      "median_total_ms": 13.335,
+      "public_answer": {
+        "schema_version": "1.0",
+        "status": "ok",
+        "summary": "根据当前已标注评论，好评主要集中在使用效果、物流、价格。",
+        "highlights": [
+          {
+            "finding_ref": "finding:2967cc8c911face67acf",
+            "aspect_key": "effectiveness",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source_result_ids": [
+              "r1"
+            ],
+            "text": "使用效果：2 条，66.7%（2/3 条含正向观点评论）。"
+          },
+          {
+            "finding_ref": "finding:128ae70c5ecae8545e41",
+            "aspect_key": "logistics",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source_result_ids": [
+              "r1"
+            ],
+            "text": "物流：1 条，33.3%（1/3 条含正向观点评论）。"
+          },
+          {
+            "finding_ref": "finding:dc7245a1136058492491",
+            "aspect_key": "price",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source_result_ids": [
+              "r1"
+            ],
+            "text": "价格：1 条，33.3%（1/3 条含正向观点评论）。"
+          }
+        ],
+        "metrics": [
+          {
+            "finding_ref": "finding:2967cc8c911face67acf",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "values": [
+              {
+                "name": "positive_review_count",
+                "value": 2,
+                "unit": "reviews"
+              },
+              {
+                "name": "positive_rate",
+                "value": 0.666667,
+                "unit": "fraction_0_to_1",
+                "numerator": 2,
+                "denominator": 3,
+                "denominator_name": "positive_review_count"
+              },
+              {
+                "name": "positive_success_rate",
+                "value": 0.666667,
+                "unit": "fraction_0_to_1",
+                "numerator": 2,
+                "denominator": 3,
+                "denominator_name": "successful_reviews"
+              }
+            ]
+          },
+          {
+            "finding_ref": "finding:128ae70c5ecae8545e41",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "values": [
+              {
+                "name": "positive_review_count",
+                "value": 1,
+                "unit": "reviews"
+              },
+              {
+                "name": "positive_rate",
+                "value": 0.333333,
+                "unit": "fraction_0_to_1",
+                "numerator": 1,
+                "denominator": 3,
+                "denominator_name": "positive_review_count"
+              },
+              {
+                "name": "positive_success_rate",
+                "value": 0.333333,
+                "unit": "fraction_0_to_1",
+                "numerator": 1,
+                "denominator": 3,
+                "denominator_name": "successful_reviews"
+              }
+            ]
+          },
+          {
+            "finding_ref": "finding:dc7245a1136058492491",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "values": [
+              {
+                "name": "positive_review_count",
+                "value": 1,
+                "unit": "reviews"
+              },
+              {
+                "name": "positive_rate",
+                "value": 0.333333,
+                "unit": "fraction_0_to_1",
+                "numerator": 1,
+                "denominator": 3,
+                "denominator_name": "positive_review_count"
+              },
+              {
+                "name": "positive_success_rate",
+                "value": 0.333333,
+                "unit": "fraction_0_to_1",
+                "numerator": 1,
+                "denominator": 3,
+                "denominator_name": "successful_reviews"
+              }
+            ]
+          }
+        ],
+        "sample_note": "本次分析范围共 6 条评论，基于 3 条成功标注评论，其中 3 条包含正向观点。",
+        "evidence_refs": [],
+        "caveats": [
+          "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。",
+          "同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。"
+        ],
+        "generation_status": "template",
+        "source_result_ids": [
+          "r1"
+        ],
+        "scope_summary": [
+          {
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source": "amazon_reviews_2023",
+            "dataset_version": "amazon-reviews-2023",
+            "product_ids": [
+              "P1",
+              "P2",
+              "P3"
+            ],
+            "date_from": "2023-01-01",
+            "date_to": "2023-01-06",
+            "as_of": null,
+            "timezone": "UTC",
+            "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+          }
+        ],
+        "details_available": true
+      }
+    },
+    "negative_dimensions": {
+      "runs": [
+        {
+          "planning_duration_ms": 0.054,
+          "query_duration_ms": 9.439,
+          "validation_duration_ms": 0.073,
+          "compression_duration_ms": 0.878,
+          "answer_duration_ms": 0.576,
+          "total_duration_ms": 17.009,
+          "answer_input_bytes": 3680,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.065,
+          "query_duration_ms": 7.096,
+          "validation_duration_ms": 0.071,
+          "compression_duration_ms": 0.831,
+          "answer_duration_ms": 0.473,
+          "total_duration_ms": 14.105,
+          "answer_input_bytes": 3680,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.049,
+          "query_duration_ms": 6.946,
+          "validation_duration_ms": 0.067,
+          "compression_duration_ms": 0.833,
+          "answer_duration_ms": 0.467,
+          "total_duration_ms": 13.762,
+          "answer_input_bytes": 3680,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.063,
+          "query_duration_ms": 7.509,
+          "validation_duration_ms": 0.067,
+          "compression_duration_ms": 0.813,
+          "answer_duration_ms": 0.486,
+          "total_duration_ms": 14.852,
+          "answer_input_bytes": 3680,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.047,
+          "query_duration_ms": 6.06,
+          "validation_duration_ms": 0.074,
+          "compression_duration_ms": 0.849,
+          "answer_duration_ms": 0.468,
+          "total_duration_ms": 12.865,
+          "answer_input_bytes": 3680,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        }
+      ],
+      "median_total_ms": 14.105,
+      "public_answer": {
+        "schema_version": "1.0",
+        "status": "ok",
+        "summary": "当前已标注评论的主要负面问题集中在包装、客服。",
+        "highlights": [
+          {
+            "finding_ref": "finding:1a236d4ec7c8d0cd0aa5",
+            "aspect_key": "packaging",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source_result_ids": [
+              "r1"
+            ],
+            "text": "包装：1 条，33.3%（1/3 条成功标注评论）。"
+          },
+          {
+            "finding_ref": "finding:0afc0ae6b16035963988",
+            "aspect_key": "service",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source_result_ids": [
+              "r1"
+            ],
+            "text": "客服：1 条，33.3%（1/3 条成功标注评论）。"
+          }
+        ],
+        "metrics": [
+          {
+            "finding_ref": "finding:1a236d4ec7c8d0cd0aa5",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "values": [
+              {
+                "name": "negative_review_count",
+                "value": 1,
+                "unit": "reviews"
+              },
+              {
+                "name": "negative_rate",
+                "value": 0.333333,
+                "unit": "fraction_0_to_1",
+                "numerator": 1,
+                "denominator": 3,
+                "denominator_name": "successful_reviews"
+              },
+              {
+                "name": "negative_rate_change_pp",
+                "value": null,
+                "unit": "percentage_points"
+              }
+            ]
+          },
+          {
+            "finding_ref": "finding:0afc0ae6b16035963988",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "values": [
+              {
+                "name": "negative_review_count",
+                "value": 1,
+                "unit": "reviews"
+              },
+              {
+                "name": "negative_rate",
+                "value": 0.333333,
+                "unit": "fraction_0_to_1",
+                "numerator": 1,
+                "denominator": 3,
+                "denominator_name": "successful_reviews"
+              },
+              {
+                "name": "negative_rate_change_pp",
+                "value": null,
+                "unit": "percentage_points"
+              }
+            ]
+          }
+        ],
+        "sample_note": "",
+        "evidence_refs": [],
+        "caveats": [
+          "部分范围暂无成功标注，无法判断其正负面占比。",
+          "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。",
+          "同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。"
+        ],
+        "generation_status": "template",
+        "source_result_ids": [
+          "r1"
+        ],
+        "scope_summary": [
+          {
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source": "amazon_reviews_2023",
+            "dataset_version": "amazon-reviews-2023",
+            "product_ids": [
+              "P1",
+              "P2",
+              "P3"
+            ],
+            "date_from": "2023-01-01",
+            "date_to": "2023-01-06",
+            "as_of": null,
+            "timezone": "UTC",
+            "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+          },
+          {
+            "scope_ref": "scope:bf911d5cdd40c6af",
+            "source": "amazon_reviews_2023",
+            "dataset_version": "amazon-reviews-2023",
+            "product_ids": [
+              "P1",
+              "P2",
+              "P3"
+            ],
+            "date_from": "2022-12-01",
+            "date_to": "2022-12-31",
+            "as_of": null,
+            "timezone": "UTC",
+            "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+          }
+        ],
+        "details_available": true
+      }
+    },
+    "logistics_followup": {
+      "runs": [
+        {
+          "planning_duration_ms": 0.05,
+          "query_duration_ms": 6.779,
+          "validation_duration_ms": 0.084,
+          "compression_duration_ms": 0.661,
+          "answer_duration_ms": 0.4,
+          "total_duration_ms": 14.283,
+          "answer_input_bytes": 2832,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.052,
+          "query_duration_ms": 6.729,
+          "validation_duration_ms": 0.069,
+          "compression_duration_ms": 0.674,
+          "answer_duration_ms": 0.379,
+          "total_duration_ms": 13.501,
+          "answer_input_bytes": 2832,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.049,
+          "query_duration_ms": 5.69,
+          "validation_duration_ms": 0.068,
+          "compression_duration_ms": 0.719,
+          "answer_duration_ms": 0.385,
+          "total_duration_ms": 12.306,
+          "answer_input_bytes": 2832,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.05,
+          "query_duration_ms": 5.834,
+          "validation_duration_ms": 0.067,
+          "compression_duration_ms": 0.64,
+          "answer_duration_ms": 0.367,
+          "total_duration_ms": 12.238,
+          "answer_input_bytes": 2832,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.051,
+          "query_duration_ms": 5.861,
+          "validation_duration_ms": 0.068,
+          "compression_duration_ms": 0.654,
+          "answer_duration_ms": 0.364,
+          "total_duration_ms": 12.33,
+          "answer_input_bytes": 2832,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        }
+      ],
+      "median_total_ms": 12.33,
+      "public_answer": {
+        "schema_version": "1.0",
+        "status": "ok",
+        "summary": "当前数据不足以给出可靠的分析结论。",
+        "highlights": [
+          {
+            "finding_ref": "finding:4a8dc34c2ce8fe5bf6a0",
+            "aspect_key": null,
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source_result_ids": [
+              "r1"
+            ],
+            "text": "成功标注评论中暂无匹配的有效负面观点，无法给出维度排名。"
+          }
+        ],
+        "metrics": [
+          {
+            "finding_ref": "finding:4a8dc34c2ce8fe5bf6a0",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "values": [
+              {
+                "name": "negative_review_count",
+                "value": 1,
+                "unit": "reviews"
+              },
+              {
+                "name": "negative_rate",
+                "value": 0.333333,
+                "unit": "fraction_0_to_1",
+                "numerator": 1,
+                "denominator": 3,
+                "denominator_name": "successful_reviews"
+              }
+            ]
+          }
+        ],
+        "sample_note": "",
+        "evidence_refs": [],
+        "caveats": [
+          "部分范围暂无成功标注，无法判断其正负面占比。",
+          "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。"
+        ],
+        "generation_status": "template",
+        "source_result_ids": [
+          "r1"
+        ],
+        "scope_summary": [
+          {
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source": "amazon_reviews_2023",
+            "dataset_version": "amazon-reviews-2023",
+            "product_ids": [
+              "P1",
+              "P2",
+              "P3"
+            ],
+            "date_from": "2023-01-01",
+            "date_to": "2023-01-06",
+            "as_of": null,
+            "timezone": "UTC",
+            "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+          },
+          {
+            "scope_ref": "scope:bf911d5cdd40c6af",
+            "source": "amazon_reviews_2023",
+            "dataset_version": "amazon-reviews-2023",
+            "product_ids": [
+              "P1",
+              "P2",
+              "P3"
+            ],
+            "date_from": "2022-12-01",
+            "date_to": "2022-12-31",
+            "as_of": null,
+            "timezone": "UTC",
+            "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+          }
+        ],
+        "details_available": true
+      }
+    },
+    "evidence_page_1": {
+      "runs": [
+        {
+          "planning_duration_ms": 0.058,
+          "query_duration_ms": 7.232,
+          "validation_duration_ms": 0.065,
+          "compression_duration_ms": 0.311,
+          "answer_duration_ms": 0.329,
+          "total_duration_ms": 13.613,
+          "answer_input_bytes": 1655,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.056,
+          "query_duration_ms": 6.997,
+          "validation_duration_ms": 0.08,
+          "compression_duration_ms": 0.291,
+          "answer_duration_ms": 0.377,
+          "total_duration_ms": 13.524,
+          "answer_input_bytes": 1655,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.061,
+          "query_duration_ms": 7.22,
+          "validation_duration_ms": 0.078,
+          "compression_duration_ms": 0.34,
+          "answer_duration_ms": 0.364,
+          "total_duration_ms": 14.114,
+          "answer_input_bytes": 1655,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.057,
+          "query_duration_ms": 7.061,
+          "validation_duration_ms": 0.063,
+          "compression_duration_ms": 0.267,
+          "answer_duration_ms": 0.327,
+          "total_duration_ms": 13.397,
+          "answer_input_bytes": 1655,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.058,
+          "query_duration_ms": 9.526,
+          "validation_duration_ms": 0.077,
+          "compression_duration_ms": 0.337,
+          "answer_duration_ms": 0.41,
+          "total_duration_ms": 17.171,
+          "answer_input_bytes": 1655,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        }
+      ],
+      "median_total_ms": 13.613,
+      "public_answer": {
+        "schema_version": "1.0",
+        "status": "ok",
+        "summary": "以下是当前范围内已核验的分析结果。",
+        "highlights": [
+          {
+            "finding_ref": "finding:fa8e24dabb54a3141973",
+            "aspect_key": null,
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source_result_ids": [
+              "r1"
+            ],
+            "text": "包装相关原文：“包装破了”"
+          }
+        ],
+        "metrics": [
+          {
+            "finding_ref": "finding:fa8e24dabb54a3141973",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "values": []
+          }
+        ],
+        "sample_note": "",
+        "evidence_refs": [
+          {
+            "source_result_id": "r1",
+            "review_id": 1,
+            "product_id": "P1",
+            "published_at": "2023-01-01T00:00:00.000+00:00",
+            "evidence_ref": "sha256:481537f8c1a469de361b9340ebc04d2d9af768cbd137e4159aaec5e1cad15107#line=1",
+            "opinion_source": "model",
+            "opinions": [
+              {
+                "aspect": "packaging",
+                "sentiment": "negative",
+                "quote": "包装破了",
+                "quote_start": 3,
+                "quote_end": 7,
+                "truncated": false
+              }
+            ]
+          }
+        ],
+        "caveats": [],
+        "generation_status": "template",
+        "source_result_ids": [
+          "r1"
+        ],
+        "scope_summary": [
+          {
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source": "amazon_reviews_2023",
+            "dataset_version": "amazon-reviews-2023",
+            "product_ids": [
+              "P1",
+              "P2",
+              "P3"
+            ],
+            "date_from": "2023-01-01",
+            "date_to": "2023-01-06",
+            "as_of": null,
+            "timezone": "UTC",
+            "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+          }
+        ],
+        "details_available": true
+      }
+    },
+    "evidence_page_2": {
+      "runs": [
+        {
+          "planning_duration_ms": 0.073,
+          "query_duration_ms": 7.406,
+          "validation_duration_ms": 0.062,
+          "compression_duration_ms": 0.406,
+          "answer_duration_ms": 0.327,
+          "total_duration_ms": 14.105,
+          "answer_input_bytes": 1655,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.058,
+          "query_duration_ms": 7.005,
+          "validation_duration_ms": 0.061,
+          "compression_duration_ms": 0.255,
+          "answer_duration_ms": 0.315,
+          "total_duration_ms": 13.056,
+          "answer_input_bytes": 1655,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.054,
+          "query_duration_ms": 6.938,
+          "validation_duration_ms": 0.064,
+          "compression_duration_ms": 0.3,
+          "answer_duration_ms": 0.334,
+          "total_duration_ms": 12.88,
+          "answer_input_bytes": 1655,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.058,
+          "query_duration_ms": 7.339,
+          "validation_duration_ms": 0.065,
+          "compression_duration_ms": 0.416,
+          "answer_duration_ms": 0.361,
+          "total_duration_ms": 13.716,
+          "answer_input_bytes": 1655,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        },
+        {
+          "planning_duration_ms": 0.059,
+          "query_duration_ms": 7.227,
+          "validation_duration_ms": 0.062,
+          "compression_duration_ms": 0.268,
+          "answer_duration_ms": 0.32,
+          "total_duration_ms": 13.736,
+          "answer_input_bytes": 1655,
+          "model_calls": 0,
+          "query_executions": 2,
+          "cache_hits": 0,
+          "answer_model_calls": 0
+        }
+      ],
+      "median_total_ms": 13.716,
+      "public_answer": {
+        "schema_version": "1.0",
+        "status": "ok",
+        "summary": "以下是当前范围内已核验的分析结果。",
+        "highlights": [
+          {
+            "finding_ref": "finding:fa8e24dabb54a3141973",
+            "aspect_key": null,
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source_result_ids": [
+              "r1"
+            ],
+            "text": "包装相关原文：“包装破了”"
+          }
+        ],
+        "metrics": [
+          {
+            "finding_ref": "finding:fa8e24dabb54a3141973",
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "values": []
+          }
+        ],
+        "sample_note": "",
+        "evidence_refs": [
+          {
+            "source_result_id": "r1",
+            "review_id": 1,
+            "product_id": "P1",
+            "published_at": "2023-01-01T00:00:00.000+00:00",
+            "evidence_ref": "sha256:481537f8c1a469de361b9340ebc04d2d9af768cbd137e4159aaec5e1cad15107#line=1",
+            "opinion_source": "model",
+            "opinions": [
+              {
+                "aspect": "packaging",
+                "sentiment": "negative",
+                "quote": "包装破了",
+                "quote_start": 3,
+                "quote_end": 7,
+                "truncated": false
+              }
+            ]
+          }
+        ],
+        "caveats": [],
+        "generation_status": "template",
+        "source_result_ids": [
+          "r1"
+        ],
+        "scope_summary": [
+          {
+            "scope_ref": "scope:5c1a26011d47b23f",
+            "source": "amazon_reviews_2023",
+            "dataset_version": "amazon-reviews-2023",
+            "product_ids": [
+              "P1",
+              "P2",
+              "P3"
+            ],
+            "date_from": "2023-01-01",
+            "date_to": "2023-01-06",
+            "as_of": null,
+            "timezone": "UTC",
+            "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+          }
+        ],
+        "details_available": true
+      }
+    },
+    "two_aspect_trend_orchestration": {
+      "performance": {
+        "planning_duration_ms": 2.643,
+        "query_duration_ms": 8.476,
+        "validation_duration_ms": 0.095,
+        "compression_duration_ms": 0.845,
+        "answer_duration_ms": 0.531,
+        "total_duration_ms": 18.236,
+        "answer_input_bytes": 3568
+      },
+      "query_executions": 3,
+      "note": "同步受控规划器；回答客户端未连接，属于可靠降级路径"
+    },
+    "complex_explanation": {
+      "measured_duration_ms": 427.288,
+      "answer_generation": {
+        "strategy": "llm",
+        "input_bytes": 4650,
+        "compact_bytes": 7506,
+        "input_budget_bytes": 16000,
+        "attempts": 1,
+        "error_code": null,
+        "timeout_seconds": 15,
+        "max_retries": 0,
+        "usage": {
+          "completion_tokens": 5,
+          "prompt_tokens": 10,
+          "total_tokens": 15,
+          "completion_tokens_details": null,
+          "prompt_tokens_details": null
+        },
+        "elapsed_seconds": 0.427,
+        "generation_status": "llm",
+        "sent_input_bytes": 4650,
+        "validated_draft": {
+          "summary": "包装在已有标注样本中的负面占比有升有降、呈现波动。物流在已有标注样本中的负面占比呈下降变化。",
+          "items": [
+            {
+              "finding_ref": "finding:edb015c34e2a9afcba69",
+              "aspect_key": "packaging",
+              "explanation": "包装在已有标注样本中的负面占比有升有降、呈现波动。"
+            },
+            {
+              "finding_ref": "finding:45f1838361a079411967",
+              "aspect_key": "logistics",
+              "explanation": "物流在已有标注样本中的负面占比呈下降变化。"
+            }
+          ],
+          "caveats": []
+        }
+      },
+      "generation_status": "llm"
+    },
+    "timeout_fallback": {
+      "measured_duration_ms": 2.16,
+      "answer_generation": {
+        "strategy": "llm",
+        "input_bytes": 4650,
+        "compact_bytes": 7506,
+        "input_budget_bytes": 16000,
+        "attempts": 1,
+        "error_code": "generation_timeout",
+        "timeout_seconds": 15,
+        "max_retries": 0,
+        "elapsed_seconds": 0.002,
+        "generation_status": "fallback",
+        "sent_input_bytes": 4650,
+        "validated_draft": {
+          "summary": "包装在已有标注样本中的负面占比有升有降、呈现波动。物流在已有标注样本中的负面占比呈下降变化。",
+          "items": [
+            {
+              "finding_ref": "finding:edb015c34e2a9afcba69",
+              "aspect_key": "packaging",
+              "explanation": "包装在已有标注样本中的负面占比有升有降、呈现波动。"
+            },
+            {
+              "finding_ref": "finding:45f1838361a079411967",
+              "aspect_key": "logistics",
+              "explanation": "物流在已有标注样本中的负面占比呈下降变化。"
+            }
+          ],
+          "caveats": []
+        }
+      },
+      "generation_status": "fallback"
+    }
+  }
+}

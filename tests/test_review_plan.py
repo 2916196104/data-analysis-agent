@@ -159,6 +159,28 @@ class QueryPlanTests(WorkbenchFixture, unittest.TestCase):
             self.assertEqual(result["model_calls"], 0)
             model.assert_not_called()
 
+    def test_unsupported_unrepresented_installation_dimension(self):
+        plan = build_query_plan("安装服务有哪些问题", self.scope())
+        self.assertIn("安装", plan.unsupported_reason)
+        with patch("data_analysis_agent.agents.reviews.create_llm") as model:
+            result = run_review_agent(self.db, "安装服务有哪些问题", scope=self.scope(), settings=SETTINGS)
+        self.assertEqual(result["status"], "unsupported")
+        self.assertEqual(result["model_calls"], 0)
+        model.assert_not_called()
+
+    def test_confirmed_followup_runs_without_planning_model_and_records_timings(self):
+        explicit = "执行本轮已确认的只读查询\n" + json.dumps({"tool": "get_positive_aspects", "parameters": {}})
+        with patch("data_analysis_agent.agents.reviews.create_llm", side_effect=AssertionError("followup must not create planner")):
+            result = run_review_agent(self.db, explicit, scope=self.scope(), settings=SETTINGS)
+        self.assertEqual(result["status"], "ok", result)
+        self.assertEqual(result["model_calls"], 0)
+        self.assertEqual(result["model_tool_attempts"], 0)
+        self.assertEqual(result["query_executions"], 2)
+        for key in ("planning_duration_ms", "query_duration_ms", "validation_duration_ms",
+                    "compression_duration_ms", "answer_duration_ms", "total_duration_ms"):
+            self.assertIn(key, result["performance"])
+            self.assertGreaterEqual(result["performance"][key], 0)
+
     def run_sync(self, question, *, timeout=False, final_ids=None):
         llm = SimpleNamespace(budget=SimpleNamespace(calls=0))
         @contextmanager
@@ -177,7 +199,8 @@ class QueryPlanTests(WorkbenchFixture, unittest.TestCase):
                     return json.dumps({"status": "ok", "result_ids": final_ids or [k for k in context.results if k != "overview"]})
             return ScriptedAgent()
         self_outer = self
-        with patch("data_analysis_agent.agents.reviews.create_llm", create_llm), patch("data_analysis_agent.agents.reviews.build_agent", build):
+        with patch("data_analysis_agent.agents.reviews.create_llm", create_llm), patch("data_analysis_agent.agents.reviews.build_agent", build), \
+                patch("openai.OpenAI", side_effect=RuntimeError("isolated planning fixture: no answer transport")):
             return run_review_agent(self.db, question, scope=self.scope(), settings=SETTINGS)
 
     def test_sync_full_orchestration_and_window_scope_compatibility(self):

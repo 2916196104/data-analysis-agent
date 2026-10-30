@@ -4,7 +4,7 @@ import { api } from '../../api';
 import { useTask } from '../../useTask';
 import { emptyTaskState } from '../../task-state';
 import type { AgentResult, AgentToolResult, AnalysisParameters, Task } from '../../types';
-import { resolveQuery, type QueryParent } from './followup';
+import { historyReference, resolveQuery, type QueryParent } from './followup';
 import { useAgentChat } from './useAgentChat';
 import { CHAT_KEY, readChatSession } from './chat-state';
 import ChatMessage from './ChatMessage';
@@ -18,8 +18,8 @@ const trend = (aspect = 'packaging'): AgentToolResult => ({ result_id: 'r1', kin
 } });
 const evidence = (page = 1, total = 12): AgentToolResult => ({ result_id: 'r2', kind: 'evidence',
   parameters: { aspect: 'logistics', sentiment: 'negative', window: 'baseline', product_ids: ['A'], page, page_size: 5 }, data: { page, total, items: [] } });
-const result = (...items: AgentToolResult[]): AgentResult => ({ agent: true, status: 'ok', scope, question: 'first', snapshot_at: '2026-10-30T00:00:00Z',
-  results: Object.fromEntries(items.map(item => [item.result_id, item])), model_calls: 1, tool_calls: items.length, elapsed_seconds: 1, trace: [] });
+const result = (...items: AgentToolResult[]): AgentResult => ({ agent: true, status: 'ok', scope, question: 'first', snapshot_at: '2026-10-30T00:00:00Z', validation: { status: 'passed', checks: [] },
+  result_ids: items.map(item => item.result_id), results: Object.fromEntries(items.map(item => [item.result_id, item])), model_calls: 1, tool_calls: items.length, elapsed_seconds: 1, trace: [] });
 const parent = (...items: AgentToolResult[]): QueryParent => ({ id: 'turn-1', taskId: 'task-1', parameters: scope, result: result(...items) });
 const task = (id: string, value: AgentResult): Task => ({ task_id: id, kind: 'analysis', status: 'succeeded', parameters: { ...scope, question: '查询包装问题趋势' },
   result: value as unknown as Task['result'], parent_task_id: null, error: null, created_at: '', started_at: '', finished_at: '', updated_at: '',
@@ -33,6 +33,80 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('追问解析使用真实查询参数', () => {
+  it('好评后那差评呢会切换负向维度工具并继承冻结范围', () => {
+    const positive = { result_id: 'positive', kind: 'positive_aspects', parameters: { product_ids: ['A'] }, data: {} } as unknown as AgentToolResult;
+    const resolved = resolveQuery('那差评呢', scope, parent(positive));
+    expect(resolved.clarification).toBeUndefined();
+    expect(resolved.query.queries?.[0]).toEqual({ kind: 'issues', parameters: { product_ids: ['A'] } });
+    expect(resolved.query.effectiveQuestion).toContain('get_top_issues');
+    expect(resolved.query.effectiveQuestion).toContain('"product_ids":["A"]');
+  });
+
+  it('问题分布后只看物流会收敛到物流维度而不重复六维问题', () => {
+    const issues = { result_id: 'issues', kind: 'issues', parameters: { product_ids: ['A'] }, data: {} } as unknown as AgentToolResult;
+    const resolved = resolveQuery('只看物流方面', scope, parent(issues));
+    expect(resolved.clarification).toBeUndefined();
+    expect(resolved.query.queries?.[0]).toMatchObject({ kind: 'issues', parameters: { aspect: 'logistics', product_ids: ['A'] } });
+  });
+
+  it('最近半年继承商品和数据集并重算当前与基线窗口，前三个月请求澄清', () => {
+    const current = { ...scope, date_from: '2023-01-01', date_to: '2023-12-31', baseline_from: '2022-01-01', baseline_to: '2022-12-31' };
+    const resolved = resolveQuery('最近半年物流问题怎么样', current, parent(trend('logistics')), new Date('2023-12-31T12:00:00Z'));
+    expect(resolved.clarification).toBeUndefined();
+    expect(resolved.parameters).toMatchObject({ date_from: '2023-07-01', date_to: '2023-12-31' });
+    expect(resolved.query.effectiveQuestion).toContain('物流');
+    const choice = resolveQuery('前三个月', current, parent(trend('logistics')));
+    expect(choice.clarification?.message).toContain('前三个月');
+  });
+
+  it('缺少严重程度和业务影响时不把趋势直接解释成优先级', () => {
+    const resolved = resolveQuery('哪个更值得优先解决？', scope, parent(trend('packaging'), trend('logistics')));
+    expect(resolved.clarification?.message).toContain('严重程度');
+    expect(resolved.clarification?.choices).toEqual([]);
+  });
+
+  it('正面维度追问保留正面类型，证据切换情感重置页码但保留 page_size', () => {
+    const positive = { result_id: 'positive', kind: 'positive_aspects', parameters: { product_ids: ['A'] }, data: {} } as unknown as AgentToolResult;
+    expect(resolveQuery('物流方面呢', scope, parent(positive)).query.queries?.[0]).toMatchObject({ kind: 'positive_aspects', parameters: { aspect: 'logistics' } });
+    expect(resolveQuery('那好评呢', scope, parent(evidence(2))).query.queries?.[0]).toMatchObject({ kind: 'evidence', parameters: { sentiment: 'positive', page: 1, page_size: 5, window: 'baseline' } });
+  });
+
+  it.each([{ product_ids: ['B'] }, { dataset_version: 'v2' }, { model: 'another-model' }, { date_to: '2023-02-20' }])('范围变更 %s 需要明确选择，证据游标从第一页开始', changes => {
+    const next = resolveQuery('下一页', { ...scope, ...changes }, parent(evidence(2)));
+    expect(next.clarification?.choices).toHaveLength(2);
+    expect(next.clarification?.choices[1].parameters).toMatchObject(changes);
+    expect(next.clarification?.choices[1].query.queries?.[0].parameters.page).toBe(1);
+  });
+
+  it('首轮最近半年按 UTC 参考时间计算，90 天和月底不会偷偷改为历史窗口', () => {
+    const now = new Date('2024-03-31T12:00:00Z');
+    const half = resolveQuery('最近半年物流问题怎么样', scope, undefined, now);
+    expect(half.parameters).toMatchObject({ date_from: '2023-10-01', date_to: '2024-03-31', product_ids: ['A'] });
+    const days = resolveQuery('最近90天物流问题怎么样', scope, undefined, now);
+    expect(days.parameters).toMatchObject({ date_from: '2024-01-02', date_to: '2024-03-31' });
+    expect(half.query.referenceTime).toBe(now.toISOString());
+    const failed = { ...result(trend()), validation: { status: 'failed' as const, checks: [] } };
+    expect(resolveQuery('那差评呢', scope, { ...parent(trend()), result: failed }).clarification).toBeTruthy();
+  });
+
+  it('明确最近三个月继承物流趋势；显式历史引用提取轮次和追问', () => {
+    const resolved = resolveQuery('那最近三个月呢', scope, parent(trend('logistics')), new Date('2024-03-31T12:00:00Z'));
+    expect(resolved.parameters).toMatchObject({ date_from: '2024-01-01', date_to: '2024-03-31' });
+    expect(resolved.query.queries?.[0]).toMatchObject({ kind: 'aspect_trend', parameters: { aspect: 'logistics', period: 'day' } });
+    expect(historyReference('沿用第1轮范围，只看物流')).toEqual({ index: 1, text: '只看物流' });
+    expect(historyReference('参考第二轮：那差评呢')).toEqual({ index: 2, text: '那差评呢' });
+  });
+
+  it('时间限定保留好评和证据意图，不自动追加无关趋势', () => {
+    const positive = resolveQuery('最近半年好评主要集中在哪些方面', scope);
+    expect(positive.parameters).toBeTruthy();
+    expect(positive.query.effectiveQuestion).toContain('好评');
+    expect(positive.query.effectiveQuestion).not.toContain('按月');
+    const evidenceQuery = resolveQuery('最近半年给我3条物流差评原文', scope);
+    expect(evidenceQuery.query.effectiveQuestion).toContain('3条物流差评原文');
+    expect(evidenceQuery.query.effectiveQuestion).not.toContain('变化');
+  });
+
   it('依次缩小到物流、换成按月、查询原文时保留商品及维度', () => {
     const first = resolveQuery('只看物流', scope, parent(trend()));
     expect(first.clarification).toBeUndefined();
@@ -89,6 +163,50 @@ describe('追问解析使用真实查询参数', () => {
 });
 
 describe('追问提交、澄清和快照恢复', () => {
+  it('成功任务保存轻量上下文，失败任务不会覆盖最近成功上下文', async () => {
+    const success = task('success', result(trend('logistics')));
+    const failed = { ...task('failed', result(trend())), status: 'failed', result: { agent: true, status: 'error' } } as Task;
+    vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id === 'success' ? success : id === 'failed' ? failed : null, refresh: vi.fn() }));
+    const submit = vi.spyOn(api, 'submit').mockResolvedValueOnce({ task: success, reused: false })
+      .mockResolvedValueOnce({ task: failed, reused: false }).mockResolvedValueOnce({ task: task('third', result(trend())), reused: false });
+    vi.spyOn(api, 'task').mockResolvedValue(success);
+    const hook = renderHook(() => useAgentChat());
+    await act(async () => { await hook.result.current.send(scope, '查询趋势'); });
+    const firstContext = structuredClone(hook.result.current.session.context);
+    await act(async () => { await hook.result.current.send(scope, '再次查询趋势'); });
+    expect(hook.result.current.session.context).toEqual(firstContext);
+    expect(firstContext).toMatchObject({ last_successful_task_id: 'success', dataset_id: 'amazon', product_ids: ['A'], aspect: 'logistics' });
+    await act(async () => { await hook.result.current.send(scope, '只看物流'); });
+    expect(hook.result.current.session.turns.at(-1)?.query?.parentTaskId).toBe('success');
+    expect(submit).toHaveBeenCalledTimes(3);
+  });
+
+  it('读取父任务期间范围改变会撤销迟到追问，不提交旧范围', async () => {
+    localStorage.setItem(CHAT_KEY, JSON.stringify({ turns: [{ kind: 'analysis', id: 'old', taskId: 'old-task', question: '趋势', parameters: scope, requestKey: 'key' }] }));
+    vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: null, refresh: vi.fn() }));
+    let finish!: (value: Task) => void;
+    vi.spyOn(api, 'task').mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const submit = vi.spyOn(api, 'submit');
+    const hook = renderHook(({ key }) => useAgentChat(undefined, key), { initialProps: { key: 'dataset-A' } });
+    act(() => hook.result.current.release());
+    let pending!: Promise<boolean>;
+    act(() => { pending = hook.result.current.send(scope, '只看物流'); });
+    hook.rerender({ key: 'dataset-B' });
+    await act(async () => { finish(task('old-task', result(trend()))); expect(await pending).toBe(false); });
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it('显式引用历史第一轮使用该轮范围，关联父任务而不使用新商品', async () => {
+    const first = task('first', result(trend()));
+    localStorage.setItem(CHAT_KEY, JSON.stringify({ turns: [{ kind: 'analysis', id: 'first-turn', taskId: 'first', question: '趋势', parameters: scope, requestKey: 'key' }] }));
+    vi.spyOn(api, 'task').mockResolvedValue(first);
+    const submit = vi.spyOn(api, 'submit').mockResolvedValue({ task: task('new', result(trend('logistics'))), reused: false });
+    const hook = renderHook(() => useAgentChat());
+    await act(async () => { await hook.result.current.send({ ...scope, product_ids: ['B'] }, '沿用第1轮范围，只看物流'); });
+    expect(submit.mock.calls[0][0]).toMatchObject({ parameters: { product_ids: ['A'] } });
+    expect(hook.result.current.session.turns.at(-1)?.query?.parentTaskId).toBe('first');
+  });
+
   it('缺少上文的澄清不提交任务，刷新保留澄清且不会显示失败重试', async () => {
     const submit = vi.spyOn(api, 'submit');
     const hook = renderHook(() => useAgentChat());

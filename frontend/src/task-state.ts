@@ -14,6 +14,7 @@ export const stageLabels: Record<string, string> = {
   queued: '任务已进入队列', starting: '准备执行', analysis: '计算统计并保存分析快照',
   agent_tools: '查询评论统计与原文证据', agent_thinking: 'Agent 正在选择分析工具',
   agent_completed: 'Agent 分析结果已保存',
+  answer_generating: '正在整理分析回答',
   hashing_reviews: '校验评论文件', hashing_meta: '校验商品文件',
   importing_reviews: '导入评论', importing_meta: '导入商品',
   verifying_reviews: '核对评论文件完整性', verifying_meta: '核对商品文件完整性',
