@@ -58,7 +58,7 @@ def build_answer_facts(context, *, detailed=False):
             statements = [*statements, f"建议优先复核{ASPECTS[aspect]}相关原文，再结合业务记录排查。"]
         facts.append(AnswerFact(finding_ref=finding_ref or stat.get("finding_ref") or "finding:" + content_sha256(identity)[:20], kind=kind,
             scope_ref=stat["scope_ref"], source_result_ids=[stat["source_result_id"]], aspect_key=aspect,
-            sentiment=stat.get("sentiment"), metrics=list(metrics), statements=statements, detail=detail))
+            sentiment=stat.get("sentiment", stat.get("filters", {}).get("sentiment")), metrics=list(metrics), statements=statements, detail=detail))
 
     for stat in context.statistics:
         scope = scopes[stat["scope_ref"]]
@@ -147,16 +147,28 @@ def build_answer_facts(context, *, detailed=False):
             add(stat, "rating", detail, ["星级分布独立于观点情感标注。"], metrics=stat["metrics"])
         elif kind == 'opinion_breakdown':
             groups = stat['filters']['groups']
-            for index, row in enumerate(groups[:3]):
+            balanced = context.analysis_type == "pros_cons"
+            prefix = ""
+            if balanced:
+                product = scope["product_ids"][0]
+                title = scope.get("product_titles", {}).get(product)
+                if len(scope['product_ids']) > 1:
+                    label = f"{scope.get('product_group_label', '商品组')}（{len(scope['product_ids'])} 款商品）"
+                else:
+                    label = f"{title}（{product}）" if title else f"商品 {product}"
+                direction = "优点（正面评价）" if stat["filters"]["sentiment"] == "positive" else "缺点（负面评价）"
+                prefix = f"{label}的{direction}："
+            for index, row in enumerate(groups[:(2 if balanced else 3)]):
                 emotion = {'positive': '正面', 'negative': '负面', 'neutral': '中性'}[row['sentiment']]
-                detail = (f"观点原文“{row['quote']}”：{row['review_count']} 条评论、{row['opinion_count']} 条观点，"
-                          f"占本次匹配评论 {percent(row['review_rate'])}（分母 {stat['filters']['total']} 条），{emotion}；"
-                          f"评论依据 #{row['review_id']}，{row['evidence_ref']}。")
+                denominator = f"该商品含{emotion}观点的评论" if balanced else "本次匹配评论"
+                detail = (prefix + f"观点原文“{row['quote']}”：{row['review_count']} 条评论、{row['opinion_count']} 条观点，"
+                          f"占{denominator} {percent(row['review_rate'])}（分母 {stat['filters']['total']} 条），{emotion}；"
+                          + (f"原文依据：评论 #{row['review_id']}。" if balanced else f"评论依据 #{row['review_id']}，{row['evidence_ref']}。"))
                 add(stat, 'opinion_group', detail, ['以下按已有观点原文及情感归组，不能替代标准细分标签。'],
                     metrics=[{key: row[key] for key in ('review_count', 'opinion_count', 'review_rate')}],
                     finding_ref='finding:' + content_sha256([stat['source_result_id'], index, row['quote'], row['sentiment']])[:20])
             if not groups:
-                add(stat, 'empty', '当前范围没有匹配的有效观点文本，无法进一步细分；请检查标注覆盖率或补充标注。',
+                add(stat, 'empty', prefix + '当前范围没有匹配的有效观点文本；请检查标注覆盖率或补充标注。',
                     ['现有数据无法支持该主题的细分统计。'])
         elif kind == "evidence":
             for ref in context.evidence:
@@ -168,7 +180,7 @@ def build_answer_facts(context, *, detailed=False):
             if not any(ref.source_result_id == stat["source_result_id"] for ref in context.evidence):
                 add(stat, "empty", "当前筛选条件没有匹配原文；没有证据不等于没有问题。", ["当前条件未找到匹配原文。"])
     # 普通回答优先主要发现；显式维度/商品组分别保留，较多分组提示详情。
-    limit = 15 if detailed else max(5, sum(fact.kind == "trend" for fact in facts))
+    limit = 15 if detailed or context.analysis_type == "pros_cons" else max(5, sum(fact.kind == "trend" for fact in facts))
     return facts[:limit], len(facts) > limit
 
 
@@ -195,6 +207,8 @@ def answer_caveats(context, facts):
 
 
 def summary_options(context, facts):
+    if context.analysis_type == "pros_cons":
+        return ['以下按商品分别列出优点和缺点，每个方向展示最多两种常见原文表述，仅代表当前数据集的已标注样本。']
     if any(fact.kind == 'opinion_group' for fact in facts):
         return ['已检索当前范围的观点文本，以下列出出现较多的原文表述及情感。']
     if not facts or all(fact.kind == "empty" for fact in facts):

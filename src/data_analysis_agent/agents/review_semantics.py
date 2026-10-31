@@ -1,16 +1,68 @@
 """将口语表达归一为业务意图；范围与统计仍由计划和只读工具校验。"""
 
 import re
+import unicodedata
 from datetime import date, timedelta
 
+from data_analysis_agent.agents.review_prompts import detect_sentiment_directions
+from data_analysis_agent.core.errors import ReviewDataError
 
-def resolve_question_scope(question, scope, products):
+
+class QuestionScopeError(ReviewDataError):
+    """商品目标不完整时要求补充，不能退回页面商品冒充完整比较。"""
+
+
+def _title_matches(mention, title):
+    def compact(value):
+        return re.sub(r"[^\w\u4e00-\u9fff]", "", unicodedata.normalize("NFKC", value).casefold())
+    mention, title = compact(mention), compact(title or "")
+    if len(mention) < 2:
+        return False
+    if mention in title:
+        return True
+    # 简称只能省略品牌和品类之间的型号文字，不以模糊相似度猜商品。
+    return any(title.startswith(mention[:i]) and mention[i:] in title[i:]
+               for i in range(2, len(mention) - 1))
+
+
+def _pros_cons_products(question, products):
+    head = re.split(r"优缺点|优点|缺点|好评|差评|正面|负面", question, maxsplit=1)[0]
+    mentions = []
+    for part in re.split(r"以及|与|和|、|[，,]|比较|对比", head):
+        part = re.sub(r"^(?:请|帮我|分别|分析|看看|查看|总结|说说|告诉我|一下)+", "", part.strip())
+        if not any(_title_matches(part, row['title']) or part == row['product_id'] for row in products):
+            part = re.sub(r"(?:的|各自)$", "", part).strip()
+        if part and part not in {"它", "这款", "这款商品", "这款空调", "这个商品", "所选商品", "当前商品", "两款商品", "商品"}:
+            mentions.append(part)
+    groups = []
+    for mention in mentions:
+        exact = [row for row in products if mention == row['product_id'] or mention == row['title']]
+        candidates = exact or [row for row in products if _title_matches(mention, row['title'])]
+        if not candidates:
+            raise QuestionScopeError(f'当前数据集未找到“{mention}”对应的商品，请提供该数据集中的商品 ID。')
+        if len(candidates) > 1:
+            brands = {row.get('brand') for row in candidates}
+            brand = next(iter(brands)) if len(brands) == 1 else None
+            if not brand or mention not in {brand, brand + '空调', brand + '商品', brand + '产品'}:
+                ids = '、'.join(row['product_id'] for row in candidates[:5])
+                raise QuestionScopeError(f'“{mention}”对应多款商品（{ids}），请指定要分析的商品 ID。')
+        groups.append({'label': mention, 'product_ids': sorted(row['product_id'] for row in candidates)})
+    return groups
+
+
+def resolve_question_scope(question, scope, products, *, product_groups=None):
     """明确商品 ID/完整名称和绝对日期覆盖页面；历史引用本身不提供权限。"""
     if question.startswith('执行本轮已确认的只读查询'):
         return scope
     resolved = {**scope, 'product_ids': list(scope['product_ids'])}
     matches = [row['product_id'] for row in products if re.search(r'(?<![A-Za-z0-9_])' + re.escape(row['product_id']) + r'(?![A-Za-z0-9_])', question)
                or (row['title'] and row['title'] in question)]
+    if detect_sentiment_directions(question) == {"positive", "negative"}:
+        groups = _pros_cons_products(question, products)
+        if groups:
+            matches = list(dict.fromkeys(product for group in groups for product in group['product_ids']))
+            if product_groups is not None:
+                product_groups.extend(groups)
     if matches:
         resolved['product_ids'] = matches
     dates = re.findall(r'\d{4}-\d{2}-\d{2}', question)

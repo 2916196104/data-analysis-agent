@@ -53,7 +53,7 @@ class PublicAnalysis(AnalysisModel):
 def public_scope(scope):
     # 标注身份只给稳定指纹引用；原始模型/端点/提示词版本留在审计快照。
     output = {key: deepcopy(scope[key]) for key in (
-        "source", "dataset_version", "product_ids", "date_from", "date_to", "baseline_from", "baseline_to", "as_of", "timezone"
+        "source", "dataset_version", "product_ids", "product_titles", "product_group_label", "date_from", "date_to", "baseline_from", "baseline_to", "as_of", "timezone"
     ) if key in scope}
     identity = [scope.get(key) for key in ("model", "base_url", "prompt_version")]
     if any(value is not None for value in identity):
@@ -213,7 +213,7 @@ class AnalysisResultCompressor:
                                      "aspects": [row["aspect"] for row in rows], "sentiment": result.sentiment})
                 if group.sample_size is None and not group.metrics:
                     caveats.append({"code": "no_reviews", "scope_ref": group_scope_ref})
-            for ref in result.evidence_refs:
+            for ref in (result.evidence_refs[:2] if plan.analysis_type == "pros_cons" else result.evidence_refs):
                 if len(evidence) >= evidence_budget:
                     break
                 compact_ref = ref.model_copy(deep=True)
@@ -269,6 +269,15 @@ def build_analysis_artifacts(result, plan, options=None):
     if not plan.satisfied(relevant):
         raise ValueError("完整结果未满足查询计划。")
     structured = [adapt_result(item, result["scope"]) for item in relevant]
+    if plan.analysis_type == "pros_cons":
+        catalog = {row["product_id"]: row["title"] for row in result["results"].get("overview", {}).get("data", {}).get("products", [])}
+        for item in structured:
+            for scope in [item.scope, *(group.scope for group in item.statistics)]:
+                scope["product_titles"] = {product: catalog[product] for product in scope["product_ids"] if catalog.get(product)}
+                # 品牌分组来自本轮冻结的目录解析；历史读取从已存计划恢复同一分组。
+                label = next((group['label'] for group in plan.product_groups if sorted(group['product_ids']) == sorted(scope['product_ids'])), None)
+                if label and len(scope['product_ids']) > 1:
+                    scope['product_group_label'] = label
     context = AnalysisResultCompressor(options).compress(result.get("analysis_question", result["question"]), plan, structured)
     return {"structured_analysis": [item.model_dump() for item in structured],
             "compact_context": context.model_dump(), "public_analysis": public_from_context(context).model_dump()}
@@ -295,6 +304,7 @@ def read_public_analysis(task, options=None):
                     for key in result["result_ids"] if key != "overview"]
         plan = ReviewQueryPlan(analysis_type=result.get("analysis_intent") or "composite",
                                sentiment=result.get("sentiment_intent"), scope=result["scope"], requirements=requests,
+                               product_groups=(result.get('query_plan') or {}).get('product_groups', []),
                                requires_evidence=any(item["tool"] in {"get_evidence", "get_opinion_breakdown"} for item in requests), max_evidence_items=10)
         validation = validate_report(result["results"], result["result_ids"],
                                      sentiment_intent=result.get("sentiment_intent"), query_plan=plan)

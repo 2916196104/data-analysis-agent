@@ -157,6 +157,20 @@ describe('AI 聊天提交与恢复', () => {
     expect(screen.getByText('历史分析结果已保存，可展开统计详情查看已核验的指标与原文。')).toBeTruthy();
     expect(screen.getByRole('button', { name: '导出分析报告' })).toBeTruthy();
   });
+
+  it('按成功结果显示语言指定的实际商品范围，保留提交时的范围快照', async () => {
+    const task: Task = { ...savedTask('resolved'), result: { agent: true, status: 'ok',
+      scope: { ...parameters, product_ids: ['A', 'B'] }, result_ids: [], results: {}, trace: [],
+      elapsed_seconds: 1, tool_calls: 5, model_calls: 0, validation: { status: 'passed', checks: [] } } };
+    vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id ? task : null, refresh: vi.fn() }));
+    vi.spyOn(api, 'submit').mockResolvedValue({ task, reused: false });
+    const hook = renderHook(() => useAgentChat());
+    await act(async () => { await hook.result.current.send(parameters, 'A与B的优缺点'); });
+    render(<ChatMessage turn={hook.result.current.session.turns[0]} chat={hook.result.current} onPrepare={vi.fn()} />);
+    expect(screen.getByText('商品：A、B')).toBeTruthy();
+    expect(screen.getByRole('group', { name: '本次问题的固定范围' }).textContent).toContain('A、B');
+    expect(hook.result.current.session.turns[0].selection?.product_ids).toEqual(['A']);
+  });
 });
 
 describe('基础问答与分析消息隔离', () => {

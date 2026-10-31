@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from data_analysis_agent.agents.review_answer_facts import answer_caveats, build_answer_facts, summary_options
+from data_analysis_agent.agents.review_answer_facts import answer_caveats, build_answer_facts, percent, summary_options
 from data_analysis_agent.agents.review_compression import CompactAnalysisContext
 from data_analysis_agent.agents.review_results import AnalysisModel, EvidenceReference
 from data_analysis_agent.core.serialization import canonical_json
@@ -108,7 +108,15 @@ class AnswerAssembler:
             notes.append("正文仅列出主要发现，完整分组和统计保留在详情中。")
         samples = context.sample_summary
         note = ""
-        if len(samples) == 1 and not any(fact.kind == "quality" for fact in facts):
+        if context.analysis_type == "pros_cons":
+            scopes = {row["scope_ref"]: row for row in context.scope_summary}
+            sample_notes = []
+            for sample in samples:
+                scope = scopes[sample['scope_ref']]
+                label = scope.get('product_group_label') or '商品 ' + '、'.join(scope['product_ids'])
+                sample_notes.append(f"{label}：共 {sample['review_count']} 条评论，成功标注 {sample['successful_reviews']} 条，覆盖率 {percent(sample['labeling_coverage'])}")
+            note = "；".join(sample_notes) + "。"
+        elif len(samples) == 1 and not any(fact.kind == "quality" for fact in facts):
             sample = samples[0]
             note = f"本次分析范围共 {sample['review_count']} 条评论，基于 {sample['successful_reviews']} 条成功标注评论"
             if "positive_review_count" in sample:
@@ -204,8 +212,9 @@ class NaturalLanguageAnswerGenerator:
         return answer.model_dump(), diagnostics
 
 
-def unavailable_answer(status="failed"):
-    return PublicAnswer(status=status, summary="当前问题超出已有分析能力，请调整查询目标。" if status == "unsupported" else "").model_dump()
+def unavailable_answer(status="failed", reason=None):
+    reason = reason if isinstance(reason, str) else None
+    return PublicAnswer(status=status, summary=(reason or "当前问题超出已有分析能力，请调整查询目标。") if status == "unsupported" else "").model_dump()
 
 
 def read_public_answer(task, *, public_analysis=None):
@@ -213,9 +222,10 @@ def read_public_answer(task, *, public_analysis=None):
     from data_analysis_agent.agents.review_compression import read_public_analysis
 
     public = public_analysis if public_analysis is not None else read_public_analysis(task)
+    result = task.get("result")
+    result = result if isinstance(result, dict) else {}
     if public["status"] != "ok":
-        return unavailable_answer(public["status"])
-    result = task.get("result") or {}
+        return unavailable_answer(public["status"], reason=result.get("answer"))
     context = CompactAnalysisContext(question=result.get("analysis_question") or result.get("question") or task.get("parameters", {}).get("question", "历史分析"),
         analysis_type=result.get("analysis_intent") or "composite", sentiment=result.get("sentiment_intent"),
         scope_summary=public["scope_summary"], sample_summary=public["summary_metrics"], key_findings=public["highlights"],

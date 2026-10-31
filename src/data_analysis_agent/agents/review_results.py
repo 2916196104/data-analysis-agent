@@ -139,7 +139,7 @@ def adapt_result(item, bound_scope):
                                       sentiment=sentiment, scope=scope)
     def group(name, row, actual_scope=None, aspects=False):
         return StatisticGroup(group_id=name, scope=deepcopy(actual_scope or scope), sample_size=sample_size(row),
-                              metrics=summary_metrics(row, sentiment or "negative") if kind != "quality" else [],
+                              metrics=summary_metrics(row, sentiment or "negative") if kind not in ("quality", "opinion_breakdown") else [],
                               aspects=aspect_statistics(row, sentiment or "negative") if aspects else [])
 
     if kind in ("positive_aspects", "trend", "aspect_trend", "quality", "context"):

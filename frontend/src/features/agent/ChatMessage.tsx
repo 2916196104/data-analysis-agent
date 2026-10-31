@@ -50,25 +50,27 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
     && ['ok', 'unsupported'].includes(savedResult.status) && savedResult.validation?.status !== 'failed'
     && (!savedResult.public_answer || ['ok', 'unsupported'].includes(savedResult.public_answer.status)) ? savedResult : undefined;
   const [detail, setDetail] = useState<{ value: unknown; title: string }>();
-  const products = turn.parameters.product_ids.length ? turn.parameters.product_ids.join('、') : '全部商品';
-  const dataset = turn.parameters.dataset_version || turn.parameters.source || '当前数据集';
+  const scope = result?.scope || turn.parameters;
+  const products = scope.product_ids.length > 2 ? `${scope.product_ids.length} 款商品`
+    : scope.product_ids.length ? scope.product_ids.join('、') : '全部商品';
+  const dataset = scope.dataset_version || scope.source || '当前数据集';
   return <MessageFrame turn={turn}>
         <div className="chat-scope-summary" aria-label="本次问题的简要范围">
           <span>当前数据集：{dataset}</span><span>商品：{products}</span>
         </div>
         <details className="chat-turn-scope" aria-label="本次问题的固定范围"><summary>查看完整查询范围</summary>
           <dl className="assistant-scope-values">
-            <div><dt>数据集</dt><dd>{turn.parameters.source} / {turn.parameters.dataset_version}</dd></div>
-            <div><dt>标注版本</dt><dd>{turn.parameters.model} · {turn.parameters.prompt_version}</dd></div>
-            <div><dt>商品</dt><dd>{turn.parameters.product_ids.length ? turn.parameters.product_ids.join('、') : '全部商品'}</dd></div>
-            <div><dt>当前窗口（UTC）</dt><dd>{turn.parameters.date_from} — {turn.parameters.date_to}</dd></div>
-            <div><dt>基线窗口（UTC）</dt><dd>{turn.parameters.baseline_from} — {turn.parameters.baseline_to}</dd></div>
-            {turn.parameters.as_of && <div><dt>评论截止时间</dt><dd>{turn.parameters.as_of}</dd></div>}
+            <div><dt>数据集</dt><dd>{scope.source} / {scope.dataset_version}</dd></div>
+            <div><dt>标注版本</dt><dd>{scope.model} · {scope.prompt_version}</dd></div>
+            <div><dt>商品</dt><dd>{scope.product_ids.length ? scope.product_ids.join('、') : '全部商品'}</dd></div>
+            <div><dt>当前窗口（UTC）</dt><dd>{scope.date_from} — {scope.date_to}</dd></div>
+            <div><dt>基线窗口（UTC）</dt><dd>{scope.baseline_from} — {scope.baseline_to}</dd></div>
+            {scope.as_of && <div><dt>评论截止时间</dt><dd>{scope.as_of}</dd></div>}
           </dl>
           <details className="chat-developer-scope"><summary>开发调试字段</summary>
             <dl className="assistant-scope-values">
-              <div><dt>标注服务</dt><dd>{turn.parameters.base_url}</dd></div>
-              <div><dt>提示词版本</dt><dd>{turn.parameters.prompt_version}</dd></div>
+              <div><dt>标注服务</dt><dd>{scope.base_url}</dd></div>
+              <div><dt>提示词版本</dt><dd>{scope.prompt_version}</dd></div>
             </dl>
           </details>
         </details>
@@ -76,9 +78,9 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
           <p>记录时间：{turn.query.createdAt}{turn.query.parentTaskId ? ` · 承接任务：${turn.query.parentTaskId}` : ' · 独立查询'}</p>
           <pre>{turn.query.effectiveQuestion}</pre>
           {result && <p>执行快照：{result.snapshot_at}</p>}
-          <Button size="small" onClick={() => exportResult({ question: turn.question, parameters: turn.parameters,
+          <Button size="small" onClick={() => exportResult({ question: turn.question, parameters: turn.parameters, selection: turn.selection,
             query: turn.query, clarification: turn.clarification, taskId: turn.taskId,
-            snapshot_at: result?.snapshot_at, results: result?.results }, 'query-snapshot')}>下载查询快照</Button>
+            snapshot_at: result?.snapshot_at, resolved_scope: result?.scope, results: result?.results }, 'query-snapshot')}>下载查询快照</Button>
         </details>}
         {turn.clarification && <Alert type="info" showIcon message={turn.clarification.resolved ? '已确认查询目标' : '需要澄清'}
           description={<><p>{turn.clarification.message}</p><div className="chat-clarification-choices">

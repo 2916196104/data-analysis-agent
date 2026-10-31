@@ -3,18 +3,18 @@
 import re
 
 
-PROMPT_VERSION = "review-agent-v6"
+PROMPT_VERSION = "review-agent-v7"
 
 _POSITIVE_TERMS = ("好评", "优点", "满意", "喜欢", "值得购买", "评价最好", "最受好评", "正向", "正面")
 _NEGATIVE_TERMS = ("差评", "缺点", "不满意", "投诉", "吐槽", "负面", "问题", "不好", "痛点")
 _NEGATION_PREFIX = re.compile(r"(?:不是|并非|不问|不想(?:看|知道)|别(?:看|查)|无需|不|没)[^，。！？]{0,10}$")
 
 
-def detect_sentiment_intent(question: str) -> str | None:
-    """识别明确的正负向分析意图；不明确时返回 None，交给中性工具或 unsupported。"""
+def detect_sentiment_directions(question: str) -> set[str]:
+    """保留同时要求的正负方向；“优缺点”不能被当成没有情感目标。"""
     if not isinstance(question, str):
-        return None
-    text = re.sub(r"\s+", "", question)
+        return set()
+    text = re.sub(r"\s+", "", question).replace("优缺点", "优点和缺点")
     # 转折后的请求独立判断，否定不能跨逗号吞掉后面的真实目标。
     text = re.sub(r"而是|我想(?:看|知道)|只想(?:看|知道)", "，", text)
     def unnegated_position(terms):
@@ -32,14 +32,13 @@ def detect_sentiment_intent(question: str) -> str | None:
     negative_position = unnegated_position(_NEGATIVE_TERMS)
     positive = positive_position >= 0
     negative = negative_position >= 0
-    if positive and not negative:
-        return "positive"
-    if negative and not positive:
-        return "negative"
-    if positive and negative:
-        # 未能确定转折目标时保持 unknown，避免把混合问题擅自改成单一方向。
-        return None
-    return None
+    return ({"positive"} if positive else set()) | ({"negative"} if negative else set())
+
+
+def detect_sentiment_intent(question: str) -> str | None:
+    """兼容单向意图；双向请求由查询计划拆分，不能默认变为负向。"""
+    directions = detect_sentiment_directions(question)
+    return next(iter(directions)) if len(directions) == 1 else None
 
 SYSTEM_PROMPT = """你是工作台的只读评论分析助手。应用已绑定数据集、商品、UTC 日期、基线和标注版本。
 用户消息开头是本轮查询请求，应按其指标、维度、周期和分页选择工具。

@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field
 import json
 import re
 
-from data_analysis_agent.agents.review_prompts import detect_sentiment_intent
+from data_analysis_agent.agents.review_prompts import detect_sentiment_directions, detect_sentiment_intent
 from data_analysis_agent.agents.review_semantics import normalize_question, opinion_request
 from data_analysis_agent.core.errors import ReviewDataError
 
@@ -32,6 +32,7 @@ class ReviewQueryPlan:
     evidence_page_size: int = 3
     unsupported_reason: str | None = None
     answer_question: str | None = None
+    product_groups: list[dict] = field(default_factory=list)
 
     @property
     def required_tools(self):
@@ -69,7 +70,7 @@ class ReviewQueryPlan:
         return True
 
 
-def build_query_plan(question, scope):
+def build_query_plan(question, scope, *, product_groups=None):
     question = normalize_question(question)
     sentiment = detect_sentiment_intent(question)
     plan = ReviewQueryPlan("analysis", sentiment, scope)
@@ -124,12 +125,33 @@ def build_query_plan(question, scope):
         semantic = opinion_request(question)
         if sum(word in question for word in ('制冷', '静音', '安装')) > 1:
             plan.unsupported_reason = '当前没有独立细分标签，多个细分主题请分别查询观点原文，不能用上级维度数量代替。'
+            return plan
+        balanced = detect_sentiment_directions(question) == {"positive", "negative"}
+        if balanced and not (trend or windows or quality or rating):
+            plan.analysis_type = "pros_cons"
+            if re.search(r"\d+\s*条|第\s*\d+\s*页", question):
+                plan.unsupported_reason = "优缺点概览按商品展示主要正负观点；指定原文条数或分页时，请分别查询好评或差评原文。"
+                return plan
+            plan.product_groups = product_groups or [{'label': None, 'product_ids': [product]} for product in scope.get('product_ids', [])]
+            if not 1 <= len(plan.product_groups) <= 2:
+                plan.unsupported_reason = "请明确一至两个品牌或商品，或选择至多两款商品，再分析各自的优缺点。"
+                return plan
+            if re.search(r"最近(?:半年|六个?月|三个?月|3个月|90天)|前三个月", question):
+                plan.unsupported_reason = "请明确优缺点分析的起止日期。"
+                return plan
+            for group in plan.product_groups:
+                for direction in ("positive", "negative"):
+                    add("get_opinion_breakdown", product_ids=group['product_ids'], sentiment=direction,
+                        aspect=semantic["aspect"], topic=semantic["topic"])
+            plan.requirements = requests
+            plan.requires_evidence, plan.max_evidence_items = True, len(requests) * 2
+            return plan
         breakdown = semantic["breakdown"] and not (trend or windows or products or quality or rating)
         if semantic["aspect"] and not aspects:
             aspects = [semantic["aspect"]]
         if sentiment == "positive" and (trend or windows or products) and not rating:
             plan.unsupported_reason = "当前支持正向维度汇总和正向原文，尚不支持正向趋势或正向对比；请改问好评主要方面。"
-        elif sentiment is None and re.search(r"好评|差评|优点|缺点|满意|喜欢|值得购买", question):
+        elif balanced or (sentiment is None and re.search(r"好评|差评|优点|缺点|满意|喜欢|值得购买", question)):
             plan.unsupported_reason = "本轮情感方向或混合分析目标尚不明确，请分别说明正向或负向查询。"
         if ranking and sentiment is None and not breakdown and not (trend or windows or products or quality or rating):
             breakdown = True

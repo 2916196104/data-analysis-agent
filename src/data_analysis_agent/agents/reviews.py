@@ -9,7 +9,7 @@ from time import perf_counter
 from data_analysis_agent.agents.review_prompts import PROMPT_VERSION, SYSTEM_PROMPT, detect_sentiment_intent
 from data_analysis_agent.agents.review_validation import result_summaries, validate_report
 from data_analysis_agent.agents.review_plan import build_query_plan
-from data_analysis_agent.agents.review_semantics import resolve_question_scope
+from data_analysis_agent.agents.review_semantics import QuestionScopeError, resolve_question_scope
 from data_analysis_agent.agents.review_compression import build_analysis_artifacts, empty_public
 from data_analysis_agent.agents.review_answers import NaturalLanguageAnswerGenerator, unavailable_answer
 from data_analysis_agent.agents.runtime import (
@@ -159,17 +159,20 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
                 connection.execute("SELECT set_config('statement_timeout', "
                     "LEAST(COALESCE(NULLIF(setting::int,0),30000),30000)::text,true) "
                     "FROM pg_settings WHERE name='statement_timeout'")
-            products = connection.execute('SELECT product_id,title FROM products WHERE source=? AND dataset_version=?',
-                                          (scope['source'], scope['dataset_version'])).fetchall()
+            products = [dict(row) for row in connection.execute('SELECT product_id,title,brand FROM products WHERE source=? AND dataset_version=?',
+                                          (scope['source'], scope['dataset_version'])).fetchall()]
             planning_started = perf_counter()
-            scope = resolve_question_scope(question, scope, products)
-            plan = build_query_plan(question, scope)
+            product_groups = []
+            scope = resolve_question_scope(question, scope, products, product_groups=product_groups)
+            plan = build_query_plan(question, scope, product_groups=product_groups)
             sentiment_intent = plan.sentiment
             result.update(scope=scope, query_plan=plan.to_dict(), sentiment_intent=sentiment_intent,
                           analysis_intent=plan.analysis_type, analysis_question=plan.answer_question or question)
             timings['planning_duration_ms'] = (perf_counter() - planning_started) * 1000
             if plan.unsupported_reason:
                 raise UnsupportedReviewQuery(plan.unsupported_reason)
+            if plan.analysis_type == "pros_cons" and len(plan.requirements) + 1 > settings.max_tool_calls:
+                raise UnsupportedReviewQuery("本轮商品数量超过工具调用预算，请减少商品后分析优缺点。")
             context = ReviewToolContext(connection, scope, Path(temporary), settings.max_tool_calls, report,
                                         sentiment_intent=sentiment_intent, query_plan=plan)
             registry = create_review_registry(context)
@@ -177,7 +180,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
             if "overview" not in context.results:
                 raise ReviewDataError("无法读取当前评论范围，请检查标注表和数据集。")
             status, ids = None, []
-            direct_query = question.startswith("执行本轮已确认的只读查询") or plan.analysis_type == 'opinion_breakdown'
+            direct_query = question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'opinion_breakdown', 'pros_cons'}
             if direct_query:
                 # 已确认追问或确定的文本归组计划直接执行；仍走同一注册表、预算与发布校验。
                 for request in plan.requirements:
@@ -273,7 +276,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
             result["public_answer"], result["answer_generation"] = NaturalLanguageAnswerGenerator().generate(
                 result["analysis_question"], result["compact_context"], settings=settings, validated=result["validation"]["status"] == "passed")
             timings["answer_duration_ms"] = round((perf_counter() - answer_started) * 1000, 3)
-    except UnsupportedReviewQuery as exc:
+    except (UnsupportedReviewQuery, QuestionScopeError) as exc:
         result.update(status="unsupported", answer=str(exc), result_ids=[])
     except Exception as exc:
         if progress_error is not None:
@@ -298,5 +301,5 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
                       total_model_calls=(llm.budget.calls if llm else 0) + result.get("answer_generation", {}).get("attempts", 0),
                       elapsed_seconds=round(timings["total_duration_ms"] / 1000, 3))
     result.setdefault("public_analysis", empty_public(result["status"]).model_dump())
-    result.setdefault("public_answer", unavailable_answer("unsupported" if result["status"] == "unsupported" else "failed"))
+    result.setdefault("public_answer", unavailable_answer("unsupported" if result["status"] == "unsupported" else "failed", reason=result.get("answer")))
     return json.loads(safe_json(result, settings.api_key))
