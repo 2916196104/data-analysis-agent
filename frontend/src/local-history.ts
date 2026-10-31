@@ -18,6 +18,7 @@ export function readHistory(): LocalHistory {
         productIds: Array.isArray(saved.draft?.productIds) ? saved.draft.productIds.filter((id: unknown) => typeof id === 'string') : [],
         profileId: Number.isInteger(saved.draft?.profileId) && saved.draft.profileId > 0 ? saved.draft.profileId : undefined,
         current: dateRange(saved.draft?.current), baseline: dateRange(saved.draft?.baseline),
+        ...(saved.draft?.rangeConfirmed === true ? { rangeConfirmed: true } : {}),
         note: typeof saved.draft?.note === 'string' ? saved.draft.note : '',
         ...(typeof saved.draft?.agentQuestion === 'string' ? { agentQuestion: saved.draft.agentQuestion } : {}) },
     };

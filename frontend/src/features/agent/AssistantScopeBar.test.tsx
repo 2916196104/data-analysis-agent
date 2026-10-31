@@ -41,6 +41,14 @@ function Harness({ onApply = vi.fn(), initial = draft }: { onApply?: (scope: Ass
   return <AssistantScopeBar draft={value} options={options} disabled={false} refreshKey={0} editing={editing} onEditing={setEditing}
     onApply={scope => { onApply(scope); setValue(previous => ({ ...previous, ...scope })); }} />;
 }
+async function openScope() {
+  fireEvent.click(screen.getByRole('button', { name: '修改范围' }));
+  await screen.findByText('修改分析范围');
+}
+async function openAdvanced() {
+  fireEvent.click(screen.getByText('高级设置'));
+  await screen.findByText('完整数据日期');
+}
 beforeEach(() => {
   vi.stubGlobal('matchMedia', () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }));
   vi.spyOn(analysisApi, 'trend').mockResolvedValue({ summary, buckets: [] });
@@ -50,10 +58,12 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe('助手范围编辑', () => {
   it('显示已应用的五类范围以及真实标注版本覆盖率', async () => {
     render(<Harness />);
-    await screen.findByText(/覆盖率 80.0%/);
-    expect(screen.getByText('data-a · source')).toBeTruthy();
-    expect(screen.getByText('model-one · v1')).toBeTruthy();
+    expect(screen.getByText('data-a')).toBeTruthy();
+    await openScope();
+    expect(screen.getByText('80.0%')).toBeTruthy();
+    expect(screen.getAllByText('model-one · v1').length).toBeGreaterThan(0);
     expect(screen.getByText('商品 A')).toBeTruthy();
+    await openAdvanced();
     expect(screen.getByText('2023-01-01 — 2023-01-31')).toBeTruthy();
     expect(analysisApi.trend).toHaveBeenCalledWith(expect.objectContaining({ model: 'model-one', dataset_version: 'data-a', product_ids: ['A'],
       date_from: '2023-02-01', date_to: '2023-02-28' }), expect.any(AbortSignal));
@@ -62,15 +72,14 @@ describe('助手范围编辑', () => {
   it('编辑和取消不改变已应用范围；确认后统一应用数据集、商品、标注版本和日期', async () => {
     const apply = vi.fn();
     render(<Harness onApply={apply} />);
-    await screen.findByText(/覆盖率 80.0%/);
-    fireEvent.click(screen.getByRole('button', { name: '切换范围' }));
+    await openScope();
     fireEvent.change(screen.getByLabelText('助手数据集'), { target: { value: '["source","data-b"]' } });
     expect(screen.queryByRole('option', { name: /商品 A/ })).toBeNull();
     expect(apply).not.toHaveBeenCalled();
     expect(analysisApi.trend).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole('button', { name: '取消' }));
-    expect(screen.getByText('data-a · source')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: '切换范围' }));
+    expect(screen.getByText('data-a')).toBeTruthy();
+    await openScope();
     fireEvent.change(screen.getByLabelText('助手数据集'), { target: { value: '["source","data-b"]' } });
     fireEvent.mouseDown(screen.getByRole('combobox', { name: '助手标注版本' }));
     fireEvent.click(await screen.findByText('model-two · v2'));
@@ -82,7 +91,7 @@ describe('助手范围编辑', () => {
 
   it('缺少版本或基线重叠时禁止应用', async () => {
     render(<Harness initial={{ ...draft, baseline: ['2023-02-01', '2023-02-28'] }} />);
-    fireEvent.click(screen.getByRole('button', { name: '切换范围' }));
+    await openScope();
     expect((screen.getByRole('button', { name: '应用范围' }) as HTMLButtonElement).disabled).toBe(true);
     expect(analysisApi.trend).not.toHaveBeenCalled();
   });
@@ -91,25 +100,29 @@ describe('助手范围编辑', () => {
     const trend = vi.mocked(analysisApi.trend);
     trend.mockResolvedValue({ summary: { ...summary, review_count: 0, eligible_text_reviews: 0, successful_reviews: 0, labeling_coverage: null }, buckets: [] });
     const view = render(<Harness />);
+    await openScope();
     await screen.findByText('无评论');
-    expect(screen.getByText(/覆盖率 —/)).toBeTruthy();
+    expect(screen.getByText('—')).toBeTruthy();
     view.unmount();
     trend.mockResolvedValue({ summary: { ...summary, eligible_text_reviews: 0, successful_reviews: 0, labeling_coverage: null }, buckets: [] });
     const next = render(<Harness />);
+    await openScope();
     await screen.findByText('无有效正文');
     next.unmount();
     trend.mockResolvedValue({ summary: { ...summary, successful_reviews: 0, unprocessed_reviews: 25, labeling_coverage: 0 }, buckets: [] });
     render(<Harness />);
+    await openScope();
     await screen.findByText('待标注');
-    expect(screen.getByText(/覆盖率 0.0%/)).toBeTruthy();
+    expect(screen.getByText('0.0%')).toBeTruthy();
   });
 
   it('覆盖率失败显示原因并允许重试', async () => {
     vi.mocked(analysisApi.trend).mockRejectedValueOnce(new Error('数据库不可用'));
     render(<Harness />);
+    await openScope();
     await screen.findByText('覆盖率读取失败：数据库不可用');
     fireEvent.click(screen.getByRole('button', { name: '重试覆盖率' }));
-    await screen.findByText(/覆盖率 80.0%/);
+    await screen.findByText('80.0%');
   });
 });
 

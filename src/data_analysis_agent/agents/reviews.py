@@ -9,6 +9,7 @@ from time import perf_counter
 from data_analysis_agent.agents.review_prompts import PROMPT_VERSION, SYSTEM_PROMPT, detect_sentiment_intent
 from data_analysis_agent.agents.review_validation import result_summaries, validate_report
 from data_analysis_agent.agents.review_plan import build_query_plan
+from data_analysis_agent.agents.review_semantics import resolve_question_scope
 from data_analysis_agent.agents.review_compression import build_analysis_artifacts, empty_public
 from data_analysis_agent.agents.review_answers import NaturalLanguageAnswerGenerator, unavailable_answer
 from data_analysis_agent.agents.runtime import (
@@ -74,7 +75,7 @@ def grounded_answer(status, results):
                              "窗口长度不同时，不宜仅按评论数量判断问题变化。")
             parts.append(reference + " 六维度问题：" + "；".join(
                 f"{item['aspect_label']}负面 {item['negative_review_count']} 条，占比 {_rate(item['negative_rate'])}，"
-                + ("较基线无法计算" if item["negative_rate_change_pp"] is None
+                + ("未进行基线对比" if not data.get('baseline') else "较基线无法计算" if item["negative_rate_change_pp"] is None
                    else f"较基线变化 {item['negative_rate_change_pp']:+.1f} 个百分点") for item in data["issues"]))
         elif kind == "ratings":
             parts.append(f"{reference} 原始星级分布，按 " + {"product": "商品", "month": "月份", "all": "总体"}[data["group_by"]]
@@ -98,6 +99,10 @@ def grounded_answer(status, results):
                 parts.append(f"{reference} 正向维度统计：范围共 {summary['review_count']} 条评论，成功标注 {summary['successful_reviews']} 条，"
                              f"至少包含一个正向观点的评论 {summary['positive_review_count']} 条；主要方面：{details}。"
                              "各维度按评论 ID 去重，同一评论可计入多个维度。")
+        elif kind == 'opinion_breakdown':
+            parts.append(f"{reference} 匹配 {data['total']} 条评论、{data['total_opinions']} 条观点；按观点原文和情感精确归组，非标准细分标签。")
+            for row in data['groups'][:3]:
+                parts.append(f"{reference} “{row['quote']}”：{row['review_count']} 条评论、{row['opinion_count']} 条观点，{row['sentiment']}；评论 #{row['review_id']}。")
         elif kind == "evidence":
             parts.append(f"{reference} 找到 {data['total']} 条匹配证据，本页展示 {len(data['items'])} 条。")
             for item in data["items"]:
@@ -143,14 +148,6 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
         if not scope["source"] or not scope["dataset_version"]:
             raise ReviewDataError("请选择明确的数据来源和数据集版本。")
         result["scope"] = scope
-        planning_started = perf_counter()
-        plan = build_query_plan(question, scope)
-        timings["planning_duration_ms"] = round((perf_counter() - planning_started) * 1000, 3)
-        sentiment_intent = plan.sentiment
-        result.update(query_plan=plan.to_dict(), sentiment_intent=sentiment_intent,
-                      analysis_intent=plan.analysis_type, analysis_question=plan.answer_question or question)
-        if plan.unsupported_reason:
-            raise UnsupportedReviewQuery(plan.unsupported_reason)
         from data_analysis_agent.agents.review_tools import ReviewToolContext, create_review_registry
 
         with TemporaryDirectory(prefix="review-agent-") as temporary, closing(
@@ -162,6 +159,17 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
                 connection.execute("SELECT set_config('statement_timeout', "
                     "LEAST(COALESCE(NULLIF(setting::int,0),30000),30000)::text,true) "
                     "FROM pg_settings WHERE name='statement_timeout'")
+            products = connection.execute('SELECT product_id,title FROM products WHERE source=? AND dataset_version=?',
+                                          (scope['source'], scope['dataset_version'])).fetchall()
+            planning_started = perf_counter()
+            scope = resolve_question_scope(question, scope, products)
+            plan = build_query_plan(question, scope)
+            sentiment_intent = plan.sentiment
+            result.update(scope=scope, query_plan=plan.to_dict(), sentiment_intent=sentiment_intent,
+                          analysis_intent=plan.analysis_type, analysis_question=plan.answer_question or question)
+            timings['planning_duration_ms'] = (perf_counter() - planning_started) * 1000
+            if plan.unsupported_reason:
+                raise UnsupportedReviewQuery(plan.unsupported_reason)
             context = ReviewToolContext(connection, scope, Path(temporary), settings.max_tool_calls, report,
                                         sentiment_intent=sentiment_intent, query_plan=plan)
             registry = create_review_registry(context)
@@ -169,9 +177,9 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
             if "overview" not in context.results:
                 raise ReviewDataError("无法读取当前评论范围，请检查标注表和数据集。")
             status, ids = None, []
-            direct_query = question.startswith("执行本轮已确认的只读查询")
+            direct_query = question.startswith("执行本轮已确认的只读查询") or plan.analysis_type == 'opinion_breakdown'
             if direct_query:
-                # 确定性追问已经由上一轮成功结果生成并冻结计划，不再重复启动规划模型。
+                # 已确认追问或确定的文本归组计划直接执行；仍走同一注册表、预算与发布校验。
                 for request in plan.requirements:
                     response = registry.execute_tool(request["tool"], json.dumps(request["parameters"], ensure_ascii=False), automatic=True)
                     payload = response.to_dict()

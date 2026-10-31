@@ -14,7 +14,7 @@ const toolNames: Record<string, string> = {
   get_data_quality: '查看数据质量', get_aspect_trend: '查询维度趋势', get_positive_aspects: '查询正向维度',
   get_rating_distribution: '查询星级分布', compare_time_windows: '比较时间窗口',
 };
-const sectionNames = { context: '分析范围', trend: '评论趋势', comparison: '商品对比', issues: '六维度问题', evidence: '原文证据',
+const sectionNames = { opinion_breakdown: '观点文本分析', context: '分析范围', trend: '评论趋势', comparison: '商品对比', issues: '六维度问题', evidence: '原文证据',
   quality: '数据质量', aspect_trend: '维度趋势', ratings: '星级分布', window_comparison: '时间窗口对比', positive_aspects: '正向维度' };
 const countColumns = [
   { title: '评论数', dataIndex: 'review_count', width: 85 },
@@ -109,11 +109,11 @@ export default function AgentResults({ result, onDetail, onPrepare, onEvidenceNe
           {onEvidenceNext && item.data.items.length > 0 && item.data.total > item.data.page * item.data.items.length &&
             <Button className="spaced" onClick={onEvidenceNext}>继续查看下一页</Button>}
         </> : item.kind === 'issues' ? <>
-          <p className="muted">成功标注分母：当前 {item.data.current?.successful_reviews ?? '未知'} 条，基线 {item.data.baseline?.successful_reviews ?? '未知'} 条；任一窗口无成功标注时不计算占比变化。</p>
+          <p className="muted">成功标注分母：当前 {item.data.current?.successful_reviews ?? '未知'} 条{item.data.baseline ? `，基线 ${item.data.baseline.successful_reviews} 条；任一窗口无成功标注时不计算占比变化。` : '；本轮未进行基线对比。'}</p>
           <Table size="small" rowKey="aspect" dataSource={item.data.issues.filter(row => !item.parameters.aspect || row.aspect === item.parameters.aspect)} pagination={false} scroll={{ x: 560 }} columns={[
             { title: '维度', dataIndex: 'aspect_label' }, { title: '负面数', dataIndex: 'negative_review_count' },
             { title: '负面占比', dataIndex: 'negative_rate', render: (value: number | null) => value === null ? '暂无成功标注' : rate(value) },
-            { title: '较基线（百分点）', dataIndex: 'negative_rate_change_pp', render: (value: number | null) => value === null ? '样本不足' : `${value > 0 ? '+' : ''}${value.toFixed(1)}` },
+            ...(item.data.baseline ? [{ title: '较基线（百分点）', dataIndex: 'negative_rate_change_pp', render: (value: number | null) => value === null ? '样本不足' : `${value > 0 ? '+' : ''}${value.toFixed(1)}` }] : []),
           ]} />
         </> : item.kind === 'context' ? <p>{sectionSummary(item)}</p> : <ExtendedResults item={item} />}
     </Card>)}

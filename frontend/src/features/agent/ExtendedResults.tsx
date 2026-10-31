@@ -47,6 +47,17 @@ export default function ExtendedResults({ item }: { item: AgentToolResult }) {
       ]} />
     </>;
   }
+  if (item.kind === 'opinion_breakdown') return <>
+    <p className="muted">匹配 {item.data.total} 条评论、{item.data.total_opinions} 条观点。按原始观点文本和情感精确归组，同义表述未合并；不是标准细分主题排名。同一评论可进入多个组。</p>
+    <Table size="small" rowKey={row => JSON.stringify([row.quote, row.sentiment])} dataSource={item.data.groups}
+      pagination={false} scroll={{ x: 640 }} columns={[
+        { title: '观点原文', dataIndex: 'quote', width: 260 }, { title: '评论数', dataIndex: 'review_count' },
+        { title: '观点数', dataIndex: 'opinion_count' }, { title: '占匹配评论', dataIndex: 'review_rate', render: rate },
+        { title: '情感', dataIndex: 'sentiment', render: (value: string) => ({ positive: '正面', negative: '负面', neutral: '中性' })[value] || value },
+        { title: '评论依据', dataIndex: 'review_id', render: (value: number) => `#${value}` },
+      ]} />
+    {item.data.items.map(row => <blockquote key={row.review_id}>评论 #{row.review_id}：{row.opinions.map(opinion => opinion.quote).join('；')}</blockquote>)}
+  </>;
   if (item.kind === 'ratings') return <>
     <p className="muted">{item.data.scope.date_from} — {item.data.scope.date_to}（UTC）。来源为原始评分，独立于标注。分母仅包括 1–5 整数星级；缺失及其他评分单列，不四舍五入。</p>
     <Table size="small" rowKey={row => JSON.stringify([row.source, row.dataset_version, row.group])} dataSource={item.data.groups}

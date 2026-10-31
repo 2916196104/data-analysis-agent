@@ -43,9 +43,14 @@ def prepare_parameters(kind, parameters, *, import_root, env_file):
     elif kind == "label":
         _, values["model_identity"] = configured_identity(env_file)
     elif kind == "analysis":
+        for key in ('conversation_id', 'context_task_id'):
+            if values.get(key) is None:
+                values.pop(key, None)
         if values["question"] is None:
             # 保留原结构化分析任务的载荷和幂等哈希。
             values.pop("question")
+            values.pop('conversation_id', None)
+            values.pop('context_task_id', None)
         else:
             _, values["model_identity"] = configured_agent_identity(env_file)
     return values

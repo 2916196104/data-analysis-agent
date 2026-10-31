@@ -270,8 +270,8 @@ def get_top_issues(
     prompt_version: str,
     date_from: str,
     date_to: str,
-    baseline_from: str,
-    baseline_to: str,
+    baseline_from: str | None = None,
+    baseline_to: str | None = None,
     product_ids: list[str] | None = None,
     as_of: str | None = None,
     source: str | None = None,
@@ -290,6 +290,15 @@ def get_top_issues(
         "dataset_version": dataset_version,
     }
     identity, where, filters, scope = analysis_scope(date_from=date_from, date_to=date_to, **common)
+    if baseline_from is None and baseline_to is None:
+        with _snapshot(db_path) as connection:
+            current = _summary(_summaries(connection, identity, where, filters)[0])
+        ranked = sorted(ASPECTS, key=lambda aspect: (-current['aspects'][aspect]['negative_review_count'], aspect))
+        return {"scope": scope, "definitions": dict(DEFINITIONS), "current": current,
+                "issues": [{"rank": rank, "aspect": aspect, "aspect_label": ASPECTS[aspect],
+                            **current['aspects'][aspect], "baseline_negative_review_count": None,
+                            "baseline_negative_rate": None, "negative_review_count_change": None,
+                            "negative_rate_change_pp": None} for rank, aspect in enumerate(ranked[:top_n], 1)]}
     _, baseline_where, baseline_filters, baseline_scope = analysis_scope(
         date_from=baseline_from, date_to=baseline_to, **common)
     if baseline_to >= date_from:
@@ -449,6 +458,54 @@ def compare_time_windows(db_path, *, baseline_from, baseline_to, **scope):
     return {**result, "changes": changes,
             "current_days": (parse_day(scope["date_to"], "date_to") - parse_day(scope["date_from"], "date_from")).days + 1,
             "baseline_days": (parse_day(baseline_to, "baseline_to") - parse_day(baseline_from, "baseline_from")).days + 1}
+
+
+def get_opinion_breakdown(db_path, *, aspect=None, sentiment="all", topic=None, **scope):
+    """全文范围按已有观点原文和情感归组；不是细分标签或抽样推算。"""
+    if aspect is not None and aspect not in ASPECTS:
+        raise ReviewDataError("aspect 必须是六个有效维度之一。")
+    if sentiment not in (*SENTIMENTS, "all"):
+        raise ReviewDataError("sentiment 必须是有效情感或 all。")
+    if topic is not None and (not isinstance(topic, str) or not 1 <= len(topic) <= 100):
+        raise ReviewDataError("topic 必须是 1 至 100 字的检索词。")
+    identity, where, filters, normalized_scope = analysis_scope(**scope)
+    conditions, values = [where], list(filters)
+    for field, value in (("aspect", aspect), ("sentiment", None if sentiment == "all" else sentiment)):
+        if value is not None:
+            conditions.append(f"o.{field}=?")
+            values.append(value)
+    keywords = {"制冷": ["制冷", "冷气", "凉快", "凉爽"], "静音": ["静音", "噪音", "声音", "噪声"],
+                "安装": ["安装"]}.get(topic, [topic] if topic else [])
+    if keywords:
+        conditions.append("(" + " OR ".join("o.quote LIKE ? ESCAPE '!'" for _ in keywords) + ")")
+        values.extend("%" + word.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%" for word in keywords)
+    with _snapshot(db_path) as connection:
+        cte, parameters = current_reviews_sql(connection, identity)
+        matching = " FROM current c JOIN effective_opinions o ON o.review_id=c.id WHERE " + " AND ".join(conditions)
+        args = (*parameters, *values)
+        totals = connection.execute(cte + "SELECT COUNT(DISTINCT c.id) reviews,COUNT(*) opinions" + matching, args).fetchone()
+        groups = [dict(row) for row in connection.execute(cte + """SELECT o.quote,o.sentiment,
+            COUNT(DISTINCT c.id) review_count,COUNT(*) opinion_count,MIN(c.id) review_id"""
+            + matching + " GROUP BY o.quote,o.sentiment ORDER BY review_count DESC,opinion_count DESC,o.quote,o.sentiment LIMIT 10", args)]
+        items = []
+        for row in groups[:3]:
+            evidence = get_evidence(connection, **scope, aspect=aspect, sentiment=row['sentiment'], review_id=row['review_id'])
+            item = evidence['items'][0]
+            item['opinions'] = [opinion for opinion in item['opinions'] if opinion['quote'] == row['quote']]
+            row['evidence_ref'] = item['evidence_ref']
+            item.pop('file_path', None)
+            if not any(saved['review_id'] == item['review_id'] for saved in items):
+                items.append(item)
+            else:
+                saved = next(saved for saved in items if saved['review_id'] == item['review_id'])
+                saved['opinions'].extend(opinion for opinion in item['opinions'] if opinion not in saved['opinions'])
+        summary = _summary(_summaries(connection, identity, where, filters)[0])
+    for row in groups:
+        row['review_rate'] = count_rate(row['review_count'], totals['reviews'])
+    return {"scope": normalized_scope, "summary": summary, "aspect": aspect,
+            "sentiment": None if sentiment == 'all' else sentiment, "topic": topic, "keywords": keywords,
+            "grouping": "exact_opinion_text_and_sentiment", "total": totals['reviews'],
+            "total_opinions": totals['opinions'], "groups": groups, "items": items}
 
 
 def get_evidence(

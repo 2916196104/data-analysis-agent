@@ -6,14 +6,15 @@ import math
 def result_summaries(results):
     for item in results:
         data = item["data"]
-        if item["kind"] in ("context", "trend", "quality", "aspect_trend", "positive_aspects"):
+        if item["kind"] in ("context", "trend", "quality", "aspect_trend", "positive_aspects", "opinion_breakdown"):
             yield data["summary"]
             yield from data.get("buckets", [])
         elif item["kind"] == "comparison":
             yield from data["products"]
         elif item["kind"] in ("issues", "window_comparison"):
             yield data["current"]
-            yield data["baseline"]
+            if data.get("baseline"):
+                yield data["baseline"]
 
 
 def _matches_rate(value, count, denominator, scale=1):
@@ -118,8 +119,8 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
             scope_ok &= _scope_matches(data.get("scope"), expected)
         if item["kind"] == "positive_aspects":
             positive_ok &= _validate_positive_aspects(data)
-        if item["kind"] == "evidence":
-            sentiment = item["parameters"].get("sentiment", "negative")
+        if item["kind"] in ("evidence", "opinion_breakdown"):
+            sentiment = item["parameters"].get("sentiment", "all" if item['kind'] == 'opinion_breakdown' else "negative")
             aspect = item["parameters"].get("aspect")
             quotes_ok &= data.get("sentiment") == (None if sentiment == "all" else sentiment)
             for evidence in data["items"]:
@@ -132,9 +133,13 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
                     quotes_ok &= (type(start) is int and type(end) is int and 0 <= start < end <= len(evidence["text"])
                                   and evidence["text"][start:end] == opinion["quote"])
         elif item["kind"] in ("issues", "window_comparison"):
-            current, baseline = data["current"], data["baseline"]
+            current, baseline = data["current"], data.get("baseline")
             for issue in data["issues"]:
                 now = current["aspects"][issue["aspect"]]
+                if baseline is None:
+                    rates_ok &= issue['negative_review_count'] == now['negative_review_count'] and issue['negative_rate'] == now['negative_rate']
+                    rates_ok &= all(issue.get(key) is None for key in ('baseline_negative_review_count', 'baseline_negative_rate', 'negative_rate_change_pp'))
+                    continue
                 before = baseline["aspects"][issue["aspect"]]
                 rates_ok &= (issue["negative_review_count"] == now["negative_review_count"]
                              and issue["negative_rate"] == now["negative_rate"]
@@ -171,17 +176,33 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
                     additional_ok &= type(star["review_count"]) is int and star["review_count"] >= 0
                     additional_ok &= _matches_rate(star["rate"], star["review_count"], row["rated_reviews"])
 
+        if item['kind'] == 'opinion_breakdown':
+            total, opinions = data['total'], data['total_opinions']
+            additional_ok &= type(total) is int and type(opinions) is int and 0 <= total <= opinions
+            additional_ok &= total <= data['summary']['successful_reviews']
+            additional_ok &= data['grouping'] == 'exact_opinion_text_and_sentiment'
+            groups = data['groups']
+            additional_ok &= groups == sorted(groups, key=lambda row: (-row['review_count'], -row['opinion_count']))
+            additional_ok &= len({(row['quote'], row['sentiment']) for row in groups}) == len(groups)
+            for row in groups:
+                additional_ok &= 0 < row['review_count'] <= total and row['review_count'] <= row['opinion_count'] <= opinions
+                additional_ok &= _matches_rate(row['review_rate'], row['review_count'], total)
+            for row in groups[:3]:
+                quotes_ok &= any(evidence['review_id'] == row['review_id'] and evidence['evidence_ref'] == row.get('evidence_ref')
+                    and any(opinion['quote'] == row['quote'] and opinion['sentiment'] == row['sentiment'] for opinion in evidence['opinions'])
+                    for evidence in data['items'])
+
     refs_ok = (len(set(result_ids)) == len(result_ids) and bool(set(result_ids) - {"overview"})
                and set(result_ids) <= set(results) and set(results) - {"overview"} <= set(result_ids))
     selected = [results[result_id] for result_id in result_ids if result_id in results]
     semantic_ok = True
     if sentiment_intent == "positive":
         semantic_ok = any(item["kind"] == "positive_aspects" or (
-            item["kind"] == "evidence" and item["data"].get("sentiment") == "positive"
+            item["kind"] in {"evidence", "opinion_breakdown"} and item["data"].get("sentiment") == "positive"
         ) for item in selected)
     elif sentiment_intent == "negative":
         semantic_ok = any(item["kind"] in {"trend", "aspect_trend", "comparison", "issues", "window_comparison"}
-                          or (item["kind"] == "evidence" and item["data"].get("sentiment") == "negative")
+                          or (item["kind"] in {"evidence", "opinion_breakdown"} and item["data"].get("sentiment") == "negative")
                           for item in selected)
     if query_plan is not None:
         semantic_ok &= query_plan.satisfied(selected)

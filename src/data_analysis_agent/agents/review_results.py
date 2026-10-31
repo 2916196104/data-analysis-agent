@@ -134,7 +134,7 @@ def adapt_result(item, bound_scope):
     data, kind = item["data"], item["kind"]
     scope = deepcopy(data.get("scope", bound_scope))
     sentiment = "positive" if kind == "positive_aspects" else (
-        data.get("sentiment") if kind == "evidence" else "negative" if kind not in ("ratings", "quality", "context") else None)
+        data.get("sentiment") if kind in ("evidence", "opinion_breakdown") else "negative" if kind not in ("ratings", "quality", "context") else None)
     result = StructuredAnalysisResult(result_id=item["result_id"], kind=kind, analysis_type=kind,
                                       sentiment=sentiment, scope=scope)
     def group(name, row, actual_scope=None, aspects=False):
@@ -169,8 +169,9 @@ def adapt_result(item, bound_scope):
             result.statistics.append(StatisticGroup(group_id=product_id, scope={**scope, "product_ids": [product_id]}))
             result.warnings.append("no_reviews:" + product_id)
     elif kind in ("issues", "window_comparison"):
-        result.statistics = [group("current", data["current"], aspects=True),
-                             group("baseline", data["baseline"], data["baseline_scope"], aspects=True)]
+        result.statistics = [group("current", data["current"], aspects=True)]
+        if data.get('baseline'):
+            result.statistics.append(group("baseline", data["baseline"], data["baseline_scope"], aspects=True))
         changes = {row["aspect"]: row for row in data["issues"]}
         for aspect in result.statistics[0].aspects:
             change = changes.get(aspect.aspect)
@@ -185,8 +186,12 @@ def adapt_result(item, bound_scope):
             metrics = [Metric(name=name, value=row[name]) for name in ("review_count", "rated_reviews", "missing_rating_reviews", "other_rating_reviews")]
             metrics.extend(rate_metric(f"star_{star['star']}", star["review_count"], row["rated_reviews"], star["rate"], "rated_reviews") for star in row["stars"])
             result.statistics.append(StatisticGroup(group_id=row["group"], scope=deepcopy(group_scope), metrics=metrics))
-    elif kind == "evidence":
+    elif kind in ("evidence", "opinion_breakdown"):
         result.filters = {key: data.get(key) for key in ("aspect", "sentiment", "page", "page_size", "pages", "total")}
+        if kind == 'opinion_breakdown':
+            result.filters.update({key: deepcopy(data[key]) for key in ('groups', 'grouping', 'total_opinions', 'topic')})
+            result.statistics = [group('current', data['summary'])]
+            result.statistics[0].metrics = []
         result.filters["window"] = item["parameters"].get("window", "current")
         for row in data["items"]:
             result.evidence_refs.append(EvidenceReference(

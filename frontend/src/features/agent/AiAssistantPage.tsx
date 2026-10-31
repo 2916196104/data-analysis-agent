@@ -10,7 +10,7 @@ import ChatMessage from './ChatMessage';
 import AssistantScopeBar, { type AssistantScope } from './AssistantScopeBar';
 import './assistant.css';
 
-const questions = ['查看缺失正文、失败标注和覆盖率', '按月查看包装和物流问题变化', '对比所选商品的星级分布', '比较当前窗口与基线窗口', '查询包装负面评论的原文证据'];
+const questions = ['查看缺失正文、失败标注和覆盖率', '按月查看包装和物流问题变化', '比较当前窗口与基线窗口'];
 const basicQuestions = ['你能做什么？', '如何理解评论标注覆盖率？'];
 
 export default function AiAssistantPage({ chat, parameters, input, onInput, onSend, onPrepare, onNewQuestion, mode, onMode, draft, options, quality, onApplyScope, loading, refreshKey }: {
@@ -26,7 +26,7 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
   const [showLatest, setShowLatest] = useState(false);
   const [scopeEditing, setScopeEditing] = useState(false);
   const analysis = mode === 'analysis';
-  const suggestions = (analysis ? [...(chat.session.turns.some(turn => turn.taskId) ? ['只看物流', '换成按月', '继续查原文'] : []), ...questions] : basicQuestions).map(question => <Button key={question}
+  const suggestions = (analysis ? questions : basicQuestions).map(question => <Button key={question}
     disabled={chat.pending || (analysis && !parameters)} onClick={() => onInput(question)}>{question}</Button>);
   useEffect(() => {
     const element = messages.current;
@@ -62,7 +62,6 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
           {chat.pending && <div className="chat-status" role="status"><Spin size="small" /> 正在恢复历史任务…</div>}
         </div>}
         {chat.conversation.turns.map(turn => <ChatMessage key={turn.id} turn={turn} chat={chat} onPrepare={onPrepare} />)}
-        {!!chat.conversation.turns.length && <div className="chat-suggestions chat-followups" aria-label="预设问题">{suggestions}</div>}
       </div>
       {showLatest && <Button className="chat-jump-to-latest" size="small" onClick={showLatestMessage}>回到最新消息</Button>}
     </div>

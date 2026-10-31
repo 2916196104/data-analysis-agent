@@ -243,8 +243,10 @@ class TaskWorker:
                     if queued_identity != current_identity:
                         raise ConfigurationError("Agent 模型配置与入队时不同，请重新提交问答任务。")
                     parameters.pop("rules")
+                    query_context = {key: parameters.pop(key) for key in ('conversation_id', 'context_task_id') if key in parameters}
                     result = run_review_agent(self.business_db, question, scope=parameters,
                                               settings=settings, progress=report_progress)
+                    result['query_context'] = query_context
                     performance = result.setdefault("performance", {})
                     if task.get("started_at") and task.get("created_at"):
                         performance["queue_duration_ms"] = max(0, round((

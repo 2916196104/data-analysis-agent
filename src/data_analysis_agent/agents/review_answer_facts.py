@@ -145,6 +145,19 @@ def build_answer_facts(context, *, detailed=False):
             detail = f"{stat['group_id']} 的有效星级分布：" + "；".join(
                 f"{row['name'][-1]} 星 {row['numerator']} 条（{percent(row['value'])}）" for row in stars) + "。"
             add(stat, "rating", detail, ["星级分布独立于观点情感标注。"], metrics=stat["metrics"])
+        elif kind == 'opinion_breakdown':
+            groups = stat['filters']['groups']
+            for index, row in enumerate(groups[:3]):
+                emotion = {'positive': '正面', 'negative': '负面', 'neutral': '中性'}[row['sentiment']]
+                detail = (f"观点原文“{row['quote']}”：{row['review_count']} 条评论、{row['opinion_count']} 条观点，"
+                          f"占本次匹配评论 {percent(row['review_rate'])}（分母 {stat['filters']['total']} 条），{emotion}；"
+                          f"评论依据 #{row['review_id']}，{row['evidence_ref']}。")
+                add(stat, 'opinion_group', detail, ['以下按已有观点原文及情感归组，不能替代标准细分标签。'],
+                    metrics=[{key: row[key] for key in ('review_count', 'opinion_count', 'review_rate')}],
+                    finding_ref='finding:' + content_sha256([stat['source_result_id'], index, row['quote'], row['sentiment']])[:20])
+            if not groups:
+                add(stat, 'empty', '当前范围没有匹配的有效观点文本，无法进一步细分；请检查标注覆盖率或补充标注。',
+                    ['现有数据无法支持该主题的细分统计。'])
         elif kind == "evidence":
             for ref in context.evidence:
                 if ref.source_result_id != stat["source_result_id"]:
@@ -162,6 +175,8 @@ def build_answer_facts(context, *, detailed=False):
 def answer_caveats(context, facts):
     codes = {item["code"] for item in context.caveats}
     messages = []
+    if any(row['analysis_type'] == 'opinion_breakdown' for row in context.statistics):
+        messages.append('现有标注只有六个上级维度；以上按观点原文和情感精确归组，同义表述未合并，不是完整细分主题排名。同一评论可有多条观点并进入多个组，评论数与观点数分别统计。')
     if "no_successful_annotations" in codes:
         messages.append("部分范围暂无成功标注，无法判断其正负面占比。")
     if "no_positive_mentions" in codes:
@@ -180,6 +195,8 @@ def answer_caveats(context, facts):
 
 
 def summary_options(context, facts):
+    if any(fact.kind == 'opinion_group' for fact in facts):
+        return ['已检索当前范围的观点文本，以下列出出现较多的原文表述及情感。']
     if not facts or all(fact.kind == "empty" for fact in facts):
         return ["当前数据不足以给出可靠的分析结论。"]
     if all(fact.kind == "aspect" and fact.sentiment == "positive" for fact in facts):

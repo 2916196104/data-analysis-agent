@@ -16,6 +16,7 @@ export function sampleState(row: Summary): { label: string; color?: string; reas
 export function sectionSummary(item: AgentToolResult): string {
   const data = item.data;
   switch (item.kind) {
+    case 'opinion_breakdown': return `匹配 ${item.data.total} 条评论、${item.data.total_opinions} 条观点，按原文和情感归组。`;
     case 'positive_aspects': return `正向维度：${item.data.summary.positive_review_count} 条正向观点评论；维度占比以正向观点评论数为分母。`;
     case 'quality': return `缺失正文 ${item.data.summary.empty_text_reviews ?? 0} 条，失败标注 ${item.data.summary.failed_reviews} 条，待标注 ${item.data.summary.unprocessed_reviews} 条。`;
     case 'aspect_trend': return `按${item.data.period === 'day' ? '日' : '月'}查看 ${Object.values(item.data.aspects).join('、')}，共 ${item.data.buckets.length} 个时间段。`;

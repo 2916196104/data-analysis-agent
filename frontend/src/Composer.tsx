@@ -65,6 +65,7 @@ export default function Composer({
     const next = { ...draft };
     if (changed.current?.every(Boolean)) {
       next.current = changed.current.map(date => date.format('YYYY-MM-DD')) as [string, string];
+      next.rangeConfirmed = true;
       if (!draft.baseline) {
         const automaticBaseline = analysisDates(next, quality, options).baseline.map(date => dayjs(date));
         form.setFieldValue('baseline', automaticBaseline);

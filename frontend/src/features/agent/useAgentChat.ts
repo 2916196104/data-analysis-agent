@@ -86,9 +86,11 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string) {
 
   useEffect(() => {
     if (!activeTurn || task?.task_id !== activeTurn.taskId || !validResult(task)) return;
-    const next = contextFromResult(conversationId.current, task.task_id, activeTurn.parameters, task.result);
-    if (JSON.stringify(sessionRef.current.context) === JSON.stringify(next)) return;
-    commit(current => ({ ...current, context: next }));
+    const effective = { ...activeTurn.parameters, ...task.result.scope };
+    const next = contextFromResult(conversationId.current, task.task_id, effective, task.result);
+    if (JSON.stringify(sessionRef.current.context) === JSON.stringify(next) && sameScope(activeTurn.parameters, effective)) return;
+    commit(current => ({ ...current, context: next, turns: current.turns.map(turn => turn.id === activeTurn.id && turn.kind === 'analysis'
+      ? { ...turn, parameters: effective } : turn) }));
   }, [activeTurn, task, commit]);
 
   async function submitTurn(turn: ChatTurn, retry = false): Promise<boolean> {
@@ -100,7 +102,8 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string) {
     try {
       const result = retry && turn.taskId
         ? await api.retry(turn.taskId, turn.retry!.key)
-        : await api.submit({ kind: 'analysis', parameters: { ...turn.parameters, question: turn.query?.effectiveQuestion ?? turn.question } }, turn.requestKey);
+        : await api.submit({ kind: 'analysis', parameters: { ...turn.parameters, question: turn.query?.effectiveQuestion ?? turn.question,
+          conversation_id: conversationId.current, ...(turn.query?.parentTaskId ? { context_task_id: turn.query.parentTaskId } : {}) } }, turn.requestKey);
       commit(current => ({ ...current, turns: current.turns.map(item => item.kind === 'analysis' && item.id === turn.id ? { ...item, taskId: result.task.task_id, retry: undefined } : item) }));
       return true;
     } catch (error) {
@@ -135,9 +138,9 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string) {
             const saved = task?.task_id === candidate.taskId ? task : await api.task(candidate.taskId!);
             if (epoch !== navigationEpoch.current) return false;
             if (validResult(saved)) {
-              parent = { id: candidate.id, taskId: candidate.taskId, parameters: candidate.parameters, selection: candidate.selection,
+              parent = { id: candidate.id, taskId: candidate.taskId, parameters: { ...candidate.parameters, ...saved.result.scope }, selection: candidate.selection,
                 result: saved.result };
-              const context = contextFromResult(conversationId.current, candidate.taskId!, candidate.parameters, saved.result);
+              const context = contextFromResult(conversationId.current, candidate.taskId!, parent.parameters, saved.result);
               commit(current => ({ ...current, context }));
               break;
             }
@@ -152,7 +155,9 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string) {
       resolution.parameters = resolution.parameters || structuredClone(parent.parameters);
     }
     if (reference && !parent) resolution.clarification = { message: '所引用轮次不存在或未通过校验，请选择一个已完成的历史分析。', choices: [] };
-    if (readError) resolution.clarification = { message: readError, choices: [] };
+    // 独立可解析的问题不依赖历史读取成功；只在必须承接上文时保留读取错误。
+    if (readError && resolution.clarification) resolution.clarification = { message: readError, choices: [] };
+    resolution.query.conversationId = conversationId.current;
     const turn: ChatTurn = { kind: 'analysis', id: crypto.randomUUID(), requestKey: crypto.randomUUID(), question: text,
       selection: frozen, ...resolution, parameters: resolution.parameters || frozen };
     commit(current => ({ ...current, turns: [...current.turns, turn], activeId: turn.id }));

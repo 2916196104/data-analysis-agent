@@ -7,6 +7,7 @@ export interface AnalysisDraft {
   profileId?: number;
   current?: [string, string];
   baseline?: [string, string];
+  rangeConfirmed?: boolean;
   note: string;
   agentQuestion?: string;
 }
@@ -50,12 +51,18 @@ export function analysisDates(
   // 有数据集目录时只使用当前数据集的日期，避免继承其他数据集的全库时间。
   const latest = dayjs((options?.datasets ? dataset?.published_at_end : quality?.published_at_end)?.slice(0, 10));
   const currentEnd = latest.isValid() ? latest : dayjs();
-  const current: [string, string] = draft.current ?? [
+  let current: [string, string] = draft.current ?? [
     dataset?.published_at_start?.slice(0, 10) ?? currentEnd.startOf('month').format('YYYY-MM-DD'),
     currentEnd.format('YYYY-MM-DD'),
   ];
+  const start = dataset?.published_at_start?.slice(0, 10);
+  const end = dataset?.published_at_end?.slice(0, 10);
+  // 旧版曾把全库跨度冻结到单数据集草稿；仅收窄覆盖整个数据集的旧窗口。
+  const staleFullRange = !draft.rangeConfirmed && !!(start && end && current[0] <= start && current[1] >= end
+    && (current[0] < start || current[1] > end));
+  if (staleFullRange) current = [start!, end!];
   const currentMonth = dayjs(current[0]).startOf('month');
-  const baseline: [string, string] = draft.baseline ?? [
+  const baseline: [string, string] = (!staleFullRange && draft.baseline) || [
     currentMonth.subtract(1, 'month').format('YYYY-MM-DD'),
     currentMonth.subtract(1, 'day').format('YYYY-MM-DD'),
   ];

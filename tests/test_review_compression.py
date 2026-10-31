@@ -61,7 +61,7 @@ class CompressionTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(len(full["results"]["r1"]["data"]["aspects"]), 6)
 
     def test_negative_preserves_success_denominator_and_baseline(self):
-        _, data = self.compress("这个商品主要有哪些问题？")
+        _, data = self.compress('执行本轮已确认的只读查询\n' + json.dumps({'tool': 'get_top_issues', 'parameters': {'include_baseline': True}}))
         compact = data["compact_context"]
         current, baseline = compact["statistics"]
         self.assertNotEqual(current["scope_ref"], baseline["scope_ref"])

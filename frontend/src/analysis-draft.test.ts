@@ -22,6 +22,9 @@ describe('分析范围与衔接', () => {
     expect(analysisDates({ ...draft, dataset: '["another","v1"]' }, quality, catalog).current).toEqual(['2024-03-02', '2024-03-03']);
     const manual = { ...draft, current: ['2018-08-01', '2018-08-31'] as [string, string], baseline: ['2018-07-01', '2018-07-31'] as [string, string] };
     expect(analysisDates(manual, quality, catalog)).toEqual({ current: manual.current, baseline: manual.baseline });
+    const stale = { ...draft, current: ['2016-08-09', '2023-08-28'] as [string, string], baseline: ['2016-07-01', '2016-07-31'] as [string, string] };
+    expect(analysisDates(stale, quality, catalog)).toEqual({ current: ['2018-07-10', '2018-09-12'], baseline: ['2018-06-01', '2018-06-30'] });
+    expect(analysisDates({ ...stale, rangeConfirmed: true }, quality, catalog)).toEqual({ current: stale.current, baseline: stale.baseline });
   });
   it('新目录缺少有效日期时不冒用全库的日期', () => {
     const draft = { ...emptyDraft(), dataset: '["source","v1"]' };

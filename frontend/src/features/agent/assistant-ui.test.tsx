@@ -72,7 +72,7 @@ describe('助手界面模式接入', () => {
     await waitFor(() => expect(api.options).toHaveBeenCalled());
     fireEvent.change(screen.getByRole('textbox', { name: '基础问答问题' }), { target: { value: '普通草稿' } });
     fireEvent.click(screen.getByRole('radio', { name: '评论分析' }));
-    expect(screen.getByText('请先选择可用标注版本与分析范围')).toBeTruthy();
+    expect(screen.queryByText('请先选择可用标注版本与分析范围')).toBeNull();
     expect((screen.getByRole('textbox', { name: '评论分析问题' }) as HTMLTextAreaElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: '提交问题' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole('radio', { name: '基础问答' }));

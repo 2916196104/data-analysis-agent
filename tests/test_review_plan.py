@@ -151,7 +151,7 @@ class QueryPlanTests(WorkbenchFixture, unittest.TestCase):
             self.assertFalse(plan.satisfied([fake]))
 
     def test_unsupported_positive_trend_and_narrow_evidence_stop_before_model(self):
-        for question in ("最近半年好评趋势", "给我3条制冷效果好的原文"):
+        for question in ("最近半年好评趋势", "最近90天好评趋势"):
             with patch("data_analysis_agent.agents.reviews.create_llm") as model:
                 result = run_review_agent(self.db, question, scope=self.scope(), settings=SETTINGS)
             self.assertEqual(result["status"], "unsupported")
@@ -159,12 +159,14 @@ class QueryPlanTests(WorkbenchFixture, unittest.TestCase):
             self.assertEqual(result["model_calls"], 0)
             model.assert_not_called()
 
-    def test_unsupported_unrepresented_installation_dimension(self):
+    def test_unrepresented_installation_uses_text_not_parent_dimension_counts(self):
         plan = build_query_plan("安装服务有哪些问题", self.scope())
-        self.assertIn("安装", plan.unsupported_reason)
+        self.assertIsNone(plan.unsupported_reason)
+        self.assertEqual(plan.required_tools, ['get_opinion_breakdown'])
         with patch("data_analysis_agent.agents.reviews.create_llm") as model:
             result = run_review_agent(self.db, "安装服务有哪些问题", scope=self.scope(), settings=SETTINGS)
-        self.assertEqual(result["status"], "unsupported")
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result['results']['r1']['data']['total'], 0)
         self.assertEqual(result["model_calls"], 0)
         model.assert_not_called()
 

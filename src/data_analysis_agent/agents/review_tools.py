@@ -22,7 +22,7 @@ from data_analysis_agent.reviews.parameters import BaselineScope
 
 QUERY_SIGNATURES = {name: signature(getattr(analytics, name)) for name in (
     "get_trend", "get_aspect_trend", "get_data_quality", "get_positive_aspects",
-    "get_rating_distribution", "compare_time_windows", "compare_products", "get_top_issues", "get_evidence",
+    "get_rating_distribution", "compare_time_windows", "compare_products", "get_top_issues", "get_evidence", "get_opinion_breakdown",
 )}
 
 
@@ -33,6 +33,15 @@ class ProductSelection(Input):
 
 class AspectSelection(ProductSelection):
     aspect: Aspect | None = Field(default=None, description="可选六维筛选；保留原统计分母")
+
+
+class IssueInput(AspectSelection):
+    include_baseline: bool = False
+
+
+class OpinionBreakdownInput(AspectSelection):
+    sentiment: Literal["positive", "neutral", "negative", "all"] = "all"
+    topic: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 class TrendInput(ProductSelection):
@@ -197,8 +206,10 @@ class ReviewToolContext:
         elif name == "compare_products":
             kind, data = "comparison", self.query("compare_products", **scope)
         elif name == "get_top_issues":
-            kind, data = "issues", self.query("get_top_issues",
-                **scope, baseline_from=self.scope["baseline_from"], baseline_to=self.scope["baseline_to"])
+            baseline = {key: self.scope[key] for key in ('baseline_from', 'baseline_to')} if values.pop('include_baseline', False) else {}
+            kind, data = "issues", self.query("get_top_issues", **scope, **baseline)
+        elif name == "get_opinion_breakdown":
+            kind, data = "opinion_breakdown", self.query("get_opinion_breakdown", **scope, **values)
         elif name == "get_evidence":
             if values["sentiment"] == "all":
                 values["sentiment"] = None
@@ -290,7 +301,8 @@ def create_review_registry(context):
         ("get_rating_distribution", "按商品/月/总体查询原始 1–5 星分布；可选择当前或基线窗口，不依赖标注。", RatingInput),
         ("compare_time_windows", "比较已选当前/基线窗口的计数、覆盖率、负面占比及六维度变化；可传四个日期缩小窗口，不能超出绑定范围。", WindowComparisonInput),
         ("compare_products", "比较已选商品在当前窗口的评论量、覆盖率、负面数量和占比。", ProductSelection),
-        ("get_top_issues", "比较当前窗口与已选基线的六维度负面数量和占比变化。", AspectSelection),
+        ("get_top_issues", "当前窗口六维度负面数量和占比；仅 include_baseline=true 时比较基线。", IssueInput),
+        ("get_opinion_breakdown", "按已有观点原文与情感归组，返回去重评论数、观点数及可追溯原文；不是标准细分标签。", OpinionBreakdownInput),
         ("get_evidence", "分页查询带原文位置的评论证据，可筛选维度、情感、商品子集和当前/基线窗口。", EvidenceInput),
     ):
         if context.query_plan and name != "get_analysis_context" and name not in (

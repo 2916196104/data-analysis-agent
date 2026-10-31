@@ -16,7 +16,7 @@ from openai import OpenAI
 from test_agent import SETTINGS, completion, final, tools
 from test_review_workbench import IDENTITY, WorkbenchFixture
 from data_analysis_agent.agents.reviews import run_review_agent
-from data_analysis_agent.agents.review_prompts import detect_sentiment_intent
+from data_analysis_agent.agents.review_prompts import PROMPT_VERSION, detect_sentiment_intent
 from data_analysis_agent.agents.review_validation import validate_report
 from data_analysis_agent.agents.review_tools import ReviewToolContext, create_review_registry
 from data_analysis_agent.api.app import create_app
@@ -284,7 +284,7 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
             response = client.post("/api/v1/tasks", json=body, headers={"Idempotency-Key": "agent-question"})
             self.assertEqual(response.status_code, 202, response.text)
             task = response.json()["result"]["task"]
-            self.assertEqual(task["parameters"]["model_identity"]["prompt_version"], "review-agent-v5")
+            self.assertEqual(task["parameters"]["model_identity"]["prompt_version"], PROMPT_VERSION)
             repeated = client.post("/api/v1/tasks", json=body, headers={"Idempotency-Key": "agent-question"})
             self.assertTrue(repeated.json()["result"]["reused"])
             worker = TaskWorker(self.db, task_db, **options)

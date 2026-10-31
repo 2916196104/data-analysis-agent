@@ -38,6 +38,8 @@ export interface AnalysisParameters extends AnalysisScope {
   baseline_from: string;
   baseline_to: string;
   question?: string;
+  conversation_id?: string;
+  context_task_id?: string;
 }
 export interface AnnotationDefaults {
   dataset: string;
@@ -196,6 +198,8 @@ export type AgentToolResult = { result_id: string; parameters: Record<string, un
   | { kind: 'comparison'; data: { products: (Summary & { product_id: string })[]; no_reviews_product_ids?: string[] } }
   | { kind: 'issues'; data: { issues: Issue[]; current?: Summary; baseline?: Summary } }
   | { kind: 'evidence'; data: { total: number; page: number; items: AgentEvidence[] } }
+  | { kind: 'opinion_breakdown'; data: { total: number; total_opinions: number; summary: Summary; items: AgentEvidence[];
+      groups: { quote: string; sentiment: string; review_count: number; opinion_count: number; review_rate: number | null; review_id: number; evidence_ref?: string }[] } }
   | { kind: 'quality'; data: { scope: AnalysisScope; summary: Summary; missing_text_rate: number | null; failed_rate: number | null;
       failures: { error_code: string | null; review_count: number }[]; sources: { file_sha256: string; review_count: number }[] } }
   | { kind: 'aspect_trend'; data: { scope: AnalysisScope; period: string; aspects: Record<string, string>;

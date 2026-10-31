@@ -8,6 +8,7 @@ export interface QuerySnapshot {
   parentTaskId?: string;
   queries?: QueryIntent[];
   referenceTime?: string;
+  conversationId?: string;
 }
 export interface QueryChoice { label: string; parameters: AnalysisParameters; query: QuerySnapshot }
 export interface Clarification { message: string; choices: QueryChoice[]; resolved?: boolean }
@@ -15,9 +16,9 @@ export interface QueryParent { id: string; taskId?: string; parameters: Analysis
 
 const aspects: Record<string, string> = { 质量: 'quality', 效果: 'effectiveness', 包装: 'packaging', 物流: 'logistics', 客服: 'service', 服务: 'service', 价格: 'price' };
 const names: Record<QueryIntent['kind'], string> = { trend: '评论趋势', aspect_trend: '维度趋势', evidence: '原文证据',
-  comparison: '商品对比', issues: '问题分布', quality: '数据质量', ratings: '星级分布', window_comparison: '时间窗口对比', positive_aspects: '正向维度' };
+  comparison: '商品对比', issues: '问题分布', quality: '数据质量', ratings: '星级分布', window_comparison: '时间窗口对比', positive_aspects: '正向维度', opinion_breakdown: '观点文本分析' };
 const tools: Record<QueryIntent['kind'], string> = { trend: 'get_trend', aspect_trend: 'get_aspect_trend', evidence: 'get_evidence',
-  comparison: 'compare_products', issues: 'get_top_issues', quality: 'get_data_quality', ratings: 'get_rating_distribution', window_comparison: 'compare_time_windows', positive_aspects: 'get_positive_aspects' };
+  comparison: 'compare_products', issues: 'get_top_issues', quality: 'get_data_quality', ratings: 'get_rating_distribution', window_comparison: 'compare_time_windows', positive_aspects: 'get_positive_aspects', opinion_breakdown: 'get_opinion_breakdown' };
 const scopeKeys = ['source', 'dataset_version', 'model', 'base_url', 'prompt_version', 'date_from', 'date_to', 'baseline_from', 'baseline_to', 'as_of'] as const;
 
 function copyScope(scope: AnalysisParameters): AnalysisParameters {
@@ -39,6 +40,8 @@ function operation(text: string) {
   if (aspect) return { type: 'aspect' as const, value: aspects[aspect] };
   if (/^(?:换成|改成|改为)?按(月|日|天)(?:看|查看|统计)?$/.test(value)) return { type: 'period' as const, value: value.includes('月') ? 'month' : 'day' };
   if (/^(?:继续(?:查|查看)?(?:原文|证据|下一页)|(?:查|查看)(?:原文|证据)|(?:原文|证据)?下一页)$/.test(value)) return { type: 'evidence' as const, value: '' };
+  // 完整分析请求交给后端语义与能力校验，代词不等于缺少分析意图。
+  if (/主要|集中|哪些方面|哪些地方|怎么样|如何|有什么问题|提及最多|吐槽|有什么不同|有什么变化/.test(value)) return { type: 'analysis' as const, value: '' };
   if (/^(继续|换成|改成|改为|只看|仅看|再看|再查)|这个|那个|这些|那些|它|上面|上述|同样|那.*呢[？?]?$/.test(value)) return { type: 'ambiguous' as const, value: '' };
   return undefined;
 }
@@ -84,6 +87,13 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
   const clarify = (message: string, choices: QueryChoice[] = []) => ({ query, clarification: { message, choices } });
   const op = operation(text);
   if (!op) return { query };
+  if (op.type === 'analysis') {
+    if (/另一款|另一个商品/.test(text) && parameters.product_ids.length < 2) return clarify('请指定另一款商品，或在当前范围选择两款商品后比较。');
+    if (parent) { query.parentTurnId = parent.id; query.parentTaskId = parent.taskId; }
+    // 只有全局选择未变化时才继承上轮的语言日期；已确认的新筛选优先。
+    const scope = parent && sameScope(parameters, parent.selection || parent.parameters) ? parent.parameters : parameters;
+    return { query, parameters: copyScope(scope) };
+  }
   if (op.type === 'ambiguous_range') return clarify('“前三个月”可能指窗口开始的三个月，也可能指最近三个月。请明确起止日期或改问“最近三个月”。');
   if (op.type === 'priority') return clarify('现有统计缺少严重程度、业务影响与成本信息，不能只凭负面占比认定商业优先级。可先复核相关原文，再结合业务记录决定。');
   if (op.type === 'range') {
@@ -116,8 +126,9 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
   const inheritedParameters = parent.parameters;
   if (op.type === 'sentiment') {
     const kind = op.value === 'positive' ? 'positive_aspects' : 'issues';
-    const previous = results.find(item => ['positive_aspects', 'issues', 'evidence'].includes(item.kind));
-    candidates = previous?.kind === 'evidence' ? [{ kind: 'evidence', parameters: { ...previous.parameters, sentiment: op.value, page: 1 } }]
+    const previous = results.find(item => ['positive_aspects', 'issues', 'evidence', 'opinion_breakdown'].includes(item.kind));
+    candidates = previous?.kind === 'opinion_breakdown' ? [{ kind: 'opinion_breakdown', parameters: { ...previous.parameters, sentiment: op.value } }]
+      : previous?.kind === 'evidence' ? [{ kind: 'evidence', parameters: { ...previous.parameters, sentiment: op.value, page: 1 } }]
       : [{ kind, parameters: { product_ids: parent.parameters.product_ids, ...(previous?.parameters.aspect ? { aspect: previous.parameters.aspect } : {}) } }];
   } else if (op.type === 'aspect') {
     candidates = results.filter(item => ['evidence', 'aspect_trend', 'trend'].includes(item.kind)).map(item => ({
@@ -126,6 +137,8 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
     }));
     if (!candidates.length) candidates = results.filter(item => item.kind === 'issues' || item.kind === 'positive_aspects')
       .map(item => ({ kind: item.kind as QueryIntent['kind'], parameters: { ...item.parameters, aspect: op.value } }));
+    if (!candidates.length) candidates = results.filter(item => item.kind === 'opinion_breakdown')
+      .map(item => ({ kind: 'opinion_breakdown', parameters: { ...item.parameters, aspect: op.value, topic: null } }));
     if (!candidates.length) return clarify('上轮查询不支持直接按维度筛选。请明确要查看趋势还是原文，例如“按月查看物流问题趋势”或“查询物流负面评论的原文”。');
   } else if (op.type === 'period') {
     candidates = results.filter(item => ['trend', 'aspect_trend', ...(op.value === 'month' ? ['ratings'] : [])].includes(item.kind))
@@ -152,8 +165,7 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
   // 同一查询可能因多次工具调用重复出现，保留一个可解释的选择。
   candidates = candidates.filter((item, index) => candidates.findIndex(other => JSON.stringify(other) === JSON.stringify(item)) === index);
   if (!candidates.length) return clarify('上轮没有可转换的趋势或星级统计。请补充要按日/月查看的指标，例如“按月查看物流问题趋势”。');
-  const scopes = sameScope(parameters, parent.selection || inheritedParameters) ? [{ label: '', parameters: inheritedParameters }]
-      : [{ label: '沿用上轮范围 · ', parameters: inheritedParameters }, { label: '使用当前范围 · ', parameters }];
+  const scopes = [{ label: '', parameters: sameScope(parameters, parent.selection || inheritedParameters) ? inheritedParameters : parameters }];
   const choices: QueryChoice[] = scopes.flatMap(scope => candidates.map(intent => {
     const selected = structuredClone(intent);
     // 切换范围时使用新的商品范围，并重新开始证据分页。

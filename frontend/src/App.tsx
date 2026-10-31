@@ -468,7 +468,7 @@ export default function App() {
           draft={draft} options={options} quality={quality} loading={loading} refreshKey={catalogRevision}
           onApplyScope={scope => {
             setPreviewOpen(false); setDatasetPage(1); setDatasetNotice(''); setSubmitError('');
-            setDraft(previous => ({ ...previous, ...scope }));
+            setDraft(previous => ({ ...previous, ...scope, rangeConfirmed: true }));
           }}
           mode={chatMode} onMode={setChatMode} input={chatMode === 'basic' ? basicInput : draft.agentQuestion || ''}
           onInput={value => chatMode === 'basic' ? setBasicInput(value) : setDraft(previous => ({ ...previous, agentQuestion: value }))}

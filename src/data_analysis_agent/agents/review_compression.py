@@ -227,8 +227,10 @@ class AnalysisResultCompressor:
                         quote.truncated = True
                         caveats.append({"code": "evidence_quote_truncated", "scope_ref": scope_ref})
                 evidence.append(compact_ref)
-            if result.kind == "evidence":
-                statistics.append({"source_result_id": result.result_id, "analysis_type": "evidence", "scope_ref": scope_ref,
+            if result.kind in ("evidence", "opinion_breakdown"):
+                if result.kind == 'opinion_breakdown':
+                    statistics = [row for row in statistics if row['source_result_id'] != result.result_id]
+                statistics.append({"source_result_id": result.result_id, "analysis_type": result.kind, "scope_ref": scope_ref,
                                    "filters": deepcopy(result.filters)})
                 caveats.append({"code": "evidence_is_matching_sample_not_population", "scope_ref": scope_ref})
         # 背景样本只存一次；结果/窗口/商品仍保留独立的 scope_ref 与来源，不相加。
@@ -293,7 +295,7 @@ def read_public_analysis(task, options=None):
                     for key in result["result_ids"] if key != "overview"]
         plan = ReviewQueryPlan(analysis_type=result.get("analysis_intent") or "composite",
                                sentiment=result.get("sentiment_intent"), scope=result["scope"], requirements=requests,
-                               requires_evidence=any(item["tool"] == "get_evidence" for item in requests), max_evidence_items=10)
+                               requires_evidence=any(item["tool"] in {"get_evidence", "get_opinion_breakdown"} for item in requests), max_evidence_items=10)
         validation = validate_report(result["results"], result["result_ids"],
                                      sentiment_intent=result.get("sentiment_intent"), query_plan=plan)
         if validation["status"] != "passed":

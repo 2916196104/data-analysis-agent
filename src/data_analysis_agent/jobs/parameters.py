@@ -46,6 +46,8 @@ class LabelParameters(Scope):
 class AnalysisParameters(BaselineScope):
     rules: Rules = Field(default_factory=Rules)
     question: str | None = Field(default=None, min_length=1, max_length=4000, pattern=r"\S")
+    conversation_id: Text | None = None
+    context_task_id: Text | None = None
 
     @model_validator(mode="after")
     def agent_scope_is_explicit(self):
