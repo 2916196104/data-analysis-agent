@@ -12,7 +12,7 @@ export interface QuerySnapshot {
 }
 export interface QueryChoice { label: string; parameters: AnalysisParameters; query: QuerySnapshot }
 export interface Clarification { message: string; choices: QueryChoice[]; resolved?: boolean }
-export interface QueryParent { id: string; taskId?: string; parameters: AnalysisParameters; selection?: AnalysisParameters; result?: AgentResult }
+export interface QueryParent { id: string; taskId?: string; question?: string; parameters: AnalysisParameters; selection?: AnalysisParameters; result?: AgentResult }
 
 const aspects: Record<string, string> = { 质量: 'quality', 效果: 'effectiveness', 包装: 'packaging', 物流: 'logistics', 客服: 'service', 服务: 'service', 价格: 'price' };
 const names: Record<QueryIntent['kind'], string> = { trend: '评论趋势', aspect_trend: '维度趋势', evidence: '原文证据',
@@ -36,12 +36,13 @@ function operation(text: string) {
   if (/前(?:三|3)个?月/.test(value)) return { type: 'ambiguous_range' as const, value: '' };
   const recent = value.match(/最近(?:半年|六个月|六个?月|三个月|3个月|90天)/);
   if (recent) return { type: 'range' as const, value: recent[0] };
-  const aspect = value.match(/^(?:只看|仅看|只查|换成|改成)?(质量|效果|包装|物流|客服|服务|价格)(?:问题|方面)?(?:呢)?$/)?.[1];
+  if (/(?:对比|比较|差别|区别|不同)/.test(value) && /这两款|这两个|它们|二者|两者/.test(value)) return { type: 'comparison' as const, value: '' };
+  const aspect = value.match(/^(?:那|那么)?(?:只看|仅看|只查|换成|改成)?(质量|效果|包装|物流|客服|服务|价格)(?:问题|方面)?(?:呢)?$/)?.[1];
   if (aspect) return { type: 'aspect' as const, value: aspects[aspect] };
   if (/^(?:换成|改成|改为)?按(月|日|天)(?:看|查看|统计)?$/.test(value)) return { type: 'period' as const, value: value.includes('月') ? 'month' : 'day' };
   if (/^(?:继续(?:查|查看)?(?:原文|证据|下一页)|(?:查|查看)(?:原文|证据)|(?:原文|证据)?下一页)$/.test(value)) return { type: 'evidence' as const, value: '' };
   // 完整分析请求交给后端语义与能力校验，代词不等于缺少分析意图。
-  if (/主要|集中|哪些方面|哪些地方|怎么样|如何|有什么问题|提及最多|吐槽|有什么不同|有什么变化/.test(value)) return { type: 'analysis' as const, value: '' };
+  if (/主要|集中|哪些方面|哪些地方|怎么样|如何|有什么问题|提及最多|吐槽|有什么不同|有什么变化|具体|细说|展开|啥|咋|夸/.test(value)) return { type: 'analysis' as const, value: '' };
   if (/^(继续|换成|改成|改为|只看|仅看|再看|再查)|这个|那个|这些|那些|它|上面|上述|同样|那.*呢[？?]?$/.test(value)) return { type: 'ambiguous' as const, value: '' };
   return undefined;
 }
@@ -82,16 +83,23 @@ function rangeParameters(parameters: AnalysisParameters, label: string, referenc
   return { ...copyScope(parameters), date_from: start, date_to: end, baseline_from: baselineFrom, baseline_to: baselineTo };
 }
 
-export function resolveQuery(text: string, parameters: AnalysisParameters, parent?: QueryParent, referenceTime = new Date()): { query: QuerySnapshot; parameters?: AnalysisParameters; clarification?: Clarification } {
+export function resolveQuery(text: string, parameters: AnalysisParameters, parent?: QueryParent, referenceTime = new Date(), intentParent?: QueryParent): { query: QuerySnapshot; parameters?: AnalysisParameters; clarification?: Clarification } {
   const query: QuerySnapshot = { createdAt: new Date().toISOString(), effectiveQuestion: text };
   const clarify = (message: string, choices: QueryChoice[] = []) => ({ query, clarification: { message, choices } });
   const op = operation(text);
   if (!op) return { query };
+  if (op.type === 'comparison') {
+    const target = intentParent || parent;
+    if (!target?.taskId && parameters.product_ids.length !== 2) return clarify('请明确“这两款”指哪两款商品，或先提出包含商品名称的比较问题。');
+    if (target) { query.parentTurnId = target.id; query.parentTaskId = target.taskId; }
+    return { query, parameters: copyScope(parameters) };
+  }
   if (op.type === 'analysis') {
     if (/另一款|另一个商品/.test(text) && parameters.product_ids.length < 2) return clarify('请指定另一款商品，或在当前范围选择两款商品后比较。');
-    if (parent) { query.parentTurnId = parent.id; query.parentTaskId = parent.taskId; }
+    const target = intentParent || parent;
+    if (target) { query.parentTurnId = target.id; query.parentTaskId = target.taskId; }
     // 只有全局选择未变化时才继承上轮的语言日期；已确认的新筛选优先。
-    const scope = parent && sameScope(parameters, parent.selection || parent.parameters) ? parent.parameters : parameters;
+    const scope = target && sameScope(parameters, target.selection || target.parameters) ? target.parameters : parameters;
     return { query, parameters: copyScope(scope) };
   }
   if (op.type === 'ambiguous_range') return clarify('“前三个月”可能指窗口开始的三个月，也可能指最近三个月。请明确起止日期或改问“最近三个月”。');
@@ -115,6 +123,10 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
       query.effectiveQuestion = `执行本轮已确认的只读查询\n${JSON.stringify({ tool: tools[intent.kind], parameters: intent.parameters })}`;
     }
     return { query, parameters: next };
+  }
+  if (['aspect', 'sentiment', 'period'].includes(op.type) && intentParent?.taskId && intentParent.taskId !== parent?.taskId) {
+    query.parentTurnId = intentParent.id; query.parentTaskId = intentParent.taskId;
+    return { query, parameters: copyScope(parameters) };
   }
   if (!parent?.result || parent.result.status !== 'ok' || parent.result.validation?.status !== 'passed') return clarify('没有可承接的成功查询。请补充要查询的内容（如“按日查看物流问题趋势”），并确认下方数据范围。');
   query.parentTurnId = parent.id;

@@ -32,7 +32,7 @@ QUESTIONS = [
 ]
 
 
-class AssistantSemanticsTests(WorkbenchFixture, unittest.TestCase):
+class AssistantSemanticsFixture(WorkbenchFixture):
     execute_plan = plan_fixture.QueryPlanTests.execute_plan
     run_sync = plan_fixture.QueryPlanTests.run_sync
 
@@ -74,6 +74,8 @@ class AssistantSemanticsTests(WorkbenchFixture, unittest.TestCase):
                 'product_ids': ['100013588053'], 'date_from': '2021-06-01', 'date_to': '2021-06-30',
                 'baseline_from': '2020-08-25', 'baseline_to': '2020-09-30', **changes}
 
+
+class AssistantSemanticsTests(AssistantSemanticsFixture, unittest.TestCase):
     def test_ten_questions_choose_supported_plan_or_request_missing_comparison(self):
         tools = ['get_opinion_breakdown'] * 4 + ['get_top_issues', 'get_positive_aspects',
                  'get_opinion_breakdown', 'compare_time_windows', 'compare_products', 'get_top_issues']

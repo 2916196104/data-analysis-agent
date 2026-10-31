@@ -3,7 +3,7 @@
 import re
 
 
-PROMPT_VERSION = "review-agent-v7"
+PROMPT_VERSION = "review-agent-v8"
 
 _POSITIVE_TERMS = ("好评", "优点", "满意", "喜欢", "值得购买", "评价最好", "最受好评", "正向", "正面")
 _NEGATIVE_TERMS = ("差评", "缺点", "不满意", "投诉", "吐槽", "负面", "问题", "不好", "痛点")

@@ -38,6 +38,7 @@ class AgentSettings:
     answer_input_max_bytes: int = 16000
     answer_timeout_seconds: float = 15
     answer_max_retries: int = 0
+    semantic_parser_enabled: bool = True
 
     @classmethod
     def from_values(cls, values: dict[str, str]) -> "AgentSettings":
@@ -77,6 +78,9 @@ class AgentSettings:
                 raise ValueError
         except ValueError as exc:
             raise ConfigurationError("ANSWER_TIMEOUT_SECONDS 必须大于 0 且不超过 60。") from exc
+        semantic_mode = values.get('AGENT_SEMANTIC_PARSING', 'rules_then_llm').strip()
+        if semantic_mode not in {'rules_only', 'rules_then_llm'}:
+            raise ConfigurationError('AGENT_SEMANTIC_PARSING 必须为 rules_only 或 rules_then_llm。')
         return cls(
             model=values["LLM_MODEL_ID"].strip(),
             api_key=values["LLM_API_KEY"].strip(),
@@ -88,6 +92,7 @@ class AgentSettings:
             answer_input_max_bytes=integer("ANSWER_INPUT_MAX_BYTES", 16000, 1024, 256000),
             answer_timeout_seconds=answer_timeout,
             answer_max_retries=integer("ANSWER_MAX_RETRIES", 0, 0, 1),
+            semantic_parser_enabled=semantic_mode == 'rules_then_llm',
         )
 
 

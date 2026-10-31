@@ -153,7 +153,7 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
     def test_positive_question_requires_positive_tool_and_uses_positive_answer(self):
         result, requests = self.run_script(
             [tools(("get_positive_aspects", {})), final("ok", "r1")],
-            question="美的空调好评主要集中在哪些方面？",
+            question="所选商品好评主要集中在哪些方面？",
         )
         self.assertEqual(result["status"], "ok", result)
         self.assertEqual(result["sentiment_intent"], "positive")

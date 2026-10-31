@@ -33,6 +33,23 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('追问解析使用真实查询参数', () => {
+  it('A：使用效果细分交给后端补全情感，并关联成功父任务', () => {
+    const positive = { result_id: 'positive', kind: 'positive_aspects', parameters: { product_ids: ['A'] }, data: {} } as unknown as AgentToolResult;
+    const next = resolveQuery('使用效果主要集中在哪些地方？', scope, parent(positive));
+    expect(next.clarification).toBeUndefined();
+    expect(next.query.parentTaskId).toBe('task-1');
+    expect(next.query.effectiveQuestion).toBe('使用效果主要集中在哪些地方？');
+    expect(next.parameters?.product_ids).toEqual(['A']);
+  });
+
+  it('C：那物流方面呢保留正向汇总或正向细分目标', () => {
+    const positive = { result_id: 'positive', kind: 'positive_aspects', parameters: { product_ids: ['A'] }, data: {} } as unknown as AgentToolResult;
+    expect(resolveQuery('那物流方面呢？', scope, parent(positive)).query.queries?.[0]).toMatchObject({
+      kind: 'positive_aspects', parameters: { aspect: 'logistics', product_ids: ['A'] } });
+    const detail = { result_id: 'detail', kind: 'opinion_breakdown', parameters: { product_ids: ['A'], aspect: 'effectiveness', sentiment: 'positive', topic: '制冷' }, data: {} } as unknown as AgentToolResult;
+    expect(resolveQuery('那物流方面呢？', scope, parent(detail)).query.queries?.[0]).toMatchObject({
+      kind: 'opinion_breakdown', parameters: { aspect: 'logistics', sentiment: 'positive', topic: null } });
+  });
   it.each(['美的空调的使用效果主要集中在哪些方面？', '美的空调的使用效果主要集中在哪些地方？',
     '这款空调用起来怎么样？', '它的制冷效果怎么样？', '消费者主要吐槽什么？', '好评主要集中在哪些方面？',
     '使用效果里面，哪些问题被提及最多？', '和上一时间段相比有什么变化？', '这个商品有什么问题？'])('明确口语问题直接继承当前商品范围：%s', text => {
@@ -48,6 +65,7 @@ describe('追问解析使用真实查询参数', () => {
     const text = '换成另一款商品后，用户的评价有什么不同？';
     expect(resolveQuery(text, scope, parent(trend())).clarification?.message).toContain('另一款商品');
     expect(resolveQuery(text, { ...scope, product_ids: ['A', 'B'] }, parent(trend())).clarification).toBeUndefined();
+    expect(resolveQuery('对比这两款商品的差别', { ...scope, product_ids: ['A', 'B'] }).clarification).toBeUndefined();
   });
   it('好评后那差评呢会切换负向维度工具并继承冻结范围', () => {
     const positive = { result_id: 'positive', kind: 'positive_aspects', parameters: { product_ids: ['A'] }, data: {} } as unknown as AgentToolResult;
@@ -177,6 +195,39 @@ describe('追问解析使用真实查询参数', () => {
 });
 
 describe('追问提交、澄清和快照恢复', () => {
+  it('未命中前端关键词的口语仍携带任务引用，交给后端结构化补全', async () => {
+    const first = task('focused', result(trend('effectiveness')));
+    vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id === 'focused' ? first : id ? task(id, result(trend())) : null, refresh: vi.fn() }));
+    const submit = vi.spyOn(api, 'submit').mockResolvedValueOnce({ task: first, reused: false })
+      .mockResolvedValueOnce({ task: task('oral', result(trend())), reused: false });
+    const hook = renderHook(() => useAgentChat());
+    await act(async () => { await hook.result.current.send(scope, '按月看使用效果变化'); });
+    await act(async () => { await hook.result.current.send(scope, '再往里挖挖呗'); });
+    expect(submit.mock.calls[1][0]).toMatchObject({ parameters: { question: '再往里挖挖呗', context_task_id: 'focused' } });
+    expect(submit.mock.calls[1][0].parameters).not.toHaveProperty('messages');
+    expect(hook.result.current.session.turns.at(-1)?.clarification).toBeUndefined();
+  });
+  it('D：失败轮次保留用户比较对象引用，未验证结果不会成为成功上下文', async () => {
+    const question = '美的空调与小米空调的优缺点都有哪些？';
+    const failed: Task = { ...task('failed-comparison', result(trend())), status: 'failed',
+      parameters: { ...scope, question }, result: { agent: true, status: 'error', results: { unsafe: { data: { review_count: 999999 } } } },
+      error: { code: 'timeout', message: '模拟失败' } };
+    vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id === failed.task_id ? failed : id ? task(id, result(trend())) : null, refresh: vi.fn() }));
+    vi.spyOn(api, 'task').mockResolvedValue(failed);
+    const submit = vi.spyOn(api, 'submit').mockResolvedValueOnce({ task: failed, reused: false })
+      .mockResolvedValueOnce({ task: task('comparison-next', result(trend())), reused: false });
+    const hook = renderHook(() => useAgentChat());
+    await act(async () => { await hook.result.current.send(scope, question); });
+    expect(hook.result.current.session.context).toBeUndefined();
+    expect(hook.result.current.session.intent).toMatchObject({ task_id: failed.task_id, question });
+    expect(readChatSession().session.intent?.question).toBe(question);
+    await act(async () => { await hook.result.current.send(scope, '对比这两款商品的差别。'); });
+    expect(submit).toHaveBeenCalledTimes(2);
+    expect(submit.mock.calls[1][0]).toMatchObject({ parameters: {
+      question: '对比这两款商品的差别。', context_task_id: failed.task_id, product_ids: ['A'] } });
+    expect(hook.result.current.session.turns.at(-1)?.clarification).toBeUndefined();
+    expect(JSON.stringify(hook.result.current.session.intent)).not.toContain('999999');
+  });
   it('自包含的问题不依赖历史读取，携带会话引用且以当前商品为准', async () => {
     localStorage.setItem(CHAT_KEY, JSON.stringify({ turns: [{ kind: 'analysis', id: 'old', taskId: 'old', question: '趋势', parameters: scope, requestKey: 'old' }] }));
     vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: null, refresh: vi.fn() }));
@@ -202,7 +253,7 @@ describe('追问提交、澄清和快照恢复', () => {
     expect(hook.result.current.session.context).toEqual(firstContext);
     expect(firstContext).toMatchObject({ last_successful_task_id: 'success', dataset_id: 'amazon', product_ids: ['A'], aspect: 'logistics' });
     await act(async () => { await hook.result.current.send(scope, '只看物流'); });
-    expect(hook.result.current.session.turns.at(-1)?.query?.parentTaskId).toBe('success');
+    expect(hook.result.current.session.turns.at(-1)?.query?.parentTaskId).toBe('failed');
     expect(submit).toHaveBeenCalledTimes(3);
   });
 

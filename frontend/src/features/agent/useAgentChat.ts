@@ -10,8 +10,7 @@ function contextFromResult(conversationId: string, taskId: string, parameters: A
   const selected = (result.result_ids || []).map(id => result.results[id]).filter(Boolean);
   const evidence = selected.find(item => item.kind === 'evidence');
   const aspects = [...new Set(selected.flatMap(item => {
-    if (item.kind === 'evidence' && item.parameters.aspect) return [String(item.parameters.aspect)];
-    if (item.kind === 'aspect_trend' && item.parameters.aspect) return [String(item.parameters.aspect)];
+    if (item.parameters.aspect) return [String(item.parameters.aspect)];
     return [];
   }))];
   return { conversation_id: conversationId, last_successful_task_id: taskId,
@@ -104,7 +103,9 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string) {
         ? await api.retry(turn.taskId, turn.retry!.key)
         : await api.submit({ kind: 'analysis', parameters: { ...turn.parameters, question: turn.query?.effectiveQuestion ?? turn.question,
           conversation_id: conversationId.current, ...(turn.query?.parentTaskId ? { context_task_id: turn.query.parentTaskId } : {}) } }, turn.requestKey);
-      commit(current => ({ ...current, turns: current.turns.map(item => item.kind === 'analysis' && item.id === turn.id ? { ...item, taskId: result.task.task_id, retry: undefined } : item) }));
+      commit(current => ({ ...current, intent: { task_id: result.task.task_id, question: turn.question,
+        product_ids: [...turn.parameters.product_ids], source: turn.parameters.source, dataset_version: turn.parameters.dataset_version },
+        turns: current.turns.map(item => item.kind === 'analysis' && item.id === turn.id ? { ...item, taskId: result.task.task_id, retry: undefined } : item) }));
       return true;
     } catch (error) {
       setErrors(current => ({ ...current, [turn.id]: errorMessage(error) }));
@@ -122,6 +123,7 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string) {
     const epoch = navigationEpoch.current;
     const reference = historyReference(text);
     let parent: QueryParent | undefined;
+    let intentParent: QueryParent | undefined;
     let readError = '';
     if (isFollowup(text)) {
       // 优先当前轮；当前轮失败时回退到最近一轮已校验成功的任务，不把失败结果写入上下文。
@@ -134,9 +136,13 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string) {
         resolving.current = true;
         setPosting(true);
         try {
-          for (const candidate of candidates) {
+          for (const candidate of candidates.slice(0, 4)) {
             const saved = task?.task_id === candidate.taskId ? task : await api.task(candidate.taskId!);
             if (epoch !== navigationEpoch.current) return false;
+            if (!intentParent && saved && isAgentTask(saved) && sameScope(frozen, candidate.selection || candidate.parameters)) {
+              intentParent = { id: candidate.id, taskId: candidate.taskId, question: candidate.question,
+                parameters: candidate.parameters, selection: candidate.selection };
+            }
             if (validResult(saved)) {
               parent = { id: candidate.id, taskId: candidate.taskId, parameters: { ...candidate.parameters, ...saved.result.scope }, selection: candidate.selection,
                 result: saved.result };
@@ -148,8 +154,19 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string) {
         } catch (error) { readError = `无法读取上轮查询：${errorMessage(error)}。请恢复连接后重新发送追问。`; }
         finally { resolving.current = false; setPosting(false); }
       }
+    } else {
+      // 规则未命中的口语也携带有限上下文引用；服务端重新读取并校验，不发送本地结果。
+      const turns = analysisSession(sessionRef.current).turns;
+      const active = turns.find(turn => turn.id === sessionRef.current.activeId);
+      const candidate = [active, ...[...turns].reverse()].find(turn => turn?.taskId
+        && !turn.clarification && sameScope(frozen, turn.selection || turn.parameters));
+      if (candidate) intentParent = { id: candidate.id, taskId: candidate.taskId, question: candidate.question,
+        parameters: candidate.parameters, selection: candidate.selection };
     }
-    const resolution = resolveQuery(reference?.text || text, reference && parent ? parent.parameters : frozen, parent);
+    const resolution = resolveQuery(reference?.text || text, reference && parent ? parent.parameters : frozen, parent, new Date(), intentParent);
+    if (!resolution.clarification && !resolution.query.parentTaskId && intentParent?.taskId) {
+      resolution.query.parentTurnId = intentParent.id; resolution.query.parentTaskId = intentParent.taskId;
+    }
     if (reference && parent) {
       resolution.query.parentTurnId = parent.id; resolution.query.parentTaskId = parent.taskId;
       resolution.parameters = resolution.parameters || structuredClone(parent.parameters);

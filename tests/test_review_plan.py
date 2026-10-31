@@ -206,7 +206,7 @@ class QueryPlanTests(WorkbenchFixture, unittest.TestCase):
             return run_review_agent(self.db, question, scope=self.scope(), settings=SETTINGS)
 
     def test_sync_full_orchestration_and_window_scope_compatibility(self):
-        result = self.run_sync("美的空调好评主要集中在哪些方面？")
+        result = self.run_sync("所选商品好评主要集中在哪些方面？")
         self.assertEqual(result["status"], "ok", result)
         self.assertEqual(result["validation"]["status"], "passed")
         self.assertEqual(result["model_tool_attempts"], 1)

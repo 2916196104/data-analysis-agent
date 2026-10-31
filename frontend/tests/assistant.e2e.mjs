@@ -484,7 +484,7 @@ for review in pending_reviews(db, **dict(identity, model='SIMULATED-SECOND'), pr
   await choose(analysis, '助手标注版本', 'SIMULATED-ANNOTATIONS');
   await scope.getByRole('button', { name: '应用范围', exact: true }).click();
   await scope.getByText(/覆盖率 100.0%/).waitFor();
-  const phase6Positive = await send('美的空调好评主要集中在哪些方面？');
+  const phase6Positive = await send('所选商品好评主要集中在哪些方面？');
   await capture(analysis, 'phase6-positive', analysis.locator('.chat-turn').last().locator('.public-answer'));
   const phase6Negative = await send('那差评呢？');
   const phase6Logistics = await send('物流方面呢？');

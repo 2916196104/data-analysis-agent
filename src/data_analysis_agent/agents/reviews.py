@@ -8,8 +8,8 @@ from time import perf_counter
 
 from data_analysis_agent.agents.review_prompts import PROMPT_VERSION, SYSTEM_PROMPT, detect_sentiment_intent
 from data_analysis_agent.agents.review_validation import result_summaries, validate_report
-from data_analysis_agent.agents.review_plan import build_query_plan
-from data_analysis_agent.agents.review_semantics import QuestionScopeError, resolve_question_scope
+from data_analysis_agent.agents.review_semantics import QuestionScopeError
+from data_analysis_agent.agents.review_intent import resolve_review_request
 from data_analysis_agent.agents.review_compression import build_analysis_artifacts, empty_public
 from data_analysis_agent.agents.review_answers import NaturalLanguageAnswerGenerator, unavailable_answer
 from data_analysis_agent.agents.runtime import (
@@ -116,7 +116,7 @@ class UnsupportedReviewQuery(ValueError):
     """明确不支持的任务在模型调用前结束，不发布替代方向的统计。"""
 
 
-def run_review_agent(db, question, *, scope, settings, progress=None):
+def run_review_agent(db, question, *, scope, settings, progress=None, conversation_context=None):
     """模型仅选择只读工具及结果引用；所有数字和引文由代码整理。"""
     started = perf_counter()
     timings = {key: 0.0 for key in (
@@ -129,6 +129,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
               "sentiment_intent": sentiment_intent, "analysis_intent": analysis_intent,
               "agent_model_identity": {"model": settings.model, "base_url": settings.base_url,
                                        "prompt_version": PROMPT_VERSION}}
+    result.update(user_intent={}, intent_resolution={'method': 'rules', 'model_calls': 0})
     context, agent, llm = None, None, None
     usage, model_responses = {}, 0
     progress_error = None
@@ -162,9 +163,10 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
             products = [dict(row) for row in connection.execute('SELECT product_id,title,brand FROM products WHERE source=? AND dataset_version=?',
                                           (scope['source'], scope['dataset_version'])).fetchall()]
             planning_started = perf_counter()
-            product_groups = []
-            scope = resolve_question_scope(question, scope, products, product_groups=product_groups)
-            plan = build_query_plan(question, scope, product_groups=product_groups)
+            scope, plan, semantic_direct = resolve_review_request(question, scope, products, settings=settings,
+                context=conversation_context, diagnostics=result['intent_resolution'], intent_state=result['user_intent'])
+            result['user_intent'].update(resolved_product_ids=list(scope['product_ids']),
+                effective_time_range={'date_from': scope['date_from'], 'date_to': scope['date_to']})
             sentiment_intent = plan.sentiment
             result.update(scope=scope, query_plan=plan.to_dict(), sentiment_intent=sentiment_intent,
                           analysis_intent=plan.analysis_type, analysis_question=plan.answer_question or question)
@@ -180,7 +182,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
             if "overview" not in context.results:
                 raise ReviewDataError("无法读取当前评论范围，请检查标注表和数据集。")
             status, ids = None, []
-            direct_query = question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'opinion_breakdown', 'pros_cons'}
+            direct_query = semantic_direct or question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'opinion_breakdown', 'pros_cons'}
             if direct_query:
                 # 已确认追问或确定的文本归组计划直接执行；仍走同一注册表、预算与发布校验。
                 for request in plan.requirements:
@@ -276,12 +278,19 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
             result["public_answer"], result["answer_generation"] = NaturalLanguageAnswerGenerator().generate(
                 result["analysis_question"], result["compact_context"], settings=settings, validated=result["validation"]["status"] == "passed")
             timings["answer_duration_ms"] = round((perf_counter() - answer_started) * 1000, 3)
-    except (UnsupportedReviewQuery, QuestionScopeError) as exc:
+    except QuestionScopeError as exc:
+        result['user_intent'].update(needs_clarification=True, clarification_question=str(exc))
+        result.update(status="unsupported", answer=str(exc), result_ids=[])
+    except UnsupportedReviewQuery as exc:
         result.update(status="unsupported", answer=str(exc), result_ids=[])
     except Exception as exc:
         if progress_error is not None:
             raise progress_error
         code, message = ("business_error", str(exc)) if isinstance(exc, ReviewDataError) else execution_failure(exc)
+        if result['intent_resolution'].get('error_code'):
+            timed_out = result['intent_resolution']['error_code'] == 'timeout'
+            code = 'intent_timeout' if timed_out else 'invalid_intent'
+            message = '本轮语义解析超时，尚未执行数据查询。' if timed_out else '本轮语义解析未通过结构校验，尚未执行数据查询。'
         result.update(status="error", error={"code": code, "message": message})
         result.pop("answer", None)
         result.pop("answer_sections", None)
@@ -298,7 +307,9 @@ def run_review_agent(db, question, *, scope, settings, progress=None):
                       tool_calls=context.tool_calls if context else 0, model_calls=llm.budget.calls if llm else 0,
                       model_responses=model_responses, usage=usage or None,
                       answer_model_calls=result.get("answer_generation", {}).get("attempts", 0),
-                      total_model_calls=(llm.budget.calls if llm else 0) + result.get("answer_generation", {}).get("attempts", 0),
+                      intent_model_calls=result['intent_resolution'].get('model_calls', 0),
+                      total_model_calls=(llm.budget.calls if llm else 0) + result.get("answer_generation", {}).get("attempts", 0)
+                                        + result['intent_resolution'].get('model_calls', 0),
                       elapsed_seconds=round(timings["total_duration_ms"] / 1000, 3))
     result.setdefault("public_analysis", empty_public(result["status"]).model_dump())
     result.setdefault("public_answer", unavailable_answer("unsupported" if result["status"] == "unsupported" else "failed", reason=result.get("answer")))

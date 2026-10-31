@@ -244,8 +244,11 @@ class TaskWorker:
                         raise ConfigurationError("Agent 模型配置与入队时不同，请重新提交问答任务。")
                     parameters.pop("rules")
                     query_context = {key: parameters.pop(key) for key in ('conversation_id', 'context_task_id') if key in parameters}
+                    from data_analysis_agent.jobs.analysis_context import load_analysis_context
+                    conversation_context = load_analysis_context(self.task_db, {**parameters, **query_context})
                     result = run_review_agent(self.business_db, question, scope=parameters,
-                                              settings=settings, progress=report_progress)
+                                              settings=settings, progress=report_progress,
+                                              **({'conversation_context': conversation_context} if conversation_context else {}))
                     result['query_context'] = query_context
                     performance = result.setdefault("performance", {})
                     if task.get("started_at") and task.get("created_at"):

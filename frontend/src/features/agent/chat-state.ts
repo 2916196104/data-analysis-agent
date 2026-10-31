@@ -41,14 +41,15 @@ export interface ConversationAnalysisContext {
   previous_result_refs: string[];
 }
 export type ConversationTurn = ChatTurn | BasicChatTurn;
-export interface ChatSession { turns: ChatTurn[]; activeId?: string; context?: ConversationAnalysisContext }
-export interface Conversation { turns: ConversationTurn[]; activeId?: string; context?: ConversationAnalysisContext }
+export interface ConversationUserIntent { task_id: string; question: string; product_ids: string[]; source?: string | null; dataset_version?: string | null }
+export interface ChatSession { turns: ChatTurn[]; activeId?: string; context?: ConversationAnalysisContext; intent?: ConversationUserIntent }
+export interface Conversation { turns: ConversationTurn[]; activeId?: string; context?: ConversationAnalysisContext; intent?: ConversationUserIntent }
 export const CHAT_KEY = `review-agent-chat:${API_BASE}`;
 
 /** 分析及澄清快照持久化；基础问答仍只保留在内存。 */
 export function analysisSession(conversation: Conversation): ChatSession {
   const turns = conversation.turns.filter((turn): turn is ChatTurn => turn.kind === 'analysis');
-  return { turns, activeId: turns.some(turn => turn.id === conversation.activeId) ? conversation.activeId : undefined, context: conversation.context };
+  return { turns, activeId: turns.some(turn => turn.id === conversation.activeId) ? conversation.activeId : undefined, context: conversation.context, intent: conversation.intent };
 }
 
 export function isAgentTask(task: Task): boolean {
@@ -79,7 +80,10 @@ export function readChatSession(): { session: ChatSession; error: boolean } {
       && Array.isArray(context.previous_result_refs) && context.previous_result_refs.every((id: unknown) => typeof id === 'string'));
     if (!validContext) throw new Error('Invalid chat context');
     const turns: ChatTurn[] = saved.turns.map((turn: ChatTurn) => ({ ...turn, kind: 'analysis' }));
+    const intent = saved.intent;
+    if (intent && (typeof intent.task_id !== 'string' || typeof intent.question !== 'string'
+      || !Array.isArray(intent.product_ids) || !intent.product_ids.every((id: unknown) => typeof id === 'string'))) throw new Error('Invalid user intent');
     return { session: { turns, activeId: turns.some(turn => turn.id === saved.activeId)
-      ? saved.activeId : turns.at(-1)?.id, context }, error: false };
+      ? saved.activeId : turns.at(-1)?.id, context, intent }, error: false };
   } catch { return { session: { turns: [] }, error: true }; }
 }

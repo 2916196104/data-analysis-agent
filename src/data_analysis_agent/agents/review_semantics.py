@@ -25,6 +25,52 @@ def _title_matches(mention, title):
                for i in range(2, len(mention) - 1))
 
 
+def product_mentions(question, products):
+    """只提取用户明确写出的实体；不把页面默认商品当作用户指代。"""
+    found = []
+    for clause in re.split(r'与|和|以及|对比|比较|[，,；;]', question):
+        explicit = [row['product_id'] for row in products if re.search(
+            r'(?<![A-Za-z0-9_])' + re.escape(row['product_id']) + r'(?![A-Za-z0-9_])', clause)]
+        explicit += [row['title'] for row in products if row['title'] and row['title'] in clause]
+        if explicit:
+            found.extend(explicit)
+            continue
+        brands = []
+        for brand in sorted({row.get('brand') for row in products if row.get('brand')}, key=len, reverse=True):
+            if brand not in {'其他', '未知'} and brand in clause:
+                brands.append(brand + '空调' if brand + '空调' in clause else brand)
+        head = re.split(r'好评|差评|优缺点|优点|缺点|评价|使用效果', clause, maxsplit=1)[0]
+        match = re.search(r'([\w\u4e00-\u9fff]{2,30}空调)', head)
+        if match:
+            name = re.sub(r'^(?:请|帮我|看看|查看|分析|一下|查询|按日|按月|按天|按月份|统计|分别)+', '', match[1])
+            if not re.match(r'^(?:这|那|该|所选|当前|两款)', name):
+                found.append(name)
+                brands = [value for value in brands if not name.startswith(value.removesuffix('空调'))]
+        found.extend(brands)
+    found.extend(value for value in re.findall(r'(?<!\d)\d{8,}(?!\d)', question) if value not in found)
+    return list(dict.fromkeys(found))
+
+
+def match_product_mentions(mentions, products, *, selected_ids=(), strict=False):
+    """普通查询可沿用明确选中的型号；比较指代必须逐个消除型号歧义。"""
+    selected, ambiguous = [], []
+    for mention in mentions:
+        exact = [row for row in products if mention in (row['product_id'], row['title'])]
+        candidates = exact or [row for row in products if _title_matches(mention, row['title'])]
+        if not candidates:
+            raise QuestionScopeError(f'当前数据集未找到“{mention}”对应的商品，请提供该数据集中的商品名称或 ID。')
+        within_selection = [row for row in candidates if row['product_id'] in selected_ids]
+        if len(candidates) > 1 and not strict and within_selection:
+            candidates = within_selection
+        if len(candidates) > 1:
+            ambiguous.append(f'“{mention}”可匹配 ' + '、'.join(row['product_id'] for row in candidates[:5]))
+        else:
+            selected.append(candidates[0]['product_id'])
+    if ambiguous:
+        raise QuestionScopeError('需要选择具体商品：' + '；'.join(ambiguous) + '。请分别指定商品 ID。')
+    return list(dict.fromkeys(selected))
+
+
 def _pros_cons_products(question, products):
     head = re.split(r"优缺点|优点|缺点|好评|差评|正面|负面", question, maxsplit=1)[0]
     mentions = []
