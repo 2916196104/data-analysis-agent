@@ -189,7 +189,7 @@ def seed_run(db, run_id, *, chunk_size=200):
         return len(rows)
 
 
-def publish_outbox(db, stream, *, limit=200, repair_seconds=120):
+def publish_outbox(db, stream, *, limit=200, repair_seconds=120, profile_id=None):
     """XADD 与提交间崩溃允许重复；周期补发还覆盖 Redis 重启或消息丢失。"""
     now = time.time()
     limit = min(limit, max(0, stream.max_backlog - stream.redis.xlen(stream.name)))
@@ -201,7 +201,9 @@ def publish_outbox(db, stream, *, limit=200, repair_seconds=120):
             JOIN label_profiles p USING(profile_id)
             WHERE o.next_at<=? AND p.paused_reason IS NULL AND
             (t.status IN ('queued','retry') OR (t.status='running' AND t.lease_until<=?))
-            ORDER BY o.next_at,o.task_id LIMIT ? FOR UPDATE OF o SKIP LOCKED""", (now, now, limit)).fetchall()
+            """ + (" AND t.profile_id=?" if profile_id is not None else "") + """
+            ORDER BY o.next_at,o.task_id LIMIT ? FOR UPDATE OF o SKIP LOCKED""",
+            (now, now, *((profile_id,) if profile_id is not None else ()), limit)).fetchall()
         for row in rows:
             stream.send(row[0])
         if rows:
@@ -210,7 +212,7 @@ def publish_outbox(db, stream, *, limit=200, repair_seconds=120):
         return len(rows)
 
 
-def claim_tasks(db, ids, worker_id, *, lease_seconds=120):
+def claim_tasks(db, ids, worker_id, *, lease_seconds=120, profile_id=None):
     """数据库租约抵御重复消息与多个消费者同时接管；返回固定大小的数据块。"""
     if not ids:
         return []
@@ -224,7 +226,9 @@ def claim_tasks(db, ids, worker_id, *, lease_seconds=120):
             WHERE t.task_id IN (""" + ",".join("?" for _ in ids) + """ ) AND p.paused_reason IS NULL
             AND ((t.status IN ('queued','retry') AND t.available_at<=?)
                 OR (t.status='running' AND t.lease_until<=?))
-            ORDER BY t.task_id FOR UPDATE OF t SKIP LOCKED""", (*ids, now, now)).fetchall()
+            """ + (" AND t.profile_id=?" if profile_id is not None else "") + """
+            ORDER BY t.task_id FOR UPDATE OF t SKIP LOCKED""",
+            (*ids, now, now, *((profile_id,) if profile_id is not None else ()))).fetchall()
         result = []
         for row in rows:
             item = dict(row)
@@ -357,15 +361,20 @@ def pulse(db, worker_id, *, lease_seconds=120, stopped=False):
                       (worker_id, now, now + lease_seconds))
 
 
-def terminal_ids(db, ids):
+def delivery_ack_ids(db, ids, profile_id):
+    """返回可释放通知和异身份通知；异身份活动任务必须已有持久发件箱。"""
     if not ids:
-        return set()
+        return set(), set()
     with queue_connection(db) as c:
-        rows = list(c.execute("SELECT task_id,status FROM label_tasks WHERE task_id IN ("
-                              + ",".join("?" for _ in ids) + ")", ids))
-        active = {r[0] for r in rows if r[1] in {"queued", "running"}}
+        rows = list(c.execute("""SELECT t.task_id,t.status,t.profile_id,
+            EXISTS(SELECT 1 FROM label_outbox o WHERE o.task_id=t.task_id) has_outbox
+            FROM label_tasks t WHERE t.task_id IN (""" + ",".join("?" for _ in ids) + ")", ids))
+        foreign = {r[0] for r in rows if r[2] != profile_id and r[1] in {"queued", "retry", "running"}}
+        deferred = {r[0] for r in rows if r[0] in foreign and r[3]}
+        # 只释放投递通知，旧任务及发件箱仍保留，原身份 Worker 可按期补发。
+        active = {r[0] for r in rows if r[1] in {"queued", "running"} or r[0] in foreign}
         # 已随导入删除的最终任务也可丢弃遗留消息，避免形成永久 pending。
-        return set(ids) - active
+        return (set(ids) - active) | deferred, deferred
 
 
 def resubmit(db, task_id):

@@ -10,9 +10,11 @@ from types import SimpleNamespace
 from openai import OpenAI
 
 from data_analysis_agent.core.errors import ReviewDataError
+from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.jobs import label_queue as store
 from data_analysis_agent.reviews.labeling import label_batch_once, review_batches
 from data_analysis_agent.reviews.opinions import OpinionValidationError
+from data_analysis_agent.reviews.prompts import PROMPT_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +75,8 @@ class LabelWorker:
         self.chunk_size, self.batch_size, self.lease_seconds = chunk_size, batch_size, lease_seconds
         self.max_calls, self.max_retries, self.backoff_seconds = max_calls, max_retries, backoff_seconds
         self.worker_id = uuid.uuid4().hex
+        self.profile_id = content_sha256([settings.model, settings.base_url, PROMPT_VERSION])
+        self.warned_incompatible = False
         self.stop = threading.Event()
         self.limiter = limiter
         self.owns_client = client is None
@@ -82,7 +86,8 @@ class LabelWorker:
     def _one(self, tasks):
         if not tasks or self.stop.is_set():
             return
-        if any((t["model"], t["base_url"]) != (self.settings.model, self.settings.base_url) for t in tasks):
+        if any((t["model"], t["base_url"], t["prompt_version"]) !=
+               (self.settings.model, self.settings.base_url, PROMPT_VERSION) for t in tasks):
             raise ReviewDataError("Worker 模型配置与任务身份不匹配，请使用原配置恢复。")
         reservation = None
         if self.limiter:
@@ -133,11 +138,15 @@ class LabelWorker:
         store.pulse(self.db, self.worker_id, lease_seconds=self.lease_seconds)
         messages = self.stream.receive(self.worker_id, self.chunk_size)
         ids = [tid for _, tid in messages]
-        tasks = store.claim_tasks(self.db, ids, self.worker_id, lease_seconds=self.lease_seconds)
+        tasks = store.claim_tasks(self.db, ids, self.worker_id, lease_seconds=self.lease_seconds,
+                                  profile_id=self.profile_id)
         for batch in review_batches(tasks, self.batch_size):
             self._one(batch)
-        terminal = store.terminal_ids(self.db, ids)
-        self.stream.ack([mid for mid, tid in messages if tid in terminal])
+        ack_ids, deferred = store.delivery_ack_ids(self.db, ids, self.profile_id)
+        if deferred and not self.warned_incompatible:
+            logger.warning("已跳过其他模型身份的标注通知；旧任务与发件箱保留，请用原模型、服务地址和标注提示词配置恢复。")
+            self.warned_incompatible = True
+        self.stream.ack([mid for mid, tid in messages if tid in ack_ids])
         return len(tasks)
 
     def _heartbeat(self):
@@ -155,6 +164,8 @@ class LabelWorker:
             return self._run_loop(run_id=run_id, max_seconds=max_seconds)
 
     def _run_loop(self, *, run_id=None, max_seconds=None):
+        if run_id and store.run_state(self.db, run_id)["profile_id"] != self.profile_id:
+            raise ReviewDataError("Worker 模型配置与任务身份不匹配，请使用原配置恢复。")
         started = time.monotonic()
         pulse = threading.Thread(target=self._heartbeat, daemon=True)
         pulse.start()
@@ -170,7 +181,7 @@ class LabelWorker:
                 if run_id:
                     store.seed_run(self.db, run_id, chunk_size=self.chunk_size)
                 store.publish_outbox(self.db, self.stream, limit=self.chunk_size,
-                                     repair_seconds=self.lease_seconds)
+                                     repair_seconds=self.lease_seconds, profile_id=self.profile_id)
                 count = self.step()
                 if run_id:
                     status = store.completion_state(self.db, run_id)

@@ -94,10 +94,11 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
     if (target) { query.parentTurnId = target.id; query.parentTaskId = target.taskId; }
     return { query, parameters: copyScope(parameters) };
   }
-  if (op.type === 'analysis') {
+  if (op.type === 'analysis' || (op.type === 'ambiguous' && (intentParent || parent)?.taskId)) {
     if (/另一款|另一个商品/.test(text) && parameters.product_ids.length < 2) return clarify('请指定另一款商品，或在当前范围选择两款商品后比较。');
     const target = intentParent || parent;
     if (target) { query.parentTurnId = target.id; query.parentTaskId = target.taskId; }
+    // 有任务引用的口语交给后端补全或具体澄清；前端不据代词否决语义解析。
     // 只有全局选择未变化时才继承上轮的语言日期；已确认的新筛选优先。
     const scope = target && sameScope(parameters, target.selection || target.parameters) ? target.parameters : parameters;
     return { query, parameters: copyScope(scope) };

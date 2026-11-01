@@ -54,23 +54,24 @@ product_mentions 只能原样引用本轮用户文本或 explicit_user_mentions�
 """
 
 
-def _llm_intent(question, scope, context, mentions, settings, diagnostics):
+def _llm_intent(question, scope, context, mentions, settings, diagnostics, *, conditions=None):
     from openai import OpenAI
     previous = (context or {}).get('validated') or {}
-    requested = ((context or {}).get('user') or {}).get('question', '')
-    requested_detail = opinion_request(requested)
-    requested_plan = build_query_plan(requested, scope) if requested else None
+    requested = conditions or {}
+    requested_queries = requested.get('queries', [])
+    aspects = {row['parameters'].get('aspect') for row in requested_queries}
     schema = ReviewIntent.model_json_schema()
     schema['required'] = ['query_type', 'needs_clarification']
     payload = {'question': question, 'bound_dates': {key: scope[key] for key in ('date_from', 'date_to')},
         'compact_context': {'explicit_user_mentions': mentions,
-            'explicit_user_intent': {'query_type': KIND_TYPES.get(requested_plan.analysis_type) if requested_plan and not requested_plan.unsupported_reason else None,
-                                     'sentiment': detect_sentiment_intent(requested), 'aspect': requested_detail['aspect'],
-                                     'sub_intent': 'drill_down' if requested_detail['breakdown'] else 'overview'},
+            'explicit_user_intent': {'query_type': KIND_TYPES.get(requested.get('analysis_type')),
+                                     'sentiment': requested.get('sentiment'), 'aspect': next(iter(aspects)) if len(aspects) == 1 else None,
+                                     'topic': requested_queries[0]['parameters'].get('topic') if len(requested_queries) == 1 else None,
+                                     'sub_intent': 'drill_down' if requested.get('analysis_type') == 'opinion_breakdown' else 'overview'},
             'validated_query': {key: previous.get(key) for key in ('analysis_type', 'sentiment')},
             'validated_windows': {key: previous.get('scope', {}).get(key) for key in ('date_from', 'date_to', 'baseline_from', 'baseline_to')},
             'queries': [{'kind': row['kind'], 'aspect': row['parameters'].get('aspect'),
-                         **{key: row['parameters'].get(key) for key in ('sentiment', 'window', 'period', 'page_size', 'group_by')}}
+                         **{key: row['parameters'].get(key) for key in ('sentiment', 'topic', 'window', 'period', 'page_size', 'group_by')}}
                         for row in previous.get('queries', [])[:4]]},
         'schema': schema}
     content = json.dumps(payload, ensure_ascii=False)
@@ -98,7 +99,10 @@ def _llm_intent(question, scope, context, mentions, settings, diagnostics):
     aspect = opinion_request(question)['aspect']
     if aspect and intent.aspect != aspect:
         raise ValueError('语义解析改变了明确的一级维度。')
-    if intent.topic and intent.topic not in question:
+    topic_aspect = intent.aspect or (next(iter(aspects)) if len(aspects) == 1 else None)
+    inherited_topics = {row['parameters'].get('topic') for row in requested_queries
+                        if row['parameters'].get('aspect') == topic_aspect}
+    if intent.topic and intent.topic not in question and intent.topic not in inherited_topics:
         raise ValueError('语义解析添加了未要求的细分主题。')
     return intent
 
@@ -155,6 +159,60 @@ def _intent_plan(intent, scope, *, previous_parameters=None):
     return build_query_plan(confirmed, scope)
 
 
+def _followup_intent(question, conditions):
+    """只转换唯一的查询条件；此处不读取统计、原文或分页结果。"""
+    semantic = opinion_request(question)
+    short_aspect = bool(re.fullmatch(r'(?:那|那么|再|也|只看|仅看)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面|问题)?(?:呢|怎么样)?[？?。]*', question.strip()))
+    short_sentiment = bool(re.fullmatch(r'(?:那|那么|然后)?(?:好评|差评|正面|负面|优点|缺点|投诉)(?:呢|吧)?[？?。]*', question.strip()))
+    short_period = re.fullmatch(r'(?:换成|改成|改为)?按(月|日|天)(?:看|查看|统计)?[？?。]*', question.strip())
+    summary_ref = bool(re.fullmatch(r'(?:那|那么)?(?:主要)?集中在(?:哪些|什么)(?:地方|方面)(?:呢)?[？?。]*', question.strip()))
+    if not conditions or not ((semantic['aspect'] and (short_aspect or semantic['breakdown'])) or short_sentiment or short_period or summary_ref):
+        return None
+    queries = conditions.get('queries', [])
+    selected = [row for row in queries if semantic['aspect'] and row['parameters'].get('aspect') == semantic['aspect']] if len(queries) > 1 else queries
+    if len(selected) != 1:
+        labels = '、'.join(dict.fromkeys(KIND_LABELS.get(row['kind'], row['kind']) for row in queries))
+        raise QuestionScopeError(f'上轮包含{labels}。这次要看该维度的汇总、趋势还是原文？')
+    last = selected[0]
+    if summary_ref and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown'}:
+        raise QuestionScopeError('上轮是' + KIND_LABELS.get(last['kind'], last['kind']) + '。这次要继续该统计，还是查看评价维度和观点细分？')
+    if short_period and last['kind'] not in {'trend', 'aspect_trend', 'ratings'}:
+        raise QuestionScopeError('上轮不是时间序列或星级分布，请明确要按日/月查看哪个指标。')
+    if short_period and last['kind'] == 'ratings' and short_period.group(1) != '月':
+        raise QuestionScopeError('星级分布目前只支持按月、商品或总体分组。')
+    if short_sentiment and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'evidence', 'trend', 'aspect_trend'}:
+        raise QuestionScopeError('上轮没有可切换的评价情感目标，这次要看好差评汇总还是原文？')
+    last_params = dict(last['parameters'])
+    if short_period and last['kind'] == 'ratings':
+        last_params['group_by'] = 'month'
+    intent = ReviewIntent(query_type='opinion_breakdown' if semantic['breakdown'] else KIND_TYPES.get(last['kind']),
+        sentiment=detect_sentiment_intent(question) or conditions.get('sentiment') or last_params.get('sentiment'),
+        aspect=semantic['aspect'] or last_params.get('aspect'),
+        sub_intent='drill_down' if semantic['breakdown'] or last['kind'] == 'opinion_breakdown' else 'overview',
+        topic=semantic['topic'] if semantic['aspect'] else last_params.get('topic'),
+        period=('month' if short_period.group(1) == '月' else 'day') if short_period else last_params.get('period', 'month'))
+    return intent, last_params
+
+
+def _user_conditions(context, scope, products):
+    """按时间合并有限用户请求；失败轮次只改变意图槽位，不读取它的结果。"""
+    conditions = (context or {}).get('validated') or {}
+    users = (context or {}).get('users') or [(context or {}).get('user') or {}]
+    for user in reversed(users[:4]):
+        if not user.get('question') or user.get('task_id') == conditions.get('task_id'):
+            continue
+        question = user['question']
+        try:
+            followup = _followup_intent(question, conditions) if not product_mentions(question, products) else None
+            plan = _intent_plan(followup[0], scope, previous_parameters=followup[1]) if followup else build_query_plan(question, scope)
+        except QuestionScopeError:
+            continue
+        if not plan.unsupported_reason:
+            conditions = {**conditions, 'scope': scope, 'analysis_type': plan.analysis_type, 'sentiment': plan.sentiment,
+                'queries': [{'kind': TOOL_KINDS[row['tool']], 'parameters': row['parameters']} for row in plan.requirements]}
+    return conditions
+
+
 def resolve_review_request(question, scope, products, *, settings, context=None, diagnostics=None, intent_state=None):
     diagnostics = diagnostics if diagnostics is not None else {}
     intent_state = intent_state if intent_state is not None else {}
@@ -196,39 +254,14 @@ def resolve_review_request(question, scope, products, *, settings, context=None,
     scope = resolve_question_scope(question, scope, products, product_groups=groups)
     if mentions and not groups:
         scope = {**scope, 'product_ids': match_product_mentions(mentions, products, selected_ids=scope['product_ids'])}
-    if prior_question and ((context or {}).get('user') or {}).get('task_id') != previous.get('task_id') and not prior_question.startswith('执行本轮已确认的只读查询'):
-        requested = build_query_plan(prior_question, scope)
-        if not requested.unsupported_reason:
-            # 这里只恢复用户要求的查询类型；没有已验证结果或统计可供引用。
-            previous = {'scope': scope, 'sentiment': requested.sentiment,
-                'queries': [{'kind': TOOL_KINDS[row['tool']], 'parameters': row['parameters']} for row in requested.requirements]}
-    queries = previous.get('queries', [])
-    short_aspect = bool(re.fullmatch(r'(?:那|那么|再|也|只看|仅看)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面|问题)?(?:呢|怎么样)?[？?。]*', question.strip()))
-    short_sentiment = bool(re.fullmatch(r'(?:那|那么|然后)?(?:好评|差评|正面|负面|优点|缺点|投诉)(?:呢|吧)?[？?。]*', question.strip()))
-    short_period = re.fullmatch(r'(?:换成|改成|改为)?按(月|日|天)(?:看|查看|统计)?[？?。]*', question.strip())
-    if previous and not mentions and ((semantic['aspect'] and (short_aspect or semantic['breakdown'])) or short_sentiment or short_period):
-        selected = [row for row in queries if semantic['aspect'] and row['parameters'].get('aspect') == semantic['aspect']] if len(queries) > 1 else queries
-        if len(selected) != 1:
-            labels = '、'.join(dict.fromkeys(KIND_LABELS.get(row['kind'], row['kind']) for row in queries))
-            raise QuestionScopeError(f'上轮包含{labels}。这次要看该维度的汇总、趋势还是原文？')
-        last = selected[0]
-        if short_period and last['kind'] not in {'trend', 'aspect_trend', 'ratings'}:
-            raise QuestionScopeError('上轮不是时间序列或星级分布，请明确要按日/月查看哪个指标。')
-        if short_period and last['kind'] == 'ratings' and short_period.group(1) != '月':
-            raise QuestionScopeError('星级分布目前只支持按月、商品或总体分组。')
-        if short_sentiment and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'evidence', 'trend', 'aspect_trend'}:
-            raise QuestionScopeError('上轮没有可切换的评价情感目标，这次要看好差评汇总还是原文？')
-        last_params = dict(last['parameters'])
-        if short_period and last['kind'] == 'ratings':
-            last_params['group_by'] = 'month'
-        intent = ReviewIntent(query_type='opinion_breakdown' if semantic['breakdown'] else KIND_TYPES.get(last['kind']),
-            sentiment=sentiment or detect_sentiment_intent(prior_question) or previous.get('sentiment') or last['parameters'].get('sentiment'),
-            aspect=semantic['aspect'] or last['parameters'].get('aspect'), sub_intent='drill_down' if semantic['breakdown'] else 'overview',
-            topic=semantic['topic'] if semantic['aspect'] else last['parameters'].get('topic'),
-            period=('month' if short_period.group(1) == '月' else 'day') if short_period else last['parameters'].get('period', 'month'))
+    conditions = _user_conditions(context, scope, products)
+    queries = conditions.get('queries', [])
+    followup = _followup_intent(question, conditions) if not mentions else None
+    if followup:
+        intent, last_params = followup
         user_changed = ((context or {}).get('user') or {}).get('task_id') != previous.get('task_id')
         inherited = match_product_mentions(prior_mentions, products, selected_ids=scope['product_ids']) if prior_mentions and user_changed else (
-            last['parameters'].get('product_ids') or previous['scope']['product_ids'])
+            last_params.get('product_ids') or conditions['scope']['product_ids'])
         scope = {**scope, 'product_ids': inherited}
         intent_state.update(intent.model_dump())
         return scope, _intent_plan(intent, scope, previous_parameters=last_params), True
@@ -242,13 +275,13 @@ def resolve_review_request(question, scope, products, *, settings, context=None,
     if not settings.semantic_parser_enabled:
         raise QuestionScopeError('请明确要查看维度汇总、观点细分、趋势还是原文；当前配置只启用了规则解析。')
     try:
-        intent = _llm_intent(question, scope, context, prior_mentions, settings, diagnostics)
+        intent = _llm_intent(question, scope, context, prior_mentions, settings, diagnostics, conditions=conditions)
     except Exception as exc:
         diagnostics['error_code'] = 'timeout' if 'timeout' in type(exc).__name__.lower() else 'invalid_semantic_response'
         raise
     intent_state.update(intent.model_dump())
     if intent.sentiment is None and intent.query_type in {'aspect_summary', 'opinion_breakdown', 'evidence', 'trend'}:
-        intent.sentiment = detect_sentiment_intent(prior_question) or previous.get('sentiment')
+        intent.sentiment = conditions.get('sentiment')
     if intent.sub_intent == 'drill_down' and not intent.aspect:
         prior_aspects = {row['parameters'].get('aspect') for row in queries if row['parameters'].get('aspect')}
         if len(prior_aspects) != 1:

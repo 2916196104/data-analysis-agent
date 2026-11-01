@@ -75,6 +75,7 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
         self.assertEqual(third['result']['results']['r1']['parameters']['sentiment'], 'positive')
         self.assertEqual(third['result']['results']['r1']['parameters']['aspect'], 'logistics')
         self.assertEqual(third['result']['results']['r1']['kind'], 'opinion_breakdown')
+        self.assertEqual(third['result']['user_intent']['sub_intent'], 'drill_down')
         self.assertEqual(before, hashlib.sha256(self.db.read_bytes()).hexdigest())
 
     def test_c_ambiguous_query_type_asks_specific_question_without_queries(self):
@@ -190,6 +191,96 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
         self.assertEqual(oral['status'], 'ok', oral.get('error'))
         self.assertEqual(oral['results']['r1']['parameters']['window'], 'baseline')
         self.assertEqual(oral['results']['r1']['parameters']['page_size'], 5)
+
+    def test_multiple_failed_turns_merge_explicit_slots_without_trusting_results(self):
+        self.queue()
+        first = self.run_sync('美的空调好评主要集中在哪些方面？')
+        parent = self.save(first['question'], first)
+        unsafe = {'agent': True, 'status': 'error', 'sentiment_intent': 'positive',
+                  'results': {'untrusted': {'data': {'review_count': 999999}}}}
+        failed = self.save('小米空调的差评主要是什么？', unsafe, status='failed', parent=parent)
+        failed_again = self.save('使用效果主要集中在哪些地方？', unsafe, status='failed', parent=failed)
+        task = self.work('那物流方面呢？', parent=failed_again)
+        self.assertEqual(task['status'], 'succeeded', task.get('error'))
+        self.assertEqual(task['result']['results']['r1']['parameters'], {
+            'product_ids': ['XIAOMI-TEST'], 'aspect': 'logistics', 'sentiment': 'negative', 'topic': None})
+        self.assertEqual(task['result']['validation']['status'], 'passed')
+        self.assertEqual(task['result']['total_model_calls'], 0)
+        context = load_analysis_context(self.tasks, {**self.scope(), 'context_task_id': failed_again, 'conversation_id': 'conversation-A'})
+        self.assertNotIn('999999', json.dumps(context))
+        with self.semantic_model(ReviewIntent(query_type='opinion_breakdown', aspect='effectiveness').model_dump()):
+            oral = run_review_agent(self.db, '再往里挖挖呗', scope=self.scope(), settings=SETTINGS, conversation_context=context)
+        self.assertEqual(oral['status'], 'ok', oral.get('error'))
+        self.assertEqual(oral['results']['r1']['parameters']['sentiment'], 'negative')
+        payload = json.loads(self.requests[0]['messages'][-1]['content'])
+        self.assertEqual(payload['compact_context']['explicit_user_intent']['sentiment'], 'negative')
+        self.assertEqual(payload['compact_context']['explicit_user_intent']['aspect'], 'effectiveness')
+
+    def test_summary_reference_preserves_effective_product_sentiment_and_detail(self):
+        self.queue()
+        first = self.run_sync('小米空调好评主要集中在哪些方面？')
+        parent = self.save(first['question'], first)
+        repeated = self.work('主要集中在哪些地方？', parent=parent)
+        self.assertEqual(repeated['result']['query_plan']['required_tools'], ['get_positive_aspects'])
+        self.assertEqual(repeated['result']['scope']['product_ids'], ['XIAOMI-TEST'])
+        detail = self.work('使用效果主要集中在哪些地方？', parent=repeated['task_id'])
+        repeated_detail = self.work('那主要集中在哪些地方呢？', parent=detail['task_id'])
+        self.assertEqual(repeated_detail['result']['results']['r1']['parameters'], {
+            'product_ids': ['XIAOMI-TEST'], 'aspect': 'effectiveness', 'sentiment': 'positive', 'topic': None})
+        # 本轮明确的负向方向覆盖历史正向条件。
+        switched = self.work('使用效果的差评主要集中在哪些地方？', parent=detail['task_id'])
+        self.assertEqual(switched['result']['results']['r1']['parameters']['sentiment'], 'negative')
+        trend = self.run_sync('按月查看负面趋势')
+        parent = self.save(trend['question'], trend)
+        unclear = self.work('主要集中在哪些地方？', parent=parent)
+        self.assertEqual(unclear['result']['status'], 'unsupported')
+        self.assertIn('还是查看评价维度', unclear['result']['answer'])
+        self.assertEqual(unclear['result']['query_executions'], 0)
+
+    def test_named_missing_non_air_conditioner_is_not_replaced_by_selection(self):
+        for question in ('外星牌冰箱的好评主要是什么？', '请看看外星牌耳机的好评主要是什么？',
+                         '小米手机的好评主要是什么？',
+                         '100013588053 与外星牌冰箱的好评主要是什么？'):
+            with self.subTest(question=question), patch('openai.OpenAI') as model:
+                result = run_review_agent(self.db, question, scope=self.scope(), settings=SETTINGS)
+            self.assertEqual(result['status'], 'unsupported')
+            self.assertIn('未找到', result['answer'])
+            self.assertEqual(result['query_executions'], 0)
+            model.assert_not_called()
+        for question in ('这个商品的好评主要是什么？', '物流方面的好评主要是什么？', '它们的好评主要是什么？'):
+            with self.subTest(question=question):
+                result = self.run_sync(question)
+                self.assertEqual(result['status'], 'ok', result.get('error'))
+
+    def test_semantic_ambiguity_is_specific_and_does_not_query(self):
+        self.queue()
+        first = self.run_sync('美的空调好评主要集中在哪些方面？')
+        parent = self.save(first['question'], first)
+        context = load_analysis_context(self.tasks, {**self.scope(), 'context_task_id': parent, 'conversation_id': 'conversation-A'})
+        draft = ReviewIntent(needs_clarification=True, clarification_question='“它”指当前空调，还是要换另一款商品？').model_dump()
+        with self.semantic_model(draft):
+            result = run_review_agent(self.db, '那它呢？', scope=self.scope(), settings=SETTINGS, conversation_context=context)
+        self.assertEqual(result['status'], 'unsupported')
+        self.assertIn('“它”指当前空调', result['answer'])
+        self.assertEqual(result['query_executions'], 0)
+        self.assertEqual(result['intent_model_calls'], 1)
+
+    def test_model_can_inherit_only_the_grounded_topic_for_its_aspect(self):
+        self.queue()
+        first = self.run_sync('它的制冷效果怎么样？')
+        parent = self.save(first['question'], first)
+        context = load_analysis_context(self.tasks, {**self.scope(), 'context_task_id': parent, 'conversation_id': 'conversation-A'})
+        draft = ReviewIntent(query_type='opinion_breakdown', aspect='effectiveness', sub_intent='drill_down', topic='制冷').model_dump()
+        with self.semantic_model(draft):
+            result = run_review_agent(self.db, '那再往里挖挖呢？', scope=self.scope(), settings=SETTINGS, conversation_context=context)
+        self.assertEqual(result['status'], 'ok', result.get('error'))
+        self.assertEqual(result['results']['r1']['parameters']['topic'], '制冷')
+        payload = json.loads(self.requests[0]['messages'][-1]['content'])
+        self.assertEqual(payload['compact_context']['explicit_user_intent']['topic'], '制冷')
+        with self.semantic_model({**draft, 'topic': '安装'}):
+            result = run_review_agent(self.db, '那再往里挖挖呢？', scope=self.scope(), settings=SETTINGS, conversation_context=context)
+        self.assertEqual(result['status'], 'error')
+        self.assertEqual(result['query_executions'], 0)
 
     def semantic_model(self, draft, *, error=None):
         self.requests = []

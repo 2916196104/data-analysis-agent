@@ -37,7 +37,12 @@ const model = createServer(async (request, response) => {
       semanticCalls++;
       assert.ok(!raw.includes('file_sha256') && !raw.includes('raw_json'));
       assert.ok(Buffer.byteLength(body.messages.at(-1).content) <= 16000);
-      message = { role: 'assistant', content: JSON.stringify({ query_type: 'aspect_summary', sentiment: 'positive', needs_clarification: false }) };
+      const intent = payload.question === '那再往里挖挖呢？'
+        ? { query_type: 'opinion_breakdown', sub_intent: 'drill_down', needs_clarification: false }
+        : payload.question === '那它呢？'
+          ? { query_type: null, needs_clarification: true, clarification_question: '“它”指当前商品，还是要切换另一款商品？' }
+          : { query_type: 'aspect_summary', sentiment: 'positive', needs_clarification: false };
+      message = { role: 'assistant', content: JSON.stringify(intent) };
     } else {
       message = { role: 'assistant', content: JSON.stringify({ summary: payload.summary_options[0],
         items: payload.findings.map(fact => ({ finding_ref: fact.finding_ref, aspect_key: fact.aspect_key, explanation: fact.statements[0] })), caveats: [] }) };
@@ -101,7 +106,7 @@ from data_analysis_agent.agents import reviews
 original=reviews.run_review_agent
 def execute(*args,**kwargs):
     result=original(*args,**kwargs)
-    if args[1]=='美的空调与小米空调的优缺点都有哪些？':
+    if args[1] in ('美的空调与小米空调的优缺点都有哪些？', 'DEMO-B 的差评主要是什么？', '使用效果主要集中在哪些地方？（继续上轮）'):
         result.update(status='error',error=dict(code='timeout',message='隔离验收注入的失败'))
         result.pop('answer',None);result.pop('public_answer',None)
     return result
@@ -141,6 +146,9 @@ main()
     let task;
     await until(async () => { task = (await (await fetch(api + '/tasks/' + id)).json()).result; return ['succeeded', 'failed', 'partial'].includes(task.status); }, 'analysis');
     assert.equal(task.status, expectedStatus, JSON.stringify(task.error));
+    const latest = page.locator('.chat-turn').last();
+    if (task.status === 'succeeded') await latest.locator('.chat-report').waitFor();
+    else await latest.getByText('分析未完成，未发布统计与原文。请重试任务。', { exact: true }).waitFor();
     await until(async () => await input.isEnabled(), 'answer shown');
     return task;
   }
@@ -159,6 +167,24 @@ main()
     assert.equal(second.result.results.r1.parameters.sentiment, 'positive');
     assert.equal(second.result.results.r1.parameters.aspect, 'effectiveness');
     assert.equal(second.result.total_model_calls, 0);
+    const oralDetail = record(await send('那再往里挖挖呢？'));
+    assert.equal(oralDetail.parameters.context_task_id, second.task_id);
+    assert.equal(oralDetail.result.intent_model_calls, 1);
+    assert.equal(oralDetail.result.results.r1.parameters.sentiment, 'positive');
+    assert.equal(oralDetail.result.results.r1.parameters.aspect, 'effectiveness');
+    assert.equal(oralDetail.result.validation.status, 'passed');
+    const repeatedDetail = record(await send('主要集中在哪些地方？'));
+    assert.deepEqual(repeatedDetail.result.results.r1.parameters, oralDetail.result.results.r1.parameters);
+    const detailReport = page.locator('.chat-turn').last().locator('.chat-report');
+    await detailReport.locator('summary').first().click();
+    await detailReport.getByText('观点文本分析 [r1]', { exact: true }).waitFor();
+    for (const width of [1440, 1024, 768]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await detailReport.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: path.join(out, `intent-detail-${width}.png`), animations: 'disabled' });
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
     const third = record(await send('那物流方面呢？'));
     assert.equal(third.result.results.r1.parameters.sentiment, 'positive');
     assert.equal(third.result.results.r1.parameters.aspect, 'logistics');
@@ -171,6 +197,21 @@ main()
     const unknown = record(await send('外星牌空调的好评主要是什么？'));
     assert.equal(unknown.result.status, 'unsupported'); assert.equal(unknown.result.query_executions, 0);
     assert.match(unknown.result.public_answer.summary, /未找到/);
+    const unknownCategory = record(await send('外星牌冰箱的好评主要是什么？'));
+    assert.equal(unknownCategory.result.status, 'unsupported'); assert.equal(unknownCategory.result.query_executions, 0);
+    assert.match(unknownCategory.result.public_answer.summary, /外星牌冰箱/);
+    const negativeFailed = record(await send('DEMO-B 的差评主要是什么？', 'failed'));
+    const detailFailed = record(await send('使用效果主要集中在哪些地方？（继续上轮）', 'failed'));
+    assert.equal(detailFailed.parameters.context_task_id, negativeFailed.task_id);
+    const recovered = record(await send('那物流方面呢？'));
+    assert.equal(recovered.parameters.context_task_id, detailFailed.task_id);
+    assert.deepEqual(recovered.result.scope.product_ids, ['DEMO-B']);
+    assert.equal(recovered.result.results.r1.parameters.sentiment, 'negative');
+    assert.equal(recovered.result.results.r1.parameters.aspect, 'logistics');
+    assert.equal(recovered.result.validation.status, 'passed');
+    const unclear = record(await send('那它呢？'));
+    assert.equal(unclear.result.status, 'unsupported'); assert.equal(unclear.result.query_executions, 0);
+    assert.match(unclear.result.public_answer.summary, /当前商品/);
     const failed = record(await send('美的空调与小米空调的优缺点都有哪些？', 'failed'));
     await page.reload(); await page.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
     const comparison = record(await send('对比这两款商品的差别。'));
@@ -188,10 +229,12 @@ main()
       assert.ok(measure.documentWidth <= width + 1); assert.equal(measure.overflow, false); assert.ok(measure.inputBottom <= 1001);
       screenshots.push(measure);
     }
-    assert.equal(semanticCalls, 1);
+    assert.equal(semanticCalls, 3);
     report.checks = ['A positive effectiveness drill-down', 'B positive overview', 'C inherited logistics intent',
       'D failed user entities restored after refresh, concrete model selection', 'E unknown entity rejected',
-      'F validation and read-only database', 'one bounded schema call for colloquial fallback'];
+      'F validation and read-only database', 'one bounded schema call per colloquial fallback',
+      'colloquial drill-down reaches backend, specific ambiguity still clarifies',
+      'two failed turns preserve explicit negative sentiment and product', 'missing non-air-conditioner never replaced'];
     report.semanticCalls = semanticCalls;
   } else {
   const task = await send('美的空调与小米空调的优缺点都有哪些？');

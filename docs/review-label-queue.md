@@ -97,6 +97,20 @@ Worker 自带发件箱补发。需要独立派发进程时：
 
 设置 `LABEL_EXECUTION_MODE=redis` 后，根目录 `run.py` 会自动启动 Redis 标注 Worker；如果手动启动 API，则另开终端运行 `queue worker --db env:DATABASE_URL`。原页面标注和 `review-label run` 将只创建/观察持久运行，调用统一由专用 Worker 负责；模型 batch 和并发使用 Worker 的 `LABEL_*` 配置。页面原有单次 1000 条上限保留，大范围用 `queue submit`。
 
+### 切换模型后启动失败
+
+如果启动日志出现“Worker 模型配置与任务身份不匹配”，先核对当前 `.env` 的 `LLM_MODEL_ID`、`LLM_BASE_URL` 与旧标注任务的模型身份。进程环境变量优先于 `.env`，IDE 的环境配置也需要核对。标注任务的身份由模型、服务地址和标注提示词版本共同决定，不能直接将旧任务改为新模型执行。
+
+Worker 现在只补发、领取与当前完整身份一致的任务。共享 Redis Stream 中旧身份的活动通知，只有确认 PostgreSQL 已保留发件箱时才释放；任务状态、调用预算、标注与发件箱均不修改，原身份 Worker 可按原补发间隔恢复。这也避免旧消息占满 Stream 后阻塞当前身份任务。日志会提示“已跳过其他模型身份的标注通知”，Worker 继续运行。
+
+更新代码后按原方式启动即可，不需要删任务、清空 Redis 或修改数据库：
+
+```powershell
+.\.venv\Scripts\python.exe run.py
+```
+
+旧任务仍需要原模型配置才能继续。可以恢复原 `.env`，或另行准备仅保存在本机的旧配置文件，使用 `queue worker --db env:DATABASE_URL --env-file <旧配置文件>` 启动；旧配置文件也要包含数据库和 Redis 配置，不要纳入版本控制。显式指定 `--run-id` 但身份不一致时，Worker 会在建任务或调用模型之前拒绝执行。
+
 原协调入口默认等待最多 3600 秒，可用 `LABEL_COORDINATOR_TIMEOUT_SECONDS` 调整；超时返回部分状态和 run_id，后台持久工作仍可继续。停止页面后台任务不会删除持久运行。`LABEL_EXECUTION_MODE=local` 保留原小批量行为，**不要在同一模型账户同时混用 local 标注和共享配额 Worker**。销售/问答等其他模型调用不在本标注限流器内，配额应按账户实际分配。
 
 ## 中断恢复与失败处理

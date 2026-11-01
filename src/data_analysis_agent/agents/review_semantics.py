@@ -28,7 +28,7 @@ def _title_matches(mention, title):
 def product_mentions(question, products):
     """只提取用户明确写出的实体；不把页面默认商品当作用户指代。"""
     found = []
-    for clause in re.split(r'与|和|以及|对比|比较|[，,；;]', question):
+    for clause in re.split(r'以及|还有|与|和|及|对比|比较|[，,；;、]', question):
         explicit = [row['product_id'] for row in products if re.search(
             r'(?<![A-Za-z0-9_])' + re.escape(row['product_id']) + r'(?![A-Za-z0-9_])', clause)]
         explicit += [row['title'] for row in products if row['title'] and row['title'] in clause]
@@ -46,6 +46,15 @@ def product_mentions(question, products):
             if not re.match(r'^(?:这|那|该|所选|当前|两款)', name):
                 found.append(name)
                 brands = [value for value in brands if not name.startswith(value.removesuffix('空调'))]
+        else:
+            # “名称的好评”中的明确名称也必须匹配目录，不能只识别空调后退回页面商品。
+            subject = re.match(r'^(?:请|帮我|看看|查看|分析|一下|查询|统计|分别)*(.{2,100}?)的(?:好评|差评|优缺点|优点|缺点|评价|使用效果)', clause.strip())
+            if subject:
+                name = subject[1].strip(' “ ”「」\"')
+                generic = re.fullmatch(r'(?:这|那|该|所选|当前|上述|上轮|所有|全部)(?:两款|款|个)?(?:商品|产品|空调|机器)?|它们|两者|二者|两款商品|商品|产品|用户|消费者|买家|大家|(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面)?', name)
+                if not generic:
+                    found.append(name)
+                    brands = [value for value in brands if not name.startswith(value.removesuffix('空调'))]
         found.extend(brands)
     found.extend(value for value in re.findall(r'(?<!\d)\d{8,}(?!\d)', question) if value not in found)
     return list(dict.fromkeys(found))

@@ -168,9 +168,11 @@ describe('追问解析使用真实查询参数', () => {
     expect(multiPage.query.queries?.[0].parameters.page).toBe(3);
   });
 
-  it('首轮追问、未知指代和失败结果先澄清，不制造默认查询', () => {
+  it('首轮追问和失败游标先澄清，有上下文的未知指代交给后端', () => {
     for (const text of ['只看物流', '换成按月', '继续查原文']) expect(resolveQuery(text, scope).clarification).toBeTruthy();
-    expect(resolveQuery('那它呢？', scope, parent(trend())).clarification).toBeTruthy();
+    expect(resolveQuery('那它呢？', scope).clarification).toBeTruthy();
+    expect(resolveQuery('那它呢？', scope, parent(trend()))).toMatchObject({
+      query: { effectiveQuestion: '那它呢？', parentTaskId: 'task-1' }, parameters: scope });
     expect(resolveQuery('只看物流', scope, { ...parent(trend()), result: { ...result(trend()), status: 'error' } }).clarification).toBeTruthy();
     expect(resolveQuery('按月查看包装和物流问题变化', scope).query.effectiveQuestion).toBe('按月查看包装和物流问题变化');
   });
@@ -195,6 +197,19 @@ describe('追问解析使用真实查询参数', () => {
 });
 
 describe('追问提交、澄清和快照恢复', () => {
+  it('含代词的口语下钻携带父任务，不被前端泛化澄清截断', async () => {
+    const first = task('focused', result(trend('effectiveness')));
+    vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id === 'focused' ? first : id ? task(id, result(trend())) : null, refresh: vi.fn() }));
+    const submit = vi.spyOn(api, 'submit').mockResolvedValueOnce({ task: first, reused: false })
+      .mockResolvedValueOnce({ task: task('detail', result(trend())), reused: false });
+    const hook = renderHook(() => useAgentChat());
+    await act(async () => { await hook.result.current.send(scope, '按月看使用效果变化'); });
+    await act(async () => { await hook.result.current.send(scope, '那再往里挖挖呢？'); });
+    expect(submit.mock.calls[1][0]).toMatchObject({ parameters: {
+      question: '那再往里挖挖呢？', context_task_id: 'focused', product_ids: ['A'] } });
+    expect(hook.result.current.session.turns.at(-1)?.clarification).toBeUndefined();
+  });
+
   it('未命中前端关键词的口语仍携带任务引用，交给后端结构化补全', async () => {
     const first = task('focused', result(trend('effectiveness')));
     vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id === 'focused' ? first : id ? task(id, result(trend())) : null, refresh: vi.fn() }));

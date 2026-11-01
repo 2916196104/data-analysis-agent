@@ -34,7 +34,9 @@ def cases():
         c("ratings", "查看原始星级分布", None, ("get_rating_distribution", {})),
         c("daily", "按日查看负面趋势", "negative", ("get_trend", {"period": "day"})),
         c("positive-trend", "按月查看好评趋势", "positive", status="unsupported"),
-        c("mixed", "好评和差评都分析一下", None, status="unsupported"),
+        c("mixed", "好评和差评都分析一下", None,
+          *(("get_opinion_breakdown", {"product_ids": [product], "sentiment": sentiment, "aspect": None, "topic": None})
+            for product in ("DEMO-A", "DEMO-B") for sentiment in ("positive", "negative"))),
         c("fine-dimension", "制冷和静音的好评数量", "positive", status="unsupported"),
         c("installation", "安装服务主要有哪些问题", "negative", ("get_opinion_breakdown", {"aspect": "service", "sentiment": "negative", "topic": "安装"})),
         c("unclear", "你看怎么样", None, status="unsupported"),

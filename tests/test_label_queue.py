@@ -7,6 +7,7 @@ import time
 import unittest
 import uuid
 from contextlib import closing
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import urlsplit, urlunsplit
@@ -114,6 +115,82 @@ class QueueStage1Tests(unittest.TestCase):
         self.assertEqual(self.calls, calls)
         second = store.create_run(self.db, SETTINGS)
         self.assertEqual(store.seed_run(self.db, second), 0)
+
+    def test_stage1_worker_skips_other_model_url_and_prompt_without_claiming(self):
+        from data_analysis_agent.core.serialization import content_sha256
+        from data_analysis_agent.reviews.prompts import PROMPT_VERSION
+
+        foreign_profiles = []
+        for settings, prompt in ((replace(SETTINGS, model="old-model"), PROMPT_VERSION),
+                                 (replace(SETTINGS, base_url="https://other.invalid/v1"), PROMPT_VERSION),
+                                 (SETTINGS, "old-label-prompt")):
+            with patch.object(store, "PROMPT_VERSION", prompt):
+                run_id = store.create_run(self.db, settings)
+            store.seed_run(self.db, run_id)
+            foreign_profiles.append(content_sha256([settings.model, settings.base_url, prompt]))
+        self.seed()
+        # 模拟上次退出留下的过期租约，当前身份不应接管或修改它。
+        self.execute("""UPDATE label_tasks SET status='running',worker_id='old-worker',
+            lease_token='old-token',lease_until=0 WHERE profile_id=?""", (foreign_profiles[0],))
+        worker = self.worker()
+        with self.assertLogs("data_analysis_agent.jobs.label_worker", level="WARNING"):
+            self.assertEqual(worker.step(), 12)
+        self.assertEqual(self.calls, 3)
+        self.assertEqual(self.scalar("SELECT COUNT(*) FROM label_tasks WHERE status='succeeded'"), 12)
+        self.assertEqual(self.scalar("SELECT COUNT(*) FROM label_tasks WHERE attempts=0"), 36)
+        self.assertEqual(self.scalar("SELECT COUNT(*) FROM label_tasks WHERE lease_token='old-token'"), 12)
+        self.assertEqual(self.scalar("SELECT COUNT(*) FROM label_outbox"), 36)
+        self.assertEqual(self.stream.health()["pending_messages"], 0)
+        self.assertEqual(self.redis.xlen(self.stream.name), 0)
+        # 仅向当前身份补发，旧任务的发件箱投递次数保持不变。
+        deliveries = self.scalar("SELECT SUM(deliveries) FROM label_outbox")
+        self.execute("UPDATE label_outbox SET next_at=0")
+        self.assertEqual(store.publish_outbox(self.db, self.stream, profile_id=worker.profile_id), 0)
+        self.assertEqual(self.scalar("SELECT SUM(deliveries) FROM label_outbox"), deliveries)
+
+    def test_stage1_foreign_backlog_does_not_block_current_and_original_worker_recovers(self):
+        previous = replace(SETTINGS, model="previous-model")
+        foreign_run = store.create_run(self.db, previous)
+        store.seed_run(self.db, foreign_run)
+        store.publish_outbox(self.db, self.stream)
+        self.stream.max_backlog = 12
+        store.seed_run(self.db, self.run_id)
+        worker = self.worker()
+        with self.assertLogs("data_analysis_agent.jobs.label_worker", level="WARNING"):
+            self.assertEqual(worker.run(run_id=self.run_id, max_seconds=10), "completed")
+        self.assertEqual(self.calls, 3)
+        self.assertEqual(self.scalar("SELECT COUNT(*) FROM label_tasks WHERE status='queued'"), 12)
+        self.assertEqual(self.scalar("SELECT COUNT(*) FROM label_outbox"), 12)
+        # 旧通知释放后仍由 PostgreSQL 补发，不需要删除/重建旧任务。
+        self.execute("UPDATE label_outbox SET next_at=0")
+        original = LabelWorker(self.db, self.stream, previous, client=worker.client)
+        self.assertEqual(original.run(run_id=foreign_run, max_seconds=10), "completed")
+        self.assertEqual(self.calls, 6)
+        self.assertEqual(self.scalar("SELECT COUNT(*) FROM label_tasks WHERE status='succeeded'"), 24)
+        self.assertEqual(self.scalar("SELECT COUNT(DISTINCT requested_model) FROM review_annotations"), 2)
+
+    def test_stage1_explicit_run_mismatch_and_last_guard_fail_before_model(self):
+        from data_analysis_agent.core.errors import ReviewDataError
+
+        run_id = store.create_run(self.db, replace(SETTINGS, model="old-model"))
+        worker = self.worker()
+        with self.assertRaisesRegex(ReviewDataError, "身份不匹配"):
+            worker.run(run_id=run_id, max_seconds=1)
+        self.assertEqual(self.scalar("SELECT COUNT(*) FROM label_tasks"), 0)
+        with self.assertRaisesRegex(ReviewDataError, "身份不匹配"):
+            worker._one([{"model": SETTINGS.model, "base_url": SETTINGS.base_url,
+                          "prompt_version": "old-label-prompt"}])
+        self.assertEqual(self.calls, 0)
+
+    def test_stage1_foreign_notification_without_durable_outbox_is_not_acknowledged(self):
+        foreign_run = store.create_run(self.db, replace(SETTINGS, model="old-model"))
+        store.seed_run(self.db, foreign_run)
+        store.publish_outbox(self.db, self.stream)
+        self.execute("DELETE FROM label_outbox")
+        self.assertEqual(self.worker().step(), 0)
+        self.assertEqual(self.stream.health()["pending_messages"], 12)
+        self.assertEqual(self.scalar("SELECT COUNT(*) FROM label_tasks WHERE status='queued'"), 12)
+        self.assertEqual(self.calls, 0)
 
     def test_stage1_queued_body_fingerprint_survives_content_change_and_restart(self):
         self.seed()
