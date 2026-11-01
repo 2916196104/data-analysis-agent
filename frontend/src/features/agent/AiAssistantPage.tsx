@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Spin } from 'antd';
-import { RobotOutlined } from '@ant-design/icons';
+import { Alert, Button, Drawer, Spin } from 'antd';
+import { HistoryOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
 import type { AgentResult, AnalysisParameters, Options, Quality } from '../../types';
 import type { AnalysisDraft } from '../../analysis-draft';
 import type { AgentChat } from './useAgentChat';
@@ -18,13 +18,15 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
   loading: boolean; refreshKey: number;
   mode: ChatMode; onMode: (mode: ChatMode) => void;
   onInput: (value: string) => void; onSend: () => void;
-  onPrepare: (result: AgentResult, products: string[]) => void; onNewQuestion: () => void;
+  onPrepare: (result: AgentResult, products: string[]) => void; onNewQuestion: (preserveSession?: boolean) => void;
   onApplyScope: (scope: AssistantScope) => void;
 }) {
   const messages = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const [showLatest, setShowLatest] = useState(false);
   const [scopeEditing, setScopeEditing] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  useEffect(() => { stickToBottom.current = true; setShowLatest(false); setScopeEditing(false); }, [chat.activeSessionId]);
   const analysis = mode === 'analysis';
   const suggestions = (analysis ? questions : basicQuestions).map(question => <Button key={question}
     disabled={chat.pending || (analysis && !parameters)} onClick={() => onInput(question)}>{question}</Button>);
@@ -50,14 +52,34 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
     setShowLatest(false);
   }
   return <section className="ai-assistant" aria-labelledby="ai-assistant-title">
-    <header className="chat-heading"><h1 id="ai-assistant-title">AI 评论分析助手</h1></header>
-    {chat.storageError && <Alert className="chat-notice" type="warning" showIcon message="本机分析记录无法保存或读取，刷新后可能丢失；后端任务仍可从任务与报告查看。" />}
-    {chat.restoreError && <Alert className="chat-notice" type="error" showIcon message={chat.restoreError} action={<Button onClick={onNewQuestion}>继续新提问</Button>} />}
-    {chat.activeState.error && <Button className="chat-recover" type="link" onClick={onNewQuestion}>继续新提问</Button>}
+    <header className="chat-heading"><h1 id="ai-assistant-title">AI 评论分析助手</h1>
+      <div className="chat-session-actions">
+        <Button aria-label="历史会话" icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>历史会话</Button>
+        <Button aria-label="新建会话" type="primary" icon={<PlusOutlined />} onClick={() => { onNewQuestion(true); chat.createSession(); onInput(''); }}>新建会话</Button>
+      </div>
+    </header>
+    <Drawer title="历史会话" open={historyOpen} onClose={() => setHistoryOpen(false)} width="min(360px, 100vw)">
+      <p className="chat-history-note">会话仅保存在当前浏览器。继续提问使用当前选择范围。</p>
+      <nav className="chat-session-list" aria-label="历史会话列表">
+        {chat.sessions.map(item => <button key={item.id} type="button" className="chat-session-item"
+          aria-current={item.id === chat.activeSessionId ? 'true' : undefined}
+          onClick={() => { onNewQuestion(true); chat.selectSession(item.id); onInput(''); setHistoryOpen(false); }}>
+          <strong>{item.title}</strong><time dateTime={item.updatedAt}>{new Date(item.updatedAt).toLocaleString('zh-CN')}</time>
+          {item.id === chat.activeSessionId && <span>当前会话</span>}
+        </button>)}
+      </nav>
+    </Drawer>
+    {chat.storageError && <Alert className="chat-notice" type="warning" showIcon message="本机会话无法完整读取或保存，原始记录会保留；新消息刷新后可能丢失。后端任务仍可从任务与报告查看。"
+      action={chat.recoveryRaw && <Button onClick={() => {
+        const url = URL.createObjectURL(new Blob([chat.recoveryRaw!], { type: 'application/json' }));
+        const link = document.createElement('a'); link.href = url; link.download = 'chat-history-recovery.json'; link.click(); URL.revokeObjectURL(url);
+      }}>导出原始记录</Button>} />}
+    {chat.restoreError && <Alert className="chat-notice" type="error" showIcon message={chat.restoreError} action={<Button onClick={() => onNewQuestion()}>继续新提问</Button>} />}
+    {chat.activeState.error && <Button className="chat-recover" type="link" onClick={() => onNewQuestion()}>继续新提问</Button>}
     <div className="chat-messages" ref={messages} onScroll={onMessagesScroll} role="log" aria-label="聊天消息">
       <div className="chat-message-stack">
         {!chat.conversation.turns.length && !chat.restoreError && <div className="chat-welcome"><RobotOutlined /><h2>{analysis ? '从评论中找到有依据的答案' : '有什么可以帮你？'}</h2>
-          <p>{analysis ? '检查数据质量、分析趋势与星级分布，对比商品和时间窗口，导出有来源的报告。' : '基础问答仅在本次打开期间保留，不读取当前商品数据。'}</p>
+          <p>{analysis ? '检查数据质量、分析趋势与星级分布，对比商品和时间窗口，导出有来源的报告。' : '基础问答保存在当前浏览器，不读取当前商品数据。'}</p>
           <div className="chat-suggestions">{suggestions}</div>
           {chat.pending && <div className="chat-status" role="status"><Spin size="small" /> 正在恢复历史任务…</div>}
         </div>}

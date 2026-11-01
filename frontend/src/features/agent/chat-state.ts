@@ -42,12 +42,14 @@ export interface ConversationAnalysisContext {
 }
 export type ConversationTurn = ChatTurn | BasicChatTurn;
 export interface ConversationUserIntent { task_id: string; question: string; product_ids: string[]; source?: string | null; dataset_version?: string | null }
-export interface ChatSession { turns: ChatTurn[]; activeId?: string; context?: ConversationAnalysisContext; intent?: ConversationUserIntent }
+export interface AnalysisSession { turns: ChatTurn[]; activeId?: string; context?: ConversationAnalysisContext; intent?: ConversationUserIntent }
 export interface Conversation { turns: ConversationTurn[]; activeId?: string; context?: ConversationAnalysisContext; intent?: ConversationUserIntent }
+export interface ChatSession extends Conversation { id: string; title: string; createdAt: string; updatedAt: string }
+export interface ChatStore { version: 2; sessions: ChatSession[]; activeSessionId: string }
 export const CHAT_KEY = `review-agent-chat:${API_BASE}`;
 
-/** 分析及澄清快照持久化；基础问答仍只保留在内存。 */
-export function analysisSession(conversation: Conversation): ChatSession {
+/** 为既有分析消息组件提供兼容视图。 */
+export function analysisSession(conversation: Conversation): AnalysisSession {
   const turns = conversation.turns.filter((turn): turn is ChatTurn => turn.kind === 'analysis');
   return { turns, activeId: turns.some(turn => turn.id === conversation.activeId) ? conversation.activeId : undefined, context: conversation.context, intent: conversation.intent };
 }
@@ -56,11 +58,13 @@ export function isAgentTask(task: Task): boolean {
   return task.kind === 'analysis' && (typeof task.parameters.question === 'string' || task.result?.agent === true);
 }
 
-export function readChatSession(): { session: ChatSession; error: boolean } {
+export function readChatSession(raw?: string | null): { session: AnalysisSession; error: boolean } {
   try {
-    const raw = localStorage.getItem(CHAT_KEY);
+    if (raw === undefined) raw = localStorage.getItem(CHAT_KEY);
     if (!raw) return { session: { turns: [] }, error: false };
-    const saved = JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    const saved = parsed.version === 2 ? parsed.sessions.find((item: ChatSession) => item.id === parsed.activeSessionId) : parsed;
+    if (parsed.version === 2) saved.turns = saved.turns.filter((turn: ConversationTurn) => turn.kind === 'analysis');
     if (!Array.isArray(saved.turns) || saved.turns.some((turn: ChatTurn) => !turn
       || (turn.kind !== undefined && turn.kind !== 'analysis') || typeof turn.id !== 'string'
       || typeof turn.question !== 'string' || typeof turn.requestKey !== 'string'

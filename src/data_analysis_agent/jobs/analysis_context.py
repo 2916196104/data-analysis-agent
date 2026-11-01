@@ -7,7 +7,8 @@ from data_analysis_agent.reviews.parameters import BaselineScope
 
 def load_analysis_context(task_db, parameters, *, max_turns=4):
     task_id = parameters.get('context_task_id')
-    if not task_id:
+    conversation_id = parameters.get('conversation_id')
+    if not task_id or not isinstance(conversation_id, str) or not conversation_id.strip():
         return None
     context = {'user': None, 'users': [], 'validated': None, 'turns_read': 0}
     visited = set()
@@ -27,7 +28,8 @@ def load_analysis_context(task_db, parameters, *, max_turns=4):
         previous = task['parameters']
         if task['kind'] != 'analysis' or not isinstance(previous.get('question'), str):
             break
-        if previous.get('conversation_id') and parameters.get('conversation_id') != previous['conversation_id']:
+        # 无会话归属的旧任务只能查看，不能作为任意新会话的上下文入口。
+        if previous.get('conversation_id') != conversation_id:
             break
         result = task.get('result') or {}
         valid = (isinstance(result, dict) and task['status'] == 'succeeded' and not task.get('error')

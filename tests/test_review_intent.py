@@ -394,3 +394,9 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
         self.assertIsNone(load_analysis_context(self.tasks, {**params, 'conversation_id': 'other'}))
         self.assertIsNone(load_analysis_context(self.tasks, {**params, 'dataset_version': 'other'}))
         self.assertIsNone(load_analysis_context(self.tasks, {**params, 'product_ids': ['OTHER']}))
+        self.assertIsNone(load_analysis_context(self.tasks, {**params, 'conversation_id': None}))
+        original = get_task(self.tasks, parent)
+        for owner in (None, '', 'conversation-B'):
+            with self.subTest(owner=owner), patch('data_analysis_agent.jobs.analysis_context.get_task',
+                    return_value={**original, 'parameters': {**original['parameters'], 'conversation_id': owner}}):
+                self.assertIsNone(load_analysis_context(self.tasks, params))

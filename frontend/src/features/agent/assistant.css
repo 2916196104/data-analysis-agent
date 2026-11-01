@@ -1,6 +1,14 @@
 .ai-assistant { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .chat-heading { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 16px 24px; border-bottom: 1px solid var(--color-border); }
 .chat-heading h1 { margin: 0; font-size: 20px; line-height: 28px; }
+.chat-session-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.chat-history-note { color: var(--color-text-secondary); font-size: 12px; line-height: 1.7; }
+.chat-session-list { display: flex; flex-direction: column; gap: 8px; }
+.chat-session-item { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); text-align: left; cursor: pointer; font: inherit; }
+.chat-session-item strong { overflow-wrap: anywhere; }
+.chat-session-item time { color: var(--color-text-secondary); font-size: 12px; }
+.chat-session-item[aria-current="true"] { border-color: var(--color-primary); background: var(--color-primary-soft); }
+.chat-session-item span { color: var(--color-primary); font-size: 12px; }
 .chat-turn-scope { margin-bottom: 16px; padding: 12px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text-secondary); font-size: 12px; }
 .chat-scope-summary { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 12px; color: var(--color-text-secondary); font-size: 12px; line-height: 1.7; }
 .chat-scope-summary span + span { padding-left: 14px; border-left: 1px solid var(--color-border); }

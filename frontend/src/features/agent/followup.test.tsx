@@ -21,7 +21,7 @@ const evidence = (page = 1, total = 12): AgentToolResult => ({ result_id: 'r2', 
 const result = (...items: AgentToolResult[]): AgentResult => ({ agent: true, status: 'ok', scope, question: 'first', snapshot_at: '2026-10-30T00:00:00Z', validation: { status: 'passed', checks: [] },
   result_ids: items.map(item => item.result_id), results: Object.fromEntries(items.map(item => [item.result_id, item])), model_calls: 1, tool_calls: items.length, elapsed_seconds: 1, trace: [] });
 const parent = (...items: AgentToolResult[]): QueryParent => ({ id: 'turn-1', taskId: 'task-1', parameters: scope, result: result(...items) });
-const task = (id: string, value: AgentResult): Task => ({ task_id: id, kind: 'analysis', status: 'succeeded', parameters: { ...scope, question: '查询包装问题趋势' },
+const task = (id: string, value: AgentResult): Task => ({ task_id: id, kind: 'analysis', status: 'succeeded', parameters: { ...scope, question: '查询包装问题趋势', get conversation_id() { return JSON.parse(localStorage.getItem(CHAT_KEY) || '{}').activeSessionId; } },
   result: value as unknown as Task['result'], parent_task_id: null, error: null, created_at: '', started_at: '', finished_at: '', updated_at: '',
   progress: { stage: 'completed', completed: 1, total: 1, unit: 'task' } });
 
@@ -235,7 +235,7 @@ describe('追问提交、澄清和快照恢复', () => {
   it('D：失败轮次保留用户比较对象引用，未验证结果不会成为成功上下文', async () => {
     const question = '美的空调与小米空调的优缺点都有哪些？';
     const failed: Task = { ...task('failed-comparison', result(trend())), status: 'failed',
-      parameters: { ...scope, question }, result: { agent: true, status: 'error', results: { unsafe: { data: { review_count: 999999 } } } },
+      parameters: { ...scope, question, get conversation_id() { return JSON.parse(localStorage.getItem(CHAT_KEY) || '{}').activeSessionId; } }, result: { agent: true, status: 'error', results: { unsafe: { data: { review_count: 999999 } } } },
       error: { code: 'timeout', message: '模拟失败' } };
     vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id === failed.task_id ? failed : id ? task(id, result(trend())) : null, refresh: vi.fn() }));
     vi.spyOn(api, 'task').mockResolvedValue(failed);
@@ -297,15 +297,16 @@ describe('追问提交、澄清和快照恢复', () => {
     expect(submit).not.toHaveBeenCalled();
   });
 
-  it('显式引用历史第一轮使用该轮范围，关联父任务而不使用新商品', async () => {
+  it('显式引用旧历史不能悄悄覆盖当前选择范围', async () => {
     const first = task('first', result(trend()));
     localStorage.setItem(CHAT_KEY, JSON.stringify({ turns: [{ kind: 'analysis', id: 'first-turn', taskId: 'first', question: '趋势', parameters: scope, requestKey: 'key' }] }));
     vi.spyOn(api, 'task').mockResolvedValue(first);
     const submit = vi.spyOn(api, 'submit').mockResolvedValue({ task: task('new', result(trend('logistics'))), reused: false });
     const hook = renderHook(() => useAgentChat());
     await act(async () => { await hook.result.current.send({ ...scope, product_ids: ['B'] }, '沿用第1轮范围，只看物流'); });
-    expect(submit.mock.calls[0][0]).toMatchObject({ parameters: { product_ids: ['A'] } });
-    expect(hook.result.current.session.turns.at(-1)?.query?.parentTaskId).toBe('first');
+    expect(submit).not.toHaveBeenCalled();
+    expect(hook.result.current.activeTurn?.parameters.product_ids).toEqual(['B']);
+    expect(hook.result.current.activeTurn?.clarification).toBeTruthy();
   });
 
   it('缺少上文的澄清不提交任务，刷新保留澄清且不会显示失败重试', async () => {
@@ -337,17 +338,17 @@ describe('追问提交、澄清和快照恢复', () => {
     expect(readChatSession().session.turns[1].query).toEqual(followup.query);
   });
 
-  it('范围变更后直接提交当前选择，旧轮快照不变', async () => {
+  it('范围变更后提示重新明确问题，旧轮快照不变', async () => {
     const submit = vi.spyOn(api, 'submit').mockResolvedValue({ task: task('first', result(trend())), reused: false });
     const hook = renderHook(() => useAgentChat());
     await act(async () => { await hook.result.current.send(scope, '查询趋势'); });
     const before = structuredClone(hook.result.current.session.turns[0]);
     await act(async () => { await hook.result.current.send({ ...scope, product_ids: ['B'] }, '换成按月'); });
-    expect(submit).toHaveBeenCalledTimes(2);
-    expect(submit.mock.calls[1][0]).toMatchObject({ parameters: { product_ids: ['B'], question: expect.stringContaining('"period":"month"') } });
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.activeTurn?.parameters.product_ids).toEqual(['B']);
     expect(hook.result.current.session.turns[0]).toEqual(before);
-    expect(hook.result.current.session.turns[1].clarification).toBeUndefined();
-    expect(JSON.parse(localStorage.getItem(CHAT_KEY)!).turns).toHaveLength(2);
+    expect(hook.result.current.session.turns[1].clarification?.message).toContain('当前选择范围');
+    expect(JSON.parse(localStorage.getItem(CHAT_KEY)!).sessions[0].turns).toHaveLength(2);
   });
 
   it('无法读取历史结果时不猜测，并保留可见澄清', async () => {

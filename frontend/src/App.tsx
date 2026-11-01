@@ -107,7 +107,17 @@ export default function App() {
   const task = taskState.id === selectedTaskId ? taskState.task : null;
   const run = taskState.id === selectedTaskId ? taskState.run : null;
   const chat = useAgentChat(route.page === 'assistant' ? route.taskId : undefined,
-    JSON.stringify([draft.dataset, [...draft.productIds].sort(), draft.profileId, draft.current, draft.baseline]));
+    JSON.stringify([draft.dataset, [...draft.productIds].sort(), draft.profileId, draft.current, draft.baseline]),
+    analysisParameters(draft, options, quality));
+  const activeChatId = useRef(chat.activeSessionId);
+  const inputSessionId = useRef(chat.activeSessionId);
+  activeChatId.current = chat.activeSessionId;
+  useEffect(() => {
+    if (inputSessionId.current === chat.activeSessionId) return;
+    inputSessionId.current = chat.activeSessionId;
+    setBasicInput('');
+    setDraft(previous => ({ ...previous, agentQuestion: '' }));
+  }, [chat.activeSessionId]);
   const fetchHistory = useCallback(async () => {
     const requestId = ++historyRequest.current;
     setHistoryLoading(true);
@@ -439,7 +449,7 @@ export default function App() {
     if (!question || chat.pending || (chatMode === 'analysis' && !chatParameters)) return;
     if (route.page === 'assistant' && route.taskId) navigate({ page: 'assistant' });
     const sent = chatMode === 'basic' ? await chat.sendBasic(question) : await chat.send(chatParameters!, question);
-    if (!sent) return;
+    if (!sent || activeChatId.current !== chat.activeSessionId) return;
     if (chatMode === 'basic') setBasicInput(previous => previous.trim() === question ? '' : previous);
     else setDraft(previous => previous.agentQuestion?.trim() === question ? { ...previous, agentQuestion: '' } : previous);
   };
@@ -471,7 +481,7 @@ export default function App() {
           mode={chatMode} onMode={setChatMode} input={chatMode === 'basic' ? basicInput : draft.agentQuestion || ''}
           onInput={value => chatMode === 'basic' ? setBasicInput(value) : setDraft(previous => ({ ...previous, agentQuestion: value }))}
           onSend={() => void sendChat()} onPrepare={prepareAgent}
-          onNewQuestion={() => { chat.release(); navigate({ page: 'assistant' }); }}
+          onNewQuestion={preserveSession => { if (!preserveSession) chat.release(); navigate({ page: 'assistant' }); }}
         /> : section === 'tasks' ? <TaskReportsPage tasks={history} page={page} loading={historyLoading} error={historyError}
           notes={local.notes} selectedId={local.selected} deleteBusy={deleteBusy} formatCreatedAt={dateLabel}
           pendingDelete={pendingDelete?.kind === 'task' ? pendingDelete : undefined}

@@ -63,7 +63,7 @@ describe('助手界面模式接入', () => {
     expect(api.submit).not.toHaveBeenCalled();
     expect(vi.mocked(useTask).mock.calls.every(([id]) => id === null)).toBe(true);
     expect(document.querySelector('.chat-report')).toBeNull();
-    expect(Object.values(localStorage).join('')).not.toContain('差评率是多少？');
+    expect(Object.values(localStorage).join('')).toContain('差评率是多少？');
     expect((input as HTMLTextAreaElement).value).toBe('');
   });
 

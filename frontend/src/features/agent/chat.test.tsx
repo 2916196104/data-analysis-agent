@@ -73,7 +73,7 @@ describe('AI 聊天提交与恢复', () => {
     await act(async () => { await hook.result.current.send(parameters, '第二个问题'); });
     expect(submit.mock.calls[1][0]).toEqual({ kind: 'analysis', parameters: { ...parameters, question: '第二个问题', conversation_id: expect.any(String), context_task_id: 'one' } });
     expect(hook.result.current.session.turns.map(turn => turn.question)).toEqual(['第一个问题', '第二个问题']);
-    expect(JSON.parse(localStorage.getItem(CHAT_KEY)!).turns[0]).not.toHaveProperty('result');
+    expect(JSON.parse(localStorage.getItem(CHAT_KEY)!).sessions[0].turns[0]).not.toHaveProperty('result');
     hook.unmount();
     const refreshed = renderHook(() => useAgentChat());
     expect(refreshed.result.current.session.turns).toHaveLength(2);
@@ -174,7 +174,7 @@ describe('AI 聊天提交与恢复', () => {
 });
 
 describe('基础问答与分析消息隔离', () => {
-  it('普通问答只调用 chat，记录内存回答，不创建任务或写入本机历史', async () => {
+  it('普通问答只调用 chat，保存本机会话，不创建分析任务', async () => {
     const chat = vi.spyOn(api, 'chat').mockResolvedValue({ answer: '普通回答' });
     const submit = vi.spyOn(api, 'submit');
     const retry = vi.spyOn(api, 'retry');
@@ -185,7 +185,7 @@ describe('基础问答与分析消息隔离', () => {
     expect(chat).toHaveBeenCalledWith('你能做什么？');
     expect(submit).not.toHaveBeenCalled();
     expect(retry).not.toHaveBeenCalled();
-    expect(save).not.toHaveBeenCalled();
+    expect(save).toHaveBeenCalled();
     expect(useTask).toHaveBeenLastCalledWith(null);
     expect(hook.result.current.conversation.turns).toEqual([{
       kind: 'basic', id: expect.any(String), question: '你能做什么？', status: 'succeeded', answer: '普通回答',
@@ -255,7 +255,7 @@ describe('基础问答与分析消息隔离', () => {
     expect(turns[1]).toMatchObject({ kind: 'basic', status: 'succeeded', answer: '重新发送后的回答' });
     expect(chat.mock.calls).toEqual([['问题'], ['问题']]);
     expect(retry).not.toHaveBeenCalled();
-    expect(localStorage.getItem(CHAT_KEY)).toBeNull();
+    expect(localStorage.getItem(CHAT_KEY)).toContain('重新发送后的回答');
   });
 
   it('空问题及超长问题不产生消息，空回答也不能标记为成功', async () => {
@@ -272,7 +272,7 @@ describe('基础问答与分析消息隔离', () => {
     expect(hook.result.current.posting).toBe(false);
   });
 
-  it('两类消息保持内存顺序，后续分析保存时也不会把普通问答写入历史', async () => {
+  it('两类消息保持顺序，刷新恢复分析引用及普通问答', async () => {
     const submit = vi.spyOn(api, 'submit').mockResolvedValueOnce({ task: savedTask('one'), reused: false })
       .mockResolvedValueOnce({ task: savedTask('two'), reused: false });
     const chat = vi.spyOn(api, 'chat').mockResolvedValue({ answer: '仅在内存中的回答' });
@@ -280,21 +280,21 @@ describe('基础问答与分析消息隔离', () => {
     await act(async () => { await hook.result.current.send(parameters, '第一个分析'); });
     const savedBeforeBasic = localStorage.getItem(CHAT_KEY);
     await act(async () => { await hook.result.current.sendBasic('仅在内存中的普通问题'); });
-    expect(localStorage.getItem(CHAT_KEY)).toBe(savedBeforeBasic);
+    expect(localStorage.getItem(CHAT_KEY)).not.toBe(savedBeforeBasic);
     const basicId = hook.result.current.activeMessage!.id;
     act(() => { hook.result.current.release(); });
-    expect(JSON.parse(localStorage.getItem(CHAT_KEY)!).activeId).toBeUndefined();
+    expect(JSON.parse(localStorage.getItem(CHAT_KEY)!).sessions[0].activeId).toBeUndefined();
     await act(async () => { await hook.result.current.send(parameters, '第二个分析'); });
     expect(hook.result.current.conversation.turns.map(turn => turn.kind)).toEqual(['analysis', 'basic', 'analysis']);
     expect(hook.result.current.session.turns.map(turn => turn.taskId)).toEqual(['one', 'two']);
     const stored = localStorage.getItem(CHAT_KEY)!;
-    expect(JSON.parse(stored).turns.map((turn: { kind: string }) => turn.kind)).toEqual(['analysis', 'analysis']);
-    expect(stored).not.toContain('仅在内存');
-    expect(stored).not.toContain(basicId);
+    expect(JSON.parse(stored).sessions[0].turns.map((turn: { kind: string }) => turn.kind)).toEqual(['analysis', 'basic', 'analysis']);
+    expect(stored).toContain('仅在内存');
+    expect(stored).toContain(basicId);
     expect(submit.mock.calls[1][0]).toEqual({ kind: 'analysis', parameters: { ...parameters, question: '第二个分析', conversation_id: expect.any(String), context_task_id: 'one' } });
     hook.unmount();
     const restored = renderHook(() => useAgentChat());
-    expect(restored.result.current.conversation.turns.map(turn => turn.kind)).toEqual(['analysis', 'analysis']);
+    expect(restored.result.current.conversation.turns.map(turn => turn.kind)).toEqual(['analysis', 'basic', 'analysis']);
     expect(restored.result.current.activeTurn?.taskId).toBe('two');
     expect(chat).toHaveBeenCalledTimes(1);
     expect(submit).toHaveBeenCalledTimes(2);
@@ -328,7 +328,7 @@ describe('基础问答与分析消息隔离', () => {
     expect(hook.result.current.conversation.turns).toHaveLength(2);
   });
 
-  it('普通问答后重试失败分析，继续使用原 retry 接口且不持久化普通消息', async () => {
+  it('普通问答后重试失败分析，继续使用原 retry 接口并持久化普通消息', async () => {
     vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id,
       task: id ? { ...savedTask(id), status: id === 'failed' ? 'failed' : 'succeeded' } : null, refresh: vi.fn() }));
     vi.spyOn(api, 'submit').mockResolvedValue({ task: { ...savedTask('failed'), status: 'failed' }, reused: false });
@@ -342,7 +342,7 @@ describe('基础问答与分析消息隔离', () => {
     expect(retry).toHaveBeenCalledWith('failed', expect.any(String));
     expect(hook.result.current.activeTurn?.taskId).toBe('retried');
     expect(hook.result.current.conversation.turns[1]).toMatchObject({ kind: 'basic', answer: '内存回答' });
-    expect(localStorage.getItem(CHAT_KEY)).not.toContain('内存回答');
+    expect(localStorage.getItem(CHAT_KEY)).toContain('内存回答');
   });
 
   it('存储不可用时普通问答仍能完成，但刷新不会恢复它', async () => {
@@ -386,7 +386,7 @@ describe('基础问答与分析消息隔离', () => {
     await act(async () => { resolve({ answer: '延迟回答' }); await pending; });
     expect(hook.result.current.activeTurn?.taskId).toBe('history');
     expect(hook.result.current.conversation.turns[0]).toMatchObject({ kind: 'basic', status: 'succeeded', answer: '延迟回答' });
-    expect(localStorage.getItem(CHAT_KEY)).not.toContain('延迟回答');
+    expect(localStorage.getItem(CHAT_KEY)).toContain('延迟回答');
   });
 });
 
