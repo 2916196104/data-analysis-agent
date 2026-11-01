@@ -101,7 +101,7 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
     // 有任务引用的口语交给后端补全或具体澄清；前端不据代词否决语义解析。
     // 只有全局选择未变化时才继承上轮的语言日期；已确认的新筛选优先。
     const scope = target && sameScope(parameters, target.selection || target.parameters) ? target.parameters : parameters;
-    return { query, parameters: copyScope(scope) };
+    return { query, parameters: copyScope({ ...scope, product_ids: parameters.product_ids }) };
   }
   if (op.type === 'ambiguous_range') return clarify('“前三个月”可能指窗口开始的三个月，也可能指最近三个月。请明确起止日期或改问“最近三个月”。');
   if (op.type === 'priority') return clarify('现有统计缺少严重程度、业务影响与成本信息，不能只凭负面占比认定商业优先级。可先复核相关原文，再结合业务记录决定。');
@@ -180,7 +180,8 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
   // 同一查询可能因多次工具调用重复出现，保留一个可解释的选择。
   candidates = candidates.filter((item, index) => candidates.findIndex(other => JSON.stringify(other) === JSON.stringify(item)) === index);
   if (!candidates.length) return clarify('上轮没有可转换的趋势或星级统计。请补充要按日/月查看的指标，例如“按月查看物流问题趋势”。');
-  const scopes = [{ label: '', parameters: sameScope(parameters, parent.selection || inheritedParameters) ? inheritedParameters : parameters }];
+  const scopes = [{ label: '', parameters: sameScope(parameters, parent.selection || inheritedParameters)
+    ? { ...inheritedParameters, product_ids: parameters.product_ids } : parameters }];
   const choices: QueryChoice[] = scopes.flatMap(scope => candidates.map(intent => {
     const selected = structuredClone(intent);
     // 切换范围时使用新的商品范围，并重新开始证据分页。

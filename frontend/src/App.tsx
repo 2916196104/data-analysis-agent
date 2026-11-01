@@ -161,9 +161,6 @@ export default function App() {
           : next.products[0] ? datasetKey(next.products[0]) : '';
         const current = analysisDates({ ...previous, dataset },
           qualityResult.status === 'fulfilled' ? qualityResult.value : undefined, next).current;
-        const productIds = previous.productIds.filter(id => next.products.some(
-          product => datasetKey(product) === dataset && product.product_id === id,
-        ));
         const profileExists = next.profiles.some(
           profile => profile.profile_id === previous.profileId,
         );
@@ -173,7 +170,8 @@ export default function App() {
           current: currentDatasetExists ? previous.current ?? current : undefined,
           baseline: currentDatasetExists ? previous.baseline : undefined,
           agentQuestion: currentDatasetExists ? previous.agentQuestion : undefined,
-          productIds: currentDatasetExists ? productIds : [],
+          // 失效的单商品选择必须重新确认，不能过滤成“全部商品”。
+          productIds: currentDatasetExists ? previous.productIds : [],
           profileId: useDefaultProfile || !profileExists
             ? defaultProfileId(next)
             : previous.profileId,

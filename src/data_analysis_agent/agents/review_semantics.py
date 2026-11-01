@@ -14,6 +14,7 @@ class QuestionScopeError(ReviewDataError):
 
 def _title_matches(mention, title):
     def compact(value):
+        value = re.sub(r'[（(][A-Za-z\s]+[）)]|系列', '', value)
         return re.sub(r"[^\w\u4e00-\u9fff]", "", unicodedata.normalize("NFKC", value).casefold())
     mention, title = compact(mention), compact(title or "")
     if len(mention) < 2:
@@ -21,14 +22,30 @@ def _title_matches(mention, title):
     if mention in title:
         return True
     # 简称只能省略品牌和品类之间的型号文字，不以模糊相似度猜商品。
-    return any(title.startswith(mention[:i]) and mention[i:] in title[i:]
-               for i in range(2, len(mention) - 1))
+    for i in range(2, len(mention) - 1):
+        if not title.startswith(mention[:i]):
+            continue
+        if mention[i:] in title[i:]:
+            return True
+        # 品牌后的系列和品类可交换顺序、间隔型号修饰，但两个片段须完整且不重叠。
+        rest = title[i:]
+        for j in range(i + 2, len(mention) - 1):
+            first, second = mention[i:j], mention[j:]
+            if (first in rest and second in rest[rest.index(first) + len(first):]
+                    or second in rest and first in rest[rest.index(second) + len(second):]):
+                return True
+    return False
+
+
+def _product_clause(value):
+    return re.sub(r'^(?:(?:请|帮我|看看|查看|分析|一下|查询|按日|按月|按天|按月份|统计|分别|总结|说说|告诉我)\s*|(?:用户|消费者|买家|大家)?(?:对于|对|关于|针对)\s*)+', '', value.strip())
 
 
 def product_mentions(question, products):
     """只提取用户明确写出的实体；不把页面默认商品当作用户指代。"""
     found = []
     for clause in re.split(r'以及|还有|与|和|及|对比|比较|[，,；;、]', question):
+        clause = _product_clause(clause)
         explicit = [row['product_id'] for row in products if re.search(
             r'(?<![A-Za-z0-9_])' + re.escape(row['product_id']) + r'(?![A-Za-z0-9_])', clause)]
         explicit += [row['title'] for row in products if row['title'] and row['title'] in clause]
@@ -39,19 +56,22 @@ def product_mentions(question, products):
         for brand in sorted({row.get('brand') for row in products if row.get('brand')}, key=len, reverse=True):
             if brand not in {'其他', '未知'} and brand in clause:
                 brands.append(brand + '空调' if brand + '空调' in clause else brand)
-        head = re.split(r'好评|差评|优缺点|优点|缺点|评价|使用效果', clause, maxsplit=1)[0]
+        head = re.split(r'好评|差评|优缺点|优点|缺点|评价|使用效果|制冷|静音|安装|质量|效果|包装|物流|客服|服务|价格|趋势|问题|哪些|什么|怎么样|如何', clause, maxsplit=1)[0]
         match = re.search(r'([\w\u4e00-\u9fff]{2,30}空调)', head)
         if match:
-            name = re.sub(r'^(?:请|帮我|看看|查看|分析|一下|查询|按日|按月|按天|按月份|统计|分别)+', '', match[1])
+            name = match[1]
+            suffix = head[match.end():].strip().removesuffix('的')
+            if '的' not in suffix and re.fullmatch(r'[\w\u4e00-\u9fff]{2,20}', suffix):
+                name += suffix
             if not re.match(r'^(?:这|那|该|所选|当前|两款)', name):
                 found.append(name)
                 brands = [value for value in brands if not name.startswith(value.removesuffix('空调'))]
         else:
             # “名称的好评”中的明确名称也必须匹配目录，不能只识别空调后退回页面商品。
-            subject = re.match(r'^(?:请|帮我|看看|查看|分析|一下|查询|统计|分别)*(.{2,100}?)的(?:好评|差评|优缺点|优点|缺点|评价|使用效果)', clause.strip())
+            subject = re.match(r'^(?:请|帮我|看看|查看|分析|一下|查询|统计|分别)*(.{2,100}?)的(?:(?:制冷|静音|安装|质量|效果|包装|物流|客服|服务|价格)(?:方面|相关)?的?)?(?:好评|差评|优缺点|优点|缺点|评价|使用效果)', clause.strip())
             if subject:
                 name = subject[1].strip(' “ ”「」\"')
-                generic = re.fullmatch(r'(?:这|那|该|所选|当前|上述|上轮|所有|全部)(?:两款|款|个)?(?:商品|产品|空调|机器)?|它们|两者|二者|两款商品|商品|产品|用户|消费者|买家|大家|(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面)?', name)
+                generic = re.fullmatch(r'(?:这|那|该|所选|当前|上述|上轮|所有|全部)(?:两款|款|个)?(?:商品|产品|空调|机器)?|它们|两者|二者|两款商品|商品|产品|用户|消费者|买家|大家|(?:制冷|静音|安装|使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面)?', name)
                 if not generic:
                     found.append(name)
                     brands = [value for value in brands if not name.startswith(value.removesuffix('空调'))]
@@ -80,11 +100,11 @@ def match_product_mentions(mentions, products, *, selected_ids=(), strict=False)
     return list(dict.fromkeys(selected))
 
 
-def _pros_cons_products(question, products):
+def _pros_cons_products(question, products, *, selected_ids=()):
     head = re.split(r"优缺点|优点|缺点|好评|差评|正面|负面", question, maxsplit=1)[0]
     mentions = []
     for part in re.split(r"以及|与|和|、|[，,]|比较|对比", head):
-        part = re.sub(r"^(?:请|帮我|分别|分析|看看|查看|总结|说说|告诉我|一下)+", "", part.strip())
+        part = _product_clause(part)
         if not any(_title_matches(part, row['title']) or part == row['product_id'] for row in products):
             part = re.sub(r"(?:的|各自)$", "", part).strip()
         if part and part not in {"它", "这款", "这款商品", "这款空调", "这个商品", "所选商品", "当前商品", "两款商品", "商品"}:
@@ -95,6 +115,9 @@ def _pros_cons_products(question, products):
         candidates = exact or [row for row in products if _title_matches(mention, row['title'])]
         if not candidates:
             raise QuestionScopeError(f'当前数据集未找到“{mention}”对应的商品，请提供该数据集中的商品 ID。')
+        within_selection = [row for row in candidates if row['product_id'] in selected_ids]
+        if len(mentions) == 1 and within_selection:
+            candidates = within_selection
         if len(candidates) > 1:
             brands = {row.get('brand') for row in candidates}
             brand = next(iter(brands)) if len(brands) == 1 else None
@@ -105,21 +128,35 @@ def _pros_cons_products(question, products):
     return groups
 
 
+def bind_product_ids(product_ids, scope, *, comparison=False):
+    """页面范围提供默认对象；跨范围单商品请求须由用户先确认切换。"""
+    outside = set(product_ids) - set(scope['product_ids'])
+    if scope['product_ids'] and outside and not comparison:
+        raise QuestionScopeError('本轮指定了当前选择范围之外的商品（' + '、'.join(sorted(outside))
+                                 + '）。请先在页面确认切换商品范围，或明确指定多款商品进行比较。')
+    return {**scope, 'product_ids': list(product_ids)}
+
+
 def resolve_question_scope(question, scope, products, *, product_groups=None):
-    """明确商品 ID/完整名称和绝对日期覆盖页面；历史引用本身不提供权限。"""
+    """默认绑定本轮选择；仅明确的多商品分析可扩展对象，日期仍受执行层校验。"""
     if question.startswith('执行本轮已确认的只读查询'):
         return scope
     resolved = {**scope, 'product_ids': list(scope['product_ids'])}
-    matches = [row['product_id'] for row in products if re.search(r'(?<![A-Za-z0-9_])' + re.escape(row['product_id']) + r'(?![A-Za-z0-9_])', question)
-               or (row['title'] and row['title'] in question)]
-    if detect_sentiment_directions(question) == {"positive", "negative"}:
-        groups = _pros_cons_products(question, products)
+    mentions = product_mentions(question, products)
+    balanced = detect_sentiment_directions(question) == {"positive", "negative"}
+    matches = []
+    groups = []
+    if balanced:
+        groups = _pros_cons_products(question, products, selected_ids=scope['product_ids'])
         if groups:
             matches = list(dict.fromkeys(product for group in groups for product in group['product_ids']))
             if product_groups is not None:
                 product_groups.extend(groups)
+    if mentions and not matches:
+        matches = match_product_mentions(mentions, products, selected_ids=scope['product_ids'])
     if matches:
-        resolved['product_ids'] = matches
+        comparison = len(groups) > 1 or (len(mentions) > 1 and bool(re.search(r'比较|对比|分别|各自', question)))
+        resolved = bind_product_ids(matches, resolved, comparison=comparison)
     dates = re.findall(r'\d{4}-\d{2}-\d{2}', question)
     if len(dates) == 2 and not re.search(r'对比|比较|相比|基线', question):
         start, end = (date.fromisoformat(value) for value in dates)

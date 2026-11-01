@@ -59,6 +59,18 @@ describe('分析范围与衔接', () => {
     expect(writeHistory(saved)).toBe(true);
     expect(readHistory()).toEqual(saved);
   });
+  it('拒绝失效、空白和跨数据集商品 ID，保留显式全部范围并复制有效 ID', () => {
+    const draft = { ...emptyDraft(), dataset: datasetKey(options.products[0]), productIds: ['A'], profileId: 2 };
+    const parameters = analysisParameters(draft, options, quality)!;
+    draft.productIds.push('missing');
+    expect(parameters.product_ids).toEqual(['A']);
+    for (const productIds of [['missing'], [''], ['A', 'missing']]) {
+      expect(analysisParameters({ ...draft, productIds }, options, quality)).toBeUndefined();
+    }
+    const other = { ...options, products: [...options.products, { ...options.products[0], product_id: 'B', dataset_version: 'v2' }] };
+    expect(analysisParameters({ ...draft, productIds: ['B'] }, other, quality)).toBeUndefined();
+    expect(analysisParameters({ ...draft, productIds: [] }, options, quality)?.product_ids).toEqual([]);
+  });
   it('保留尚未提交的 Agent 问题', () => {
     const saved = { selected: null, notes: {}, draft: { ...emptyDraft(), agentQuestion: '查询包装原文证据' } };
     writeHistory(saved);

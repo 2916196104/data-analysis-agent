@@ -135,17 +135,20 @@ class AssistantSemanticsTests(AssistantSemanticsFixture, unittest.TestCase):
         self.assertEqual(result['status'], 'ok')
         self.assertEqual(result['results']['r1']['data']['baseline']['review_count'], 1)
 
-    def test_explicit_scope_precedes_page_and_does_not_cross_dataset(self):
+    def test_explicit_other_product_requires_switch_and_dates_keep_dataset(self):
         with closing(connect_review_database(self.db, readonly=True)) as connection:
             products = connection.execute("SELECT product_id,title FROM products WHERE source='reviews_csv'").fetchall()
-        resolved = resolve_question_scope('查询 OTHER 在 2020-09-01 至 2020-09-30 的使用效果', self.scope(), products)
+        with self.assertRaisesRegex(QuestionScopeError, '确认切换'):
+            resolve_question_scope('查询 OTHER 在 2020-09-01 至 2020-09-30 的使用效果', self.scope(), products)
+        resolved = resolve_question_scope('查询 OTHER 在 2020-09-01 至 2020-09-30 的使用效果', self.scope(product_ids=['OTHER']), products)
         self.assertEqual(resolved['product_ids'], ['OTHER'])
         self.assertEqual(resolved['date_from'], '2020-09-01')
         self.assertEqual(resolved['dataset_version'], 'reviews-csv')
         selected = self.scope(product_ids=['OTHER'])
         result = run_review_agent(self.db, '100013588053 的使用效果主要集中在哪些方面', scope=selected, settings=SETTINGS)
-        self.assertEqual(result['status'], 'ok', result.get('error'))
-        self.assertEqual(result['scope']['product_ids'], ['100013588053'])
+        self.assertEqual(result['status'], 'unsupported')
+        self.assertIn('确认切换', result['answer'])
+        self.assertEqual(result['query_executions'], 0)
 
     def test_pros_cons_compares_both_named_products_without_model_or_business_writes(self):
         question = '美的空调与小米空调的优缺点都有哪些？'

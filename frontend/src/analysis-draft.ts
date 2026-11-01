@@ -81,7 +81,8 @@ export function analysisParameters(
   const invalidDates = current[0] > current[1]
     || baseline[0] > baseline[1]
     || baseline[1] >= current[0];
-  if (!product || !profile || invalidDates) return undefined;
+  if (!product || !profile || invalidDates || draft.productIds.some(id => !id.trim()
+    || !options.products.some(item => datasetKey(item) === draft.dataset && item.product_id === id))) return undefined;
 
   return {
     model: profile.requested_model,
@@ -89,7 +90,7 @@ export function analysisParameters(
     prompt_version: profile.prompt_version,
     source: product.source,
     dataset_version: product.dataset_version,
-    product_ids: draft.productIds,
+    product_ids: [...draft.productIds],
     date_from: current[0],
     date_to: current[1],
     baseline_from: baseline[0],

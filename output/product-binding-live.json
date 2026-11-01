@@ -1,0 +1,62 @@
+{
+  "transaction_read_only": "on",
+  "annotation_identity": {
+    "model": "Pro/deepseek-ai/DeepSeek-V3.2",
+    "prompt_version": "review-opinions-v1-e61de599683cba6703c2f61e85125d0be4627c2763440486aa717e4bc884036e"
+  },
+  "source": "reviews_csv",
+  "dataset_version": "reviews-csv",
+  "date_from": "2021-09-11",
+  "date_to": "2022-08-26",
+  "cases": [
+    {
+      "question": "制冷好评主要集中在哪些方面？",
+      "before_mentions": [],
+      "after_mentions": [],
+      "query_product_ids": [
+        "100013588053"
+      ],
+      "aspect": "effectiveness",
+      "topic": "制冷",
+      "sentiment": "positive",
+      "validation": "passed",
+      "matched_reviews": 168
+    },
+    {
+      "question": "美的风酷空调的制冷好评主要集中在哪些方面？",
+      "before_mentions": [
+        "美的风酷空调"
+      ],
+      "after_mentions": [
+        "美的风酷空调"
+      ],
+      "query_product_ids": [
+        "100013588053"
+      ],
+      "aspect": "effectiveness",
+      "topic": "制冷",
+      "sentiment": "positive",
+      "validation": "passed",
+      "matched_reviews": 168
+    },
+    {
+      "question": "用户对于美的空调风酷的制冷好评主要集中在哪些方面？",
+      "before_mentions": [
+        "用户对于美的空调",
+        "美的空调"
+      ],
+      "after_mentions": [
+        "美的空调风酷"
+      ],
+      "query_product_ids": [
+        "100013588053"
+      ],
+      "aspect": "effectiveness",
+      "topic": "制冷",
+      "sentiment": "positive",
+      "validation": "passed",
+      "matched_reviews": 168
+    }
+  ],
+  "multi_model_clarification": "需要选择具体商品：“美的空调风酷”可匹配 100013588053、100013588055、100019881984、100025520132。请分别指定商品 ID。"
+}

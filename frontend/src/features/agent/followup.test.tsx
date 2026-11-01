@@ -33,6 +33,15 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('追问解析使用真实查询参数', () => {
+  it('上轮明确比较扩大过商品范围，普通新问题仍使用页面所选商品', () => {
+    const expanded = { ...parent(trend()), selection: scope, parameters: { ...scope, product_ids: ['A', 'B'] } };
+    const next = resolveQuery('好评主要集中在哪些方面？', scope, expanded);
+    expect(next.parameters?.product_ids).toEqual(['A']);
+    expect(expanded.parameters.product_ids).toEqual(['A', 'B']);
+    const monthly = resolveQuery('换成按月', scope, expanded);
+    expect(monthly.parameters?.product_ids).toEqual(['A']);
+    expect(monthly.query.queries?.[0].parameters.product_ids).toEqual(['A']);
+  });
   it('A：使用效果细分交给后端补全情感，并关联成功父任务', () => {
     const positive = { result_id: 'positive', kind: 'positive_aspects', parameters: { product_ids: ['A'] }, data: {} } as unknown as AgentToolResult;
     const next = resolveQuery('使用效果主要集中在哪些地方？', scope, parent(positive));

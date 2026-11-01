@@ -11,11 +11,12 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const scopeMode = process.env.E2E_PRODUCT_SCOPE === '1';
 const answerMode = process.env.E2E_ANSWER_PHASE3 === '1';
 const topicMode = answerMode || process.env.E2E_TOPIC_PHASE2 === '1';
-const intentMode = topicMode || process.env.E2E_INTENT_PHASE1 === '1';
+const intentMode = scopeMode || topicMode || process.env.E2E_INTENT_PHASE1 === '1';
 await mkdir(path.join(root, 'output/playwright'), { recursive: true });
-const out = await mkdtemp(path.join(root, `output/playwright/${answerMode ? 'answer-phase3' : topicMode ? 'topics-phase2' : intentMode ? 'intent-phase1' : 'pros-cons'}-`));
+const out = await mkdtemp(path.join(root, `output/playwright/${scopeMode ? 'product-scope' : answerMode ? 'answer-phase3' : topicMode ? 'topics-phase2' : intentMode ? 'intent-phase1' : 'pros-cons'}-`));
 const python = path.join(root, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 const children = [], logs = [], errors = [], screenshots = [];
 const report = { source: 'isolated SQLite + real API/worker + Vite/Chromium; simulated product reviews', artifacts: out };
@@ -114,7 +115,7 @@ identity=dict(model='SIMULATED-ANNOTATIONS',base_url='https://offline.invalid/v1
 for review in pending_reviews(out/'reviews.sqlite3',**identity,limit=1000):
     text=review['text']; values=[dict(aspect='quality' if text=='质量稳定' else 'service',sentiment='positive' if text=='质量稳定' else 'negative',quote=text)]
     save_annotation(out/'reviews.sqlite3',review,**identity,status='success',opinions=validate_opinions(json.dumps({'opinions':values}),text))
-if ${topicMode ? 'True' : 'False'}:
+if ${topicMode || scopeMode ? 'True' : 'False'}:
     topic_path=out/'topic-reviews.jsonl'
     topic_rows=[dict(parent_asin='DEMO-A',user_id='topic-'+str(i),text=text,timestamp=1677196800000+i*1000) for i,text in enumerate([
         '降温很快，制冷速度快，运行声音小','制冷速度快','物流速度慢','物流发货慢'])]
@@ -138,7 +139,7 @@ from data_analysis_agent.agents import reviews
 original=reviews.run_review_agent
 def execute(*args,**kwargs):
     result=original(*args,**kwargs)
-    if args[1] in ('美的空调与小米空调的优缺点都有哪些？', 'DEMO-B 的差评主要是什么？', '使用效果主要集中在哪些地方？（继续上轮）'):
+    if args[1] in ('美的空调与小米空调的优缺点都有哪些？', 'DEMO-A 的差评主要是什么？', '使用效果主要集中在哪些地方？（继续上轮）'):
         result.update(status='error',error=dict(code='timeout',message='隔离验收注入的失败'))
         result.pop('answer',None);result.pop('public_answer',None)
     return result
@@ -184,7 +185,72 @@ main()
     await until(async () => await input.isEnabled(), 'answer shown');
     return task;
   }
-  if (topicMode) {
+  if (scopeMode) {
+    const rounds = []; report.rounds = rounds;
+    const record = task => { rounds.push({ task_id: task.task_id, submitted: task.parameters, status: task.result.status,
+      scope: task.result.scope, queries: Object.values(task.result.results).filter(row => row.kind !== 'context')
+        .map(row => ({ kind: row.kind, parameters: row.parameters, scope: row.data.scope })),
+      validation: task.result.validation?.status }); return task; };
+    const first = record(await send('好评主要集中在哪些方面？'));
+    assert.deepEqual(first.parameters.product_ids, ['DEMO-A']);
+    assert.equal(first.parameters.model, 'SIMULATED-ANNOTATIONS');
+    assert.equal(first.parameters.prompt_version, 'fixture-v1');
+    assert.equal(first.result.validation.status, 'passed');
+    for (const question of ['制冷方面呢？', '这些好评具体反映什么？',
+      '美的风酷空调的制冷好评主要集中在哪些方面？', '用户对于美的空调风酷的制冷好评主要集中在哪些方面？']) {
+      const task = record(await send(question));
+      assert.equal(task.result.status, 'ok', task.result.answer);
+      assert.deepEqual(task.result.scope.product_ids, ['DEMO-A']);
+      assert.equal(task.result.results.r1.parameters.topic, '制冷');
+      assert.equal(task.result.results.r1.parameters.sentiment, 'positive');
+      assert.equal(task.result.results.r1.parameters.aspect, 'effectiveness');
+      assert.equal(task.result.validation.status, 'passed');
+    }
+    const last = page.locator('.chat-turn').last();
+    await last.locator('.chat-report > summary').click();
+    await last.locator('.ant-table-wrapper').first().waitFor();
+    for (const width of [1440, 1024, 768]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await last.locator('.ant-table-wrapper').first().scrollIntoViewIfNeeded();
+      await page.screenshot({ path: path.join(out, `scope-${width}.png`), animations: 'disabled' });
+      const measure = await page.evaluate(() => ({ width: innerWidth, documentWidth: document.documentElement.scrollWidth,
+        messageOverflow: document.querySelector('.chat-messages').scrollWidth > document.querySelector('.chat-messages').clientWidth + 1,
+        inputBottom: document.querySelector('.chat-input-area').getBoundingClientRect().bottom }));
+      assert.ok(measure.documentWidth <= width + 1); assert.equal(measure.messageOverflow, false); assert.ok(measure.inputBottom <= 1001);
+      screenshots.push(measure);
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const ambiguous = record(await send('小米空调的好评主要是什么？'));
+    assert.equal(ambiguous.result.status, 'unsupported'); assert.equal(ambiguous.result.query_executions, 0);
+    assert.match(ambiguous.result.answer, /DEMO-B、DEMO-B2/);
+    const outside = record(await send('小米 米家新一级能效空调（模拟数据）的好评主要是什么？'));
+    assert.equal(outside.result.status, 'unsupported'); assert.equal(outside.result.query_executions, 0);
+    assert.match(outside.result.answer, /确认切换/);
+    const missing = record(await send('用户对于美的不存在系列空调的制冷好评主要集中在哪些方面？'));
+    assert.equal(missing.result.status, 'unsupported'); assert.equal(missing.result.query_executions, 0);
+    assert.match(missing.result.answer, /美的不存在系列空调/);
+    const oldAnswer = await page.getByRole('region', { name: '分析回答' }).first().innerText();
+    await page.getByRole('button', { name: '修改范围', exact: true }).click();
+    const selector = page.locator('.assistant-scope-products .ant-select');
+    await selector.locator('.ant-select-selection-item-remove').click();
+    await page.getByRole('combobox', { name: '助手分析商品' }).click();
+    await page.locator('.ant-select-item-option').filter({ hasText: '小米 米家新一级能效空调' }).click();
+    await page.getByRole('button', { name: '应用范围', exact: true }).click();
+    const changed = record(await send('好评主要集中在哪些方面？'));
+    assert.deepEqual(changed.parameters.product_ids, ['DEMO-B']);
+    assert.deepEqual(changed.result.results.r1.data.scope.product_ids, ['DEMO-B']);
+    assert.equal(changed.parameters.context_task_id, undefined);
+    assert.equal(await page.getByRole('region', { name: '分析回答' }).first().innerText(), oldAnswer);
+    const historical = (await (await fetch(api + '/tasks/' + first.task_id)).json()).result;
+    assert.deepEqual(historical.result.scope, first.result.scope);
+    await page.reload(); await page.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
+    await page.getByRole('region', { name: '分析回答' }).first().waitFor();
+    assert.equal(await page.getByRole('region', { name: '分析回答' }).first().innerText(), oldAnswer);
+    report.checks = ['selected real IDs and annotation identity submitted', 'three-turn cooling/positive context',
+      'short name and natural-language prefix', 'outside product confirmation before query', 'unknown series rejected',
+      'manual product switch queries new ID without old context', 'historical answer and scope survive switch/reload',
+      '1440/1024/768 layouts and opinion tables', 'business database hash unchanged'];
+  } else if (topicMode) {
     await send('美的空调好评主要集中在哪些方面？');
     const task = await send('使用效果具体好在哪里？');
     assert.equal(task.result.analysis_intent, 'aspect_drilldown'); assert.equal(task.result.validation.status, 'passed');
@@ -268,12 +334,12 @@ main()
     const unknownCategory = record(await send('外星牌冰箱的好评主要是什么？'));
     assert.equal(unknownCategory.result.status, 'unsupported'); assert.equal(unknownCategory.result.query_executions, 0);
     assert.match(unknownCategory.result.public_answer.summary, /外星牌冰箱/);
-    const negativeFailed = record(await send('DEMO-B 的差评主要是什么？', 'failed'));
+    const negativeFailed = record(await send('DEMO-A 的差评主要是什么？', 'failed'));
     const detailFailed = record(await send('使用效果主要集中在哪些地方？（继续上轮）', 'failed'));
     assert.equal(detailFailed.parameters.context_task_id, negativeFailed.task_id);
     const recovered = record(await send('那物流方面呢？'));
     assert.equal(recovered.parameters.context_task_id, detailFailed.task_id);
-    assert.deepEqual(recovered.result.scope.product_ids, ['DEMO-B']);
+    assert.deepEqual(recovered.result.scope.product_ids, ['DEMO-A']);
     assert.equal(recovered.result.results.r1.parameters.sentiment, 'negative');
     assert.equal(recovered.result.results.r1.parameters.aspect, 'logistics');
     assert.equal(recovered.result.validation.status, 'passed');

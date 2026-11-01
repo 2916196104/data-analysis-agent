@@ -165,6 +165,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                     "FROM pg_settings WHERE name='statement_timeout'")
             products = [dict(row) for row in connection.execute('SELECT product_id,title,brand FROM products WHERE source=? AND dataset_version=?',
                                           (scope['source'], scope['dataset_version'])).fetchall()]
+            if set(scope['product_ids']) - {row['product_id'] for row in products}:
+                raise QuestionScopeError('部分已选商品不属于当前数据集，请重新确认商品范围。')
             planning_started = perf_counter()
             scope, plan, semantic_direct = resolve_review_request(question, scope, products, settings=settings,
                 context=conversation_context, diagnostics=result['intent_resolution'], intent_state=result['user_intent'])

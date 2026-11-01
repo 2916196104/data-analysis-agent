@@ -148,33 +148,33 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
         self.assertIn('外星牌空调', result['answer'])
         self.assertEqual(result['query_executions'], 0)
 
-    def test_failed_explicit_product_and_sentiment_override_older_success_conditions(self):
+    def test_failed_explicit_sentiment_overrides_older_success_within_selection(self):
         self.queue()
         first = self.run_sync('美的空调好评主要集中在哪些方面？')
         old = self.save(first['question'], first)
-        failed = self.save('小米空调的差评主要是什么？', {'agent': True, 'status': 'error'}, status='failed', parent=old)
+        failed = self.save('美的空调的差评主要是什么？', {'agent': True, 'status': 'error'}, status='failed', parent=old)
         task = self.work('使用效果主要集中在哪些地方？', parent=failed)
         self.assertEqual(task['status'], 'succeeded', task.get('error'))
         query = task['result']['results']['r1']
         self.assertEqual(query['parameters']['sentiment'], 'negative')
-        self.assertEqual(query['parameters']['product_ids'], ['XIAOMI-TEST'])
+        self.assertEqual(query['parameters']['product_ids'], ['100013588053'])
         self.assertEqual(task['result']['validation']['status'], 'passed')
         context = load_analysis_context(self.tasks, {**self.scope(), 'context_task_id': failed, 'conversation_id': 'conversation-A'})
         with self.semantic_model(ReviewIntent(query_type='aspect_summary', sentiment='negative').model_dump()):
             result = run_review_agent(self.db, '到底哪块让人不爽呀', scope=self.scope(), settings=SETTINGS, conversation_context=context)
         self.assertEqual(result['status'], 'ok', result.get('error'))
-        self.assertEqual(result['scope']['product_ids'], ['XIAOMI-TEST'])
+        self.assertEqual(result['scope']['product_ids'], ['100013588053'])
         payload = json.loads(self.requests[0]['messages'][-1]['content'])
         self.assertEqual(payload['compact_context']['explicit_user_intent']['sentiment'], 'negative')
         self.assertEqual(payload['compact_context']['explicit_user_intent']['query_type'], 'aspect_summary')
         switched = self.work('那好评呢？', parent=failed)
         self.assertEqual(switched['result']['results']['r1']['kind'], 'positive_aspects')
-        self.assertEqual(switched['result']['scope']['product_ids'], ['XIAOMI-TEST'])
-        trend_failed = self.save('按日查看小米空调物流问题趋势', {'agent': True, 'status': 'error'}, status='failed', parent=old)
+        self.assertEqual(switched['result']['scope']['product_ids'], ['100013588053'])
+        trend_failed = self.save('按日查看美的空调物流问题趋势', {'agent': True, 'status': 'error'}, status='failed', parent=old)
         monthly = self.work('换成按月', parent=trend_failed)
         self.assertEqual(monthly['result']['results']['r1']['kind'], 'aspect_trend')
         self.assertEqual(monthly['result']['results']['r1']['parameters']['period'], 'month')
-        self.assertEqual(monthly['result']['scope']['product_ids'], ['XIAOMI-TEST'])
+        self.assertEqual(monthly['result']['scope']['product_ids'], ['100013588053'])
 
     def test_raw_logistics_followup_keeps_baseline_window_and_evidence_page_size(self):
         self.queue()
@@ -203,12 +203,12 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
         parent = self.save(first['question'], first)
         unsafe = {'agent': True, 'status': 'error', 'sentiment_intent': 'positive',
                   'results': {'untrusted': {'data': {'review_count': 999999}}}}
-        failed = self.save('小米空调的差评主要是什么？', unsafe, status='failed', parent=parent)
+        failed = self.save('美的空调的差评主要是什么？', unsafe, status='failed', parent=parent)
         failed_again = self.save('使用效果主要集中在哪些地方？', unsafe, status='failed', parent=failed)
         task = self.work('那物流方面呢？', parent=failed_again)
         self.assertEqual(task['status'], 'succeeded', task.get('error'))
         self.assertEqual(task['result']['results']['r1']['parameters'], {
-            'product_ids': ['XIAOMI-TEST'], 'aspect': 'logistics', 'sentiment': 'negative'})
+            'product_ids': ['100013588053'], 'aspect': 'logistics', 'sentiment': 'negative'})
         self.assertEqual(task['result']['validation']['status'], 'passed')
         self.assertEqual(task['result']['total_model_calls'], 0)
         context = load_analysis_context(self.tasks, {**self.scope(), 'context_task_id': failed_again, 'conversation_id': 'conversation-A'})
@@ -223,15 +223,15 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
 
     def test_summary_reference_preserves_effective_product_sentiment_and_detail(self):
         self.queue()
-        first = self.run_sync('小米空调好评主要集中在哪些方面？')
+        first = self.run_sync('美的空调好评主要集中在哪些方面？')
         parent = self.save(first['question'], first)
         repeated = self.work('主要集中在哪些地方？', parent=parent)
         self.assertEqual(repeated['result']['query_plan']['required_tools'], ['get_positive_aspects'])
-        self.assertEqual(repeated['result']['scope']['product_ids'], ['XIAOMI-TEST'])
+        self.assertEqual(repeated['result']['scope']['product_ids'], ['100013588053'])
         detail = self.work('使用效果主要集中在哪些地方？', parent=repeated['task_id'])
         repeated_detail = self.work('那主要集中在哪些地方呢？', parent=detail['task_id'])
         self.assertEqual(repeated_detail['result']['results']['r1']['parameters'], {
-            'product_ids': ['XIAOMI-TEST'], 'aspect': 'effectiveness', 'sentiment': 'positive'})
+            'product_ids': ['100013588053'], 'aspect': 'effectiveness', 'sentiment': 'positive'})
         # 本轮明确的负向方向覆盖历史正向条件。
         switched = self.work('使用效果的差评主要集中在哪些地方？', parent=detail['task_id'])
         self.assertEqual(switched['result']['results']['r1']['parameters']['sentiment'], 'negative')
@@ -357,15 +357,15 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
         context = load_analysis_context(self.tasks, {**self.scope(), 'context_task_id': parent, 'conversation_id': 'conversation-A'})
         draft = ReviewIntent(query_type='aspect_summary', sentiment='positive').model_dump()
         with self.semantic_model(draft):
-            result = run_review_agent(self.db, '小米空调哪些点让人买账啊', scope=self.scope(), settings=SETTINGS, conversation_context=context)
+            result = run_review_agent(self.db, '小米空调哪些点让人买账啊', scope=self.scope(product_ids=['XIAOMI-TEST']), settings=SETTINGS, conversation_context=context)
         self.assertEqual(result['status'], 'ok', result.get('error'))
         self.assertEqual(result['scope']['product_ids'], ['XIAOMI-TEST'])
         with self.semantic_model({**draft, 'product_mentions': ['美的空调']}):
-            result = run_review_agent(self.db, '小米空调哪些点让人买账啊', scope=self.scope(), settings=SETTINGS, conversation_context=context)
+            result = run_review_agent(self.db, '小米空调哪些点让人买账啊', scope=self.scope(product_ids=['XIAOMI-TEST']), settings=SETTINGS, conversation_context=context)
         self.assertEqual(result['status'], 'error')
         self.assertEqual(result['query_executions'], 0)
         with self.semantic_model(ReviewIntent(query_type='pros_cons', product_mentions=['美的空调']).model_dump()):
-            result = run_review_agent(self.db, '小米空调好的坏的都说说', scope=self.scope(), settings=SETTINGS, conversation_context=context)
+            result = run_review_agent(self.db, '小米空调好的坏的都说说', scope=self.scope(product_ids=['XIAOMI-TEST']), settings=SETTINGS, conversation_context=context)
         self.assertEqual(result['status'], 'ok', result.get('error'))
         self.assertEqual(result['scope']['product_ids'], ['XIAOMI-TEST'])
         self.assertEqual(result['user_intent']['product_mentions'], ['小米空调'])
