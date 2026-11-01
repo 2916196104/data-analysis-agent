@@ -62,6 +62,7 @@ class ReviewQueryPlan:
         for request in self.requirements:
             if not any(item["kind"] == TOOL_KINDS[request["tool"]] and all(
                 item["parameters"].get(k) == v for k, v in request["parameters"].items()
+            ) and all(item['data'].get('scope',{}).get(k) == v for k,v in request.get('execution_scope',{}).items()
             ) and (request["tool"] not in ("get_trend", "get_aspect_trend") or (
                 isinstance(item["data"].get("buckets"), list)
                 and item["data"].get("period") == item["parameters"].get("period")

@@ -295,19 +295,21 @@ def read_public_analysis(task, options=None):
         return empty_public("unsupported").model_dump()
     if result.get("status") != "ok" or result.get("validation", {}).get("status") == "failed":
         return empty_public("failed").model_dump()
-    from data_analysis_agent.agents.review_validation import validate_report
+    from data_analysis_agent.agents.review_validation import validate_report, expected_result_scopes
 
     try:
         # 旧任务没有新模型时，依据实际已保存工具引用转换，不重新查询/不重新解释问题。
         inverse = {kind: tool for tool, kind in TOOL_KINDS.items()}
-        requests = [{"tool": inverse[result["results"][key]["kind"]], "parameters": result["results"][key]["parameters"]}
+        requests = [{"tool": inverse[result["results"][key]["kind"]], "parameters": result["results"][key]["parameters"],
+                     **({'execution_scope':result['results'][key]['execution_scope']} if 'execution_scope' in result['results'][key] else {})}
                     for key in result["result_ids"] if key != "overview"]
         plan = ReviewQueryPlan(analysis_type=result.get("analysis_intent") or "composite",
                                sentiment=result.get("sentiment_intent"), scope=result["scope"], requirements=requests,
                                product_groups=(result.get('query_plan') or {}).get('product_groups', []),
                                requires_evidence=any(item["tool"] in {"get_evidence", "get_opinion_breakdown", 'get_aspect_drilldown'} for item in requests), max_evidence_items=10)
         validation = validate_report(result["results"], result["result_ids"],
-                                     sentiment_intent=result.get("sentiment_intent"), query_plan=plan)
+                                     sentiment_intent=result.get("sentiment_intent"), query_plan=plan,
+                                     expected_scopes=expected_result_scopes(result['results'],result['scope']))
         if validation["status"] != "passed":
             return empty_public("failed").model_dump()
         checked = {**result, "validation": validation}

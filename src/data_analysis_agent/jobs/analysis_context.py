@@ -1,6 +1,6 @@
 """从有限任务链恢复分析条件；失败轮次只贡献用户请求，不贡献查询结果。"""
 
-from data_analysis_agent.agents.review_validation import validate_report
+from data_analysis_agent.agents.review_validation import validate_report, expected_result_scopes
 from data_analysis_agent.jobs.store import TaskNotFound, get_task
 from data_analysis_agent.reviews.parameters import BaselineScope
 
@@ -41,17 +41,7 @@ def load_analysis_context(task_db, parameters, *, max_turns=4):
         if valid:
             try:
                 scope = BaselineScope.model_validate(result['scope']).model_dump()
-                expected = {}
-                for key, row in result['results'].items():
-                    params = row['parameters']
-                    bound = {name: value for name, value in scope.items() if name not in ('baseline_from', 'baseline_to', 'product_ids')}
-                    if params.get('window') == 'baseline':
-                        bound.update(date_from=scope['baseline_from'], date_to=scope['baseline_to'])
-                    bound.update({name: params[name] for name in ('date_from', 'date_to') if params.get(name) is not None})
-                    selected = params.get('product_ids') or scope['product_ids']
-                    if selected:
-                        bound['product_ids'] = selected
-                    expected[key] = scope if key == 'overview' else bound
+                expected = expected_result_scopes(result['results'],scope)
                 checked = validate_report(result['results'], result['result_ids'], expected_scopes=expected)
                 if checked['status'] == 'passed':
                     context['validated'] = {'task_id': task_id, 'scope': scope,

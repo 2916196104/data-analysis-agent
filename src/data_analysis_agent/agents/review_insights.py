@@ -266,7 +266,7 @@ def validate_draft(draft, catalog):
         residual = unicodedata.normalize('NFKC', SLOT.sub('', insight.text))
         # 两个已选商品的口语指代不是新增数量，指代含义仍须语义复核。
         if len({product for key in insight.fact_ids for product in by_id[key]['scope']['product_ids']}) == 2:
-            residual = re.sub(r'其中一款商品|另一款商品|两款商品|一款商品', '商品', residual)
+            residual = re.sub(r'(?<![\d零〇一二两三四五六七八九十百千万])(?:其中一款|另一款|这两款|两款|一款)(?:商品|产品)?', '商品', residual)
         if '[[' in residual or ']]' in residual or re.search(r'''[\d%％“”"'‘’「」<>]|百分之|千分之|万分之|[零〇一二两三四五六七八九十百千万]+\s*(?:条|款|倍|成|个主题|年|月|日)''', residual):
             raise DraftValidationError('unbound_number_or_quote', '模型不能直接填写数字、引文或标记。')
         if any(value in residual for value in protected) or (FORBIDDEN.search(residual) and not program_supported(insight, catalog)) or re.search(r'https?://|www\.', residual):
@@ -304,7 +304,7 @@ def lead_summary(context, selected):
         return f"同口径下，商品 {left} 的负面评论占比{'高于' if metric['value'] > 0 else '低于'}商品 {right}；这反映评价差异，不能等同于真实产品性能差距。"
     if context.analysis_type == 'aspect_drilldown' and any(row['kind'] == 'topic' for row in selected):
         basis = '本次纳入的非随机样本中' if any(row['population_mode'] == 'sample' for row in selected) else '本次匹配的已标注评论中'
-        names = '、'.join(row['label'] for row in selected[:3] if row['kind'] == 'topic')
+        names = '、'.join(list(dict.fromkeys(row['label'] for row in selected if row['kind'] == 'topic'))[:3])
         return f'{basis}，具体评价主要体现在{names}，这些是模型归并的候选主题。'
     from data_analysis_agent.agents.review_answer_facts import summary_options
     summary = summary_options(context, facts)[0]
@@ -328,7 +328,7 @@ def lead_summary(context, selected):
                     elif values[0] > values[1] > values[2]: clause = label + ('负面占比逐月下降。' if series['period'] == 'month' else '负面占比逐期下降。')
             clauses.append(clause)
         summary = ''.join(clauses)
-        windows = {(row['scope'].get('date_from'), row['scope'].get('date_to')) for row in selected}
+        windows = {(row['scope'].get('date_from'), row['scope'].get('date_to')) for row in selected if row['kind']=='trend'}
         if len(windows) == 1:
             start, end = next(iter(windows))
             if start and end:

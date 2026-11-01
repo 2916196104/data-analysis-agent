@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 from time import perf_counter
 
 from data_analysis_agent.agents.review_prompts import PROMPT_VERSION, SYSTEM_PROMPT, detect_sentiment_intent
-from data_analysis_agent.agents.review_validation import result_summaries, validate_report
+from data_analysis_agent.agents.review_validation import result_summaries, validate_report, expected_result_scopes
 from data_analysis_agent.agents.review_semantics import QuestionScopeError
 from data_analysis_agent.agents.review_intent import resolve_review_request
 from data_analysis_agent.agents.review_compression import build_analysis_artifacts, empty_public
@@ -255,12 +255,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                 validation_started = perf_counter()
                 result["validation"] = validate_report(
                     context.results, ids, sentiment_intent=sentiment_intent, query_plan=plan,
-                    expected_scopes={key: (scope if key == "overview" else {
-                        **context.query_scope(item["parameters"].get("product_ids", []),
-                                              baseline=item["parameters"].get("window") == "baseline"),
-                        **{k: v for k, v in item["parameters"].items()
-                           if k in ("date_from", "date_to") and v is not None},
-                    }) for key, item in context.results.items()},
+                    expected_scopes=expected_result_scopes(context.results,scope),
                 )
                 timings["validation_duration_ms"] = round((perf_counter() - validation_started) * 1000, 3)
                 if result["validation"]["status"] != "passed":
@@ -280,6 +275,19 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                 result.update(build_analysis_artifacts({**result, "results": context.results}, plan))
                 timings["compression_duration_ms"] = round((perf_counter() - compression_started) * 1000, 3)
         # 关闭只读事务和规划客户端后才解释已核验快照，生成阶段没有查询入口。
+        if result['status']=='ok' and not any(item['kind']=='aspect_drilldown' and item['data']['analysis_status']=='partial' for item in selected):
+            from data_analysis_agent.agents.review_evidence_loop import complete_evidence
+            with TemporaryDirectory(prefix='review-evidence-') as evidence_dir:
+                plan=complete_evidence(db,result,plan,context,settings,Path(evidence_dir),report)
+            timings['evidence_completion_duration_ms']=result['evidence_completion']['duration_ms']
+            selected=[context.results[key]for key in result['result_ids']]
+            if result['evidence_completion']['status']=='completed':
+                result['answer_sections']=[{'result_id':item['result_id'],'kind':item['kind'],'text':grounded_answer('ok',[item])}for item in selected]
+                result['answer']=grounded_answer('ok',selected)
+            if result['evidence_completion']['status']=='clarification_needed':
+                reason=result['evidence_completion']['clarification']
+                result.update(status='unsupported',answer=reason,result_ids=[],public_analysis=empty_public('unsupported').model_dump(),
+                    public_answer=unavailable_answer('unsupported',reason))
         if result['status'] == 'ok' and any(item['kind'] == 'aspect_drilldown' and item['data']['analysis_status'] == 'partial' for item in selected):
             result['status'] = result['public_analysis']['status'] = 'partial'
             result['public_answer'] = unavailable_answer('partial')
@@ -307,7 +315,9 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
         result.pop("answer", None)
         result.pop("answer_sections", None)
         result.pop("public_answer", None)
+        result['public_analysis']=empty_public('failed').model_dump()
     finally:
+        result.setdefault('evidence_completion',{'status':'not_started','cycles':0,'automatic':False,'requests':[],'additional_tool_calls':0})
         timings["query_duration_ms"] = round(context.query_duration_ms if context else 0, 3)
         timings["planning_duration_ms"] = round(timings["planning_duration_ms"], 3)
         timings["total_duration_ms"] = round((perf_counter() - started) * 1000, 3)

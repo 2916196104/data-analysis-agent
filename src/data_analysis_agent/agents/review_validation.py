@@ -1,6 +1,33 @@
 """复核已执行查询的数字和证据；不使用模型判断计算是否正确。"""
 
 import math
+from datetime import date
+
+
+def expected_result_scopes(results, scope):
+    """重建实际执行范围；补查元数据只能缩小原任务，不能成为新的访问授权。"""
+    expected = {}
+    for key, item in results.items():
+        params = item['parameters']
+        bound = {name:value for name,value in scope.items() if name not in ('baseline_from','baseline_to','product_ids')}
+        if params.get('window') == 'baseline':
+            bound.update(date_from=scope['baseline_from'],date_to=scope['baseline_to'])
+        bound.update({name:params[name] for name in ('date_from','date_to') if params.get(name) is not None})
+        products = params.get('product_ids') or scope['product_ids']
+        if products:bound['product_ids'] = products
+        execution = item.get('execution_scope')
+        if execution is not None:
+            if key == 'overview' or not isinstance(execution,dict):raise ValueError('补查范围无效。')
+            for field in ('date_from','date_to'):
+                if date.fromisoformat(execution[field]).isoformat()!=execution[field]:raise ValueError('补查日期无效。')
+            immutable = ('source','dataset_version','model','base_url','prompt_version','as_of','timezone')
+            if any(execution.get(name) != scope.get(name) for name in immutable):raise ValueError('补查身份与原任务不一致。')
+            if not execution.get('product_ids') or not set(execution['product_ids']) <= set(scope['product_ids']):raise ValueError('补查商品越界。')
+            if sorted(execution['product_ids']) != sorted(products):raise ValueError('补查商品与参数不一致。')
+            if not scope['date_from'] <= execution['date_from'] <= execution['date_to'] <= scope['date_to']:raise ValueError('补查日期越界。')
+            bound = execution
+        expected[key] = scope if key == 'overview' else bound
+    return expected
 
 
 def result_summaries(results):
@@ -124,6 +151,8 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
             aspect = item["parameters"].get("aspect")
             quotes_ok &= data.get("sentiment") == (None if sentiment == "all" else sentiment)
             for evidence in data["items"]:
+                quotes_ok &= evidence['product_id'] in data['scope']['product_ids']
+                quotes_ok &= bool(evidence.get('published_at') and data['scope']['date_from'] <= evidence['published_at'][:10] <= data['scope']['date_to'])
                 quotes_ok &= evidence["evidence_ref"] == f"sha256:{evidence['file_sha256']}#line={evidence['line_number']}"
                 for opinion in evidence["opinions"]:
                     quotes_ok &= sentiment == "all" or opinion["sentiment"] == sentiment

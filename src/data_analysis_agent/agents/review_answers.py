@@ -12,6 +12,8 @@ from data_analysis_agent.agents.review_answer_facts import answer_caveats, build
 from data_analysis_agent.agents.review_compression import CompactAnalysisContext
 from data_analysis_agent.agents.review_results import AnalysisModel, EvidenceReference
 from data_analysis_agent.core.serialization import canonical_json
+from data_analysis_agent.agents.review_evidence import assess_evidence
+from data_analysis_agent.agents.review_evidence_semantics import apply_evidence_relations
 from data_analysis_agent.agents.review_insights import (
     COMPACT_DRAFT_PROMPT, COMPACT_REVIEW_PROMPT, DraftValidationError, InsightDraft, SupportReview, analysis_state, default_focus,
     fact_catalog, lead_summary, model_catalog, render_insights, validate_draft,
@@ -57,6 +59,7 @@ class PublicAnswer(AnalysisModel):
     scope_summary: list[dict] = Field(default_factory=list)
     details_available: bool = False
     insights: list[dict] = Field(default_factory=list)
+    evidence_relations: list[dict] = Field(default_factory=list)
 
 
 class AnswerGenerationStrategy:
@@ -116,14 +119,25 @@ class AnswerAssembler:
         all_facts, _ = build_answer_facts(context)
         answer = self.assemble(context, template_draft(context, all_facts))
         answer.summary = lead_summary(context, selected)
-        answer.highlights = [AnswerHighlight(finding_ref=row['fact_id'], aspect_key=row['aspect'], scope_ref=row['scope_ref'],
-            source_result_ids=row['result_ids'], text=row['text']) for row in selected]
+        product_scopes = {tuple(row['scope'].get('product_ids',[])) for row in selected}
+        windows = {(row['scope'].get('date_from'),row['scope'].get('date_to')) for row in selected}
+        answer.highlights = []
+        for row in selected:
+            labels = []
+            if row['kind'] in ('topic','opinion_group','evidence','trend'):
+                if len(product_scopes)>1:
+                    labels.append('商品 ' + '、'.join(row['scope']['product_ids']))
+                if len(windows)>1 and row['scope'].get('date_from') and row['scope'].get('date_to'):
+                    labels.append(row['scope']['date_from'] + ' 至 ' + row['scope']['date_to'])
+            text = ('（' + '，'.join(labels) + '）' if labels else '') + row['text']
+            answer.highlights.append(AnswerHighlight(finding_ref=row['fact_id'], aspect_key=row['aspect'], scope_ref=row['scope_ref'],
+                source_result_ids=row['result_ids'], text=text))
         answer.metrics = [{'finding_ref': row['fact_id'], 'scope_ref': row['scope_ref'], 'values': row['metrics']} for row in selected]
         answer.insights = render_insights(draft, catalog)
         known_text = answer.summary + ''.join(row.text for row in answer.highlights) + ''.join(answer.caveats)
         answer.insights = [row for row in answer.insights if row['text'] not in known_text]
         answer.generation_status = generation_status
-        return answer
+        return apply_evidence_relations(context,answer,catalog)
 
     def assemble(self, context, draft, *, generation_status="template", detailed=False):
         # 始终重建可信目录，不接受模型提交的数值、来源或范围对象。
@@ -144,6 +158,9 @@ class AnswerAssembler:
             # 单维度的数量/分母已由摘要完整呈现，指标与详情保留，正文不再重复数字行。
             highlights = []
         notes = answer_caveats(context, facts)
+        assessment = assess_evidence(context)
+        if assessment['note'] and assessment['status'] not in ('facts_sufficient','descriptive_evidence_available','sample_descriptive_only'):
+            notes.append(assessment['note'])
         if facts and all(fact.kind in ('aspect', 'empty') for fact in facts) and re.search(r'具体|反映|解释|为什么', context.question):
             notes.append('目前只能确认已有维度的提及数量和占比；未查询对应观点原文或二级主题，不能判断具体问题类型或原因。')
         if omitted:
@@ -164,10 +181,12 @@ class AnswerAssembler:
             if "positive_review_count" in sample:
                 note += f"，其中 {sample['positive_review_count']} 条包含正向观点"
             note += "。"
-        return PublicAnswer(status="ok", summary=draft.summary, highlights=highlights,
+        answer=PublicAnswer(status="ok", summary=draft.summary, highlights=highlights,
             metrics=[{"finding_ref": fact.finding_ref, "scope_ref": fact.scope_ref, "values": fact.metrics} for fact in facts],
             sample_note=note, evidence_refs=context.evidence, caveats=notes, generation_status=generation_status,
             source_result_ids=context.source_result_ids, scope_summary=context.scope_summary, details_available=True)
+        catalog,_=fact_catalog(context)
+        return apply_evidence_relations(context,answer,catalog)
 
 
 ANSWER_SYSTEM_PROMPT = """你负责将已核验评论统计组织为简洁、自然的中文解释，不是工具规划器。
@@ -208,7 +227,8 @@ class NaturalLanguageAnswerGenerator:
             raise ValueError("回答问题或统计上下文不完整。")
         state = analysis_state(context)
         if state != 'complete':
-            return unavailable_answer(state), {'strategy': 'blocked', 'attempts': 0, 'generation_status': 'unavailable', 'error_code': 'analysis_not_complete'}
+            return unavailable_answer(state), {'strategy': 'blocked', 'attempts': 0, 'generation_status': 'unavailable', 'error_code': 'analysis_not_complete',
+                'evidence_assessment':assess_evidence(context)}
         detailed = bool(re.search(r"详细|展开|完整分析", question))
         facts, _ = build_answer_facts(context, detailed=detailed)
         if not facts:
@@ -230,6 +250,7 @@ class NaturalLanguageAnswerGenerator:
         diagnostics.update(failed_stage=None, model_input_tokens=0, model_output_tokens=0, request_stages=[], reviewed_insights=0,
             sent_input_bytes=0, usage_available=False, usage_responses=0, request_durations=[], time_budget_seconds=settings.answer_timeout_seconds * 2,
             protocol='compact_refs_v3', failure_reason=None, focus_augmented=[], insight_decisions=[])
+        diagnostics['evidence_assessment'] = assess_evidence(context)
         started = perf_counter()
         status = "template"
         if mode == "llm":
@@ -347,6 +368,7 @@ class NaturalLanguageAnswerGenerator:
         diagnostics['published_insights'] = len(answer.insights)
         diagnostics['omitted_redundant_insights'] = sum(row['reason'] == 'redundant' for row in diagnostics['insight_decisions'])
         diagnostics['answer_outcome'] = 'verified_insights' if answer.insights else 'facts_only'
+        diagnostics['local_evidence_relations']={'count':len(answer.evidence_relations),'external_model_input':False}
         diagnostics["validated_draft"] = draft.model_dump()
         return answer.model_dump(), diagnostics
 
