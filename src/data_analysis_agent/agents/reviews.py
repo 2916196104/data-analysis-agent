@@ -103,6 +103,9 @@ def grounded_answer(status, results):
             parts.append(f"{reference} 匹配 {data['total']} 条评论、{data['total_opinions']} 条观点；按观点原文和情感精确归组，非标准细分标签。")
             for row in data['groups'][:3]:
                 parts.append(f"{reference} “{row['quote']}”：{row['review_count']} 条评论、{row['opinion_count']} 条观点，{row['sentiment']}；评论 #{row['review_id']}。")
+        elif kind == 'aspect_drilldown':
+            parts.append(f"{reference} 二级主题{data['analysis_status']}，纳入 {data['coverage']['selected_reviews']} 条评论、"
+                         f"{data['coverage']['selected_opinions']} 条观点；模型候选主题未经人工确认。")
         elif kind == "evidence":
             parts.append(f"{reference} 找到 {data['total']} 条匹配证据，本页展示 {len(data['items'])} 条。")
             for item in data["items"]:
@@ -169,20 +172,23 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                 effective_time_range={'date_from': scope['date_from'], 'date_to': scope['date_to']})
             sentiment_intent = plan.sentiment
             result.update(scope=scope, query_plan=plan.to_dict(), sentiment_intent=sentiment_intent,
-                          analysis_intent=plan.analysis_type, analysis_question=plan.answer_question or question)
+                          analysis_intent=plan.analysis_type, analysis_question=(plan.answer_question or question)
+                          if question.startswith('执行本轮已确认的只读查询') else question)
+            if plan.analysis_type == 'aspect_drilldown':
+                result['user_intent'].update(query_type='aspect_drilldown', sub_intent='drill_down')
             timings['planning_duration_ms'] = (perf_counter() - planning_started) * 1000
             if plan.unsupported_reason:
                 raise UnsupportedReviewQuery(plan.unsupported_reason)
             if plan.analysis_type == "pros_cons" and len(plan.requirements) + 1 > settings.max_tool_calls:
                 raise UnsupportedReviewQuery("本轮商品数量超过工具调用预算，请减少商品后分析优缺点。")
             context = ReviewToolContext(connection, scope, Path(temporary), settings.max_tool_calls, report,
-                                        sentiment_intent=sentiment_intent, query_plan=plan)
+                                        sentiment_intent=sentiment_intent, query_plan=plan, settings=settings)
             registry = create_review_registry(context)
             overview = registry.execute_tool("get_analysis_context", "{}", automatic=True)
             if "overview" not in context.results:
                 raise ReviewDataError("无法读取当前评论范围，请检查标注表和数据集。")
             status, ids = None, []
-            direct_query = semantic_direct or question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'opinion_breakdown', 'pros_cons'}
+            direct_query = semantic_direct or question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'opinion_breakdown', 'aspect_drilldown', 'pros_cons'}
             if direct_query:
                 # 已确认追问或确定的文本归组计划直接执行；仍走同一注册表、预算与发布校验。
                 for request in plan.requirements:
@@ -243,6 +249,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                                 raise
                             prompt = "请只纠正最终 JSON 格式，不重复执行成功工具。只输出 status 和 result_ids，已有结果 ID：" + json.dumps(list(context.results))
             selected = [context.get_result(value) for value in ids]
+            if any(item['kind'] == 'aspect_drilldown' and item['data']['analysis_status'] == 'failed' for item in selected):
+                raise ReviewDataError('二级主题归并未完成；原始观点与失败原因已保留，未发布主题结论。')
             if status == "ok":
                 validation_started = perf_counter()
                 result["validation"] = validate_report(
@@ -272,6 +280,10 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                 result.update(build_analysis_artifacts({**result, "results": context.results}, plan))
                 timings["compression_duration_ms"] = round((perf_counter() - compression_started) * 1000, 3)
         # 关闭只读事务和规划客户端后才解释已核验快照，生成阶段没有查询入口。
+        if result['status'] == 'ok' and any(item['kind'] == 'aspect_drilldown' and item['data']['analysis_status'] == 'partial' for item in selected):
+            result['status'] = result['public_analysis']['status'] = 'partial'
+            result['public_answer'] = unavailable_answer('partial')
+            result['answer_generation'] = {'strategy': 'blocked', 'attempts': 0, 'generation_status': 'unavailable', 'error_code': 'analysis_not_complete'}
         if result["status"] == "ok":
             report({"stage": "answer_generating", "completed": 0, "total": 1, "unit": "answers"})
             answer_started = perf_counter()
@@ -307,9 +319,10 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                       tool_calls=context.tool_calls if context else 0, model_calls=llm.budget.calls if llm else 0,
                       model_responses=model_responses, usage=usage or None,
                       answer_model_calls=result.get("answer_generation", {}).get("attempts", 0),
+                      topic_model_calls=context.topic_model_calls if context else 0,
                       intent_model_calls=result['intent_resolution'].get('model_calls', 0),
                       total_model_calls=(llm.budget.calls if llm else 0) + result.get("answer_generation", {}).get("attempts", 0)
-                                        + result['intent_resolution'].get('model_calls', 0),
+                                        + result['intent_resolution'].get('model_calls', 0) + (context.topic_model_calls if context else 0),
                       elapsed_seconds=round(timings["total_duration_ms"] / 1000, 3))
     result.setdefault("public_analysis", empty_public(result["status"]).model_dump())
     result.setdefault("public_answer", unavailable_answer("unsupported" if result["status"] == "unsupported" else "failed", reason=result.get("answer")))

@@ -227,8 +227,8 @@ class AnalysisResultCompressor:
                         quote.truncated = True
                         caveats.append({"code": "evidence_quote_truncated", "scope_ref": scope_ref})
                 evidence.append(compact_ref)
-            if result.kind in ("evidence", "opinion_breakdown"):
-                if result.kind == 'opinion_breakdown':
+            if result.kind in ("evidence", "opinion_breakdown", 'aspect_drilldown'):
+                if result.kind in ('opinion_breakdown', 'aspect_drilldown'):
                     statistics = [row for row in statistics if row['source_result_id'] != result.result_id]
                 statistics.append({"source_result_id": result.result_id, "analysis_type": result.kind, "scope_ref": scope_ref,
                                    "filters": deepcopy(result.filters)})
@@ -305,7 +305,7 @@ def read_public_analysis(task, options=None):
         plan = ReviewQueryPlan(analysis_type=result.get("analysis_intent") or "composite",
                                sentiment=result.get("sentiment_intent"), scope=result["scope"], requirements=requests,
                                product_groups=(result.get('query_plan') or {}).get('product_groups', []),
-                               requires_evidence=any(item["tool"] in {"get_evidence", "get_opinion_breakdown"} for item in requests), max_evidence_items=10)
+                               requires_evidence=any(item["tool"] in {"get_evidence", "get_opinion_breakdown", 'get_aspect_drilldown'} for item in requests), max_evidence_items=10)
         validation = validate_report(result["results"], result["result_ids"],
                                      sentiment_intent=result.get("sentiment_intent"), query_plan=plan)
         if validation["status"] != "passed":

@@ -147,7 +147,7 @@ def opinion_request(question):
     if aspect is None:
         aspect = next((key for word, key in {'质量': 'quality', '效果': 'effectiveness', '包装': 'packaging',
                       '物流': 'logistics', '客服': 'service', '服务': 'service', '价格': 'price'}.items() if word in text), None)
-    detail = bool(re.search(r"里面|细分|关注|提及最多|哪些问题|哪些方面|主要集中", text))
+    detail = bool(re.search(r"里面|细分|关注|提及最多|哪些问题|哪些方面|主要集中|具体.*(?:好|差|优点|缺点)|好在哪里|差在哪里", text))
     experience = bool(re.search(r"用起来.*(?:怎么样|如何)|效果.*(?:怎么样|如何)", text))
     return {"text": text, "topic": topic, "aspect": aspect,
             "breakdown": bool(topic or experience or (aspect and detail))}

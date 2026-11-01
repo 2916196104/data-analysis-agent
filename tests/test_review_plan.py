@@ -21,10 +21,24 @@ from data_analysis_agent.reviews.label_store import pending_reviews, save_annota
 from data_analysis_agent.reviews.opinions import validate_opinions
 from data_analysis_agent.reviews.store import import_amazon_jsonl
 from data_analysis_agent.reviews.store import connect_review_database
+from topic_fixture import topic_model
 
 
 class QueryPlanTests(WorkbenchFixture, unittest.TestCase):
     scope = agent_fixture.ReviewAgentTests.scope
+
+    def test_explicit_query_preserves_original_answer_purpose_without_changing_parameters(self):
+        explicit = {'tool': 'get_aspect_trend', 'parameters': {'aspect': 'logistics', 'period': 'month'},
+                    'question': '物流问题最近有没有改善？'}
+        prefix = '执行本轮已确认的只读查询\n'
+        plan = build_query_plan(prefix + json.dumps(explicit), self.scope())
+        self.assertEqual(plan.answer_question, explicit['question'])
+        self.assertEqual(plan.requirements, [{'tool': explicit['tool'], 'parameters': explicit['parameters']}])
+        self.assertEqual(plan.sentiment, 'negative')
+        for invalid in (None, '', 'x' * 4001, {'question': 'untrusted'}):
+            explicit['question'] = invalid
+            plan = build_query_plan(prefix + json.dumps(explicit), self.scope())
+            self.assertEqual(plan.answer_question, '物流负面趋势')
 
     @contextmanager
     def registry(self, question, limit=12, **scope_changes):
@@ -202,7 +216,7 @@ class QueryPlanTests(WorkbenchFixture, unittest.TestCase):
             return ScriptedAgent()
         self_outer = self
         with patch("data_analysis_agent.agents.reviews.create_llm", create_llm), patch("data_analysis_agent.agents.reviews.build_agent", build), \
-                patch("openai.OpenAI", side_effect=RuntimeError("isolated planning fixture: no answer transport")):
+                patch("openai.OpenAI", side_effect=RuntimeError("isolated planning fixture: no answer transport")), topic_model():
             return run_review_agent(self.db, question, scope=self.scope(), settings=SETTINGS)
 
     def test_sync_full_orchestration_and_window_scope_compatibility(self):

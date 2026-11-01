@@ -42,6 +42,8 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
             requests.append(body)
             if not body.get("tools"):
                 payload = json.loads(body["messages"][-1]["content"])
+                if payload.get('stage') == 'answer_draft':
+                    return completion({'role': 'assistant', 'content': json.dumps({'schema_version': '2.0', 'focus': payload['required_focus'], 'insights': []})})
                 return completion({"role": "assistant", "content": json.dumps({"summary": payload["summary_options"][0],
                     "items": [{"finding_ref": fact["finding_ref"], "aspect_key": fact["aspect_key"],
                                "explanation": fact["statements"][0]} for fact in payload["findings"]], "caveats": []})})

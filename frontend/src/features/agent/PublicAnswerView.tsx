@@ -27,9 +27,10 @@ export default function PublicAnswerView({ answer }: { answer: PublicAnswer }) {
         {copied ? '已复制' : '复制回答'}
       </Button>
     </div>
-    <p className="public-answer-summary">{answer.summary}</p>
+    <p className="public-answer-summary">{answer.status === 'partial' ? `部分完成：${answer.summary}` : answer.summary}</p>
     {answer.status === 'ok' && <>
       {!!answer.highlights.length && <ol className="public-answer-highlights">{answer.highlights.map(item => <li key={item.finding_ref}>{item.text}</li>)}</ol>}
+      {answer.insights?.map((item, index) => <p key={`${item.kind}-${index}`}><strong>{item.kind === 'interpretation' ? '可能的解释：' : '分析建议：'}</strong>{item.text}</p>)}
       {answer.sample_note && <p>{answer.sample_note}</p>}
       {answer.caveats.map(note => <p className="muted" key={note}>{note}</p>)}
       {answer.generation_status === 'fallback' && <p role="status" className="muted">解释生成未完成，已根据核验统计生成可靠摘要。</p>}

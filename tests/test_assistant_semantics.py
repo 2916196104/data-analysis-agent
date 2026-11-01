@@ -78,7 +78,7 @@ class AssistantSemanticsFixture(WorkbenchFixture):
 class AssistantSemanticsTests(AssistantSemanticsFixture, unittest.TestCase):
     def test_ten_questions_choose_supported_plan_or_request_missing_comparison(self):
         tools = ['get_opinion_breakdown'] * 4 + ['get_top_issues', 'get_positive_aspects',
-                 'get_opinion_breakdown', 'compare_time_windows', 'compare_products', 'get_top_issues']
+                 'get_aspect_drilldown', 'compare_time_windows', 'compare_products', 'get_top_issues']
         for index, (question, tool) in enumerate(zip(QUESTIONS, tools)):
             with self.subTest(question=question):
                 plan = build_query_plan(question, self.scope())

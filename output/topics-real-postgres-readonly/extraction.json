@@ -1,0 +1,17 @@
+{
+  "database_backend": "PostgresConnection",
+  "product_id": "100013588053",
+  "total_reviews": 308,
+  "total_opinions": 667,
+  "selected_reviews": 100,
+  "checked_opinions": 186,
+  "source": "reviews_csv",
+  "dataset_version": "reviews-csv",
+  "date_from": "2021-09-11",
+  "date_to": "2022-08-26",
+  "annotation_profile_ref": "profile:1b58dc189d7d3ea6",
+  "real_model_used": false,
+  "model_requests": 0,
+  "status": "passed",
+  "elapsed_seconds": 0.885
+}

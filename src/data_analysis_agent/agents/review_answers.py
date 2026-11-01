@@ -10,6 +10,10 @@ from data_analysis_agent.agents.review_answer_facts import answer_caveats, build
 from data_analysis_agent.agents.review_compression import CompactAnalysisContext
 from data_analysis_agent.agents.review_results import AnalysisModel, EvidenceReference
 from data_analysis_agent.core.serialization import canonical_json
+from data_analysis_agent.agents.review_insights import (
+    DRAFT_PROMPT, REVIEW_PROMPT, InsightDraft, SupportReview, analysis_state, default_focus,
+    fact_catalog, lead_summary, model_catalog, render_insights, validate_draft,
+)
 
 
 class DraftItem(AnalysisModel):
@@ -22,6 +26,10 @@ class AnswerDraft(AnalysisModel):
     summary: str = Field(min_length=1, max_length=600)
     items: list[DraftItem] = Field(min_length=1, max_length=30)
     caveats: list[str]
+
+
+class AnswerCallBudgetExceeded(RuntimeError):
+    """回答调用预算已用完，不能再以复核或重试名义追加请求。"""
 
 
 class AnswerHighlight(AnalysisModel):
@@ -45,12 +53,15 @@ class PublicAnswer(AnalysisModel):
     source_result_ids: list[str] = Field(default_factory=list)
     scope_summary: list[dict] = Field(default_factory=list)
     details_available: bool = False
+    insights: list[dict] = Field(default_factory=list)
 
 
 class AnswerGenerationStrategy:
     @staticmethod
     def choose(context, facts):
-        complex_types = {"trend", "aspect_trend", "comparison", "window_comparison", "composite"}
+        if context.analysis_type == 'aspect_drilldown' and sum(fact.kind == 'topic' for fact in facts) < 2:
+            return 'template'
+        complex_types = {"trend", "aspect_trend", "comparison", "window_comparison", "composite", 'aspect_drilldown'}
         requested = bool(re.search(r"原因|为什么|建议|改进|改善|综合|详细分析", context.question))
         return "llm" if facts and any(fact.kind != "empty" for fact in facts) and (
             context.analysis_type in complex_types or requested) else "template"
@@ -88,6 +99,24 @@ class AnswerValidator:
 
 
 class AnswerAssembler:
+    def assemble_insights(self, context, draft, catalog, *, generation_status):
+        validate_draft(draft, catalog)
+        # 重点目录可比旧正文更长；对目录全部事实继续执行原来源、范围、情感校验。
+        catalog_facts = [row['fact'] for row in catalog]
+        AnswerValidator().validate(template_draft(context, catalog_facts), context, catalog_facts)
+        by_id = {row['fact_id']: row for row in catalog}
+        selected = [by_id[key] for key in draft.focus]
+        # 先沿用旧组装器计算范围、样本与必要限制，再替换重点正文；原统计完全不变。
+        all_facts, _ = build_answer_facts(context)
+        answer = self.assemble(context, template_draft(context, all_facts))
+        answer.summary = lead_summary(context, selected)
+        answer.highlights = [AnswerHighlight(finding_ref=row['fact_id'], aspect_key=row['aspect'], scope_ref=row['scope_ref'],
+            source_result_ids=row['result_ids'], text=row['text']) for row in selected]
+        answer.metrics = [{'finding_ref': row['fact_id'], 'scope_ref': row['scope_ref'], 'values': row['metrics']} for row in selected]
+        answer.insights = render_insights(draft, catalog)
+        answer.generation_status = generation_status
+        return answer
+
     def assemble(self, context, draft, *, generation_status="template", detailed=False):
         # 始终重建可信目录，不接受模型提交的数值、来源或范围对象。
         facts, omitted = build_answer_facts(context, detailed=detailed)
@@ -164,50 +193,104 @@ class NaturalLanguageAnswerGenerator:
         context = CompactAnalysisContext.model_validate(compact_context)
         if question != context.question or not context.source_result_ids or not context.statistics:
             raise ValueError("回答问题或统计上下文不完整。")
+        state = analysis_state(context)
+        if state != 'complete':
+            return unavailable_answer(state), {'strategy': 'blocked', 'attempts': 0, 'generation_status': 'unavailable', 'error_code': 'analysis_not_complete'}
         detailed = bool(re.search(r"详细|展开|完整分析", question))
         facts, _ = build_answer_facts(context, detailed=detailed)
         if not facts:
             raise ValueError("没有可用于回答的统计事实。")
         mode = AnswerGenerationStrategy.choose(context, facts)
         draft = template_draft(context, facts)
-        messages = model_messages(context, facts)
+        catalog, _ = fact_catalog(context)
+        if mode == 'llm':
+            draft = InsightDraft(focus=default_focus(catalog))
+        messages = [{'role': 'system', 'content': DRAFT_PROMPT}, {'role': 'user', 'content': canonical_json({
+            'stage': 'answer_draft', 'question': question, 'analysis_type': context.analysis_type,
+            'sample_summary': context.sample_summary, 'limitations': answer_caveats(context, facts),
+            'facts': model_catalog(catalog), 'required_focus': default_focus(catalog), 'schema': InsightDraft.model_json_schema()})}]
         size = len(canonical_json(messages).encode("utf-8"))
         diagnostics = {"strategy": mode, "input_bytes": size, "compact_bytes": len(canonical_json(compact_context).encode("utf-8")),
             "input_budget_bytes": settings.answer_input_max_bytes, "attempts": 0, "error_code": None,
             "timeout_seconds": settings.answer_timeout_seconds, "max_retries": settings.answer_max_retries}
+        diagnostics.update(failed_stage=None, model_input_tokens=0, model_output_tokens=0, request_stages=[], reviewed_insights=0,
+            sent_input_bytes=0, usage_available=False, usage_responses=0, request_durations=[], time_budget_seconds=settings.answer_timeout_seconds * 2)
         started = perf_counter()
         status = "template"
         if mode == "llm":
             status = "fallback"
             if size > settings.answer_input_max_bytes:
                 diagnostics["error_code"] = "input_budget_exceeded"
+                diagnostics['failed_stage'] = 'input_budget'
             else:
                 from openai import APIConnectionError, OpenAI
                 try:
-                    with OpenAI(api_key=settings.api_key, base_url=settings.base_url, timeout=settings.answer_timeout_seconds, max_retries=0) as client:
-                        for attempt in range(settings.answer_max_retries + 1):
-                            diagnostics["attempts"] += 1
-                            try:
+                    def call(stage, messages, max_tokens):
+                        diagnostics['failed_stage'] = stage
+                        remaining = settings.answer_timeout_seconds * 2 - (perf_counter() - started)
+                        if diagnostics['attempts'] >= 2:
+                            raise AnswerCallBudgetExceeded()
+                        if remaining <= 0:
+                            raise TimeoutError('回答时间预算已用完。')
+                        size = len(canonical_json(messages).encode('utf-8'))
+                        if size > settings.answer_input_max_bytes:
+                            raise ValueError('回答输入超过预算。')
+                        diagnostics['attempts'] += 1
+                        diagnostics['sent_input_bytes'] += size
+                        diagnostics['request_stages'].append(stage)
+                        request_started = perf_counter()
+                        try:
+                            with OpenAI(api_key=settings.api_key, base_url=settings.base_url, timeout=min(settings.answer_timeout_seconds, remaining), max_retries=0) as client:
                                 response = client.chat.completions.create(model=settings.model, messages=messages,
-                                    temperature=0, max_tokens=2048, response_format={"type": "json_object"})
-                                break
-                            except APIConnectionError:
-                                if attempt == settings.answer_max_retries:
-                                    raise
-                    choice = response.choices[0]
-                    if choice.finish_reason != "stop" or choice.message.tool_calls:
-                        raise ValueError("回答未完整生成。")
-                    candidate = AnswerDraft.model_validate_json(choice.message.content)
-                    AnswerValidator().validate(candidate, context, facts)
-                    draft, status = candidate, "llm"
-                    diagnostics["usage"] = response.usage.model_dump() if response.usage else None
+                                    temperature=0, max_tokens=max_tokens, response_format={'type': 'json_object'})
+                        finally:
+                            diagnostics['request_durations'].append({'stage': stage, 'elapsed_seconds': round(perf_counter()-request_started,3)})
+                        if response.usage:
+                            diagnostics['usage_available'] = True
+                            diagnostics['usage_responses'] += 1
+                            diagnostics['model_input_tokens'] += response.usage.prompt_tokens or 0
+                            diagnostics['model_output_tokens'] += response.usage.completion_tokens or 0
+                            diagnostics['usage'] = response.usage.model_dump()
+                        choice = response.choices[0]
+                        if choice.finish_reason != 'stop' or choice.message.tool_calls:
+                            raise ValueError('回答未完整生成。')
+                        return choice.message.content
+                    for attempt in range(settings.answer_max_retries + 1):
+                        try:
+                            content = call('draft', messages, 1400)
+                            break
+                        except APIConnectionError:
+                            if attempt == settings.answer_max_retries:
+                                raise
+                    import json
+                    raw = json.loads(content)
+                    if isinstance(raw, dict) and 'focus' in raw:
+                        candidate = validate_draft(InsightDraft.model_validate(raw), catalog)
+                        if candidate.insights:
+                            review_messages = [{'role': 'system', 'content': REVIEW_PROMPT}, {'role': 'user', 'content': canonical_json({
+                                'stage': 'answer_support_review', 'question': question, 'facts': model_catalog(catalog),
+                                'sample_summary': context.sample_summary, 'limitations': answer_caveats(context, facts),
+                                'insights': [row.model_dump() for row in candidate.insights], 'schema': SupportReview.model_json_schema()})}]
+                            review = SupportReview.model_validate_json(call('support_review', review_messages, 500))
+                            if len(review.decisions) != len(candidate.insights) or {row.index for row in review.decisions} != set(range(len(candidate.insights))) or any(
+                                not row.supported or row.reason != 'supported' for row in review.decisions):
+                                raise ValueError('解释未通过独立支持性复核。')
+                            diagnostics['reviewed_insights'] = len(candidate.insights)
+                        draft, status = candidate, 'llm'
+                    else:
+                        # 兼容已部署模型的旧草稿；仍须逐句通过原白名单校验。
+                        candidate = AnswerDraft.model_validate(raw)
+                        AnswerValidator().validate(candidate, context, facts)
+                        draft, status = candidate, 'llm'
+                    diagnostics['failed_stage'] = None
                 except Exception as exc:
                     # 不保存/发布无效草稿或异常正文，原统计继续用于确定性降级。
-                    diagnostics["error_code"] = "generation_timeout" if "timeout" in type(exc).__name__.lower() else "invalid_generation"
-        answer = AnswerAssembler().assemble(context, draft, generation_status=status, detailed=detailed)
+                    diagnostics["error_code"] = ('answer_call_budget_exceeded' if isinstance(exc, AnswerCallBudgetExceeded) else
+                        "generation_timeout" if "timeout" in type(exc).__name__.lower() else "invalid_generation")
+        answer = (AnswerAssembler().assemble_insights(context, draft, catalog, generation_status=status) if isinstance(draft, InsightDraft)
+                  else AnswerAssembler().assemble(context, draft, generation_status=status, detailed=detailed))
         diagnostics["elapsed_seconds"] = round(perf_counter() - started, 3)
         diagnostics["generation_status"] = status
-        diagnostics["sent_input_bytes"] = size * diagnostics["attempts"]
         diagnostics["validated_draft"] = draft.model_dump()
         return answer.model_dump(), diagnostics
 
@@ -237,6 +320,12 @@ def read_public_answer(task, *, public_analysis=None):
             return unavailable_answer()
         generation = result.get("answer_generation") or {}
         try:
+            if generation.get('validated_draft', {}).get('schema_version') == '2.0':
+                catalog, _ = fact_catalog(context)
+                draft = validate_draft(InsightDraft.model_validate(generation['validated_draft']), catalog)
+                # 历史公开接口不把已存复核标签当作语义证明；零调用重建可信事实。
+                draft.insights = []
+                return AnswerAssembler().assemble_insights(context, draft, catalog, generation_status='template').model_dump()
             draft = AnswerDraft.model_validate(generation["validated_draft"])
             status = generation["generation_status"]
             if status not in ("template", "llm", "fallback"):

@@ -140,7 +140,7 @@ for review in pending_reviews(db, **dict(identity, model='SIMULATED-SECOND'), pr
       assert.ok(!body.tools);
       assert.ok(!/"(?:base_url|prompt_version|annotation_profile_ref|points|trace)"/.test(body.messages.at(-1).content));
       if (payload.question.includes('模拟解释超时')) await delay(1600);
-      message = { role: 'assistant', content: JSON.stringify({ summary: payload.summary_options[0],
+      message = payload.stage === 'answer_draft' ? { role: 'assistant', content: JSON.stringify({ schema_version: '2.0', focus: payload.required_focus, insights: [] }) } : { role: 'assistant', content: JSON.stringify({ summary: payload.summary_options[0],
         items: payload.findings.map(fact => ({ finding_ref: fact.finding_ref, aspect_key: fact.aspect_key, explanation: fact.statements[0] })), caveats: [] }) };
     } else {
       basicCalls++;

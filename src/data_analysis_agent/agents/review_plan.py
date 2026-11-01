@@ -15,7 +15,7 @@ TOOL_KINDS = {"get_positive_aspects": "positive_aspects", "get_top_issues": "iss
               "get_trend": "trend", "get_aspect_trend": "aspect_trend", "get_evidence": "evidence",
               "get_data_quality": "quality", "get_rating_distribution": "ratings",
               "compare_products": "comparison", "compare_time_windows": "window_comparison",
-              "get_opinion_breakdown": "opinion_breakdown"}
+              "get_opinion_breakdown": "opinion_breakdown", 'get_aspect_drilldown': 'aspect_drilldown'}
 
 
 @dataclass
@@ -99,7 +99,13 @@ def build_query_plan(question, scope, *, product_groups=None):
             "get_aspect_trend": "负面趋势", "get_trend": "负面趋势", "get_evidence": "评论原文",
             "get_rating_distribution": "星级分布", "compare_products": "商品对比",
             "compare_time_windows": "时间窗口对比", "get_data_quality": "数据质量",
-            "get_opinion_breakdown": "观点文本细分"}[tool]
+            "get_opinion_breakdown": "观点文本细分", 'get_aspect_drilldown': '二级主题细分'}[tool]
+        original = explicit.get('question')
+        if isinstance(original, str) and original.strip() and len(original) <= 4000:
+            plan.answer_question = original.strip()
+        if tool == 'get_aspect_drilldown':
+            plan.sentiment = params.get('sentiment')
+            plan.requires_evidence, plan.max_evidence_items = True, 8
         if tool == "get_opinion_breakdown":
             plan.sentiment = params.get("sentiment") if params.get("sentiment") != "all" else None
             plan.requires_evidence, plan.max_evidence_items = True, 3
@@ -177,9 +183,14 @@ def build_query_plan(question, scope, *, product_groups=None):
             else:
                 add("get_trend", period=period)
         if breakdown:
-            add("get_opinion_breakdown", aspect=aspects[0] if len(aspects) == 1 else None,
-                sentiment=sentiment or "all", topic=semantic["topic"])
-            plan.requires_evidence, plan.max_evidence_items = True, 3
+            if len(aspects) == 1 and sentiment in ('positive', 'negative') and not semantic['topic']:
+                if len(scope['product_ids']) != 1:
+                    plan.unsupported_reason = '二级主题分析首版仅支持一款商品，请指定具体商品 ID。'
+                add('get_aspect_drilldown', product_ids=scope['product_ids'], aspect=aspects[0], sentiment=sentiment)
+            else:
+                add("get_opinion_breakdown", aspect=aspects[0] if len(aspects) == 1 else None,
+                    sentiment=sentiment or "all", topic=semantic["topic"])
+            plan.requires_evidence, plan.max_evidence_items = True, 8 if requests[-1]['tool'] == 'get_aspect_drilldown' else 3
         elif ranking or (sentiment and not (evidence or trend or rating or windows or products or quality)):
             ranking_aspects = list(dict.fromkeys(value for word, value in ASPECT_WORDS.items()
                                                 if word in (ranking_text if ranking else question)))

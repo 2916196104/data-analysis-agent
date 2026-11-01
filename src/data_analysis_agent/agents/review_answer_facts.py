@@ -145,6 +145,18 @@ def build_answer_facts(context, *, detailed=False):
             detail = f"{stat['group_id']} 的有效星级分布：" + "；".join(
                 f"{row['name'][-1]} 星 {row['numerator']} 条（{percent(row['value'])}）" for row in stars) + "。"
             add(stat, "rating", detail, ["星级分布独立于观点情感标注。"], metrics=stat["metrics"])
+        elif kind == 'aspect_drilldown':
+            filters = stat['filters']
+            for topic in filters['topics']:
+                basis = '纳入样本评论' if filters['population_mode'] == 'sample' else '该维度该情感的匹配评论'
+                detail = (f"{topic['name']}：{topic['review_count']} 条去重评论、{topic['opinion_count']} 条观点，"
+                          f"占{basis} {percent(topic['review_rate'])}（分母 {topic['review_denominator']} 条）。"
+                          f"代表原文：“{topic['quote']}”（评论 #{topic['review_id']}）。")
+                add(stat, 'topic', detail, ['以下主题由模型发现并独立复核观点归属，未经人工确认。'], aspect=topic['aspect'],
+                    metrics=[{key: topic[key] for key in ('review_count', 'opinion_count', 'review_rate', 'review_denominator')}],
+                    finding_ref='finding:' + content_sha256([stat['source_result_id'], topic['topic_id']])[:20])
+            if not filters['topics']:
+                add(stat, 'empty', '当前没有获得真实观点及归属复核共同支持的二级主题；不据此编造主题排名。', ['当前没有可发布的二级主题。'])
         elif kind == 'opinion_breakdown':
             groups = stat['filters']['groups']
             balanced = context.analysis_type == "pros_cons"
@@ -187,6 +199,15 @@ def build_answer_facts(context, *, detailed=False):
 def answer_caveats(context, facts):
     codes = {item["code"] for item in context.caveats}
     messages = []
+    for stat in context.statistics:
+        if stat['analysis_type'] == 'aspect_drilldown':
+            filters, coverage = stat['filters'], stat['filters']['coverage']
+            messages.append(f"模型候选主题未经人工确认，未穷尽全部主题；同一评论可进入多个主题，数量不能相加。"
+                f"纳入 {coverage['selected_reviews']} 条评论、{coverage['selected_opinions']} 条观点，未归类 {coverage['unclassified_opinions']} 条（含模糊、矛盾及未处理观点）。")
+            if filters['population_mode'] == 'sample':
+                messages.append(f"这是受预算限制的非随机样本探索，总体有 {filters['total']} 条匹配评论、{filters['total_opinions']} 条观点；样本占比不能视为总体真实比例。")
+            if filters['analysis_status'] == 'partial':
+                messages.append('部分归属批次失败，仅保留已通过来源与计算校验的事实，尚未形成完整分析结果。')
     if any(row['analysis_type'] == 'opinion_breakdown' for row in context.statistics):
         messages.append('现有标注只有六个上级维度；以上按观点原文和情感精确归组，同义表述未合并，不是完整细分主题排名。同一评论可有多条观点并进入多个组，评论数与观点数分别统计。')
     if "no_successful_annotations" in codes:
@@ -197,7 +218,7 @@ def answer_caveats(context, facts):
         messages.append("部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。")
     if "missing_time_buckets" in codes:
         messages.append("存在无成功标注的时段，空数据不代表负面占比为零。")
-    if any(fact.kind == "aspect" for fact in facts):
+    if sum(fact.kind == "aspect" for fact in facts) > 1:
         messages.append("同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。")
     if any(fact.kind == "trend" for fact in facts):
         messages.append("首末时间段可能不完整，变化不能直接解释为已证实的原因。")
@@ -207,6 +228,9 @@ def answer_caveats(context, facts):
 
 
 def summary_options(context, facts):
+    if context.analysis_type == 'aspect_drilldown':
+        topics = [row['name'] for stat in context.statistics for row in stat.get('filters', {}).get('topics', [])]
+        return ['模型归并候选主题主要包括' + '、'.join(topics[:3]) + '，以下数量均由后端依据真实观点归属计算。'] if topics else ['当前数据或归属复核不足，尚无可发布的二级主题。']
     if context.analysis_type == "pros_cons":
         return ['以下按商品分别列出优点和缺点，每个方向展示最多两种常见原文表述，仅代表当前数据集的已标注样本。']
     if any(fact.kind == 'opinion_group' for fact in facts):

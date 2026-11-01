@@ -22,7 +22,7 @@ class IntentTimeRange(Input):
 
 
 class ReviewIntent(Input):
-    query_type: Literal['aspect_summary', 'opinion_breakdown', 'evidence', 'trend', 'comparison',
+    query_type: Literal['aspect_summary', 'aspect_drilldown', 'opinion_breakdown', 'evidence', 'trend', 'comparison',
                         'quality', 'ratings', 'window_comparison', 'pros_cons'] | None = None
     product_mentions: list[str] = Field(default_factory=list, max_length=4)
     sentiment: Literal['positive', 'negative', 'neutral', 'all'] | None = None
@@ -36,10 +36,12 @@ class ReviewIntent(Input):
 
 
 KIND_TYPES = {'pros_cons': 'pros_cons', 'positive_aspects': 'aspect_summary', 'issues': 'aspect_summary',
+              'aspect_drilldown': 'aspect_drilldown',
               'opinion_breakdown': 'opinion_breakdown', 'evidence': 'evidence', 'trend': 'trend',
               'aspect_trend': 'trend', 'comparison': 'comparison', 'quality': 'quality',
               'ratings': 'ratings', 'window_comparison': 'window_comparison'}
 KIND_LABELS = {'positive_aspects': '正向维度汇总', 'issues': '负向维度汇总', 'opinion_breakdown': '观点细分',
+               'aspect_drilldown': '二级主题细分',
                'evidence': '评论原文', 'trend': '趋势', 'aspect_trend': '维度趋势', 'comparison': '商品对比',
                'quality': '数据质量', 'ratings': '星级分布', 'window_comparison': '时间窗口对比'}
 PARSER_PROMPT = """你只解析商品评论分析意图，不回答业务结论。输出符合给定 schema 的 JSON。
@@ -112,9 +114,19 @@ def _intent_plan(intent, scope, *, previous_parameters=None):
         raise QuestionScopeError(intent.clarification_question or '请明确要查看维度汇总、观点细分、趋势还是评论原文。')
     params = {'product_ids': scope['product_ids']}
     aspect = {'aspect': intent.aspect} if intent.aspect else {}
-    if intent.sub_intent == 'drill_down' and intent.query_type not in {'aspect_summary', 'opinion_breakdown'}:
+    if intent.sub_intent == 'drill_down' and intent.query_type not in {'aspect_summary', 'opinion_breakdown', 'aspect_drilldown'}:
         raise QuestionScopeError('请明确要下钻的评价维度；数据质量、星级和商品对比不能直接替代观点细分。')
     kind = {'drill_down': 'opinion_breakdown', 'evidence': 'evidence'}.get(intent.sub_intent, intent.query_type)
+    if (kind == 'opinion_breakdown' and intent.aspect and intent.sentiment in ('positive', 'negative') and not intent.topic) or intent.query_type == 'aspect_drilldown':
+        if not intent.aspect or intent.sentiment not in ('positive', 'negative'):
+            raise QuestionScopeError('二级主题分析需要一个明确维度及正向或负向情感。')
+        if len(scope['product_ids']) != 1:
+            raise QuestionScopeError('二级主题分析首版仅支持一款商品，请指定具体商品 ID。')
+        if (previous_parameters or {}).get('window') == 'baseline':
+            raise QuestionScopeError('本轮要继续基线原文，还是对当前窗口做二级主题分析？')
+        confirmed = '执行本轮已确认的只读查询\n' + json.dumps({'tool': 'get_aspect_drilldown', 'parameters': {
+            **params, 'aspect': intent.aspect, 'sentiment': intent.sentiment}}, ensure_ascii=False)
+        return build_query_plan(confirmed, scope)
     if intent.aspect and kind in {'quality', 'ratings', 'comparison', 'window_comparison'}:
         raise QuestionScopeError('该统计类型不支持直接按评价维度筛选。要查看该维度的观点细分、原文还是趋势？')
     if kind == 'aspect_summary':
@@ -174,13 +186,13 @@ def _followup_intent(question, conditions):
         labels = '、'.join(dict.fromkeys(KIND_LABELS.get(row['kind'], row['kind']) for row in queries))
         raise QuestionScopeError(f'上轮包含{labels}。这次要看该维度的汇总、趋势还是原文？')
     last = selected[0]
-    if summary_ref and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown'}:
+    if summary_ref and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown'}:
         raise QuestionScopeError('上轮是' + KIND_LABELS.get(last['kind'], last['kind']) + '。这次要继续该统计，还是查看评价维度和观点细分？')
     if short_period and last['kind'] not in {'trend', 'aspect_trend', 'ratings'}:
         raise QuestionScopeError('上轮不是时间序列或星级分布，请明确要按日/月查看哪个指标。')
     if short_period and last['kind'] == 'ratings' and short_period.group(1) != '月':
         raise QuestionScopeError('星级分布目前只支持按月、商品或总体分组。')
-    if short_sentiment and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'evidence', 'trend', 'aspect_trend'}:
+    if short_sentiment and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown', 'evidence', 'trend', 'aspect_trend'}:
         raise QuestionScopeError('上轮没有可切换的评价情感目标，这次要看好差评汇总还是原文？')
     last_params = dict(last['parameters'])
     if short_period and last['kind'] == 'ratings':
@@ -188,7 +200,7 @@ def _followup_intent(question, conditions):
     intent = ReviewIntent(query_type='opinion_breakdown' if semantic['breakdown'] else KIND_TYPES.get(last['kind']),
         sentiment=detect_sentiment_intent(question) or conditions.get('sentiment') or last_params.get('sentiment'),
         aspect=semantic['aspect'] or last_params.get('aspect'),
-        sub_intent='drill_down' if semantic['breakdown'] or last['kind'] == 'opinion_breakdown' else 'overview',
+        sub_intent='drill_down' if semantic['breakdown'] or last['kind'] in ('opinion_breakdown', 'aspect_drilldown') else 'overview',
         topic=semantic['topic'] if semantic['aspect'] else last_params.get('topic'),
         period=('month' if short_period.group(1) == '月' else 'day') if short_period else last_params.get('period', 'month'))
     return intent, last_params
@@ -280,7 +292,7 @@ def resolve_review_request(question, scope, products, *, settings, context=None,
         diagnostics['error_code'] = 'timeout' if 'timeout' in type(exc).__name__.lower() else 'invalid_semantic_response'
         raise
     intent_state.update(intent.model_dump())
-    if intent.sentiment is None and intent.query_type in {'aspect_summary', 'opinion_breakdown', 'evidence', 'trend'}:
+    if intent.sentiment is None and intent.query_type in {'aspect_summary', 'opinion_breakdown', 'aspect_drilldown', 'evidence', 'trend'}:
         intent.sentiment = conditions.get('sentiment')
     if intent.sub_intent == 'drill_down' and not intent.aspect:
         prior_aspects = {row['parameters'].get('aspect') for row in queries if row['parameters'].get('aspect')}

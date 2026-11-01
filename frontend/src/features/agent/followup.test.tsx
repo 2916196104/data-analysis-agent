@@ -74,6 +74,7 @@ describe('追问解析使用真实查询参数', () => {
     expect(resolved.query.queries?.[0]).toEqual({ kind: 'issues', parameters: { product_ids: ['A'] } });
     expect(resolved.query.effectiveQuestion).toContain('get_top_issues');
     expect(resolved.query.effectiveQuestion).toContain('"product_ids":["A"]');
+    expect(JSON.parse(resolved.query.effectiveQuestion.split('\n')[1]).question).toBe('那差评呢');
   });
 
   it('问题分布后只看物流会收敛到物流维度而不重复六维问题', () => {

@@ -6,7 +6,7 @@ import math
 def result_summaries(results):
     for item in results:
         data = item["data"]
-        if item["kind"] in ("context", "trend", "quality", "aspect_trend", "positive_aspects", "opinion_breakdown"):
+        if item["kind"] in ("context", "trend", "quality", "aspect_trend", "positive_aspects", "opinion_breakdown", 'aspect_drilldown'):
             yield data["summary"]
             yield from data.get("buckets", [])
         elif item["kind"] == "comparison":
@@ -119,7 +119,7 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
             scope_ok &= _scope_matches(data.get("scope"), expected)
         if item["kind"] == "positive_aspects":
             positive_ok &= _validate_positive_aspects(data)
-        if item["kind"] in ("evidence", "opinion_breakdown"):
+        if item["kind"] in ("evidence", "opinion_breakdown", 'aspect_drilldown'):
             sentiment = item["parameters"].get("sentiment", "all" if item['kind'] == 'opinion_breakdown' else "negative")
             aspect = item["parameters"].get("aspect")
             quotes_ok &= data.get("sentiment") == (None if sentiment == "all" else sentiment)
@@ -132,6 +132,9 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
                     start, end = opinion["quote_start"], opinion["quote_end"]
                     quotes_ok &= (type(start) is int and type(end) is int and 0 <= start < end <= len(evidence["text"])
                                   and evidence["text"][start:end] == opinion["quote"])
+            if item['kind'] == 'aspect_drilldown':
+                from data_analysis_agent.agents.review_topics import validate_topic_result
+                additional_ok &= validate_topic_result(data)
         elif item["kind"] in ("issues", "window_comparison"):
             current, baseline = data["current"], data.get("baseline")
             for issue in data["issues"]:
@@ -198,11 +201,11 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
     semantic_ok = True
     if sentiment_intent == "positive":
         semantic_ok = any(item["kind"] == "positive_aspects" or (
-            item["kind"] in {"evidence", "opinion_breakdown"} and item["data"].get("sentiment") == "positive"
+            item["kind"] in {"evidence", "opinion_breakdown", 'aspect_drilldown'} and item["data"].get("sentiment") == "positive"
         ) for item in selected)
     elif sentiment_intent == "negative":
         semantic_ok = any(item["kind"] in {"trend", "aspect_trend", "comparison", "issues", "window_comparison"}
-                          or (item["kind"] in {"evidence", "opinion_breakdown"} and item["data"].get("sentiment") == "negative")
+                          or (item["kind"] in {"evidence", "opinion_breakdown", 'aspect_drilldown'} and item["data"].get("sentiment") == "negative")
                           for item in selected)
     if query_plan is not None:
         semantic_ok &= query_plan.satisfied(selected)

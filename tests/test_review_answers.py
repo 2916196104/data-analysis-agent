@@ -62,17 +62,19 @@ class AnswerTests(WorkbenchFixture, unittest.TestCase):
             if error:
                 raise error
             payload = json.loads(body["messages"][-1]["content"])
-            draft = {"summary": payload["summary_options"][0], "items": [{"finding_ref": fact["finding_ref"],
-                "aspect_key": fact["aspect_key"], "explanation": fact["statements"][0]} for fact in payload["findings"]], "caveats": []}
+            context = CompactAnalysisContext.model_validate(self.current_context)
+            facts, _ = build_answer_facts(context)
+            draft = template_draft(context, facts).model_dump()
             value = transform(draft) if transform else draft
             return completion({"role": "assistant", "content": value if isinstance(value, str) else json.dumps(value)})
         def client(**kwargs):
             self.assertEqual(kwargs["max_retries"], 0)
-            self.assertEqual(kwargs["timeout"], SETTINGS.answer_timeout_seconds)
+            self.assertLessEqual(kwargs["timeout"], SETTINGS.answer_timeout_seconds)
             return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handler)))
         return patch("openai.OpenAI", side_effect=client)
 
     def generate(self, context, settings=SETTINGS):
+        self.current_context = context
         return NaturalLanguageAnswerGenerator().generate(context["question"], context, settings=settings, validated=True)
 
     def test_positive_template_real_ranking_and_numbers_without_model(self):

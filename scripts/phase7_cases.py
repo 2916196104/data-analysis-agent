@@ -29,7 +29,7 @@ def cases():
         c("colloquial", "大家都喜欢它啥？", "positive", p),
         c("advantages", "优点呢？", "positive", p),
         c("best", "哪些方面评价最好", "positive", p),
-        c("complaints", "物流投诉主要集中在哪些问题", "negative", ("get_opinion_breakdown", {"aspect": "logistics", "sentiment": "negative", "topic": None})),
+        c("complaints", "物流投诉主要集中在哪些问题", "negative", ("get_aspect_drilldown", {"aspect": "logistics", "sentiment": "negative"}), scope={'product_ids': ['DEMO-A']}),
         c("quality", "检查数据质量和标注覆盖率", None, ("get_data_quality", {})),
         c("ratings", "查看原始星级分布", None, ("get_rating_distribution", {})),
         c("daily", "按日查看负面趋势", "negative", ("get_trend", {"period": "day"})),

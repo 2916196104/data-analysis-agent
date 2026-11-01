@@ -23,6 +23,7 @@ from data_analysis_agent.reviews.parameters import BaselineScope
 QUERY_SIGNATURES = {name: signature(getattr(analytics, name)) for name in (
     "get_trend", "get_aspect_trend", "get_data_quality", "get_positive_aspects",
     "get_rating_distribution", "compare_time_windows", "compare_products", "get_top_issues", "get_evidence", "get_opinion_breakdown",
+    "get_aspect_opinions",
 )}
 
 
@@ -42,6 +43,11 @@ class IssueInput(AspectSelection):
 class OpinionBreakdownInput(AspectSelection):
     sentiment: Literal["positive", "neutral", "negative", "all"] = "all"
     topic: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+class AspectDrilldownInput(ProductSelection):
+    aspect: Aspect
+    sentiment: Literal['positive', 'negative']
 
 
 class TrendInput(ProductSelection):
@@ -77,7 +83,7 @@ class EvidenceInput(ProductSelection):
 
 class ReviewToolContext:
     def __init__(self, connection, scope, run_dir: Path, max_tool_calls, progress=None,
-                 sentiment_intent: str | None = None, query_plan=None):
+                 sentiment_intent: str | None = None, query_plan=None, settings=None):
         self.connection, self.scope, self.run_dir = connection, scope, run_dir
         self.max_tool_calls, self.progress = max_tool_calls, progress
         self.sentiment_intent = {"positive_aspects": "positive", "negative_aspects": "negative"}.get(
@@ -85,6 +91,7 @@ class ReviewToolContext:
         )
         self.tool_calls, self.limit_reached = 0, False
         self.query_plan = query_plan
+        self.settings, self.topic_model_calls = settings, 0
         self.cache_hits, self.query_executions, self.model_tool_attempts = 0, 0, 0
         self.evidence_queries, self.evidence_items = 0, 0
         self.query_duration_ms = 0.0
@@ -210,6 +217,15 @@ class ReviewToolContext:
             kind, data = "issues", self.query("get_top_issues", **scope, **baseline)
         elif name == "get_opinion_breakdown":
             kind, data = "opinion_breakdown", self.query("get_opinion_breakdown", **scope, **values)
+        elif name == 'get_aspect_drilldown':
+            from data_analysis_agent.agents.review_topics import analyze_aspect_topics
+            if self.settings is None:
+                raise ReviewDataError('二级主题分析缺少模型配置。')
+            if self.sentiment_intent in ('positive', 'negative') and values['sentiment'] != self.sentiment_intent:
+                raise ReviewDataError('二级主题情感必须与本轮意图一致。')
+            extracted = self.query('get_aspect_opinions', **scope, **values)
+            kind, data = 'aspect_drilldown', analyze_aspect_topics(extracted, settings=self.settings, progress=self.progress)
+            self.topic_model_calls += data['model_calls']
         elif name == "get_evidence":
             if values["sentiment"] == "all":
                 values["sentiment"] = None
@@ -303,6 +319,7 @@ def create_review_registry(context):
         ("compare_products", "比较已选商品在当前窗口的评论量、覆盖率、负面数量和占比。", ProductSelection),
         ("get_top_issues", "当前窗口六维度负面数量和占比；仅 include_baseline=true 时比较基线。", IssueInput),
         ("get_opinion_breakdown", "按已有观点原文与情感归组，返回去重评论数、观点数及可追溯原文；不是标准细分标签。", OpinionBreakdownInput),
+        ('get_aspect_drilldown', '对一个商品、一个维度及正向或负向观点进行有来源的候选二级主题归并，数量由代码计算。', AspectDrilldownInput),
         ("get_evidence", "分页查询带原文位置的评论证据，可筛选维度、情感、商品子集和当前/基线窗口。", EvidenceInput),
     ):
         if context.query_plan and name != "get_analysis_context" and name not in (

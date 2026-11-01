@@ -255,9 +255,10 @@ class TaskWorker:
                         performance["queue_duration_ms"] = max(0, round((
                             datetime.fromisoformat(task["started_at"]) - datetime.fromisoformat(task["created_at"])
                         ).total_seconds() * 1000, 3))
-                    if result.get("status") not in ("ok", "unsupported") or (
+                    if result.get("status") not in ("ok", "unsupported", "partial") or (
                         result.get("validation", {}).get("status") == "failed"
-                    ):
+                    ) or (result.get('status') == 'partial' and (result.get('analysis_intent') != 'aspect_drilldown'
+                          or result.get('validation', {}).get('status') != 'passed')):
                         result["status"] = "error"
                         result.setdefault("error", {"code": "agent_error", "message": "分析结果未通过校验，请重试。"})
                         # 部分工具结果保留用于排障；未经确认的正文不发布。

@@ -1,0 +1,1139 @@
+{
+  "source": "Frozen pre-phase3 deterministic/fallback answers, SYNTHETIC_SQLITE_ONLY; not historical live model results.",
+  "answers": {
+    "A-positive": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "根据当前已标注评论，好评主要集中在使用效果、物流、价格。",
+      "highlights": [
+        {
+          "finding_ref": "finding:2967cc8c911face67acf",
+          "aspect_key": "effectiveness",
+          "scope_ref": "scope:5c1a26011d47b23f",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "使用效果：2 条，66.7%（2/3 条含正向观点评论）。"
+        },
+        {
+          "finding_ref": "finding:128ae70c5ecae8545e41",
+          "aspect_key": "logistics",
+          "scope_ref": "scope:5c1a26011d47b23f",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "物流：1 条，33.3%（1/3 条含正向观点评论）。"
+        },
+        {
+          "finding_ref": "finding:dc7245a1136058492491",
+          "aspect_key": "price",
+          "scope_ref": "scope:5c1a26011d47b23f",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "价格：1 条，33.3%（1/3 条含正向观点评论）。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:2967cc8c911face67acf",
+          "scope_ref": "scope:5c1a26011d47b23f",
+          "values": [
+            {
+              "name": "positive_review_count",
+              "value": 2,
+              "unit": "reviews"
+            },
+            {
+              "name": "positive_rate",
+              "value": 0.666667,
+              "unit": "fraction_0_to_1",
+              "numerator": 2,
+              "denominator": 3,
+              "denominator_name": "positive_review_count"
+            },
+            {
+              "name": "positive_success_rate",
+              "value": 0.666667,
+              "unit": "fraction_0_to_1",
+              "numerator": 2,
+              "denominator": 3,
+              "denominator_name": "successful_reviews"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:128ae70c5ecae8545e41",
+          "scope_ref": "scope:5c1a26011d47b23f",
+          "values": [
+            {
+              "name": "positive_review_count",
+              "value": 1,
+              "unit": "reviews"
+            },
+            {
+              "name": "positive_rate",
+              "value": 0.333333,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 3,
+              "denominator_name": "positive_review_count"
+            },
+            {
+              "name": "positive_success_rate",
+              "value": 0.333333,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 3,
+              "denominator_name": "successful_reviews"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:dc7245a1136058492491",
+          "scope_ref": "scope:5c1a26011d47b23f",
+          "values": [
+            {
+              "name": "positive_review_count",
+              "value": 1,
+              "unit": "reviews"
+            },
+            {
+              "name": "positive_rate",
+              "value": 0.333333,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 3,
+              "denominator_name": "positive_review_count"
+            },
+            {
+              "name": "positive_success_rate",
+              "value": 0.333333,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 3,
+              "denominator_name": "successful_reviews"
+            }
+          ]
+        }
+      ],
+      "sample_note": "本次分析范围共 6 条评论，基于 3 条成功标注评论，其中 3 条包含正向观点。",
+      "evidence_refs": [],
+      "caveats": [
+        "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。",
+        "同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。"
+      ],
+      "generation_status": "template",
+      "source_result_ids": [
+        "r1"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:5c1a26011d47b23f",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-06",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "details_available": true
+    },
+    "negative": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "当前已标注评论的主要负面问题集中在包装、客服。",
+      "highlights": [
+        {
+          "finding_ref": "finding:1a236d4ec7c8d0cd0aa5",
+          "aspect_key": "packaging",
+          "scope_ref": "scope:5c1a26011d47b23f",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "包装：1 条，33.3%（1/3 条成功标注评论）。"
+        },
+        {
+          "finding_ref": "finding:0afc0ae6b16035963988",
+          "aspect_key": "service",
+          "scope_ref": "scope:5c1a26011d47b23f",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "客服：1 条，33.3%（1/3 条成功标注评论）。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:1a236d4ec7c8d0cd0aa5",
+          "scope_ref": "scope:5c1a26011d47b23f",
+          "values": [
+            {
+              "name": "negative_review_count",
+              "value": 1,
+              "unit": "reviews"
+            },
+            {
+              "name": "negative_rate",
+              "value": 0.333333,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 3,
+              "denominator_name": "successful_reviews"
+            },
+            {
+              "name": "negative_rate_change_pp",
+              "value": null,
+              "unit": "percentage_points"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:0afc0ae6b16035963988",
+          "scope_ref": "scope:5c1a26011d47b23f",
+          "values": [
+            {
+              "name": "negative_review_count",
+              "value": 1,
+              "unit": "reviews"
+            },
+            {
+              "name": "negative_rate",
+              "value": 0.333333,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 3,
+              "denominator_name": "successful_reviews"
+            },
+            {
+              "name": "negative_rate_change_pp",
+              "value": null,
+              "unit": "percentage_points"
+            }
+          ]
+        }
+      ],
+      "sample_note": "本次分析范围共 6 条评论，基于 3 条成功标注评论。",
+      "evidence_refs": [],
+      "caveats": [
+        "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。",
+        "同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。"
+      ],
+      "generation_status": "template",
+      "source_result_ids": [
+        "r1"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:5c1a26011d47b23f",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-06",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "details_available": true
+    },
+    "C-comparison": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "各商品的主要负面问题如下，占比均以各自成功标注评论为分母。",
+      "highlights": [
+        {
+          "finding_ref": "finding:c73684d3c3e0bf592b0b",
+          "aspect_key": "packaging",
+          "scope_ref": "scope:2b98bc7dfbe41202",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "商品 P1：包装：1 条，100.0%（1/1 条成功标注评论）。"
+        },
+        {
+          "finding_ref": "finding:0cd4c011a55e06f7c1cf",
+          "aspect_key": null,
+          "scope_ref": "scope:8c251efdad72ded8",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "商品 P2：成功标注评论中暂无匹配的有效负面观点，无法给出维度排名。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:c73684d3c3e0bf592b0b",
+          "scope_ref": "scope:2b98bc7dfbe41202",
+          "values": [
+            {
+              "name": "negative_review_count",
+              "value": 1,
+              "unit": "reviews"
+            },
+            {
+              "name": "negative_rate",
+              "value": 1.0,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 1,
+              "denominator_name": "successful_reviews"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:0cd4c011a55e06f7c1cf",
+          "scope_ref": "scope:8c251efdad72ded8",
+          "values": [
+            {
+              "name": "negative_review_count",
+              "value": 0,
+              "unit": "reviews"
+            },
+            {
+              "name": "negative_rate",
+              "value": 0.0,
+              "unit": "fraction_0_to_1",
+              "numerator": 0,
+              "denominator": 1,
+              "denominator_name": "successful_reviews"
+            }
+          ]
+        }
+      ],
+      "sample_note": "",
+      "evidence_refs": [],
+      "caveats": [
+        "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。",
+        "同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。"
+      ],
+      "generation_status": "fallback",
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:9bd9c34e32637d91",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-06",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        },
+        {
+          "scope_ref": "scope:2b98bc7dfbe41202",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-06",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        },
+        {
+          "scope_ref": "scope:8c251efdad72ded8",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P2"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-06",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "details_available": true
+    },
+    "D-sparse-trend": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "包装可比较的标注样本不足，暂不能判断稳定趋势。物流可比较的标注样本不足，暂不能判断稳定趋势。",
+      "highlights": [
+        {
+          "finding_ref": "finding:7c7892fabb4edb706298",
+          "aspect_key": "packaging",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "包装已标注样本的占比峰值在 2023-01，为 33.3%（1/3 条成功标注评论）。"
+        },
+        {
+          "finding_ref": "finding:bd3cc48d9a73e8680dfc",
+          "aspect_key": "logistics",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "source_result_ids": [
+            "r2"
+          ],
+          "text": "物流已标注样本的占比峰值在 2023-01，为 0.0%（0/3 条成功标注评论）。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:7c7892fabb4edb706298",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "values": [
+            {
+              "bucket": "2023-01",
+              "name": "negative_rate",
+              "value": 0.333333,
+              "unit": "fraction_0_to_1",
+              "numerator": 1,
+              "denominator": 3,
+              "denominator_name": "successful_reviews",
+              "sample_size": {
+                "review_count": 6,
+                "eligible_text_reviews": 5,
+                "successful_reviews": 3,
+                "failed_reviews": 1,
+                "unprocessed_reviews": 1,
+                "labeling_coverage": 0.6,
+                "empty_text_reviews": 1,
+                "reviewed_reviews": 0
+              }
+            },
+            {
+              "name": "first_last_change_pp",
+              "value": 0.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-01"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:bd3cc48d9a73e8680dfc",
+          "scope_ref": "scope:17660bcc770a99cd",
+          "values": [
+            {
+              "bucket": "2023-01",
+              "name": "negative_rate",
+              "value": 0.0,
+              "unit": "fraction_0_to_1",
+              "numerator": 0,
+              "denominator": 3,
+              "denominator_name": "successful_reviews",
+              "sample_size": {
+                "review_count": 6,
+                "eligible_text_reviews": 5,
+                "successful_reviews": 3,
+                "failed_reviews": 1,
+                "unprocessed_reviews": 1,
+                "labeling_coverage": 0.6,
+                "empty_text_reviews": 1,
+                "reviewed_reviews": 0
+              }
+            },
+            {
+              "name": "first_last_change_pp",
+              "value": 0.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-01"
+            }
+          ]
+        }
+      ],
+      "sample_note": "本次分析范围共 6 条评论，基于 3 条成功标注评论。",
+      "evidence_refs": [],
+      "caveats": [
+        "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。",
+        "存在无成功标注的时段，空数据不代表负面占比为零。",
+        "首末时间段可能不完整，变化不能直接解释为已证实的原因。"
+      ],
+      "generation_status": "fallback",
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:17660bcc770a99cd",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-03-31",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "details_available": true
+    },
+    "E-no-data": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "当前数据不足以给出可靠的分析结论。",
+      "highlights": [
+        {
+          "finding_ref": "finding:e19aab2268797dbcdd55",
+          "aspect_key": null,
+          "scope_ref": "scope:61fc761dc15833ed",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "当前范围暂无成功标注评论，无法判断评价维度分布。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:e19aab2268797dbcdd55",
+          "scope_ref": "scope:61fc761dc15833ed",
+          "values": [
+            {
+              "name": "positive_review_count",
+              "value": 0,
+              "unit": "reviews"
+            },
+            {
+              "name": "positive_success_rate",
+              "value": null,
+              "unit": "fraction_0_to_1",
+              "numerator": 0,
+              "denominator": 0,
+              "denominator_name": "successful_reviews"
+            }
+          ]
+        }
+      ],
+      "sample_note": "本次分析范围共 6 条评论，基于 0 条成功标注评论，其中 0 条包含正向观点。",
+      "evidence_refs": [],
+      "caveats": [
+        "部分范围暂无成功标注，无法判断其正负面占比。",
+        "当前成功标注中没有有效正向观点，不能据此编造好评排名。",
+        "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。"
+      ],
+      "generation_status": "template",
+      "source_result_ids": [
+        "r1"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:61fc761dc15833ed",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "amazon-reviews-2023",
+          "product_ids": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-06",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:5f289222bc3e1e76"
+        }
+      ],
+      "details_available": true
+    },
+    "D-supported-trend": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "包装在已有标注样本中的负面占比有升有降、呈现波动。物流在已有标注样本中的负面占比呈下降变化。",
+      "highlights": [
+        {
+          "finding_ref": "finding:edb015c34e2a9afcba69",
+          "aspect_key": "packaging",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "包装已标注样本的占比峰值在 2023-03，为 80.0%（20/25 条成功标注评论）。最近可比较的相邻时段 2023-05 至 2023-06 变化 +20.0 个百分点。"
+        },
+        {
+          "finding_ref": "finding:45f1838361a079411967",
+          "aspect_key": "logistics",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source_result_ids": [
+            "r2"
+          ],
+          "text": "物流已标注样本的占比峰值在 2023-01，为 60.0%（15/25 条成功标注评论）。最近可比较的相邻时段 2023-05 至 2023-06 变化 -4.0 个百分点。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:edb015c34e2a9afcba69",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "values": [
+            {
+              "bucket": "2023-03",
+              "name": "negative_rate",
+              "value": 0.8,
+              "unit": "fraction_0_to_1",
+              "numerator": 20,
+              "denominator": 25,
+              "denominator_name": "successful_reviews",
+              "sample_size": {
+                "review_count": 25,
+                "eligible_text_reviews": 25,
+                "successful_reviews": 25,
+                "failed_reviews": 0,
+                "unprocessed_reviews": 0,
+                "labeling_coverage": 1.0,
+                "empty_text_reviews": 0,
+                "reviewed_reviews": 0
+              }
+            },
+            {
+              "name": "recent_change_pp",
+              "value": 20.0,
+              "unit": "percentage_points",
+              "from": "2023-05",
+              "to": "2023-06",
+              "from_metric": {
+                "name": "negative_rate",
+                "value": 0.2,
+                "unit": "fraction_0_to_1",
+                "numerator": 5,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              },
+              "to_metric": {
+                "name": "negative_rate",
+                "value": 0.4,
+                "unit": "fraction_0_to_1",
+                "numerator": 10,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              }
+            },
+            {
+              "name": "first_last_change_pp",
+              "value": 20.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-06"
+            },
+            {
+              "name": "largest_adjacent_change_pp",
+              "value": 40.0,
+              "unit": "percentage_points",
+              "from": "2023-02",
+              "to": "2023-03"
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:45f1838361a079411967",
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "values": [
+            {
+              "bucket": "2023-01",
+              "name": "negative_rate",
+              "value": 0.6,
+              "unit": "fraction_0_to_1",
+              "numerator": 15,
+              "denominator": 25,
+              "denominator_name": "successful_reviews",
+              "sample_size": {
+                "review_count": 25,
+                "eligible_text_reviews": 25,
+                "successful_reviews": 25,
+                "failed_reviews": 0,
+                "unprocessed_reviews": 0,
+                "labeling_coverage": 1.0,
+                "empty_text_reviews": 0,
+                "reviewed_reviews": 0
+              }
+            },
+            {
+              "name": "recent_change_pp",
+              "value": -4.0,
+              "unit": "percentage_points",
+              "from": "2023-05",
+              "to": "2023-06",
+              "from_metric": {
+                "name": "negative_rate",
+                "value": 0.24,
+                "unit": "fraction_0_to_1",
+                "numerator": 6,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              },
+              "to_metric": {
+                "name": "negative_rate",
+                "value": 0.2,
+                "unit": "fraction_0_to_1",
+                "numerator": 5,
+                "denominator": 25,
+                "denominator_name": "successful_reviews"
+              }
+            },
+            {
+              "name": "first_last_change_pp",
+              "value": -40.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-06"
+            },
+            {
+              "name": "largest_adjacent_change_pp",
+              "value": -12.0,
+              "unit": "percentage_points",
+              "from": "2023-01",
+              "to": "2023-02"
+            }
+          ]
+        }
+      ],
+      "sample_note": "本次分析范围共 150 条评论，基于 150 条成功标注评论。",
+      "evidence_refs": [],
+      "caveats": [
+        "首末时间段可能不完整，变化不能直接解释为已证实的原因。"
+      ],
+      "generation_status": "fallback",
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:f2c41cccea0da6bd",
+          "source": "amazon_reviews_2023",
+          "dataset_version": "phase4-controlled",
+          "product_ids": [
+            "TREND-CONTROL"
+          ],
+          "date_from": "2023-01-01",
+          "date_to": "2023-06-30",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+        }
+      ],
+      "details_available": true
+    },
+    "B-topics-full": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "模型归并候选主题主要包括制冷速度、运行噪声，以下数量均由后端依据真实观点归属计算。",
+      "highlights": [
+        {
+          "finding_ref": "finding:e63950b20f13b71abcbc",
+          "aspect_key": "effectiveness",
+          "scope_ref": "scope:f225cb9550158529",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "制冷速度：2 条去重评论、3 条观点，占该维度该情感的匹配评论 50.0%（分母 4 条）。代表原文：“降温很快”（评论 #14，sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2）。"
+        },
+        {
+          "finding_ref": "finding:f46c4294c75e22e1ade8",
+          "aspect_key": "effectiveness",
+          "scope_ref": "scope:f225cb9550158529",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "运行噪声：1 条去重评论、1 条观点，占该维度该情感的匹配评论 25.0%（分母 4 条）。代表原文：“运行声音小”（评论 #14，sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2）。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:e63950b20f13b71abcbc",
+          "scope_ref": "scope:f225cb9550158529",
+          "values": [
+            {
+              "review_count": 2,
+              "opinion_count": 3,
+              "review_rate": 0.5,
+              "review_denominator": 4
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:f46c4294c75e22e1ade8",
+          "scope_ref": "scope:f225cb9550158529",
+          "values": [
+            {
+              "review_count": 1,
+              "opinion_count": 1,
+              "review_rate": 0.25,
+              "review_denominator": 4
+            }
+          ]
+        }
+      ],
+      "sample_note": "本次分析范围共 7 条评论，基于 7 条成功标注评论。",
+      "evidence_refs": [
+        {
+          "source_result_id": "r1",
+          "review_id": 14,
+          "product_id": "TOPIC-TEST",
+          "published_at": "2021-06-09T00:00:00.000+00:00",
+          "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2",
+          "opinion_source": "model",
+          "opinions": [
+            {
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "quote": "降温很快",
+              "quote_start": 0,
+              "quote_end": 4,
+              "truncated": false
+            },
+            {
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "quote": "制冷速度快",
+              "quote_start": 5,
+              "quote_end": 10,
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "caveats": [
+        "二级主题为模型归并候选，未经人工确认；同一评论可进入多个主题，各主题数量不能相加作为总评论数。纳入 4 条评论、6 条观点，完成归属复核 6 条，已归类 4 条，未归类 2 条（含模糊、矛盾及未处理观点）。",
+        "候选发现基于 5 种真实表达，不保证穷尽全部二级主题。",
+        "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。"
+      ],
+      "generation_status": "template",
+      "source_result_ids": [
+        "r1"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:f225cb9550158529",
+          "source": "reviews_csv",
+          "dataset_version": "reviews-csv",
+          "product_ids": [
+            "TOPIC-TEST"
+          ],
+          "date_from": "2021-06-01",
+          "date_to": "2021-06-30",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:560557cf59fa12a0"
+        }
+      ],
+      "details_available": true
+    },
+    "B-topics-sample": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "模型归并候选主题主要包括制冷速度、运行噪声，以下数量均由后端依据真实观点归属计算。",
+      "highlights": [
+        {
+          "finding_ref": "finding:e63950b20f13b71abcbc",
+          "aspect_key": "effectiveness",
+          "scope_ref": "scope:f225cb9550158529",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "制冷速度：2 条去重评论、3 条观点，占纳入样本评论 50.0%（分母 4 条）。代表原文：“降温很快”（评论 #14，sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2）。"
+        },
+        {
+          "finding_ref": "finding:f46c4294c75e22e1ade8",
+          "aspect_key": "effectiveness",
+          "scope_ref": "scope:f225cb9550158529",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "运行噪声：1 条去重评论、1 条观点，占纳入样本评论 25.0%（分母 4 条）。代表原文：“运行声音小”（评论 #14，sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2）。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:e63950b20f13b71abcbc",
+          "scope_ref": "scope:f225cb9550158529",
+          "values": [
+            {
+              "review_count": 2,
+              "opinion_count": 3,
+              "review_rate": 0.5,
+              "review_denominator": 4
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:f46c4294c75e22e1ade8",
+          "scope_ref": "scope:f225cb9550158529",
+          "values": [
+            {
+              "review_count": 1,
+              "opinion_count": 1,
+              "review_rate": 0.25,
+              "review_denominator": 4
+            }
+          ]
+        }
+      ],
+      "sample_note": "本次分析范围共 7 条评论，基于 7 条成功标注评论。",
+      "evidence_refs": [
+        {
+          "source_result_id": "r1",
+          "review_id": 14,
+          "product_id": "TOPIC-TEST",
+          "published_at": "2021-06-09T00:00:00.000+00:00",
+          "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2",
+          "opinion_source": "model",
+          "opinions": [
+            {
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "quote": "降温很快",
+              "quote_start": 0,
+              "quote_end": 4,
+              "truncated": false
+            },
+            {
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "quote": "制冷速度快",
+              "quote_start": 5,
+              "quote_end": 10,
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "caveats": [
+        "二级主题为模型归并候选，未经人工确认；同一评论可进入多个主题，各主题数量不能相加作为总评论数。纳入 4 条评论、6 条观点，完成归属复核 6 条，已归类 4 条，未归类 2 条（含模糊、矛盾及未处理观点）。",
+        "候选发现基于 5 种真实表达，不保证穷尽全部二级主题。",
+        "这是受预算限制的非随机样本探索，总体有 4 条匹配评论、6 条观点；样本占比不能视为总体真实比例。",
+        "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。"
+      ],
+      "generation_status": "template",
+      "source_result_ids": [
+        "r1"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:f225cb9550158529",
+          "source": "reviews_csv",
+          "dataset_version": "reviews-csv",
+          "product_ids": [
+            "TOPIC-TEST"
+          ],
+          "date_from": "2021-06-01",
+          "date_to": "2021-06-30",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:560557cf59fa12a0"
+        }
+      ],
+      "details_available": true
+    },
+    "pros-cons": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "以下按商品分别列出优点和缺点，每个方向展示最多两种常见原文表述，仅代表当前数据集的已标注样本。",
+      "highlights": [
+        {
+          "finding_ref": "finding:950cbc5565a3527f3c02",
+          "aspect_key": null,
+          "scope_ref": "scope:055b5ce21d54b38e",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "主题测试空调（TOPIC-TEST）的优点（正面评价）：观点原文“制冷速度快”：2 条评论、2 条观点，占该商品含正面观点的评论 40.0%（分母 5 条），正面；原文依据：评论 #14。"
+        },
+        {
+          "finding_ref": "finding:a58bcd2c6f686637536c",
+          "aspect_key": null,
+          "scope_ref": "scope:055b5ce21d54b38e",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "主题测试空调（TOPIC-TEST）的优点（正面评价）：观点原文“好像还行”：1 条评论、1 条观点，占该商品含正面观点的评论 20.0%（分母 5 条），正面；原文依据：评论 #19。"
+        },
+        {
+          "finding_ref": "finding:ef209a59a1e29d546388",
+          "aspect_key": null,
+          "scope_ref": "scope:055b5ce21d54b38e",
+          "source_result_ids": [
+            "r2"
+          ],
+          "text": "主题测试空调（TOPIC-TEST）的缺点（负面评价）：观点原文“物流发货慢”：1 条评论、1 条观点，占该商品含负面观点的评论 50.0%（分母 2 条），负面；原文依据：评论 #17。"
+        },
+        {
+          "finding_ref": "finding:0cff601b9ae759382f4e",
+          "aspect_key": null,
+          "scope_ref": "scope:055b5ce21d54b38e",
+          "source_result_ids": [
+            "r2"
+          ],
+          "text": "主题测试空调（TOPIC-TEST）的缺点（负面评价）：观点原文“物流速度慢”：1 条评论、1 条观点，占该商品含负面观点的评论 50.0%（分母 2 条），负面；原文依据：评论 #16。"
+        }
+      ],
+      "metrics": [
+        {
+          "finding_ref": "finding:950cbc5565a3527f3c02",
+          "scope_ref": "scope:055b5ce21d54b38e",
+          "values": [
+            {
+              "review_count": 2,
+              "opinion_count": 2,
+              "review_rate": 0.4
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:a58bcd2c6f686637536c",
+          "scope_ref": "scope:055b5ce21d54b38e",
+          "values": [
+            {
+              "review_count": 1,
+              "opinion_count": 1,
+              "review_rate": 0.2
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:ef209a59a1e29d546388",
+          "scope_ref": "scope:055b5ce21d54b38e",
+          "values": [
+            {
+              "review_count": 1,
+              "opinion_count": 1,
+              "review_rate": 0.5
+            }
+          ]
+        },
+        {
+          "finding_ref": "finding:0cff601b9ae759382f4e",
+          "scope_ref": "scope:055b5ce21d54b38e",
+          "values": [
+            {
+              "review_count": 1,
+              "opinion_count": 1,
+              "review_rate": 0.5
+            }
+          ]
+        }
+      ],
+      "sample_note": "商品 TOPIC-TEST：共 7 条评论，成功标注 7 条，覆盖率 100.0%。",
+      "evidence_refs": [
+        {
+          "source_result_id": "r1",
+          "review_id": 14,
+          "product_id": "TOPIC-TEST",
+          "published_at": "2021-06-09T00:00:00.000+00:00",
+          "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2",
+          "opinion_source": "model",
+          "opinions": [
+            {
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "quote": "制冷速度快",
+              "quote_start": 5,
+              "quote_end": 10,
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "source_result_id": "r1",
+          "review_id": 19,
+          "product_id": "TOPIC-TEST",
+          "published_at": "2021-06-04T00:00:00.000+00:00",
+          "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=7",
+          "opinion_source": "model",
+          "opinions": [
+            {
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "quote": "好像还行",
+              "quote_start": 0,
+              "quote_end": 4,
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "source_result_id": "r2",
+          "review_id": 17,
+          "product_id": "TOPIC-TEST",
+          "published_at": "2021-06-06T00:00:00.000+00:00",
+          "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=5",
+          "opinion_source": "model",
+          "opinions": [
+            {
+              "aspect": "logistics",
+              "sentiment": "negative",
+              "quote": "物流发货慢",
+              "quote_start": 0,
+              "quote_end": 5,
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "source_result_id": "r2",
+          "review_id": 16,
+          "product_id": "TOPIC-TEST",
+          "published_at": "2021-06-07T00:00:00.000+00:00",
+          "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=4",
+          "opinion_source": "model",
+          "opinions": [
+            {
+              "aspect": "logistics",
+              "sentiment": "negative",
+              "quote": "物流速度慢",
+              "quote_start": 0,
+              "quote_end": 5,
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "caveats": [
+        "现有标注只有六个上级维度；以上按观点原文和情感精确归组，同义表述未合并，不是完整细分主题排名。同一评论可有多条观点并进入多个组，评论数与观点数分别统计。",
+        "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。"
+      ],
+      "generation_status": "template",
+      "source_result_ids": [
+        "r1",
+        "r2"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:055b5ce21d54b38e",
+          "source": "reviews_csv",
+          "dataset_version": "reviews-csv",
+          "product_ids": [
+            "TOPIC-TEST"
+          ],
+          "product_titles": {
+            "TOPIC-TEST": "主题测试空调"
+          },
+          "date_from": "2021-06-01",
+          "date_to": "2021-06-30",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:560557cf59fa12a0"
+        }
+      ],
+      "details_available": true
+    }
+  }
+}

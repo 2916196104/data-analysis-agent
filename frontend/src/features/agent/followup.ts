@@ -16,9 +16,9 @@ export interface QueryParent { id: string; taskId?: string; question?: string; p
 
 const aspects: Record<string, string> = { 质量: 'quality', 效果: 'effectiveness', 包装: 'packaging', 物流: 'logistics', 客服: 'service', 服务: 'service', 价格: 'price' };
 const names: Record<QueryIntent['kind'], string> = { trend: '评论趋势', aspect_trend: '维度趋势', evidence: '原文证据',
-  comparison: '商品对比', issues: '问题分布', quality: '数据质量', ratings: '星级分布', window_comparison: '时间窗口对比', positive_aspects: '正向维度', opinion_breakdown: '观点文本分析' };
+  comparison: '商品对比', issues: '问题分布', quality: '数据质量', ratings: '星级分布', window_comparison: '时间窗口对比', positive_aspects: '正向维度', opinion_breakdown: '观点文本分析', aspect_drilldown: '二级主题分析' };
 const tools: Record<QueryIntent['kind'], string> = { trend: 'get_trend', aspect_trend: 'get_aspect_trend', evidence: 'get_evidence',
-  comparison: 'compare_products', issues: 'get_top_issues', quality: 'get_data_quality', ratings: 'get_rating_distribution', window_comparison: 'compare_time_windows', positive_aspects: 'get_positive_aspects', opinion_breakdown: 'get_opinion_breakdown' };
+  comparison: 'compare_products', issues: 'get_top_issues', quality: 'get_data_quality', ratings: 'get_rating_distribution', window_comparison: 'compare_time_windows', positive_aspects: 'get_positive_aspects', opinion_breakdown: 'get_opinion_breakdown', aspect_drilldown: 'get_aspect_drilldown' };
 const scopeKeys = ['source', 'dataset_version', 'model', 'base_url', 'prompt_version', 'date_from', 'date_to', 'baseline_from', 'baseline_to', 'as_of'] as const;
 
 function copyScope(scope: AnalysisParameters): AnalysisParameters {
@@ -139,8 +139,8 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
   const inheritedParameters = parent.parameters;
   if (op.type === 'sentiment') {
     const kind = op.value === 'positive' ? 'positive_aspects' : 'issues';
-    const previous = results.find(item => ['positive_aspects', 'issues', 'evidence', 'opinion_breakdown'].includes(item.kind));
-    candidates = previous?.kind === 'opinion_breakdown' ? [{ kind: 'opinion_breakdown', parameters: { ...previous.parameters, sentiment: op.value } }]
+    const previous = results.find(item => ['positive_aspects', 'issues', 'evidence', 'opinion_breakdown', 'aspect_drilldown'].includes(item.kind));
+    candidates = previous?.kind === 'opinion_breakdown' || previous?.kind === 'aspect_drilldown' ? [{ kind: previous.kind, parameters: { ...previous.parameters, sentiment: op.value } }]
       : previous?.kind === 'evidence' ? [{ kind: 'evidence', parameters: { ...previous.parameters, sentiment: op.value, page: 1 } }]
       : [{ kind, parameters: { product_ids: parent.parameters.product_ids, ...(previous?.parameters.aspect ? { aspect: previous.parameters.aspect } : {}) } }];
   } else if (op.type === 'aspect') {
@@ -152,6 +152,8 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
       .map(item => ({ kind: item.kind as QueryIntent['kind'], parameters: { ...item.parameters, aspect: op.value } }));
     if (!candidates.length) candidates = results.filter(item => item.kind === 'opinion_breakdown')
       .map(item => ({ kind: 'opinion_breakdown', parameters: { ...item.parameters, aspect: op.value, topic: null } }));
+    if (!candidates.length) candidates = results.filter(item => item.kind === 'aspect_drilldown')
+      .map(item => ({ kind: 'aspect_drilldown', parameters: { ...item.parameters, aspect: op.value } }));
     if (!candidates.length) return clarify('上轮查询不支持直接按维度筛选。请明确要查看趋势还是原文，例如“按月查看物流问题趋势”或“查询物流负面评论的原文”。');
   } else if (op.type === 'period') {
     candidates = results.filter(item => ['trend', 'aspect_trend', ...(op.value === 'month' ? ['ratings'] : [])].includes(item.kind))
@@ -191,7 +193,7 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
     const sentiment = ({ negative: '负面', positive: '正面', neutral: '中性', all: '全部情感' } as Record<string, string>)[String(params.sentiment)] ?? '';
     const products = Array.isArray(params.product_ids) && params.product_ids.length ? params.product_ids.join('、') : '已选全部商品';
     const label = `${scope.label}${names[selected.kind]}${aspectName ? ` · ${aspectName}` : ''}${params.period ? ` · 按${params.period === 'month' ? '月' : '日'}` : ''}${selected.kind === 'evidence' ? ` · ${sentiment} · ${params.window === 'baseline' ? '基线' : '当前'} · 第 ${params.page} 页` : ''} · ${products}`;
-    const effectiveQuestion = `执行本轮已确认的只读查询，仅查询下面的工具和参数，不重复上轮其他查询。数据集、标注版本、商品及日期以本次绑定范围为准。\n${JSON.stringify({ tool: tools[selected.kind], parameters: selected.parameters })}`;
+    const effectiveQuestion = `执行本轮已确认的只读查询，仅查询下面的工具和参数，不重复上轮其他查询。数据集、标注版本、商品及日期以本次绑定范围为准。\n${JSON.stringify({ tool: tools[selected.kind], parameters: selected.parameters, question: text })}`;
     return { label, parameters: copyScope(scope.parameters), query: { ...query, effectiveQuestion, queries: [selected] } };
   }));
   if (choices.some(choice => choice.query.effectiveQuestion.length > 4000)) return clarify('追问包含的商品筛选过长。请缩小商品范围后重新提出完整问题。');

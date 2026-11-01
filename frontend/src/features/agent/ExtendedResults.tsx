@@ -3,6 +3,16 @@ import { rate } from '../../ResultCards';
 import type { AgentToolResult, RatingGroup } from '../../types';
 
 export default function ExtendedResults({ item }: { item: AgentToolResult }) {
+  if (item.kind === 'aspect_drilldown') return <>
+    <p>{item.data.population_mode === 'sample' ? '样本探索：非随机受限样本，占比不能代表总体。' : '对本次匹配观点集合进行二级主题分析。'}主题为模型归并候选，未经人工确认。</p>
+    <p>纳入 {item.data.coverage.selected_reviews} 条评论、{item.data.coverage.selected_opinions} 条观点；已复核 {item.data.coverage.evaluated_opinions} 条，已归类 {item.data.coverage.classified_opinions} 条，未归类 {item.data.coverage.unclassified_opinions} 条。同一评论可进入多个主题，各主题内去重，数量不能相加作为总评论数。</p>
+    <Table size="small" rowKey="topic_id" dataSource={item.data.topics} pagination={false} scroll={{ x: 640 }} columns={[
+      { title: '候选子主题', dataIndex: 'name', width: 160 }, { title: '去重评论数', dataIndex: 'review_count' },
+      { title: '观点数', dataIndex: 'opinion_count' }, { title: '占纳入评论', key: 'rate', render: (_, row) => <>{rate(row.review_rate)}<div className="muted">分母 {row.review_denominator} 条</div></> },
+      { title: '代表评论', key: 'review', render: (_, row) => `#${row.review_ids[0]}` },
+    ]} />
+    {!item.data.topics.length && <p role="status">尚无真实观点与归属复核共同支持的主题。</p>}
+  </>;
   if (item.kind === 'positive_aspects') return <>
     <p>正面提及按评论去重，同一评论可命中多个维度。正向观点评论 {item.data.summary.positive_review_count} 条，成功标注 {item.data.summary.successful_reviews} 条。</p>
     {item.data.data_status !== 'ok' && <p role="status">{item.data.data_status === 'insufficient_data' ? '暂无成功标注，无法分析正向维度。' : '当前成功标注中没有正向观点，维度占比暂无数据。'}</p>}

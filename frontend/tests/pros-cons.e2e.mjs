@@ -11,9 +11,11 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const intentMode = process.env.E2E_INTENT_PHASE1 === '1';
+const answerMode = process.env.E2E_ANSWER_PHASE3 === '1';
+const topicMode = answerMode || process.env.E2E_TOPIC_PHASE2 === '1';
+const intentMode = topicMode || process.env.E2E_INTENT_PHASE1 === '1';
 await mkdir(path.join(root, 'output/playwright'), { recursive: true });
-const out = await mkdtemp(path.join(root, `output/playwright/${intentMode ? 'intent-phase1' : 'pros-cons'}-`));
+const out = await mkdtemp(path.join(root, `output/playwright/${answerMode ? 'answer-phase3' : topicMode ? 'topics-phase2' : intentMode ? 'intent-phase1' : 'pros-cons'}-`));
 const python = path.join(root, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 const children = [], logs = [], errors = [], screenshots = [];
 const report = { source: 'isolated SQLite + real API/worker + Vite/Chromium; simulated product reviews', artifacts: out };
@@ -33,7 +35,26 @@ const model = createServer(async (request, response) => {
         id: `tool-${index}`, type: 'function', function: { name: query.tool, arguments: JSON.stringify(query.parameters) } })) };
   } else {
     const payload = JSON.parse(body.messages.at(-1).content);
-    if (payload.schema) {
+    if (payload.stage === 'answer_draft') {
+      const first = payload.required_focus[0];
+      const insights = answerMode && payload.facts.some(row => row.kind === 'topic')
+        ? [{ kind: 'interpretation', fact_ids: [first], text: `[[${first}.label]]提示了当前评价的一项关注点，仍需结合其他反馈理解。` }] : [];
+      message = { role: 'assistant', content: JSON.stringify({ schema_version: '2.0', focus: payload.required_focus, insights }) };
+    } else if (payload.stage === 'answer_support_review') {
+      message = { role: 'assistant', content: JSON.stringify({ decisions: payload.insights.map((_, index) => ({ index, supported: true, reason: 'supported' })) }) };
+    } else if (payload.stage === 'topic_discovery') {
+      const definitions = [['t1', '制冷速度', ['降温很快', '制冷速度快']], ['t2', '运行噪声', ['运行声音小']], ['t3', '配送时效', ['物流速度慢', '物流发货慢']]];
+      message = { role: 'assistant', content: JSON.stringify({ themes: definitions.flatMap(([key, name, quotes]) => {
+        const support_ids = payload.opinions.filter(row => quotes.includes(row.quote)).map(row => row.opinion_id);
+        return support_ids.length ? [{ key, name, definition: `${name}的直接评价`, support_ids: support_ids.slice(0, 6) }] : [];
+      }) }) };
+    } else if (payload.stage === 'topic_classification') {
+      const mapping = { 降温很快: 't1', 制冷速度快: 't1', 运行声音小: 't2', 物流速度慢: 't3', 物流发货慢: 't3' };
+      message = { role: 'assistant', content: JSON.stringify({ assignments: payload.opinions.map(row => {
+        const key = mapping[row.quote]; const assigned = payload.themes.some(theme => theme.key === key);
+        return { opinion_id: row.opinion_id, state: assigned ? 'assigned' : 'uncertain', matches: assigned ? [{ key, start: 0, end: row.quote.length }] : [] };
+      }) }) };
+    } else if (payload.schema) {
       semanticCalls++;
       assert.ok(!raw.includes('file_sha256') && !raw.includes('raw_json'));
       assert.ok(Buffer.byteLength(body.messages.at(-1).content) <= 16000);
@@ -91,6 +112,15 @@ identity=dict(model='SIMULATED-ANNOTATIONS',base_url='https://offline.invalid/v1
 for review in pending_reviews(out/'reviews.sqlite3',**identity,limit=1000):
     text=review['text']; values=[dict(aspect='quality' if text=='质量稳定' else 'service',sentiment='positive' if text=='质量稳定' else 'negative',quote=text)]
     save_annotation(out/'reviews.sqlite3',review,**identity,status='success',opinions=validate_opinions(json.dumps({'opinions':values}),text))
+if ${topicMode ? 'True' : 'False'}:
+    topic_path=out/'topic-reviews.jsonl'
+    topic_rows=[dict(parent_asin='DEMO-A',user_id='topic-'+str(i),text=text,timestamp=1677196800000+i*1000) for i,text in enumerate([
+        '降温很快，制冷速度快，运行声音小','制冷速度快','物流速度慢','物流发货慢'])]
+    topic_path.write_text('\\n'.join(json.dumps(row,ensure_ascii=False) for row in topic_rows),encoding='utf-8')
+    import_amazon_jsonl(out/'reviews.sqlite3',reviews_path=topic_path,dataset_version='SIMULATED-frontend')
+    for review in pending_reviews(out/'reviews.sqlite3',**identity,product_ids=['DEMO-A'],limit=100):
+        values=[dict(aspect='logistics' if '物流' in quote else 'effectiveness',sentiment='negative' if '物流' in quote else 'positive',quote=quote) for quote in review['text'].split('，')]
+        save_annotation(out/'reviews.sqlite3',review,**identity,status='success',opinions=validate_opinions(json.dumps({'opinions':values}),review['text']))
 meta=out/'products.jsonl'
 meta.write_text('\\n'.join(json.dumps({'parent_asin': product, 'title': title, 'details':{'Brand':brand}},ensure_ascii=False) for product,title,brand in [
     ('DEMO-A','美的 1.5 匹风酷空调（模拟数据）','美的'), ('DEMO-B','小米 米家新一级能效空调（模拟数据）','小米'),
@@ -152,7 +182,43 @@ main()
     await until(async () => await input.isEnabled(), 'answer shown');
     return task;
   }
-  if (intentMode) {
+  if (topicMode) {
+    await send('美的空调好评主要集中在哪些方面？');
+    const task = await send('使用效果具体好在哪里？');
+    assert.equal(task.result.analysis_intent, 'aspect_drilldown'); assert.equal(task.result.validation.status, 'passed');
+    const data = task.result.results.r1.data;
+    const cooling = data.topics.find(row => row.name === '制冷速度');
+    assert.equal(cooling.review_count, 2); assert.equal(cooling.opinion_count, 3);
+    assert.equal(data.population_mode, 'full'); assert.ok(data.coverage.unclassified_opinions > 0);
+    if (answerMode) {
+      assert.equal(task.result.answer_generation.attempts, 2);
+      assert.equal(task.result.public_answer.insights[0].kind, 'interpretation');
+      await page.locator('.chat-turn').last().getByText('可能的解释：', { exact: true }).waitFor();
+    }
+    const latest = page.locator('.chat-turn').last();
+    await latest.getByRole('region', { name: '分析回答' }).getByText(/制冷速度/).first().waitFor();
+    assert.match(await latest.innerText(), /未经人工确认/);
+    await latest.locator('.chat-report > summary').click();
+    await latest.getByText('二级主题分析 [r1]', { exact: true }).waitFor();
+    for (const width of [1440, 1024, 768, 390]) {
+      await page.setViewportSize({ width, height: 1000 }); await latest.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: path.join(out, `topics-${width}.png`), animations: 'disabled' });
+      const measure = await page.evaluate(() => ({ width: innerWidth, documentWidth: document.documentElement.scrollWidth, inputBottom: document.querySelector('.chat-input-area').getBoundingClientRect().bottom }));
+      assert.ok(measure.documentWidth <= width + 1); assert.ok(measure.inputBottom <= 1001); screenshots.push(measure);
+      const table = latest.locator('.ant-table-wrapper').first(); await table.scrollIntoViewIfNeeded();
+      assert.equal(await table.locator('.ant-table-row').count(), 2);
+      await page.screenshot({ path: path.join(out, `topics-table-${width}.png`), animations: 'disabled' });
+    }
+    const negative = await send('物流方面主要有哪些问题？');
+    assert.equal(negative.result.results.r1.data.sentiment, 'negative');
+    assert.equal(negative.result.results.r1.data.topics[0].review_count, 2);
+    assert.deepEqual(negative.result.results.r1.data.topics.map(row => row.name), ['配送时效']);
+    const before = modelCalls; await page.reload();
+    await page.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
+    await page.locator('.chat-turn').last().getByRole('region', { name: '分析回答' }).waitFor(); assert.equal(modelCalls, before);
+    await writeFile(path.join(out, 'task.json'), JSON.stringify(task, null, 2));
+    report.checks = ['positive follow-up reaches secondary topics', 'synonyms merged: 2 reviews / 3 opinions', 'multi-topic review deduplicated', 'negative logistics isolated', 'uncertain opinions retained', 'four viewport layouts', 'refresh without model calls', 'read-only hash unchanged'];
+  } else if (intentMode) {
     const rounds = []; report.rounds = rounds;
     const record = task => { rounds.push({ question: task.parameters.question, task_id: task.task_id, context_task_id: task.parameters.context_task_id,
       status: task.status, result_status: task.result.status, user_intent: task.result.user_intent,
@@ -163,10 +229,10 @@ main()
     assert.deepEqual(first.result.query_plan.required_tools, ['get_positive_aspects']);
     const second = record(await send('使用效果主要集中在哪些地方？'));
     assert.equal(second.parameters.context_task_id, first.task_id);
-    assert.equal(second.result.results.r1.kind, 'opinion_breakdown');
+    assert.equal(second.result.results.r1.kind, 'aspect_drilldown');
     assert.equal(second.result.results.r1.parameters.sentiment, 'positive');
     assert.equal(second.result.results.r1.parameters.aspect, 'effectiveness');
-    assert.equal(second.result.total_model_calls, 0);
+    assert.equal(second.result.total_model_calls, 2);
     const oralDetail = record(await send('那再往里挖挖呢？'));
     assert.equal(oralDetail.parameters.context_task_id, second.task_id);
     assert.equal(oralDetail.result.intent_model_calls, 1);
@@ -177,7 +243,7 @@ main()
     assert.deepEqual(repeatedDetail.result.results.r1.parameters, oralDetail.result.results.r1.parameters);
     const detailReport = page.locator('.chat-turn').last().locator('.chat-report');
     await detailReport.locator('summary').first().click();
-    await detailReport.getByText('观点文本分析 [r1]', { exact: true }).waitFor();
+    await detailReport.getByText('二级主题分析 [r1]', { exact: true }).waitFor();
     for (const width of [1440, 1024, 768]) {
       await page.setViewportSize({ width, height: 1000 });
       await detailReport.scrollIntoViewIfNeeded();

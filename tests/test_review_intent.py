@@ -18,9 +18,14 @@ from data_analysis_agent.jobs.analysis_context import load_analysis_context
 from data_analysis_agent.jobs.store import init_tasks, enqueue, worker_started, claim_task, finish_task, get_task
 from data_analysis_agent.jobs.worker import TaskWorker
 from data_analysis_agent.reviews.store import import_amazon_jsonl
+from topic_fixture import exact_topic_response
 
 
 class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        model = patch('data_analysis_agent.agents.review_topics._call', side_effect=exact_topic_response)
+        model.start(); self.addCleanup(model.stop)
 
     def queue(self):
         self.tasks = self.root / 'intent-tasks.sqlite3'
@@ -66,15 +71,15 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
         query = result['results']['r1']
         self.assertEqual(query['parameters']['aspect'], 'effectiveness')
         self.assertEqual(query['parameters']['sentiment'], 'positive')
-        self.assertEqual(query['kind'], 'opinion_breakdown')
+        self.assertEqual(query['kind'], 'aspect_drilldown')
         self.assertEqual(query['data']['total'], 2)
-        self.assertEqual(result['total_model_calls'], 0)
+        self.assertEqual(result['total_model_calls'], 2)
         self.assertEqual(result['user_intent']['sub_intent'], 'drill_down')
         third = self.work('那物流方面呢？', parent=second['task_id'])
         self.assertEqual(third['status'], 'succeeded', third.get('error'))
         self.assertEqual(third['result']['results']['r1']['parameters']['sentiment'], 'positive')
         self.assertEqual(third['result']['results']['r1']['parameters']['aspect'], 'logistics')
-        self.assertEqual(third['result']['results']['r1']['kind'], 'opinion_breakdown')
+        self.assertEqual(third['result']['results']['r1']['kind'], 'aspect_drilldown')
         self.assertEqual(third['result']['user_intent']['sub_intent'], 'drill_down')
         self.assertEqual(before, hashlib.sha256(self.db.read_bytes()).hexdigest())
 
@@ -203,7 +208,7 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
         task = self.work('那物流方面呢？', parent=failed_again)
         self.assertEqual(task['status'], 'succeeded', task.get('error'))
         self.assertEqual(task['result']['results']['r1']['parameters'], {
-            'product_ids': ['XIAOMI-TEST'], 'aspect': 'logistics', 'sentiment': 'negative', 'topic': None})
+            'product_ids': ['XIAOMI-TEST'], 'aspect': 'logistics', 'sentiment': 'negative'})
         self.assertEqual(task['result']['validation']['status'], 'passed')
         self.assertEqual(task['result']['total_model_calls'], 0)
         context = load_analysis_context(self.tasks, {**self.scope(), 'context_task_id': failed_again, 'conversation_id': 'conversation-A'})
@@ -226,7 +231,7 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
         detail = self.work('使用效果主要集中在哪些地方？', parent=repeated['task_id'])
         repeated_detail = self.work('那主要集中在哪些地方呢？', parent=detail['task_id'])
         self.assertEqual(repeated_detail['result']['results']['r1']['parameters'], {
-            'product_ids': ['XIAOMI-TEST'], 'aspect': 'effectiveness', 'sentiment': 'positive', 'topic': None})
+            'product_ids': ['XIAOMI-TEST'], 'aspect': 'effectiveness', 'sentiment': 'positive'})
         # 本轮明确的负向方向覆盖历史正向条件。
         switched = self.work('使用效果的差评主要集中在哪些地方？', parent=detail['task_id'])
         self.assertEqual(switched['result']['results']['r1']['parameters']['sentiment'], 'negative')

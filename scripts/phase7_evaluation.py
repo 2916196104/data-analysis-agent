@@ -166,6 +166,9 @@ def offline_client(case):
         body = json.loads(request.content)
         if not body.get('tools'):
             payload = json.loads(body['messages'][-1]['content'])
+            if payload.get('stage') == 'answer_draft':
+                return httpx.Response(200, json={'id':'offline-answer','object':'chat.completion','created':0,'model':'offline',
+                    'choices':[{'index':0,'finish_reason':'stop','message':{'role':'assistant','content':json.dumps({'schema_version':'2.0','focus':payload['required_focus'],'insights':[]})}}]})
             draft = {'summary': payload['summary_options'][0], 'items': [{'finding_ref': f['finding_ref'], 'aspect_key': f['aspect_key'], 'explanation': f['statements'][0]} for f in payload['findings']], 'caveats': []}
             message = {'role': 'assistant', 'content': json.dumps(draft)}
         elif any(m['role'] == 'tool' for m in body['messages']):

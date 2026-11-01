@@ -55,6 +55,18 @@ it('降级显示可靠摘要与明确生成状态，不显示模型错误原文'
   expect(screen.getByText(answer.summary)).toBeTruthy();
 });
 
+it('把事实、可能解释和分析建议分开展示，复制保留性质标签', () => {
+  const enriched: PublicAnswer = { ...answer, insights: [
+    { kind: 'interpretation', text: '这是对已有评价关系的可能理解。', finding_refs: ['finding:1'], evidence_ids: [] },
+    { kind: 'suggestion', text: '可先复核对应原文。', finding_refs: ['finding:1'], evidence_ids: [] },
+  ] };
+  show({ ...task, result: { ...result, public_answer: enriched } as unknown as Task['result'] });
+  expect(screen.getByText('可能的解释：')).toBeTruthy();
+  expect(screen.getByText('分析建议：')).toBeTruthy();
+  expect(publicAnswerText(enriched)).toContain('可能的解释：这是对已有评价关系的可能理解。');
+  expect(publicAnswerText(enriched)).toContain('分析建议：可先复核对应原文。');
+});
+
 it('复制操作只复制公开回答正文，不包含内部结果或配置', async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });

@@ -508,6 +508,21 @@ def get_opinion_breakdown(db_path, *, aspect=None, sentiment="all", topic=None, 
             "total_opinions": totals['opinions'], "groups": groups, "items": items}
 
 
+def get_aspect_opinions(db_path, *, aspect, sentiment, **scope):
+    """提取二级分析的有限真实样本；完整总体计数仍由同一只读快照计算。"""
+    if aspect not in ASPECTS or sentiment not in ('positive', 'negative'):
+        raise ReviewDataError('二级分析必须指定一个一级维度及正向或负向情感。')
+    if len(scope.get('product_ids') or []) != 1:
+        raise ReviewDataError('二级分析首版仅支持一个明确的商品 ID。')
+    identity, where, filters, normalized = analysis_scope(**scope)
+    with _snapshot(db_path) as connection:
+        evidence = get_evidence(connection, aspect=aspect, sentiment=sentiment, page_size=100, **scope)
+        summary = _summary(_summaries(connection, identity, where, filters)[0])
+    for item in evidence['items']:
+        item.pop('file_path', None)
+    return {**evidence, 'scope': normalized, 'summary': summary}
+
+
 def get_evidence(
     db_path: str,
     *,

@@ -192,12 +192,25 @@ export interface PositiveAspect {
   positive_rate: number | null; positive_success_rate: number | null;
   positive_rate_denominator: number; positive_success_rate_denominator: number;
 }
+export interface AspectTopic {
+  topic_id: string; name: string; definition: string; aspect: string; sentiment: string;
+  review_count: number; opinion_count: number; review_rate: number | null; review_denominator: number;
+  review_ids: number[]; opinion_ids: string[]; evidence_opinion_ids: string[];
+}
+export interface AspectDrilldown {
+  scope: AnalysisScope; summary: Summary; aspect: string; sentiment: string;
+  analysis_status: 'complete' | 'partial' | 'failed' | 'insufficient_data'; population_mode: 'full' | 'sample';
+  total: number; total_opinions: number; topics: AspectTopic[]; items: AgentEvidence[];
+  grouping_version: string; grouping_model: string;
+  coverage: { selected_reviews: number; selected_opinions: number; evaluated_opinions: number; classified_opinions: number; unclassified_opinions: number };
+}
 export type AgentToolResult = { result_id: string; parameters: Record<string, unknown> } & (
   { kind: 'context'; data: { summary: Summary; products?: { product_id: string; title: string | null }[] } }
   | { kind: 'trend'; data: { period: string; summary: Summary; buckets: (Summary & { bucket: string })[] } }
   | { kind: 'comparison'; data: { products: (Summary & { product_id: string })[]; no_reviews_product_ids?: string[] } }
   | { kind: 'issues'; data: { issues: Issue[]; current?: Summary; baseline?: Summary } }
   | { kind: 'evidence'; data: { total: number; page: number; items: AgentEvidence[] } }
+  | { kind: 'aspect_drilldown'; data: AspectDrilldown }
   | { kind: 'opinion_breakdown'; data: { total: number; total_opinions: number; summary: Summary; items: AgentEvidence[];
       groups: { quote: string; sentiment: string; review_count: number; opinion_count: number; review_rate: number | null; review_id: number; evidence_ref?: string }[] } }
   | { kind: 'quality'; data: { scope: AnalysisScope; summary: Summary; missing_text_rate: number | null; failed_rate: number | null;
@@ -225,10 +238,11 @@ export interface PublicAnswer {
   source_result_ids: string[];
   scope_summary: Record<string, unknown>[];
   details_available: boolean;
+  insights?: { kind: 'interpretation' | 'suggestion'; text: string; finding_refs: string[]; evidence_ids: string[] }[];
 }
 export interface AgentResult {
   agent: true;
-  status: 'ok' | 'unsupported' | 'error';
+  status: 'ok' | 'unsupported' | 'partial' | 'error';
   question: string;
   analysis_intent?: string;
   sentiment_intent?: string | null;

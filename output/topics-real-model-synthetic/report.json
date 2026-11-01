@@ -1,0 +1,1260 @@
+{
+  "agent": true,
+  "status": "ok",
+  "question": "使用效果的好评主要集中在哪些地方？",
+  "snapshot_at": "2026-11-01T07:37:30.450+00:00",
+  "sentiment_intent": "positive",
+  "analysis_intent": "aspect_drilldown",
+  "agent_model_identity": {
+    "model": "Pro/deepseek-ai/DeepSeek-V3.2",
+    "base_url": "https://api.siliconflow.cn/v1",
+    "prompt_version": "review-agent-v8"
+  },
+  "user_intent": {
+    "query_type": "aspect_drilldown",
+    "product_mentions": [],
+    "sentiment": "positive",
+    "aspect": "effectiveness",
+    "sub_intent": "drill_down",
+    "topic": null,
+    "time_range": null,
+    "period": "month",
+    "needs_clarification": false,
+    "clarification_question": null,
+    "resolved_product_ids": [
+      "TOPIC-TEST"
+    ],
+    "effective_time_range": {
+      "date_from": "2021-06-01",
+      "date_to": "2021-06-30"
+    }
+  },
+  "intent_resolution": {
+    "method": "rules",
+    "model_calls": 0,
+    "context_turns": 0
+  },
+  "scope": {
+    "model": "SIMULATED-model-A",
+    "base_url": "https://offline.invalid/v1",
+    "prompt_version": "review-opinions-v1",
+    "product_ids": [
+      "TOPIC-TEST"
+    ],
+    "date_from": "2021-06-01",
+    "date_to": "2021-06-30",
+    "as_of": null,
+    "source": "reviews_csv",
+    "dataset_version": "reviews-csv",
+    "baseline_from": "2020-08-25",
+    "baseline_to": "2020-09-30"
+  },
+  "query_plan": {
+    "analysis_type": "aspect_drilldown",
+    "sentiment": "positive",
+    "scope": {
+      "model": "SIMULATED-model-A",
+      "base_url": "https://offline.invalid/v1",
+      "prompt_version": "review-opinions-v1",
+      "product_ids": [
+        "TOPIC-TEST"
+      ],
+      "date_from": "2021-06-01",
+      "date_to": "2021-06-30",
+      "as_of": null,
+      "source": "reviews_csv",
+      "dataset_version": "reviews-csv",
+      "baseline_from": "2020-08-25",
+      "baseline_to": "2020-09-30"
+    },
+    "requirements": [
+      {
+        "tool": "get_aspect_drilldown",
+        "parameters": {
+          "product_ids": [
+            "TOPIC-TEST"
+          ],
+          "aspect": "effectiveness",
+          "sentiment": "positive"
+        }
+      }
+    ],
+    "optional_tools": [],
+    "requires_evidence": true,
+    "max_evidence_pages": 0,
+    "max_evidence_items": 8,
+    "evidence_start_page": 1,
+    "evidence_page_size": 3,
+    "unsupported_reason": null,
+    "answer_question": null,
+    "product_groups": [],
+    "required_tools": [
+      "get_aspect_drilldown"
+    ]
+  },
+  "analysis_question": "使用效果的好评主要集中在哪些地方？",
+  "validation": {
+    "status": "passed",
+    "checks": [
+      {
+        "name": "数字与分母",
+        "passed": true,
+        "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比"
+      },
+      {
+        "name": "覆盖率",
+        "passed": true,
+        "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母"
+      },
+      {
+        "name": "原文引用",
+        "passed": true,
+        "detail": "核对 6 处引文的原文位置及文件引用"
+      },
+      {
+        "name": "扩展统计",
+        "passed": true,
+        "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值"
+      },
+      {
+        "name": "正向统计",
+        "passed": true,
+        "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态"
+      },
+      {
+        "name": "范围身份",
+        "passed": true,
+        "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致"
+      },
+      {
+        "name": "情感语义",
+        "passed": true,
+        "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果"
+      },
+      {
+        "name": "查询结果完整性",
+        "passed": true,
+        "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证"
+      }
+    ]
+  },
+  "answer_sections": [
+    {
+      "result_id": "r1",
+      "kind": "aspect_drilldown",
+      "text": "[r1] 二级主题complete，纳入 4 条评论、6 条观点；模型候选主题未经人工确认。"
+    }
+  ],
+  "result_ids": [
+    "r1"
+  ],
+  "answer": "[r1] 二级主题complete，纳入 4 条评论、6 条观点；模型候选主题未经人工确认。",
+  "warnings": [
+    "负面占比以成功标注评论为分母；无成功标注时保留空值，可检查版本或准备数据后重查。零条证据不表示没有问题。",
+    "原文是示例证据，不能仅凭评论确认问题根因；不完整的首末时间桶不宜直接比较。",
+    "部分范围成功标注少于 20 条或覆盖率低于 80%，结论仅描述已有样本，请谨慎解释。"
+  ],
+  "structured_analysis": [
+    {
+      "result_id": "r1",
+      "kind": "aspect_drilldown",
+      "analysis_type": "aspect_drilldown",
+      "sentiment": "positive",
+      "validation_status": "passed",
+      "scope": {
+        "product_ids": [
+          "TOPIC-TEST"
+        ],
+        "source": "reviews_csv",
+        "dataset_version": "reviews-csv",
+        "date_from": "2021-06-01",
+        "date_to": "2021-06-30",
+        "as_of": null,
+        "timezone": "UTC",
+        "model": "SIMULATED-model-A",
+        "base_url": "https://offline.invalid/v1",
+        "prompt_version": "review-opinions-v1"
+      },
+      "statistics": [
+        {
+          "group_id": "current",
+          "scope": {
+            "product_ids": [
+              "TOPIC-TEST"
+            ],
+            "source": "reviews_csv",
+            "dataset_version": "reviews-csv",
+            "date_from": "2021-06-01",
+            "date_to": "2021-06-30",
+            "as_of": null,
+            "timezone": "UTC",
+            "model": "SIMULATED-model-A",
+            "base_url": "https://offline.invalid/v1",
+            "prompt_version": "review-opinions-v1"
+          },
+          "sample_size": {
+            "review_count": 7,
+            "eligible_text_reviews": 7,
+            "successful_reviews": 7,
+            "failed_reviews": 0,
+            "unprocessed_reviews": 0,
+            "labeling_coverage": 1.0,
+            "positive_review_count": null,
+            "empty_text_reviews": 0,
+            "reviewed_reviews": 0
+          },
+          "metrics": [],
+          "aspects": [],
+          "trends": []
+        }
+      ],
+      "evidence_refs": [
+        {
+          "source_result_id": "r1",
+          "review_id": 14,
+          "product_id": "TOPIC-TEST",
+          "published_at": "2021-06-09T00:00:00.000+00:00",
+          "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2",
+          "opinion_source": "model",
+          "opinions": [
+            {
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "quote": "降温很快",
+              "quote_start": 0,
+              "quote_end": 4,
+              "truncated": false
+            },
+            {
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "quote": "制冷速度快",
+              "quote_start": 5,
+              "quote_end": 10,
+              "truncated": false
+            },
+            {
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "quote": "运行声音小",
+              "quote_start": 11,
+              "quote_end": 16,
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "filters": {
+        "aspect": "effectiveness",
+        "sentiment": "positive",
+        "page": null,
+        "page_size": null,
+        "pages": null,
+        "total": 4,
+        "coverage": {
+          "selected_reviews": 4,
+          "selected_opinions": 6,
+          "evaluated_opinions": 6,
+          "classified_opinions": 4,
+          "unclassified_opinions": 2,
+          "not_evaluated_opinions": 0,
+          "unclassified_reasons": {
+            "uncertain": 1,
+            "conflicting": 1,
+            "unclassified": 0
+          },
+          "opinion_coverage": 0.666667,
+          "population_opinion_coverage": 1.0
+        },
+        "population_mode": "full",
+        "analysis_status": "complete",
+        "total_opinions": 6,
+        "grouping_version": "aspect-topics-v1",
+        "topics": [
+          {
+            "topic_id": "topic:77b94ae56ead3b74b488",
+            "name": "制冷速度",
+            "definition": "指空调从启动到达到设定温度所需的时间长短或效率高低。",
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "semantic_status": "model_reviewed_not_human_confirmed",
+            "review_count": 2,
+            "opinion_count": 3,
+            "review_denominator": 4,
+            "review_rate": 0.5,
+            "review_id": 14,
+            "quote": "降温很快",
+            "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2"
+          },
+          {
+            "topic_id": "topic:243db223daa61ce79e61",
+            "name": "运行噪声",
+            "definition": "指空调在正常工作状态下产生的声音大小。",
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "semantic_status": "model_reviewed_not_human_confirmed",
+            "review_count": 1,
+            "opinion_count": 1,
+            "review_denominator": 4,
+            "review_rate": 0.25,
+            "review_id": 14,
+            "quote": "运行声音小",
+            "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2"
+          }
+        ],
+        "window": "current"
+      },
+      "warnings": []
+    }
+  ],
+  "compact_context": {
+    "schema_version": "1.0",
+    "question": "使用效果的好评主要集中在哪些地方？",
+    "analysis_type": "aspect_drilldown",
+    "sentiment": "positive",
+    "scope_summary": [
+      {
+        "scope_ref": "scope:f225cb9550158529",
+        "source": "reviews_csv",
+        "dataset_version": "reviews-csv",
+        "product_ids": [
+          "TOPIC-TEST"
+        ],
+        "date_from": "2021-06-01",
+        "date_to": "2021-06-30",
+        "as_of": null,
+        "timezone": "UTC",
+        "annotation_profile_ref": "profile:560557cf59fa12a0"
+      }
+    ],
+    "sample_summary": [
+      {
+        "sample_ref": "sample:593d6bdf2ad03da9",
+        "scope_ref": "scope:f225cb9550158529",
+        "review_count": 7,
+        "eligible_text_reviews": 7,
+        "successful_reviews": 7,
+        "failed_reviews": 0,
+        "unprocessed_reviews": 0,
+        "labeling_coverage": 1.0,
+        "empty_text_reviews": 0,
+        "reviewed_reviews": 0
+      }
+    ],
+    "key_findings": [],
+    "statistics": [
+      {
+        "source_result_id": "r1",
+        "analysis_type": "aspect_drilldown",
+        "scope_ref": "scope:f225cb9550158529",
+        "filters": {
+          "aspect": "effectiveness",
+          "sentiment": "positive",
+          "page": null,
+          "page_size": null,
+          "pages": null,
+          "total": 4,
+          "coverage": {
+            "selected_reviews": 4,
+            "selected_opinions": 6,
+            "evaluated_opinions": 6,
+            "classified_opinions": 4,
+            "unclassified_opinions": 2,
+            "not_evaluated_opinions": 0,
+            "unclassified_reasons": {
+              "uncertain": 1,
+              "conflicting": 1,
+              "unclassified": 0
+            },
+            "opinion_coverage": 0.666667,
+            "population_opinion_coverage": 1.0
+          },
+          "population_mode": "full",
+          "analysis_status": "complete",
+          "total_opinions": 6,
+          "grouping_version": "aspect-topics-v1",
+          "topics": [
+            {
+              "topic_id": "topic:77b94ae56ead3b74b488",
+              "name": "制冷速度",
+              "definition": "指空调从启动到达到设定温度所需的时间长短或效率高低。",
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "semantic_status": "model_reviewed_not_human_confirmed",
+              "review_count": 2,
+              "opinion_count": 3,
+              "review_denominator": 4,
+              "review_rate": 0.5,
+              "review_id": 14,
+              "quote": "降温很快",
+              "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2"
+            },
+            {
+              "topic_id": "topic:243db223daa61ce79e61",
+              "name": "运行噪声",
+              "definition": "指空调在正常工作状态下产生的声音大小。",
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "semantic_status": "model_reviewed_not_human_confirmed",
+              "review_count": 1,
+              "opinion_count": 1,
+              "review_denominator": 4,
+              "review_rate": 0.25,
+              "review_id": 14,
+              "quote": "运行声音小",
+              "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2"
+            }
+          ],
+          "window": "current"
+        },
+        "finding_ref": "finding:f3d5f8968514230eea57"
+      }
+    ],
+    "evidence": [
+      {
+        "source_result_id": "r1",
+        "review_id": 14,
+        "product_id": "TOPIC-TEST",
+        "published_at": "2021-06-09T00:00:00.000+00:00",
+        "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2",
+        "opinion_source": "model",
+        "opinions": [
+          {
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "quote": "降温很快",
+            "quote_start": 0,
+            "quote_end": 4,
+            "truncated": false
+          },
+          {
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "quote": "制冷速度快",
+            "quote_start": 5,
+            "quote_end": 10,
+            "truncated": false
+          }
+        ]
+      }
+    ],
+    "caveats": [
+      {
+        "code": "small_sample",
+        "scope_ref": "scope:f225cb9550158529",
+        "sample_ref": "sample:593d6bdf2ad03da9"
+      },
+      {
+        "code": "evidence_quotes_omitted",
+        "scope_ref": "scope:f225cb9550158529"
+      },
+      {
+        "code": "evidence_is_matching_sample_not_population",
+        "scope_ref": "scope:f225cb9550158529"
+      }
+    ],
+    "source_result_ids": [
+      "r1"
+    ]
+  },
+  "public_analysis": {
+    "schema_version": "1.0",
+    "status": "ok",
+    "scope_summary": [
+      {
+        "scope_ref": "scope:f225cb9550158529",
+        "source": "reviews_csv",
+        "dataset_version": "reviews-csv",
+        "product_ids": [
+          "TOPIC-TEST"
+        ],
+        "date_from": "2021-06-01",
+        "date_to": "2021-06-30",
+        "as_of": null,
+        "timezone": "UTC",
+        "annotation_profile_ref": "profile:560557cf59fa12a0"
+      }
+    ],
+    "summary_metrics": [
+      {
+        "sample_ref": "sample:593d6bdf2ad03da9",
+        "scope_ref": "scope:f225cb9550158529",
+        "review_count": 7,
+        "eligible_text_reviews": 7,
+        "successful_reviews": 7,
+        "failed_reviews": 0,
+        "unprocessed_reviews": 0,
+        "labeling_coverage": 1.0,
+        "empty_text_reviews": 0,
+        "reviewed_reviews": 0
+      }
+    ],
+    "highlights": [],
+    "statistics": [
+      {
+        "source_result_id": "r1",
+        "analysis_type": "aspect_drilldown",
+        "scope_ref": "scope:f225cb9550158529",
+        "filters": {
+          "aspect": "effectiveness",
+          "sentiment": "positive",
+          "page": null,
+          "page_size": null,
+          "pages": null,
+          "total": 4,
+          "coverage": {
+            "selected_reviews": 4,
+            "selected_opinions": 6,
+            "evaluated_opinions": 6,
+            "classified_opinions": 4,
+            "unclassified_opinions": 2,
+            "not_evaluated_opinions": 0,
+            "unclassified_reasons": {
+              "uncertain": 1,
+              "conflicting": 1,
+              "unclassified": 0
+            },
+            "opinion_coverage": 0.666667,
+            "population_opinion_coverage": 1.0
+          },
+          "population_mode": "full",
+          "analysis_status": "complete",
+          "total_opinions": 6,
+          "grouping_version": "aspect-topics-v1",
+          "topics": [
+            {
+              "topic_id": "topic:77b94ae56ead3b74b488",
+              "name": "制冷速度",
+              "definition": "指空调从启动到达到设定温度所需的时间长短或效率高低。",
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "semantic_status": "model_reviewed_not_human_confirmed",
+              "review_count": 2,
+              "opinion_count": 3,
+              "review_denominator": 4,
+              "review_rate": 0.5,
+              "review_id": 14,
+              "quote": "降温很快",
+              "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2"
+            },
+            {
+              "topic_id": "topic:243db223daa61ce79e61",
+              "name": "运行噪声",
+              "definition": "指空调在正常工作状态下产生的声音大小。",
+              "aspect": "effectiveness",
+              "sentiment": "positive",
+              "semantic_status": "model_reviewed_not_human_confirmed",
+              "review_count": 1,
+              "opinion_count": 1,
+              "review_denominator": 4,
+              "review_rate": 0.25,
+              "review_id": 14,
+              "quote": "运行声音小",
+              "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2"
+            }
+          ],
+          "window": "current"
+        },
+        "finding_ref": "finding:f3d5f8968514230eea57"
+      }
+    ],
+    "evidence_refs": [
+      {
+        "source_result_id": "r1",
+        "review_id": 14,
+        "product_id": "TOPIC-TEST",
+        "published_at": "2021-06-09T00:00:00.000+00:00",
+        "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2",
+        "opinion_source": "model",
+        "opinions": [
+          {
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "quote": "降温很快",
+            "quote_start": 0,
+            "quote_end": 4,
+            "truncated": false
+          },
+          {
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "quote": "制冷速度快",
+            "quote_start": 5,
+            "quote_end": 10,
+            "truncated": false
+          }
+        ]
+      }
+    ],
+    "caveats": [
+      {
+        "code": "small_sample",
+        "scope_ref": "scope:f225cb9550158529",
+        "sample_ref": "sample:593d6bdf2ad03da9"
+      },
+      {
+        "code": "evidence_quotes_omitted",
+        "scope_ref": "scope:f225cb9550158529"
+      },
+      {
+        "code": "evidence_is_matching_sample_not_population",
+        "scope_ref": "scope:f225cb9550158529"
+      }
+    ],
+    "source_result_ids": [
+      "r1"
+    ],
+    "details_available": true
+  },
+  "public_answer": {
+    "schema_version": "1.0",
+    "status": "ok",
+    "summary": "模型归并候选主题主要包括制冷速度、运行噪声，以下数量均由后端依据真实观点归属计算。",
+    "highlights": [
+      {
+        "finding_ref": "finding:e63950b20f13b71abcbc",
+        "aspect_key": "effectiveness",
+        "scope_ref": "scope:f225cb9550158529",
+        "source_result_ids": [
+          "r1"
+        ],
+        "text": "制冷速度：2 条去重评论、3 条观点，占该维度该情感的匹配评论 50.0%（分母 4 条）。代表原文：“降温很快”（评论 #14，sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2）。"
+      },
+      {
+        "finding_ref": "finding:f46c4294c75e22e1ade8",
+        "aspect_key": "effectiveness",
+        "scope_ref": "scope:f225cb9550158529",
+        "source_result_ids": [
+          "r1"
+        ],
+        "text": "运行噪声：1 条去重评论、1 条观点，占该维度该情感的匹配评论 25.0%（分母 4 条）。代表原文：“运行声音小”（评论 #14，sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2）。"
+      }
+    ],
+    "metrics": [
+      {
+        "finding_ref": "finding:e63950b20f13b71abcbc",
+        "scope_ref": "scope:f225cb9550158529",
+        "values": [
+          {
+            "review_count": 2,
+            "opinion_count": 3,
+            "review_rate": 0.5,
+            "review_denominator": 4
+          }
+        ]
+      },
+      {
+        "finding_ref": "finding:f46c4294c75e22e1ade8",
+        "scope_ref": "scope:f225cb9550158529",
+        "values": [
+          {
+            "review_count": 1,
+            "opinion_count": 1,
+            "review_rate": 0.25,
+            "review_denominator": 4
+          }
+        ]
+      }
+    ],
+    "sample_note": "本次分析范围共 7 条评论，基于 7 条成功标注评论。",
+    "evidence_refs": [
+      {
+        "source_result_id": "r1",
+        "review_id": 14,
+        "product_id": "TOPIC-TEST",
+        "published_at": "2021-06-09T00:00:00.000+00:00",
+        "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2",
+        "opinion_source": "model",
+        "opinions": [
+          {
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "quote": "降温很快",
+            "quote_start": 0,
+            "quote_end": 4,
+            "truncated": false
+          },
+          {
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "quote": "制冷速度快",
+            "quote_start": 5,
+            "quote_end": 10,
+            "truncated": false
+          }
+        ]
+      }
+    ],
+    "caveats": [
+      "二级主题为模型归并候选，未经人工确认；同一评论可进入多个主题，各主题数量不能相加作为总评论数。纳入 4 条评论、6 条观点，完成归属复核 6 条，已归类 4 条，未归类 2 条（含模糊、矛盾及未处理观点）。",
+      "部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。"
+    ],
+    "generation_status": "template",
+    "source_result_ids": [
+      "r1"
+    ],
+    "scope_summary": [
+      {
+        "scope_ref": "scope:f225cb9550158529",
+        "source": "reviews_csv",
+        "dataset_version": "reviews-csv",
+        "product_ids": [
+          "TOPIC-TEST"
+        ],
+        "date_from": "2021-06-01",
+        "date_to": "2021-06-30",
+        "as_of": null,
+        "timezone": "UTC",
+        "annotation_profile_ref": "profile:560557cf59fa12a0"
+      }
+    ],
+    "details_available": true
+  },
+  "answer_generation": {
+    "strategy": "template",
+    "input_bytes": 2868,
+    "compact_bytes": 3145,
+    "input_budget_bytes": 16000,
+    "attempts": 0,
+    "error_code": null,
+    "timeout_seconds": 15.0,
+    "max_retries": 0,
+    "elapsed_seconds": 0.0,
+    "generation_status": "template",
+    "sent_input_bytes": 0,
+    "validated_draft": {
+      "summary": "模型归并候选主题主要包括制冷速度、运行噪声，以下数量均由后端依据真实观点归属计算。",
+      "items": [
+        {
+          "finding_ref": "finding:e63950b20f13b71abcbc",
+          "aspect_key": "effectiveness",
+          "explanation": "以下主题由模型发现并独立复核观点归属，未经人工确认。"
+        },
+        {
+          "finding_ref": "finding:f46c4294c75e22e1ade8",
+          "aspect_key": "effectiveness",
+          "explanation": "以下主题由模型发现并独立复核观点归属，未经人工确认。"
+        }
+      ],
+      "caveats": []
+    }
+  },
+  "performance": {
+    "planning_duration_ms": 9.377,
+    "query_duration_ms": 18.192,
+    "validation_duration_ms": 0.311,
+    "compression_duration_ms": 0.678,
+    "answer_duration_ms": 1.087,
+    "total_duration_ms": 22933.696,
+    "answer_input_bytes": 2868
+  },
+  "results": {
+    "overview": {
+      "result_id": "overview",
+      "kind": "context",
+      "parameters": {},
+      "data": {
+        "scope": {
+          "model": "SIMULATED-model-A",
+          "base_url": "https://offline.invalid/v1",
+          "prompt_version": "review-opinions-v1",
+          "product_ids": [
+            "TOPIC-TEST"
+          ],
+          "date_from": "2021-06-01",
+          "date_to": "2021-06-30",
+          "as_of": null,
+          "source": "reviews_csv",
+          "dataset_version": "reviews-csv",
+          "baseline_from": "2020-08-25",
+          "baseline_to": "2020-09-30"
+        },
+        "products": [
+          {
+            "product_id": "TOPIC-TEST",
+            "title": "主题测试空调"
+          }
+        ],
+        "summary": {
+          "review_count": 7,
+          "eligible_text_reviews": 7,
+          "successful_reviews": 7,
+          "failed_reviews": 0,
+          "unprocessed_reviews": 0,
+          "empty_text_reviews": 0,
+          "reviewed_reviews": 0,
+          "negative_review_count": 2,
+          "labeling_coverage": 1.0,
+          "negative_rate": 0.285714,
+          "aspects": {
+            "quality": {
+              "negative_review_count": 0,
+              "negative_rate": 0.0
+            },
+            "effectiveness": {
+              "negative_review_count": 0,
+              "negative_rate": 0.0
+            },
+            "price": {
+              "negative_review_count": 0,
+              "negative_rate": 0.0
+            },
+            "packaging": {
+              "negative_review_count": 0,
+              "negative_rate": 0.0
+            },
+            "logistics": {
+              "negative_review_count": 2,
+              "negative_rate": 0.285714
+            },
+            "service": {
+              "negative_review_count": 0,
+              "negative_rate": 0.0
+            }
+          }
+        },
+        "aspects": {
+          "quality": "商品质量",
+          "effectiveness": "使用效果",
+          "price": "价格",
+          "packaging": "包装",
+          "logistics": "物流",
+          "service": "客服"
+        },
+        "sentiments": {
+          "positive": "正向",
+          "negative": "负向",
+          "neutral": "中性",
+          "unknown": "未知"
+        }
+      }
+    },
+    "r1": {
+      "result_id": "r1",
+      "kind": "aspect_drilldown",
+      "parameters": {
+        "product_ids": [
+          "TOPIC-TEST"
+        ],
+        "aspect": "effectiveness",
+        "sentiment": "positive"
+      },
+      "data": {
+        "scope": {
+          "product_ids": [
+            "TOPIC-TEST"
+          ],
+          "source": "reviews_csv",
+          "dataset_version": "reviews-csv",
+          "date_from": "2021-06-01",
+          "date_to": "2021-06-30",
+          "as_of": null,
+          "timezone": "UTC",
+          "model": "SIMULATED-model-A",
+          "base_url": "https://offline.invalid/v1",
+          "prompt_version": "review-opinions-v1"
+        },
+        "summary": {
+          "review_count": 7,
+          "eligible_text_reviews": 7,
+          "successful_reviews": 7,
+          "failed_reviews": 0,
+          "unprocessed_reviews": 0,
+          "empty_text_reviews": 0,
+          "reviewed_reviews": 0,
+          "negative_review_count": 2,
+          "labeling_coverage": 1.0,
+          "negative_rate": 0.285714,
+          "aspects": {
+            "quality": {
+              "negative_review_count": 0,
+              "negative_rate": 0.0
+            },
+            "effectiveness": {
+              "negative_review_count": 0,
+              "negative_rate": 0.0
+            },
+            "price": {
+              "negative_review_count": 0,
+              "negative_rate": 0.0
+            },
+            "packaging": {
+              "negative_review_count": 0,
+              "negative_rate": 0.0
+            },
+            "logistics": {
+              "negative_review_count": 2,
+              "negative_rate": 0.285714
+            },
+            "service": {
+              "negative_review_count": 0,
+              "negative_rate": 0.0
+            }
+          }
+        },
+        "aspect": "effectiveness",
+        "sentiment": "positive",
+        "total": 4,
+        "total_opinions": 6,
+        "analysis_type": "aspect_drilldown",
+        "analysis_status": "complete",
+        "population_mode": "full",
+        "sampling_method": "latest_reviews_then_opinion_order; bounded_non_random",
+        "grouping_version": "aspect-topics-v1",
+        "grouping_model": "Pro/deepseek-ai/DeepSeek-V3.2",
+        "catalog": [
+          {
+            "key": "t1",
+            "name": "制冷速度",
+            "definition": "指空调从启动到达到设定温度所需的时间长短或效率高低。",
+            "support_ids": [
+              "u1",
+              "u2"
+            ]
+          },
+          {
+            "key": "t2",
+            "name": "运行噪声",
+            "definition": "指空调在正常工作状态下产生的声音大小。",
+            "support_ids": [
+              "u3"
+            ]
+          }
+        ],
+        "assignments": [
+          {
+            "opinion_id": "u1",
+            "state": "assigned",
+            "matches": [
+              {
+                "key": "t1",
+                "start": 0,
+                "end": 4
+              }
+            ]
+          },
+          {
+            "opinion_id": "u2",
+            "state": "assigned",
+            "matches": [
+              {
+                "key": "t1",
+                "start": 0,
+                "end": 5
+              }
+            ]
+          },
+          {
+            "opinion_id": "u3",
+            "state": "assigned",
+            "matches": [
+              {
+                "key": "t2",
+                "start": 0,
+                "end": 5
+              }
+            ]
+          },
+          {
+            "opinion_id": "u4",
+            "state": "uncertain",
+            "matches": []
+          },
+          {
+            "opinion_id": "u5",
+            "state": "conflicting",
+            "matches": []
+          }
+        ],
+        "opinions": [
+          {
+            "opinion_id": "opinion:f1a4ae41ff1a43c98fb52428",
+            "unit_id": "u1",
+            "review_id": 14,
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "quote": "降温很快",
+            "quote_start": 0,
+            "quote_end": 4
+          },
+          {
+            "opinion_id": "opinion:981225b3f15a9ed81a9dffb7",
+            "unit_id": "u2",
+            "review_id": 14,
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "quote": "制冷速度快",
+            "quote_start": 5,
+            "quote_end": 10
+          },
+          {
+            "opinion_id": "opinion:6b50e9c948c7e52938f2af52",
+            "unit_id": "u3",
+            "review_id": 14,
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "quote": "运行声音小",
+            "quote_start": 11,
+            "quote_end": 16
+          },
+          {
+            "opinion_id": "opinion:82050880bf6268d2f21b34b0",
+            "unit_id": "u2",
+            "review_id": 15,
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "quote": "制冷速度快",
+            "quote_start": 0,
+            "quote_end": 5
+          },
+          {
+            "opinion_id": "opinion:27fdf07109b2009941026ca6",
+            "unit_id": "u4",
+            "review_id": 19,
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "quote": "好像还行",
+            "quote_start": 0,
+            "quote_end": 4
+          },
+          {
+            "opinion_id": "opinion:a82c03d1eaf44af45f2bd263",
+            "unit_id": "u5",
+            "review_id": 20,
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "quote": "时好时坏",
+            "quote_start": 0,
+            "quote_end": 4
+          }
+        ],
+        "items": [
+          {
+            "review_id": 14,
+            "source": "reviews_csv",
+            "dataset_version": "reviews-csv",
+            "product_id": "TOPIC-TEST",
+            "text": "降温很快，制冷速度快，运行声音小",
+            "published_at": "2021-06-09T00:00:00.000+00:00",
+            "content_sha256": "1a15ad059480c39000d1be5500f12d7571f32b90d0ead198908d2a4cb1a22838",
+            "annotation_id": 11,
+            "model_version": null,
+            "revision_id": null,
+            "opinion_source": "model",
+            "file_sha256": "29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c",
+            "line_number": 2,
+            "opinions": [
+              {
+                "aspect": "effectiveness",
+                "sentiment": "positive",
+                "quote": "降温很快",
+                "quote_start": 0,
+                "quote_end": 4,
+                "opinion_id": "opinion:f1a4ae41ff1a43c98fb52428"
+              },
+              {
+                "aspect": "effectiveness",
+                "sentiment": "positive",
+                "quote": "制冷速度快",
+                "quote_start": 5,
+                "quote_end": 10,
+                "opinion_id": "opinion:981225b3f15a9ed81a9dffb7"
+              },
+              {
+                "aspect": "effectiveness",
+                "sentiment": "positive",
+                "quote": "运行声音小",
+                "quote_start": 11,
+                "quote_end": 16,
+                "opinion_id": "opinion:6b50e9c948c7e52938f2af52"
+              }
+            ],
+            "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=2"
+          },
+          {
+            "review_id": 15,
+            "source": "reviews_csv",
+            "dataset_version": "reviews-csv",
+            "product_id": "TOPIC-TEST",
+            "text": "制冷速度快",
+            "published_at": "2021-06-08T00:00:00.000+00:00",
+            "content_sha256": "c6042c4abd9758db659e8abb4a293d0f6f7dd3192bcac8d3d8a16354f209d04b",
+            "annotation_id": 12,
+            "model_version": null,
+            "revision_id": null,
+            "opinion_source": "model",
+            "file_sha256": "29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c",
+            "line_number": 3,
+            "opinions": [
+              {
+                "aspect": "effectiveness",
+                "sentiment": "positive",
+                "quote": "制冷速度快",
+                "quote_start": 0,
+                "quote_end": 5,
+                "opinion_id": "opinion:82050880bf6268d2f21b34b0"
+              }
+            ],
+            "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=3"
+          },
+          {
+            "review_id": 19,
+            "source": "reviews_csv",
+            "dataset_version": "reviews-csv",
+            "product_id": "TOPIC-TEST",
+            "text": "好像还行",
+            "published_at": "2021-06-04T00:00:00.000+00:00",
+            "content_sha256": "3d2df6428eb51d9d7dc031b85b31c476bb4e535f0423b97545588e6c0f576060",
+            "annotation_id": 16,
+            "model_version": null,
+            "revision_id": null,
+            "opinion_source": "model",
+            "file_sha256": "29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c",
+            "line_number": 7,
+            "opinions": [
+              {
+                "aspect": "effectiveness",
+                "sentiment": "positive",
+                "quote": "好像还行",
+                "quote_start": 0,
+                "quote_end": 4,
+                "opinion_id": "opinion:27fdf07109b2009941026ca6"
+              }
+            ],
+            "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=7"
+          },
+          {
+            "review_id": 20,
+            "source": "reviews_csv",
+            "dataset_version": "reviews-csv",
+            "product_id": "TOPIC-TEST",
+            "text": "时好时坏",
+            "published_at": "2021-06-03T00:00:00.000+00:00",
+            "content_sha256": "0aacc831d9b7bb04a3b6bdbe9e4824703caa2d4f6f66e02144e90a73f17db900",
+            "annotation_id": 17,
+            "model_version": null,
+            "revision_id": null,
+            "opinion_source": "model",
+            "file_sha256": "29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c",
+            "line_number": 8,
+            "opinions": [
+              {
+                "aspect": "effectiveness",
+                "sentiment": "positive",
+                "quote": "时好时坏",
+                "quote_start": 0,
+                "quote_end": 4,
+                "opinion_id": "opinion:a82c03d1eaf44af45f2bd263"
+              }
+            ],
+            "evidence_ref": "sha256:29baeae19a0d66a956192faf1bbce4a4ef470c9e977575330c54fb94e339137c#line=8"
+          }
+        ],
+        "failures": [],
+        "model_calls": 2,
+        "discovery_unit_ids": [
+          "u1",
+          "u2",
+          "u3",
+          "u4",
+          "u5"
+        ],
+        "topics": [
+          {
+            "topic_id": "topic:77b94ae56ead3b74b488",
+            "name": "制冷速度",
+            "definition": "指空调从启动到达到设定温度所需的时间长短或效率高低。",
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "semantic_status": "model_reviewed_not_human_confirmed",
+            "review_count": 2,
+            "opinion_count": 3,
+            "review_denominator": 4,
+            "review_rate": 0.5,
+            "opinion_ids": [
+              "opinion:f1a4ae41ff1a43c98fb52428",
+              "opinion:981225b3f15a9ed81a9dffb7",
+              "opinion:82050880bf6268d2f21b34b0"
+            ],
+            "review_ids": [
+              14,
+              15
+            ],
+            "evidence_opinion_ids": [
+              "opinion:f1a4ae41ff1a43c98fb52428"
+            ]
+          },
+          {
+            "topic_id": "topic:243db223daa61ce79e61",
+            "name": "运行噪声",
+            "definition": "指空调在正常工作状态下产生的声音大小。",
+            "aspect": "effectiveness",
+            "sentiment": "positive",
+            "semantic_status": "model_reviewed_not_human_confirmed",
+            "review_count": 1,
+            "opinion_count": 1,
+            "review_denominator": 4,
+            "review_rate": 0.25,
+            "opinion_ids": [
+              "opinion:6b50e9c948c7e52938f2af52"
+            ],
+            "review_ids": [
+              14
+            ],
+            "evidence_opinion_ids": [
+              "opinion:6b50e9c948c7e52938f2af52"
+            ]
+          }
+        ],
+        "coverage": {
+          "selected_reviews": 4,
+          "selected_opinions": 6,
+          "evaluated_opinions": 6,
+          "classified_opinions": 4,
+          "unclassified_opinions": 2,
+          "not_evaluated_opinions": 0,
+          "unclassified_reasons": {
+            "uncertain": 1,
+            "conflicting": 1,
+            "unclassified": 0
+          },
+          "opinion_coverage": 0.666667,
+          "population_opinion_coverage": 1.0
+        },
+        "duration_ms": 22897.137
+      }
+    }
+  },
+  "trace": [
+    {
+      "event": "tool_call",
+      "tool": "get_analysis_context",
+      "parameters": "{}",
+      "status": "success",
+      "result_id": "overview",
+      "cache_hit": false,
+      "elapsed_ms": 8.844
+    },
+    {
+      "event": "tool_call",
+      "tool": "get_aspect_drilldown",
+      "parameters": "{\"product_ids\": [\"TOPIC-TEST\"], \"aspect\": \"effectiveness\", \"sentiment\": \"positive\"}",
+      "status": "success",
+      "result_id": "r1",
+      "cache_hit": false,
+      "elapsed_ms": 22907.412
+    }
+  ],
+  "model_tool_attempts": 0,
+  "cache_hits": 0,
+  "query_executions": 2,
+  "tool_calls": 2,
+  "model_calls": 0,
+  "model_responses": 0,
+  "usage": null,
+  "answer_model_calls": 0,
+  "topic_model_calls": 2,
+  "intent_model_calls": 0,
+  "total_model_calls": 2,
+  "elapsed_seconds": 22.934
+}
