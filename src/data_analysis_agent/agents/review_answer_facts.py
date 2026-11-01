@@ -1,6 +1,8 @@
 """从已校验的压缩上下文提取回答事实；数字和可解释命题都由代码绑定。"""
 
 import re
+from calendar import monthrange
+from datetime import date
 
 from pydantic import Field
 
@@ -41,6 +43,7 @@ def selected_aspects(question):
     question = question.replace("数据质量", "")
     return {key for key, label in ASPECTS.items() if label in question or key in question
             or (key == "service" and ("客服" in question or "服务" in question))
+            or (key == 'quality' and '质量' in question)
             or (key == "effectiveness" and "效果" in question)}
 
 
@@ -203,7 +206,10 @@ def answer_caveats(context, facts):
         if stat['analysis_type'] == 'aspect_drilldown':
             filters, coverage = stat['filters'], stat['filters']['coverage']
             messages.append(f"模型候选主题未经人工确认，未穷尽全部主题；同一评论可进入多个主题，数量不能相加。"
-                f"纳入 {coverage['selected_reviews']} 条评论、{coverage['selected_opinions']} 条观点，未归类 {coverage['unclassified_opinions']} 条（含模糊、矛盾及未处理观点）。")
+                f"未归类 {coverage['unclassified_opinions']} 条（含模糊、矛盾及未处理观点）。")
+            basis = '非随机样本评论' if filters['population_mode'] == 'sample' else '匹配评论'
+            messages.append(f"本次二级主题分析纳入 {coverage['selected_reviews']} 条{basis}、{coverage['selected_opinions']} 条观点"
+                + ('，样本量较少' if coverage['selected_reviews'] < 20 else '') + '，主题归并结果不能直接代表更广泛的消费者评价。')
             if filters['population_mode'] == 'sample':
                 messages.append(f"这是受预算限制的非随机样本探索，总体有 {filters['total']} 条匹配评论、{filters['total_opinions']} 条观点；样本占比不能视为总体真实比例。")
             if filters['analysis_status'] == 'partial':
@@ -212,16 +218,30 @@ def answer_caveats(context, facts):
         messages.append('现有标注只有六个上级维度；以上按观点原文和情感精确归组，同义表述未合并，不是完整细分主题排名。同一评论可有多条观点并进入多个组，评论数与观点数分别统计。')
     if "no_successful_annotations" in codes:
         messages.append("部分范围暂无成功标注，无法判断其正负面占比。")
-    if "no_positive_mentions" in codes:
+    if "no_positive_mentions" in codes and "no_successful_annotations" not in codes:
         messages.append("当前成功标注中没有有效正向观点，不能据此编造好评排名。")
-    if codes & {"small_sample", "insufficient_coverage", "limited_bucket_samples"}:
-        messages.append("部分样本量较少或标注覆盖率不足，结论仅描述已标注样本。")
+    points = [point for stat in context.statistics for series in stat.get('trends', []) for point in series['points']]
+    if 'no_successful_annotations' not in codes:
+        if ('small_sample' in codes or any(point['sample_size']['successful_reviews'] < 20 for point in points)) and not any(stat['analysis_type'] == 'aspect_drilldown' for stat in context.statistics):
+            messages.append('部分样本量较少，结论仅描述已标注样本。')
+        if 'insufficient_coverage' in codes or any((point['sample_size']['labeling_coverage'] or 0) < 0.8 for point in points):
+            messages.append('部分范围或时间段标注覆盖率不足，结论仅描述已标注样本。')
     if "missing_time_buckets" in codes:
         messages.append("存在无成功标注的时段，空数据不代表负面占比为零。")
     if sum(fact.kind == "aspect" for fact in facts) > 1:
         messages.append("同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。")
     if any(fact.kind == "trend" for fact in facts):
-        messages.append("首末时间段可能不完整，变化不能直接解释为已证实的原因。")
+        scopes = {row['scope_ref']:row for row in context.scope_summary}
+        partial = False
+        for stat in context.statistics:
+            if not any(series['period'] == 'month' for series in stat.get('trends', [])): continue
+            scope = scopes[stat['scope_ref']]
+            if scope.get('date_from') and scope.get('date_to'):
+                start, end = date.fromisoformat(scope['date_from']), date.fromisoformat(scope['date_to'])
+                partial |= start.day != 1 or end.day != monthrange(end.year,end.month)[1]
+        if partial:
+            messages.append('首末月的查询区间未覆盖完整自然月，不宜直接按整月比较。')
+        messages.append('尚未核验各时段内的数据采集完整性；变化不能直接解释为已证实的原因。')
     if re.search(r"原因|为什么|导致|建议|改进|改善|优化", context.question):
         messages.append("评论统计不能确认因果；建议属于待核查方向，需要结合原文及业务记录验证。")
     return messages
@@ -237,6 +257,12 @@ def summary_options(context, facts):
         return ['已检索当前范围的观点文本，以下列出出现较多的原文表述及情感。']
     if not facts or all(fact.kind == "empty" for fact in facts):
         return ["当前数据不足以给出可靠的分析结论。"]
+    if len(facts) == 1 and facts[0].kind == 'aspect' and selected_aspects(context.question):
+        fact = facts[0]
+        metric = next(row for row in fact.metrics if row['name'] == ('positive_rate' if fact.sentiment == 'positive' else 'negative_rate'))
+        denominator = '含正向观点评论' if fact.sentiment == 'positive' else '成功标注评论'
+        direction = '正向' if fact.sentiment == 'positive' else '负面'
+        return [f"本次 {metric['denominator']} 条{denominator}中，有 {metric['numerator']} 条包含{ASPECTS[fact.aspect_key]}相关{direction}观点，占 {percent(metric['value'])}。"]
     if all(fact.kind == "aspect" and fact.sentiment == "positive" for fact in facts):
         labels = list(dict.fromkeys(ASPECTS[fact.aspect_key] for fact in facts))
         return ["根据当前已标注评论，好评主要集中在" + "、".join(labels) + "。"]

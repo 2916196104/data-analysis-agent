@@ -135,6 +135,10 @@ def independent_review(rows, settings):
 
 
 def main():
+    if '--stability-suite' in sys.argv:
+        from scripts.evaluate_review_answer_stability import main as stability_main
+        sys.argv.remove('--stability-suite')
+        return stability_main()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--live-synthetic', action='store_true')
     parser.add_argument('--live-cases', nargs='+', choices=['B-topics-full', 'B-topics-sample', 'C-comparison', 'D-sparse-trend'],

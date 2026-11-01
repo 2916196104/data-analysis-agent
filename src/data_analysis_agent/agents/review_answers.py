@@ -1,18 +1,21 @@
 """混合回答生成：LLM 组织可核验命题，后端注入全部统计数字与引用。"""
 
 import re
+import json
 from time import perf_counter
 from typing import Literal
 
 from pydantic import Field
+from pydantic import ValidationError
 
-from data_analysis_agent.agents.review_answer_facts import answer_caveats, build_answer_facts, percent, summary_options
+from data_analysis_agent.agents.review_answer_facts import answer_caveats, build_answer_facts, percent, selected_aspects, summary_options
 from data_analysis_agent.agents.review_compression import CompactAnalysisContext
 from data_analysis_agent.agents.review_results import AnalysisModel, EvidenceReference
 from data_analysis_agent.core.serialization import canonical_json
 from data_analysis_agent.agents.review_insights import (
-    DRAFT_PROMPT, REVIEW_PROMPT, InsightDraft, SupportReview, analysis_state, default_focus,
+    COMPACT_DRAFT_PROMPT, COMPACT_REVIEW_PROMPT, DraftValidationError, InsightDraft, SupportReview, analysis_state, default_focus,
     fact_catalog, lead_summary, model_catalog, render_insights, validate_draft,
+    aliases, has_interpretation_basis, parse_draft, parse_json, parse_support_review, program_supported, support_payload,
 )
 
 
@@ -62,7 +65,10 @@ class AnswerGenerationStrategy:
         if context.analysis_type == 'aspect_drilldown' and sum(fact.kind == 'topic' for fact in facts) < 2:
             return 'template'
         complex_types = {"trend", "aspect_trend", "comparison", "window_comparison", "composite", 'aspect_drilldown'}
-        requested = bool(re.search(r"原因|为什么|建议|改进|改善|综合|详细分析", context.question))
+        requested = bool(re.search(r"原因|为什么|解释|解读|建议|改进|改善|综合|详细分析", context.question))
+        if facts and all(fact.kind in ('aspect', 'empty') for fact in facts) and context.analysis_type not in ('comparison', 'composite'):
+            # 只有一级计数，模型没有可用于具体问题解释的观点内容；直接说清证据缺口。
+            return 'template'
         return "llm" if facts and any(fact.kind != "empty" for fact in facts) and (
             context.analysis_type in complex_types or requested) else "template"
 
@@ -114,6 +120,8 @@ class AnswerAssembler:
             source_result_ids=row['result_ids'], text=row['text']) for row in selected]
         answer.metrics = [{'finding_ref': row['fact_id'], 'scope_ref': row['scope_ref'], 'values': row['metrics']} for row in selected]
         answer.insights = render_insights(draft, catalog)
+        known_text = answer.summary + ''.join(row.text for row in answer.highlights) + ''.join(answer.caveats)
+        answer.insights = [row for row in answer.insights if row['text'] not in known_text]
         answer.generation_status = generation_status
         return answer
 
@@ -132,7 +140,12 @@ class AnswerAssembler:
                     or re.search(r"建议|改进|改善|优化", context.question) else "") + fact.detail
             highlights.append(AnswerHighlight(finding_ref=fact.finding_ref, aspect_key=fact.aspect_key,
                 scope_ref=fact.scope_ref, source_result_ids=fact.source_result_ids, text=text))
+        if len(facts) == 1 and facts[0].kind == 'aspect' and selected_aspects(context.question):
+            # 单维度的数量/分母已由摘要完整呈现，指标与详情保留，正文不再重复数字行。
+            highlights = []
         notes = answer_caveats(context, facts)
+        if facts and all(fact.kind in ('aspect', 'empty') for fact in facts) and re.search(r'具体|反映|解释|为什么', context.question):
+            notes.append('目前只能确认已有维度的提及数量和占比；未查询对应观点原文或二级主题，不能判断具体问题类型或原因。')
         if omitted:
             notes.append("正文仅列出主要发现，完整分组和统计保留在详情中。")
         samples = context.sample_summary
@@ -205,16 +218,18 @@ class NaturalLanguageAnswerGenerator:
         catalog, _ = fact_catalog(context)
         if mode == 'llm':
             draft = InsightDraft(focus=default_focus(catalog))
-        messages = [{'role': 'system', 'content': DRAFT_PROMPT}, {'role': 'user', 'content': canonical_json({
+        short_ids = {key: alias for alias, key in aliases(catalog).items()}
+        messages = [{'role': 'system', 'content': COMPACT_DRAFT_PROMPT}, {'role': 'user', 'content': canonical_json({
             'stage': 'answer_draft', 'question': question, 'analysis_type': context.analysis_type,
-            'sample_summary': context.sample_summary, 'limitations': answer_caveats(context, facts),
-            'facts': model_catalog(catalog), 'required_focus': default_focus(catalog), 'schema': InsightDraft.model_json_schema()})}]
+            'limitations': answer_caveats(context, facts),
+            'facts': model_catalog(catalog), 'required_focus': [short_ids[key] for key in default_focus(catalog)]})}]
         size = len(canonical_json(messages).encode("utf-8"))
         diagnostics = {"strategy": mode, "input_bytes": size, "compact_bytes": len(canonical_json(compact_context).encode("utf-8")),
             "input_budget_bytes": settings.answer_input_max_bytes, "attempts": 0, "error_code": None,
             "timeout_seconds": settings.answer_timeout_seconds, "max_retries": settings.answer_max_retries}
         diagnostics.update(failed_stage=None, model_input_tokens=0, model_output_tokens=0, request_stages=[], reviewed_insights=0,
-            sent_input_bytes=0, usage_available=False, usage_responses=0, request_durations=[], time_budget_seconds=settings.answer_timeout_seconds * 2)
+            sent_input_bytes=0, usage_available=False, usage_responses=0, request_durations=[], time_budget_seconds=settings.answer_timeout_seconds * 2,
+            protocol='compact_refs_v3', failure_reason=None, focus_augmented=[], insight_decisions=[])
         started = perf_counter()
         status = "template"
         if mode == "llm":
@@ -222,6 +237,7 @@ class NaturalLanguageAnswerGenerator:
             if size > settings.answer_input_max_bytes:
                 diagnostics["error_code"] = "input_budget_exceeded"
                 diagnostics['failed_stage'] = 'input_budget'
+                diagnostics['failure_reason'] = 'input_budget_exceeded'
             else:
                 from openai import APIConnectionError, OpenAI
                 try:
@@ -234,7 +250,7 @@ class NaturalLanguageAnswerGenerator:
                             raise TimeoutError('回答时间预算已用完。')
                         size = len(canonical_json(messages).encode('utf-8'))
                         if size > settings.answer_input_max_bytes:
-                            raise ValueError('回答输入超过预算。')
+                            raise DraftValidationError('input_budget_exceeded', '回答输入超过预算。')
                         diagnostics['attempts'] += 1
                         diagnostics['sent_input_bytes'] += size
                         diagnostics['request_stages'].append(stage)
@@ -253,29 +269,55 @@ class NaturalLanguageAnswerGenerator:
                             diagnostics['usage'] = response.usage.model_dump()
                         choice = response.choices[0]
                         if choice.finish_reason != 'stop' or choice.message.tool_calls:
-                            raise ValueError('回答未完整生成。')
+                            raise DraftValidationError('incomplete_response', '回答未完整结束或返回工具调用。')
                         return choice.message.content
                     for attempt in range(settings.answer_max_retries + 1):
                         try:
-                            content = call('draft', messages, 1400)
+                            content = call('draft', messages, 360)
                             break
                         except APIConnectionError:
                             if attempt == settings.answer_max_retries:
                                 raise
-                    import json
-                    raw = json.loads(content)
+                    raw = parse_json(content)
                     if isinstance(raw, dict) and 'focus' in raw:
-                        candidate = validate_draft(InsightDraft.model_validate(raw), catalog)
-                        if candidate.insights:
-                            review_messages = [{'role': 'system', 'content': REVIEW_PROMPT}, {'role': 'user', 'content': canonical_json({
-                                'stage': 'answer_support_review', 'question': question, 'facts': model_catalog(catalog),
-                                'sample_summary': context.sample_summary, 'limitations': answer_caveats(context, facts),
-                                'insights': [row.model_dump() for row in candidate.insights], 'schema': SupportReview.model_json_schema()})}]
-                            review = SupportReview.model_validate_json(call('support_review', review_messages, 500))
-                            if len(review.decisions) != len(candidate.insights) or {row.index for row in review.decisions} != set(range(len(candidate.insights))) or any(
-                                not row.supported or row.reason != 'supported' for row in review.decisions):
-                                raise ValueError('解释未通过独立支持性复核。')
-                            diagnostics['reviewed_insights'] = len(candidate.insights)
+                        candidate, additions = parse_draft(raw, catalog)
+                        diagnostics['focus_augmented'] = additions
+                        # 文字校验/复核失败时也保留已验证重点，不能保存未验证解释。
+                        draft = validate_draft(candidate.model_copy(update={'insights': []}), catalog)
+                        candidate = validate_draft(candidate, catalog)
+                        accepted, pending = [], []
+                        by_ref = {row['fact_id']: row for row in catalog}
+                        for index, item in enumerate(candidate.insights):
+                            if program_supported(item, catalog):
+                                accepted.append(index)
+                                diagnostics['insight_decisions'].append({'index': index, 'accepted': True,
+                                    'reason': 'program_verified', 'detail': '逐句等于所引用目录中的可信命题，保留在事实正文中，不重复为解释。',
+                                    'published_as_insight': False})
+                            elif item.kind == 'interpretation' and not has_interpretation_basis([by_ref[key] for key in item.fact_ids]):
+                                diagnostics['insight_decisions'].append({'index':index,'accepted':False,
+                                    'reason':'no_incremental_evidence','detail':'本轮计数、方向或套用名称的定义已在事实正文呈现，没有支持额外内容解释的依据。',
+                                    'published_as_insight':False})
+                            else:
+                                pending.append(index)
+                        if pending:
+                            diagnostics['support_attempted_insights'] = len(pending)
+                            review_messages = [{'role': 'system', 'content': COMPACT_REVIEW_PROMPT}, {'role': 'user', 'content': canonical_json(
+                                support_payload(question, candidate, catalog, pending, answer_caveats(context, facts)))}]
+                            review = parse_support_review(parse_json(call('support_review', review_messages, 280)))
+                            if len(review.decisions) != len(pending) or {row.index for row in review.decisions} != set(pending):
+                                raise DraftValidationError('review_coverage', '支持性复核遗漏或重复解释。')
+                            for row in review.decisions:
+                                supported = row.supported and row.reason == 'supported'
+                                diagnostics['insight_decisions'].append({'index': row.index, 'accepted': supported,
+                                    'reason': row.reason, 'detail': row.detail, 'detail_supplied': bool(row.detail)})
+                                if supported:
+                                    accepted.append(row.index)
+                            diagnostics['reviewed_insights'] = sum(row.supported and row.reason == 'supported' for row in review.decisions)
+                        candidate.insights = [item for index, item in enumerate(candidate.insights)
+                                              if index in accepted and not program_supported(item, catalog)]
+                        draft = candidate
+                        if any(not row['accepted'] and row['reason'] not in ('redundant','no_incremental_evidence') for row in diagnostics['insight_decisions']):
+                            raise DraftValidationError('support_rejected', '部分解释未通过独立支持性复核。')
                         draft, status = candidate, 'llm'
                     else:
                         # 兼容已部署模型的旧草稿；仍须逐句通过原白名单校验。
@@ -287,10 +329,24 @@ class NaturalLanguageAnswerGenerator:
                     # 不保存/发布无效草稿或异常正文，原统计继续用于确定性降级。
                     diagnostics["error_code"] = ('answer_call_budget_exceeded' if isinstance(exc, AnswerCallBudgetExceeded) else
                         "generation_timeout" if "timeout" in type(exc).__name__.lower() else "invalid_generation")
+                    diagnostics['failure_reason'] = (exc.code if isinstance(exc, DraftValidationError) else
+                        'answer_call_budget_exceeded' if isinstance(exc, AnswerCallBudgetExceeded) else
+                        'json_decode' if isinstance(exc, json.JSONDecodeError) else
+                        'schema_validation' if isinstance(exc, ValidationError) else
+                        'timeout' if 'timeout' in type(exc).__name__.lower() else 'invalid_response')
+                    diagnostics['failure_detail'] = (str(exc) if isinstance(exc, DraftValidationError) else
+                        '回答请求超时；保留已核验事实。' if diagnostics['failure_reason'] == 'timeout' else
+                        '模型返回的 JSON、字段或旧命题校验未通过。')
+                    if isinstance(exc, ValidationError):
+                        diagnostics['schema_errors'] = [{'loc': list(row['loc']), 'type': row['type']}
+                            for row in exc.errors(include_input=False, include_url=False)[:5]]
         answer = (AnswerAssembler().assemble_insights(context, draft, catalog, generation_status=status) if isinstance(draft, InsightDraft)
                   else AnswerAssembler().assemble(context, draft, generation_status=status, detailed=detailed))
         diagnostics["elapsed_seconds"] = round(perf_counter() - started, 3)
         diagnostics["generation_status"] = status
+        diagnostics['published_insights'] = len(answer.insights)
+        diagnostics['omitted_redundant_insights'] = sum(row['reason'] == 'redundant' for row in diagnostics['insight_decisions'])
+        diagnostics['answer_outcome'] = 'verified_insights' if answer.insights else 'facts_only'
         diagnostics["validated_draft"] = draft.model_dump()
         return answer.model_dump(), diagnostics
 
@@ -320,7 +376,7 @@ def read_public_answer(task, *, public_analysis=None):
             return unavailable_answer()
         generation = result.get("answer_generation") or {}
         try:
-            if generation.get('validated_draft', {}).get('schema_version') == '2.0':
+            if generation.get('validated_draft', {}).get('schema_version') in ('2.0', '3.0'):
                 catalog, _ = fact_catalog(context)
                 draft = validate_draft(InsightDraft.model_validate(generation['validated_draft']), catalog)
                 # 历史公开接口不把已存复核标签当作语义证明；零调用重建可信事实。

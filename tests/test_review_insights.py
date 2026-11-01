@@ -29,7 +29,13 @@ class InsightTests(answer_fixture.WorkbenchFixture, unittest.TestCase):
     def topic_context(self):
         fixture = topic_fixture.ReviewTopicTests(); fixture.setUp()
         try:
-            with topic_model(topic_fixture.semantic_response), patch('openai.OpenAI', side_effect=AssertionError('no external model')):
+            def semantic(*args):
+                value = topic_fixture.semantic_response(*args)
+                if hasattr(value, 'themes'):
+                    for theme in value.themes:
+                        theme.definition = {'制冷速度':'关注开始运行后的温度变化速度', '运行噪声':'关注设备运行期间的声音强弱'}.get(theme.name, theme.definition)
+                return value
+            with topic_model(semantic), patch('openai.OpenAI', side_effect=AssertionError('no external model')):
                 full = run_review_agent(fixture.db, '使用效果具体好在哪里？', scope=fixture.scope(), settings=SETTINGS)
             return full, full['compact_context']
         finally:

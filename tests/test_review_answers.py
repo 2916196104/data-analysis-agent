@@ -101,8 +101,10 @@ class AnswerTests(WorkbenchFixture, unittest.TestCase):
     def test_single_positive_dimension_below_default_top_three_is_not_lost(self):
         _, context = self.context("质量好评主要方面")
         answer, _ = self.generate(context)
-        self.assertEqual([row["aspect_key"] for row in answer["highlights"]], ["quality"])
-        self.assertIn("1 条", answer["highlights"][0]["text"])
+        self.assertEqual(answer['highlights'], [])
+        self.assertIn('质量相关正向观点', answer['summary'])
+        self.assertIn('有 1 条', answer['summary'])
+        self.assertEqual(next(row['value'] for row in answer['metrics'][0]['values'] if row['name']=='positive_review_count'),1)
 
     def test_no_positive_mentions_does_not_invent_ranking(self):
         for rid in (1, 2, 6):

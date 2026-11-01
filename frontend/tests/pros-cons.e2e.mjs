@@ -46,7 +46,9 @@ const model = createServer(async (request, response) => {
       const definitions = [['t1', '制冷速度', ['降温很快', '制冷速度快']], ['t2', '运行噪声', ['运行声音小']], ['t3', '配送时效', ['物流速度慢', '物流发货慢']]];
       message = { role: 'assistant', content: JSON.stringify({ themes: definitions.flatMap(([key, name, quotes]) => {
         const support_ids = payload.opinions.filter(row => quotes.includes(row.quote)).map(row => row.opinion_id);
-        return support_ids.length ? [{ key, name, definition: `${name}的直接评价`, support_ids: support_ids.slice(0, 6) }] : [];
+        const definition = name === '制冷速度' ? '关注开始运行后的温度变化速度'
+          : name === '运行噪声' ? '关注设备运行期间的声音强弱' : `${name}的直接评价`;
+        return support_ids.length ? [{ key, name, definition, support_ids: support_ids.slice(0, 6) }] : [];
       }) }) };
     } else if (payload.stage === 'topic_classification') {
       const mapping = { 降温很快: 't1', 制冷速度快: 't1', 运行声音小: 't2', 物流速度慢: 't3', 物流发货慢: 't3' };
