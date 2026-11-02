@@ -1,0 +1,6 @@
+# 仅用于 .cache/embedding-eval/venv，不安装到业务 .venv。
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.9.1+cpu
+transformers==4.57.6
+numpy==2.2.6
+psutil==7.2.2
