@@ -1,0 +1,61 @@
+{
+  "case": "AMBIGUOUS",
+  "question": "对比这两款商品的物流差评，具体发生在哪些环节？",
+  "source": "SYNTHETIC_SQLITE_ONLY",
+  "task_id": "5e5b1a6ea5f54a90a920ea57a3b64642",
+  "task_status": "succeeded",
+  "end_to_end_seconds": 1.022,
+  "polls": 10,
+  "checks": {
+    "expected_task_status": true,
+    "no_false_public_success": true,
+    "idempotent_submission": true,
+    "public_read_stable_zero_model_calls": true,
+    "business_readonly": true,
+    "specific_clarification": true,
+    "no_completion_after_incomplete_or_ambiguous": true
+  },
+  "answer": {
+    "schema_version": "1.0",
+    "status": "unsupported",
+    "summary": "请明确“这两款”指哪两款商品；当前没有可唯一恢复的比较对象。",
+    "highlights": [],
+    "metrics": [],
+    "sample_note": "",
+    "evidence_refs": [],
+    "caveats": [],
+    "generation_status": "unavailable",
+    "source_result_ids": [],
+    "scope_summary": [],
+    "details_available": false,
+    "insights": [],
+    "evidence_relations": []
+  },
+  "automatic_evidence_completion": {
+    "additional_tool_calls": 0,
+    "automatic": false,
+    "cycles": 0,
+    "requests": [],
+    "status": "not_started"
+  },
+  "tool_calls": 0,
+  "query_executions": 0,
+  "performance": {
+    "answer_duration_ms": 0.0,
+    "answer_input_bytes": 0,
+    "compression_duration_ms": 0.0,
+    "intent_resolution_duration_ms": 0.0,
+    "planning_duration_ms": 0.0,
+    "planning_model_duration_ms": 0.0,
+    "query_duration_ms": 0,
+    "queue_duration_ms": 900.0,
+    "scope_resolution_duration_ms": 2.1551999961957335,
+    "total_duration_ms": 3.971,
+    "validation_duration_ms": 0.0
+  },
+  "answer_generation": null,
+  "validation": null,
+  "trace": [],
+  "error": null,
+  "model_requests": []
+}

@@ -4,6 +4,7 @@ from calendar import monthrange
 from datetime import date
 
 from data_analysis_agent.agents.review_answer_facts import selected_aspects
+from data_analysis_agent.agents.review_semantics import opinion_request
 from data_analysis_agent.agents.review_tools import (
     AspectDrilldownInput, OpinionBreakdownInput, EvidenceInput, ProductSelection,
 )
@@ -24,7 +25,7 @@ def assess_evidence(context):
     aspect = next(iter(aspects)) if len(aspects)==1 else None
     sentiments = {stat.get('filters',{}).get('sentiment') for stat in context.statistics} & {'positive','negative'}
     sentiment = context.sentiment if context.sentiment in ('positive','negative') else next(iter(sentiments)) if len(sentiments)==1 else None
-    content = bool(re.search(r'具体|好在哪|不好在哪|反映|解释|原因|为什么|区别|差异|环节|问题类型|自述|偏好|代表|相加|总人数|原文|主题|层次',question))
+    content = opinion_request(question)['content_detail'] or bool(re.search(r'具体|好在哪|不好在哪|反映|解释|原因|为什么|区别|差异|环节|问题类型|自述|偏好|代表|相加|总人数|原文|主题|层次',question))
     causal = bool(re.search(r'根因|证实|真正.*原因|实际.*原因|导致|是否因为|因果|确认.*责任|没有.*问题',question))
     commercial = bool(re.search(r'更值得买|性价比',question))
     forecast = bool(re.search(r'下个月|未来|预测|一定继续|长期稳定',question))

@@ -20,7 +20,12 @@ from data_analysis_agent.reviews import analytics
 
 class EvidenceLoopTests(EvidenceFixture):
     execute_plan=plan_fixture.QueryPlanTests.execute_plan
-    run_sync=plan_fixture.QueryPlanTests.run_sync
+    def run_sync(self, question):
+        # 内容问句现在直接查询观点；补查回归仍从已确认的一级统计计划开始。
+        if question == '包装差评具体反映什么问题？':
+            question = '执行本轮已确认的只读查询\n' + json.dumps({
+                'tool': 'get_top_issues', 'parameters': {'aspect': 'packaging'}, 'question': question})
+        return plan_fixture.QueryPlanTests.run_sync(self, question)
 
     def setUp(self):
         super().setUp();self.seed();self.products=['IE-PACK']

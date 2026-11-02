@@ -13,8 +13,8 @@ const root = path.resolve(import.meta.dirname, '../..');
 await mkdir(path.join(root, 'output/playwright'), { recursive: true });
 const out = await mkdtemp(path.join(root, 'output/playwright/sessions-'));
 const python = path.join(root, '.venv/Scripts/python.exe');
-const children = [], logs = [], errors = [], screenshots = [], submissions = [];
-const report = { source: 'isolated SQLite + local simulated model + real FastAPI/Worker/Vite/Chromium', out, screenshots, errors };
+const children = [], logs = [], errors = [], screenshots = [], submissions = [], modelRequests = [];
+const report = { source: 'isolated SQLite + local simulated model + real FastAPI/Worker/Vite/Chromium', out, screenshots, errors, modelRequests };
 let browser, page, modelServer, releaseModel;
 let holdModel = true;
 const modelGate = new Promise(resolve => { releaseModel = resolve; });
@@ -34,6 +34,7 @@ try {
   const fixture = launch(python, ['scripts/frontend_fixture.py', '--output', out], 'fixture');
   await new Promise((resolve, reject) => { fixture.once('error', reject); fixture.once('exit', code => code === 0 ? resolve() : reject(new Error('Fixture failed'))); });
   modelServer = createServer(async (req, res) => {
+    const started = performance.now();
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
     if (holdModel) { holdModel = false; await modelGate; }
@@ -52,6 +53,7 @@ try {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ id: 'local-test', object: 'chat.completion', created: 0, model: body.model,
       choices: [{ index: 0, finish_reason: message.tool_calls ? 'tool_calls' : 'stop', message }], usage: { prompt_tokens: 20, completion_tokens: 10, total_tokens: 30 } }));
+    modelRequests.push({ kind: body.tools ? 'planning' : body.response_format ? 'answer' : 'basic', durationMs: Math.round(performance.now() - started) });
   });
   await new Promise(resolve => modelServer.listen(0, '127.0.0.1', resolve));
   const apiPort = await port(), webPort = await port(), web = `http://127.0.0.1:${webPort}`, api = `http://127.0.0.1:${apiPort}/api/v1`;
@@ -63,6 +65,7 @@ try {
   });
   launch(process.execPath, ['frontend/node_modules/vite/bin/vite.js', 'frontend', '--host', '127.0.0.1', '--port', String(webPort), '--strictPort'], 'vite', { VITE_API_BASE_URL: api });
   await until(async () => { try { return (await fetch(api + '/health', { signal: AbortSignal.timeout(1000) })).ok && (await fetch(web, { signal: AbortSignal.timeout(1000) })).ok; } catch { return false; } }, 'services');
+  console.error('E2E: services ready');
   const options = (await (await fetch(api + '/options')).json()).result;
   const profile = options.profiles.find(item => item.requested_model === 'SIMULATED-ANNOTATIONS');
   browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -102,6 +105,7 @@ try {
     await page.setViewportSize({ width: 1440, height: 900 });
   }
   await page.goto(web + '/assistant'); await analysisMode();
+  console.error('E2E: browser ready');
   const questionA = '按月查看包装问题趋势';
   await enter(questionA);
   await until(async () => (await store())?.sessions[0].turns[0]?.taskId, 'A submitted');
@@ -116,6 +120,7 @@ try {
   await page.getByText('需要澄清', { exact: true }).waitFor(); assert.equal(submissions.length, 1);
   releaseModel();
   await until(async () => (await getTask(taskA)).status === 'succeeded', 'A completes in background');
+  console.error('E2E: first task complete');
   assert.equal((await store()).activeSessionId, b); assert.equal(await page.locator('.chat-turn').count(), 1);
   assert.equal(await page.getByRole('textbox', { name: '评论分析问题' }).isDisabled(), false);
   await enter('查看星级分布');
@@ -154,8 +159,67 @@ try {
   await page.getByRole('button', { name: '新建会话', exact: true }).click();
   assert.equal((await store()).sessions[0].turns[0].taskId, taskA); assert.equal(submissions.length, before);
   assert.ok(await page.evaluate(chatKey => Object.keys(localStorage).some(key => key.startsWith(chatKey + ':backup:')), chatKey));
+  // 一级统计后的通用维度内容下钻：真实页面提交、后台执行、引用和分母均核查。
+  await enter('差评主要集中在什么地方？');
+  async function lastTask() {
+    const state = await store();
+    return state.sessions.find(s => s.id === state.activeSessionId)?.turns.at(-1)?.taskId;
+  }
+  await until(async () => { const id = await lastTask(); return id && (await getTask(id)).status === 'succeeded'; }, 'summary before drilldown');
+  const summaryTask = await lastTask();
+  const rankingTask = await getTask(summaryTask);
+  assert.deepEqual(rankingTask.result.query_plan.required_tools, ['get_top_issues']);
+  assert.equal(rankingTask.result.model_calls, 0);
+  assert.match(rankingTask.result.public_answer.summary, /条成功标注评论中有/);
+  await enter('包装方面有什么问题？');
+  await until(async () => { const id = await lastTask(); return id && id !== summaryTask && (await getTask(id)).status === 'succeeded'; }, 'dimension content');
+  const contentTask = await getTask(await lastTask());
+  assert.equal(contentTask.parameters.context_task_id, summaryTask);
+  assert.deepEqual(contentTask.result.query_plan.required_tools, ['get_opinion_breakdown']);
+  assert.equal(contentTask.result.results.r1.data.aspect, 'packaging');
+  assert.equal(contentTask.result.results.r1.data.sentiment, 'negative');
+  assert.equal(contentTask.result.results.r1.data.total, 4);
+  await page.locator('.public-answer-summary').filter({ hasText: '买家对包装的差评提到' }).waitFor();
+  assert.match(await page.locator('.public-answer-highlights').last().innerText(), /包装破损.*4 条评论.*分母 4 条/);
+  await page.locator('.public-answer').last().scrollIntoViewIfNeeded();
+  await capture('dimension-content');
+  report.dimensionContent = { taskId: contentTask.task_id, parent: summaryTask, plan: contentTask.result.query_plan,
+    answer: contentTask.result.public_answer, validation: contentTask.result.validation };
+  report.dimensionRanking = { plan: rankingTask.result.query_plan, answer: rankingTask.result.public_answer,
+    toolCalls: rankingTask.result.tool_calls, modelCalls: rankingTask.result.model_calls, performance: rankingTask.result.performance };
+  console.error('E2E: dimension content complete');
+  // 页面“全部商品”以空数组提交，服务端必须冻结目录中的真实商品 ID。
+  await page.getByRole('button', { name: '修改范围', exact: true }).click();
+  await page.locator('.ant-select').filter({ has: products }).click();
+  await dropdown.locator('.ant-select-item-option').filter({ hasText: 'DEMO-B' }).click();
+  await products.press('Escape'); await page.getByRole('button', { name: '应用范围', exact: true }).click();
+  assert.deepEqual(await selected(), []);
+  await page.getByRole('button', { name: '新建会话', exact: true }).click();
+  await enter('当前空调物流好在哪里？');
+  await until(async () => { const id = await lastTask(); return id && (await getTask(id)).status === 'succeeded'; }, 'all products singular clarification');
+  const clarificationTask = await getTask(await lastTask());
+  assert.equal(clarificationTask.result.status, 'unsupported');
+  assert.match(clarificationTask.result.public_answer.summary, /请指定一款商品 ID/);
+  assert.deepEqual(clarificationTask.parameters.product_ids, []);
+  assert.deepEqual(clarificationTask.result.scope.product_ids, ['DEMO-A', 'DEMO-B']);
+  await page.getByRole('button', { name: '新建会话', exact: true }).click();
+  await enter('所有商品的物流好评整体怎么样？');
+  await until(async () => { const id = await lastTask(); return id && (await getTask(id)).status === 'succeeded'; }, 'all products positive summary');
+  const overallTask = await getTask(await lastTask());
+  assert.deepEqual(overallTask.result.query_plan.required_tools, ['get_positive_aspects']);
+  assert.deepEqual(overallTask.result.scope.product_ids, ['DEMO-A', 'DEMO-B']);
+  assert.equal(overallTask.result.model_calls, 0);
+  assert.match(overallTask.result.public_answer.summary, /暂未检出物流相关好评/);
+  await page.locator('.public-answer').last().scrollIntoViewIfNeeded();
+  await capture('all-products-summary');
+  report.scopeBinding = { clarification: clarificationTask.result.public_answer.summary,
+    overallPlan: overallTask.result.query_plan, overallAnswer: overallTask.result.public_answer };
+  console.error('E2E: all product scope complete');
   assert.deepEqual(errors, []);
-  report.status = 'passed'; report.checks = ['A/B/C/D/E/F/G/H/I', 'real task API and worker', 'analysis table rendering', '1440/1024/768/390 layout', 'migration backup'];
+  report.status = 'passed'; report.checks = ['session isolation and frozen history', 'real task API and worker',
+    'simple negative ranking without planning model', 'dimension content followup',
+    'all-products singular clarification and aggregate positive statistics',
+    'analysis table rendering', '1440/1024/768/390 layout', 'migration backup'];
   report.submissions = submissions;
 } catch (error) {
   report.status = 'failed'; report.error = String(error); process.exitCode = 1;
@@ -163,7 +227,8 @@ try {
 } finally {
   releaseModel?.(); if (browser) await browser.close();
   for (const child of children.filter(child => child.pid && child.exitCode === null)) {
-    await promisify(execFile)('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }).catch(() => {});
+    child.kill();
+    await promisify(execFile)('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, timeout: 3000 }).catch(() => {});
   }
   if (modelServer) { modelServer.closeAllConnections(); await new Promise(resolve => modelServer.close(resolve)); }
   logs.forEach(log => log.end()); await writeFile(path.join(out, 'acceptance.json'), JSON.stringify(report, null, 2));

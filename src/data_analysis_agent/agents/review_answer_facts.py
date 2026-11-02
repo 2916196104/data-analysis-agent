@@ -178,7 +178,7 @@ def build_answer_facts(context, *, detailed=False):
                 denominator = f"该商品含{emotion}观点的评论" if balanced else "本次匹配评论"
                 detail = (prefix + f"观点原文“{row['quote']}”：{row['review_count']} 条评论、{row['opinion_count']} 条观点，"
                           f"占{denominator} {percent(row['review_rate'])}（分母 {stat['filters']['total']} 条），{emotion}；"
-                          + (f"原文依据：评论 #{row['review_id']}。" if balanced else f"评论依据 #{row['review_id']}，{row['evidence_ref']}。"))
+                          + (f"原文依据：评论 #{row['review_id']}。" if balanced else f"评论依据：评论 #{row['review_id']}。"))
                 add(stat, 'opinion_group', detail, ['以下按已有观点原文及情感归组，不能替代标准细分标签。'],
                     metrics=[{key: row[key] for key in ('review_count', 'opinion_count', 'review_rate')}],
                     finding_ref='finding:' + content_sha256([stat['source_result_id'], index, row['quote'], row['sentiment']])[:20])
@@ -248,15 +248,43 @@ def answer_caveats(context, facts):
 
 
 def summary_options(context, facts):
+    from data_analysis_agent.agents.review_semantics import opinion_request
+    content_detail = opinion_request(context.question)['content_detail']
     if context.analysis_type == 'aspect_drilldown':
         topics = [row['name'] for stat in context.statistics for row in stat.get('filters', {}).get('topics', [])]
         return ['模型归并候选主题主要包括' + '、'.join(topics[:3]) + '，以下数量均由后端依据真实观点归属计算。'] if topics else ['当前数据或归属复核不足，尚无可发布的二级主题。']
     if context.analysis_type == "pros_cons":
         return ['以下按商品分别列出优点和缺点，每个方向展示最多两种常见原文表述，仅代表当前数据集的已标注样本。']
     if any(fact.kind == 'opinion_group' for fact in facts):
+        stats = [stat for stat in context.statistics if stat['analysis_type'] == 'opinion_breakdown']
+        groups = [group for stat in stats for group in stat['filters'].get('groups', [])[:3]]
+        if len(stats) == 1 and (content_detail or (stats[0]['filters'].get('aspect') and stats[0]['filters'].get('sentiment') in ('positive', 'negative'))):
+            stat = stats[0]
+            aspect = stat['filters'].get('aspect')
+            sentiment = stat['filters'].get('sentiment')
+            scope = next((row for row in context.scope_summary if row['scope_ref'] == stat['scope_ref']), {})
+            count = len(scope.get('product_ids', []))
+            selected = '当前所选全部商品'
+            if count == 1:
+                selected = '当前所选商品'
+            elif count > 1:
+                selected = f'当前所选 {count} 款商品'
+            focus = f'买家对{ASPECTS[aspect]}的{"好评" if sentiment == "positive" else "差评"}' if aspect and sentiment in ('positive', 'negative') else '评价'
+            quotes = '、'.join('“' + row['quote'][:80] + ('…' if len(row['quote']) > 80 else '') + '”' for row in groups[:3])
+            return [f'{selected}的已标注评论中，{focus}提到{quotes}。']
         return ['已检索当前范围的观点文本，以下列出出现较多的原文表述及情感。']
-    if not facts or all(fact.kind == "empty" for fact in facts):
+    if facts and all(fact.kind == "empty" for fact in facts):
+        requested = selected_aspects(context.question)
+        successful = any(row.get('successful_reviews', 0) for row in context.sample_summary)
+        if requested and successful and context.sentiment in ('positive', 'negative'):
+            labels = '、'.join(ASPECTS[aspect] for aspect in requested)
+            direction = '好评' if context.sentiment == 'positive' else '差评'
+            return [f'当前范围的成功标注评论中，暂未检出{labels}相关{direction}，因此无法总结具体评价内容。']
         return ["当前数据不足以给出可靠的分析结论。"]
+    if not facts:
+        return ["当前数据不足以给出可靠的分析结论。"]
+    if content_detail and all(fact.kind in ('aspect', 'empty') for fact in facts):
+        return ['当前只有维度数量与占比，尚未取得对应观点内容，不能判断具体问题或体验。']
     if len(facts) == 1 and facts[0].kind == 'aspect' and selected_aspects(context.question):
         fact = facts[0]
         metric = next(row for row in fact.metrics if row['name'] == ('positive_rate' if fact.sentiment == 'positive' else 'negative_rate'))
@@ -264,13 +292,28 @@ def summary_options(context, facts):
         direction = '正向' if fact.sentiment == 'positive' else '负面'
         return [f"本次 {metric['denominator']} 条{denominator}中，有 {metric['numerator']} 条包含{ASPECTS[fact.aspect_key]}相关{direction}观点，占 {percent(metric['value'])}。"]
     if all(fact.kind == "aspect" and fact.sentiment == "positive" for fact in facts):
-        labels = list(dict.fromkeys(ASPECTS[fact.aspect_key] for fact in facts))
-        return ["根据当前已标注评论，好评主要集中在" + "、".join(labels) + "。"]
+        return [_aspect_ranking_summary(facts, positive=True)]
     if any(fact.kind == "trend" for fact in facts):
         return ["".join(fact.statements[0] for fact in facts if fact.kind == "trend"),
                 "趋势需要结合各时段的样本量和覆盖率分别判断。"]
     if any(row["analysis_type"] == "comparison" for row in context.statistics):
         return ["各商品的主要负面问题如下，占比均以各自成功标注评论为分母。"]
     if all(fact.kind == "aspect" for fact in facts):
-        return ["当前已标注评论的主要负面问题集中在" + "、".join(dict.fromkeys(ASPECTS[fact.aspect_key] for fact in facts)) + "。"]
+        return [_aspect_ranking_summary(facts, positive=False)]
     return ["以下是当前范围内已核验的分析结果。"]
+
+
+def _aspect_ranking_summary(facts, *, positive):
+    metric_name = 'positive_rate' if positive else 'negative_rate'
+    direction = '好评' if positive else '差评'
+    denominator_name = '含正向观点评论' if positive else '成功标注评论'
+    rows = [(fact, metric_map(fact.metrics)[metric_name]) for fact in facts]
+    first, metric = rows[0]
+    leader = '提及最多' if len(rows) == 1 or metric['numerator'] > rows[1][1]['numerator'] else '提及较多'
+    lead = (f'当前已标注评论中，{ASPECTS[first.aspect_key]}是{direction}{leader}的维度：'
+            f'{metric["denominator"]} 条{denominator_name}中有 {metric["numerator"]} 条提到该维度，占 {percent(metric["value"])}。')
+    if len(rows) > 1:
+        others = '、'.join(f'{ASPECTS[fact.aspect_key]} {row["numerator"]} 条（{percent(row["value"])}）'
+                          for fact, row in rows[1:3])
+        lead += f'其他较多的维度是{others}。'
+    return lead + '这些数字说明评价涉及哪些维度，具体内容仍需查看对应观点。'

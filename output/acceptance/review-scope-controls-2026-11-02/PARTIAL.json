@@ -1,0 +1,131 @@
+{
+  "case": "PARTIAL",
+  "question": "包装负面观点具体主要集中在哪些方面？",
+  "source": "SYNTHETIC_SQLITE_ONLY",
+  "task_id": "bd67be7acebb41fc9805a0fcaed70890",
+  "task_status": "partial",
+  "end_to_end_seconds": 1.1024,
+  "polls": 10,
+  "checks": {
+    "expected_task_status": true,
+    "no_false_public_success": true,
+    "idempotent_submission": true,
+    "public_read_stable_zero_model_calls": true,
+    "business_readonly": true,
+    "no_completion_after_incomplete_or_ambiguous": true
+  },
+  "answer": {
+    "schema_version": "1.0",
+    "status": "partial",
+    "summary": "",
+    "highlights": [],
+    "metrics": [],
+    "sample_note": "",
+    "evidence_refs": [],
+    "caveats": [],
+    "generation_status": "unavailable",
+    "source_result_ids": [],
+    "scope_summary": [],
+    "details_available": false,
+    "insights": [],
+    "evidence_relations": []
+  },
+  "automatic_evidence_completion": {
+    "additional_tool_calls": 0,
+    "automatic": false,
+    "cycles": 0,
+    "requests": [],
+    "status": "not_started"
+  },
+  "tool_calls": 2,
+  "query_executions": 2,
+  "performance": {
+    "answer_duration_ms": 0.0,
+    "answer_input_bytes": 0,
+    "compression_duration_ms": 1.068,
+    "intent_resolution_duration_ms": 0.31419997685588896,
+    "planning_duration_ms": 0.357,
+    "planning_model_duration_ms": 0.0,
+    "query_duration_ms": 18.352,
+    "queue_duration_ms": 934.0,
+    "scope_resolution_duration_ms": 2.0143000001553446,
+    "total_duration_ms": 102.695,
+    "validation_duration_ms": 0.31
+  },
+  "answer_generation": {
+    "attempts": 0,
+    "error_code": "analysis_not_complete",
+    "generation_status": "unavailable",
+    "strategy": "blocked"
+  },
+  "validation": {
+    "checks": [
+      {
+        "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比",
+        "name": "数字与分母",
+        "passed": true
+      },
+      {
+        "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+        "name": "覆盖率",
+        "passed": true
+      },
+      {
+        "detail": "核对 13 处引文的原文位置及文件引用",
+        "name": "原文引用",
+        "passed": true
+      },
+      {
+        "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+        "name": "扩展统计",
+        "passed": true
+      },
+      {
+        "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+        "name": "正向统计",
+        "passed": true
+      },
+      {
+        "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+        "name": "范围身份",
+        "passed": true
+      },
+      {
+        "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+        "name": "情感语义",
+        "passed": true
+      },
+      {
+        "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+        "name": "查询结果完整性",
+        "passed": true
+      }
+    ],
+    "status": "passed"
+  },
+  "trace": [
+    {
+      "cache_hit": false,
+      "elapsed_ms": 7.608,
+      "event": "tool_call",
+      "parameters": "{}",
+      "result_id": "overview",
+      "status": "success",
+      "tool": "get_analysis_context"
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 51.807,
+      "event": "tool_call",
+      "parameters": "{\"product_ids\": [\"IE-PACK\"], \"aspect\": \"packaging\", \"sentiment\": \"negative\"}",
+      "result_id": "r1",
+      "status": "success",
+      "tool": "get_aspect_drilldown"
+    }
+  ],
+  "error": {
+    "code": "partial_result",
+    "message": "部分记录或月份未完成，请查看 result 后显式重试。"
+  },
+  "model_requests": []
+}

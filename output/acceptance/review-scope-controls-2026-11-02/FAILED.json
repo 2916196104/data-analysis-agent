@@ -1,0 +1,82 @@
+{
+  "case": "FAILED",
+  "question": "包装负面观点具体主要集中在哪些方面？",
+  "source": "SYNTHETIC_SQLITE_ONLY",
+  "task_id": "5adddd5e6bce4933b07d3fbda45ccb0e",
+  "task_status": "failed",
+  "end_to_end_seconds": 1.1854,
+  "polls": 11,
+  "checks": {
+    "expected_task_status": true,
+    "no_false_public_success": true,
+    "idempotent_submission": true,
+    "public_read_stable_zero_model_calls": true,
+    "business_readonly": true,
+    "no_completion_after_incomplete_or_ambiguous": true
+  },
+  "answer": {
+    "schema_version": "1.0",
+    "status": "failed",
+    "summary": "",
+    "highlights": [],
+    "metrics": [],
+    "sample_note": "",
+    "evidence_refs": [],
+    "caveats": [],
+    "generation_status": "unavailable",
+    "source_result_ids": [],
+    "scope_summary": [],
+    "details_available": false,
+    "insights": [],
+    "evidence_relations": []
+  },
+  "automatic_evidence_completion": {
+    "additional_tool_calls": 0,
+    "automatic": false,
+    "cycles": 0,
+    "requests": [],
+    "status": "not_started"
+  },
+  "tool_calls": 2,
+  "query_executions": 2,
+  "performance": {
+    "answer_duration_ms": 0.0,
+    "answer_input_bytes": 0,
+    "compression_duration_ms": 0.0,
+    "intent_resolution_duration_ms": 0.2586000191513449,
+    "planning_duration_ms": 0.291,
+    "planning_model_duration_ms": 0.0,
+    "query_duration_ms": 17.217,
+    "queue_duration_ms": 1076.0,
+    "scope_resolution_duration_ms": 1.5811000193934888,
+    "total_duration_ms": 49.366,
+    "validation_duration_ms": 0.0
+  },
+  "answer_generation": null,
+  "validation": null,
+  "trace": [
+    {
+      "cache_hit": false,
+      "elapsed_ms": 7.173,
+      "event": "tool_call",
+      "parameters": "{}",
+      "result_id": "overview",
+      "status": "success",
+      "tool": "get_analysis_context"
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 11.107,
+      "event": "tool_call",
+      "parameters": "{\"product_ids\": [\"IE-PACK\"], \"aspect\": \"packaging\", \"sentiment\": \"negative\"}",
+      "result_id": "r1",
+      "status": "success",
+      "tool": "get_aspect_drilldown"
+    }
+  ],
+  "error": {
+    "code": "business_error",
+    "message": "二级主题归并未完成；原始观点与失败原因已保留，未发布主题结论。"
+  },
+  "model_requests": []
+}

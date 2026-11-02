@@ -223,12 +223,13 @@ class QueryPlanTests(WorkbenchFixture, unittest.TestCase):
         result = self.run_sync("所选商品好评主要集中在哪些方面？")
         self.assertEqual(result["status"], "ok", result)
         self.assertEqual(result["validation"]["status"], "passed")
-        self.assertEqual(result["model_tool_attempts"], 1)
+        self.assertEqual(result["model_tool_attempts"], 0)
+        self.assertEqual(result["model_calls"], 0)
         self.assertNotIn("负面占比", result["answer"])
         self.assertEqual(self.run_sync("比较当前与基线窗口")["status"], "ok")
 
     def test_timeout_after_query_is_failed_and_diagnostics_preserved(self):
-        result = self.run_sync("好评主要方面", timeout=True)
+        result = self.run_sync("比较当前与基线窗口", timeout=True)
         self.assertEqual(result["status"], "error")
         self.assertEqual(result["error"]["code"], "timeout")
         self.assertIn("r1", result["results"])
@@ -237,7 +238,7 @@ class QueryPlanTests(WorkbenchFixture, unittest.TestCase):
         init_tasks(tasks, self.db)
         worker = TaskWorker(self.db, tasks, import_root=self.root, env_file=self.root / "unused")
         identity = {**IDENTITY, "prompt_version": "agent-test"}
-        submitted = enqueue(tasks, "analysis", {**self.scope(), "question": "好评主要方面", "model_identity": identity})
+        submitted = enqueue(tasks, "analysis", {**self.scope(), "question": "比较当前与基线窗口", "model_identity": identity})
         worker_started(tasks, worker.worker_id)
         with patch("data_analysis_agent.jobs.worker.configured_agent_identity", return_value=(SETTINGS, identity)), \
              patch("data_analysis_agent.agents.reviews.run_review_agent", return_value=result):

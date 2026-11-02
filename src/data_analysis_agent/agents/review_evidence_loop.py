@@ -9,6 +9,7 @@ from data_analysis_agent.agents.review_compression import CompactAnalysisContext
 from data_analysis_agent.agents.review_evidence import assess_evidence, TOOL_MODELS
 from data_analysis_agent.agents.review_insights import analysis_state
 from data_analysis_agent.agents.review_plan import ReviewQueryPlan
+from data_analysis_agent.agents.review_semantics import opinion_request
 from data_analysis_agent.agents.review_tools import ReviewToolContext, create_review_registry
 from data_analysis_agent.agents.review_validation import expected_result_scopes, validate_report
 from data_analysis_agent.core.errors import ReviewDataError
@@ -93,7 +94,7 @@ def complete_evidence(db, result, plan, context, settings, run_dir, report):
         'initial_result_ids':list(result['result_ids']),'initial_validation':deepcopy(result['validation']),
         'additional_tool_calls':0,'duration_ms':0.0}
     result['evidence_completion']=record
-    if not re.search(r'具体|反映|解释|原因|为什么|环节|问题类型|区别|差异|不同|好在哪|不好在哪',compact.question):return plan
+    if not (opinion_request(compact.question)['content_detail'] or re.search(r'具体|反映|解释|原因|为什么|环节|问题类型|区别|差异|不同|好在哪|不好在哪',compact.question)):return plan
     if plan.requirements and all(request['tool']=='get_evidence' for request in plan.requirements):
         record['status']='explicit_examples_only'
         return plan

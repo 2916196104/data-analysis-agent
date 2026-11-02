@@ -47,7 +47,10 @@ def main():
     settings=AgentSettings.from_values(config)
     scenarios=[(*row,'succeeded')for row in CASES]
     if args.controls:
-        scenarios=[(name,CASES[0][1],CASES[0][2],(),'failed')for name in ('BUDGET','QUERY_FAIL','QUOTE','WRITE')]
+        # 内容问句已直接下钻；补查故障控制集显式从一级统计开始。
+        summary_query='执行本轮已确认的只读查询\n'+json.dumps({'tool':'get_top_issues',
+            'parameters':{'aspect':'packaging'},'question':CASES[0][2]})
+        scenarios=[(name,CASES[0][1],summary_query,(),'failed')for name in ('BUDGET','QUERY_FAIL','QUOTE','WRITE')]
         scenarios += [('DATES',CASES[2][1],CASES[2][2],(),'failed'),
             ('AMBIGUOUS',['IE-LOG-A','IE-LOG-B','IE-LOG-Z'],CASES[1][2],(),'succeeded'),
             ('PARTIAL',['IE-PACK'],'包装负面观点具体主要集中在哪些方面？',(),'partial'),
@@ -173,6 +176,11 @@ def main():
                         'idempotent_submission':repeated.json()['result']['task']['task_id']==task_id,
                         'public_read_stable_zero_model_calls':again==public and calls_before==len(records),
                         'business_readonly':business_hash==hashlib.sha256(fixture.db.read_bytes()).hexdigest()}
+                    if case=='P01':
+                        for key in ('automatic_completion','single_cycle','completion_succeeded','merged_validation'):
+                            checks.pop(key)
+                        checks['direct_content_query']=result['query_plan']['required_tools']==['get_opinion_breakdown']
+                        checks['no_redundant_completion']=closure.get('cycles')==0 and closure.get('status')=='not_needed'
                     if args.controls:
                         checks={'expected_task_status':task['status']==expected_status,
                             'no_false_public_success':answer['status']!='ok',

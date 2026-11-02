@@ -1,0 +1,1001 @@
+{
+  "case": "T02",
+  "question": "物流负面占比按月有什么变化？具体问题类型在首末月份是否不同？",
+  "source": "SYNTHETIC_SQLITE_ONLY",
+  "task_id": "705823f62101421aa7e446327f24a80c",
+  "task_status": "succeeded",
+  "end_to_end_seconds": 12.0815,
+  "polls": 110,
+  "checks": {
+    "task_succeeded": true,
+    "public_ok": true,
+    "automatic_completion": true,
+    "single_cycle": true,
+    "completion_succeeded": true,
+    "independent_validation": true,
+    "merged_validation": true,
+    "direct_answer_AI_rule_check": true,
+    "evidence_relations_bound": true,
+    "idempotent_submission": true,
+    "public_read_stable_zero_model_calls": true,
+    "business_readonly": true
+  },
+  "answer": {
+    "schema_version": "1.0",
+    "status": "ok",
+    "summary": "2023 年 1 月至 3 月的已标注样本显示，物流负面占比逐月下降。这仅反映该时间范围内的变化，不能直接推断长期稳定改善。商品 IE-TREND（2023-01-01 至 2023-01-31）的已检索负向原文涉及发货前等待；商品 IE-TREND（2023-03-01 至 2023-03-31）的已检索负向原文涉及预约履约。这描述了两个窗口中已检索问题的内容区别，不能据此确认负面占比变化的实际原因。",
+    "highlights": [
+      {
+        "finding_ref": "finding:31033930a01de4d5db42",
+        "aspect_key": "logistics",
+        "scope_ref": "scope:0666288ccf30c7c5",
+        "source_result_ids": [
+          "r1"
+        ],
+        "text": "（2023-01-01 至 2023-03-31）物流已标注样本的占比峰值在 2023-01，为 40.0%（12/30 条成功标注评论）。最近可比较的相邻时段 2023-02 至 2023-03 变化 -10.0 个百分点。最大相邻变化为 2023-01 至 2023-02 的 -20.0 个百分点。"
+      },
+      {
+        "finding_ref": "finding:19236c000b86903ac9c2",
+        "aspect_key": "logistics",
+        "scope_ref": "scope:11e780151ec4c99f",
+        "source_result_ids": [
+          "r2"
+        ],
+        "text": "（2023-01-01 至 2023-01-31）观点原文“发货前等待时间长”：12 条评论、12 条观点，占本次匹配评论 100.0%（分母 12 条），负面；评论依据：评论 #189。"
+      },
+      {
+        "finding_ref": "finding:cd1a4555ef64174d2d96",
+        "aspect_key": "logistics",
+        "scope_ref": "scope:5ccbcc9c0ca75342",
+        "source_result_ids": [
+          "r3"
+        ],
+        "text": "（2023-03-01 至 2023-03-31）观点原文“预约时间与送达不一致”：3 条评论、3 条观点，占本次匹配评论 100.0%（分母 3 条），负面；评论依据：评论 #249。"
+      }
+    ],
+    "metrics": [
+      {
+        "finding_ref": "finding:31033930a01de4d5db42",
+        "scope_ref": "scope:0666288ccf30c7c5",
+        "values": [
+          {
+            "bucket": "2023-01",
+            "name": "negative_rate",
+            "value": 0.4,
+            "unit": "fraction_0_to_1",
+            "numerator": 12,
+            "denominator": 30,
+            "denominator_name": "successful_reviews",
+            "sample_size": {
+              "review_count": 30,
+              "eligible_text_reviews": 30,
+              "successful_reviews": 30,
+              "failed_reviews": 0,
+              "unprocessed_reviews": 0,
+              "labeling_coverage": 1.0,
+              "empty_text_reviews": 0,
+              "reviewed_reviews": 0
+            }
+          },
+          {
+            "name": "recent_change_pp",
+            "value": -10.0,
+            "unit": "percentage_points",
+            "from": "2023-02",
+            "to": "2023-03",
+            "from_metric": {
+              "name": "negative_rate",
+              "value": 0.2,
+              "unit": "fraction_0_to_1",
+              "numerator": 6,
+              "denominator": 30,
+              "denominator_name": "successful_reviews"
+            },
+            "to_metric": {
+              "name": "negative_rate",
+              "value": 0.1,
+              "unit": "fraction_0_to_1",
+              "numerator": 3,
+              "denominator": 30,
+              "denominator_name": "successful_reviews"
+            }
+          },
+          {
+            "name": "first_last_change_pp",
+            "value": -30.0,
+            "unit": "percentage_points",
+            "from": "2023-01",
+            "to": "2023-03"
+          },
+          {
+            "name": "largest_adjacent_change_pp",
+            "value": -20.0,
+            "unit": "percentage_points",
+            "from": "2023-01",
+            "to": "2023-02"
+          }
+        ]
+      },
+      {
+        "finding_ref": "finding:19236c000b86903ac9c2",
+        "scope_ref": "scope:11e780151ec4c99f",
+        "values": [
+          {
+            "review_count": 12,
+            "opinion_count": 12,
+            "review_rate": 1.0
+          }
+        ]
+      },
+      {
+        "finding_ref": "finding:cd1a4555ef64174d2d96",
+        "scope_ref": "scope:5ccbcc9c0ca75342",
+        "values": [
+          {
+            "review_count": 3,
+            "opinion_count": 3,
+            "review_rate": 1.0
+          }
+        ]
+      }
+    ],
+    "sample_note": "",
+    "evidence_refs": [
+      {
+        "source_result_id": "r2",
+        "review_id": 189,
+        "product_id": "IE-TREND",
+        "published_at": "2023-01-10T00:00:00.000+00:00",
+        "evidence_ref": "sha256:014f5e0253e6a5097c04235e8efeba1049ec4909f582eabf1da72e94c24b05c9#line=183",
+        "opinion_source": "model",
+        "opinions": [
+          {
+            "aspect": "logistics",
+            "sentiment": "negative",
+            "quote": "发货前等待时间长",
+            "quote_start": 0,
+            "quote_end": 8,
+            "truncated": false
+          }
+        ]
+      },
+      {
+        "source_result_id": "r3",
+        "review_id": 249,
+        "product_id": "IE-TREND",
+        "published_at": "2023-03-10T00:00:00.000+00:00",
+        "evidence_ref": "sha256:014f5e0253e6a5097c04235e8efeba1049ec4909f582eabf1da72e94c24b05c9#line=243",
+        "opinion_source": "model",
+        "opinions": [
+          {
+            "aspect": "logistics",
+            "sentiment": "negative",
+            "quote": "预约时间与送达不一致",
+            "quote_start": 0,
+            "quote_end": 10,
+            "truncated": false
+          }
+        ]
+      }
+    ],
+    "caveats": [
+      "现有标注只有六个上级维度；以上按观点原文和情感精确归组，同义表述未合并，不是完整细分主题排名。同一评论可有多条观点并进入多个组，评论数与观点数分别统计。",
+      "尚未核验各时段内的数据采集完整性；变化不能直接解释为已证实的原因。"
+    ],
+    "generation_status": "template",
+    "source_result_ids": [
+      "r1",
+      "r2",
+      "r3"
+    ],
+    "scope_summary": [
+      {
+        "scope_ref": "scope:0666288ccf30c7c5",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "insight-evidence-v1",
+        "product_ids": [
+          "IE-TREND"
+        ],
+        "date_from": "2023-01-01",
+        "date_to": "2023-03-31",
+        "as_of": null,
+        "timezone": "UTC",
+        "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+      },
+      {
+        "scope_ref": "scope:11e780151ec4c99f",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "insight-evidence-v1",
+        "product_ids": [
+          "IE-TREND"
+        ],
+        "date_from": "2023-01-01",
+        "date_to": "2023-01-31",
+        "as_of": null,
+        "timezone": "UTC",
+        "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+      },
+      {
+        "scope_ref": "scope:5ccbcc9c0ca75342",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "insight-evidence-v1",
+        "product_ids": [
+          "IE-TREND"
+        ],
+        "date_from": "2023-03-01",
+        "date_to": "2023-03-31",
+        "as_of": null,
+        "timezone": "UTC",
+        "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+      }
+    ],
+    "details_available": true,
+    "insights": [],
+    "evidence_relations": [
+      {
+        "relation_id": "relation:9d9240535c1518470d50",
+        "version": "local_evidence_spans_v1",
+        "status": "locally_verified_descriptive",
+        "aspect": "logistics",
+        "text": "商品 IE-TREND（2023-01-01 至 2023-01-31）的已检索负向原文涉及发货前等待；商品 IE-TREND（2023-03-01 至 2023-03-31）的已检索负向原文涉及预约履约。这描述了两个窗口中已检索问题的内容区别，不能据此确认负面占比变化的实际原因。",
+        "finding_refs": [
+          "finding:19236c000b86903ac9c2",
+          "finding:cd1a4555ef64174d2d96"
+        ],
+        "source_result_ids": [
+          "r2",
+          "r3"
+        ],
+        "evidence_ids": [
+          "evidence:b65f4815bcce43a93a7b",
+          "evidence:1a40861cf4d690f669ca"
+        ],
+        "bindings": [
+          {
+            "finding_ref": "finding:19236c000b86903ac9c2",
+            "source_result_id": "r2",
+            "scope_ref": "scope:11e780151ec4c99f",
+            "product_id": "IE-TREND",
+            "date_from": "2023-01-01",
+            "date_to": "2023-01-31",
+            "aspect": "logistics",
+            "sentiment": "negative",
+            "role": "pre_dispatch",
+            "label": "发货前等待",
+            "evidence_id": "evidence:b65f4815bcce43a93a7b",
+            "review_id": 189,
+            "evidence_ref": "sha256:014f5e0253e6a5097c04235e8efeba1049ec4909f582eabf1da72e94c24b05c9#line=183",
+            "quote_sha256": "70cf7b2254b9c61819bb03828ad5e2babb9e5f15a1c50726938f683e18fac5d0",
+            "quote_start": 0,
+            "quote_end": 8,
+            "reported_contents_intact": false
+          },
+          {
+            "finding_ref": "finding:cd1a4555ef64174d2d96",
+            "source_result_id": "r3",
+            "scope_ref": "scope:5ccbcc9c0ca75342",
+            "product_id": "IE-TREND",
+            "date_from": "2023-03-01",
+            "date_to": "2023-03-31",
+            "aspect": "logistics",
+            "sentiment": "negative",
+            "role": "appointment",
+            "label": "预约履约",
+            "evidence_id": "evidence:1a40861cf4d690f669ca",
+            "review_id": 249,
+            "evidence_ref": "sha256:014f5e0253e6a5097c04235e8efeba1049ec4909f582eabf1da72e94c24b05c9#line=243",
+            "quote_sha256": "bb9a972e82b6ebb9f84d0fa1d96459d14548a2310df71418c06fc5cb628cfae5",
+            "quote_start": 0,
+            "quote_end": 10,
+            "reported_contents_intact": false
+          }
+        ],
+        "unresolved_evidence_count": 0,
+        "external_model_input": false,
+        "limitation": "仅解释已检索且能够明确识别的表述；不是总体问题分类、标准主题标签或客观因果结论。"
+      }
+    ]
+  },
+  "automatic_evidence_completion": {
+    "additional_tool_calls": 2,
+    "assessment": {
+      "aspect": "logistics",
+      "execution": "proposal_only",
+      "followup_queries": [
+        {
+          "execution": "proposal_only",
+          "expected_support": "在明确子窗口内比较问题表述，不能证明运营措施导致变化。",
+          "parameters": {
+            "aspect": "logistics",
+            "product_ids": [
+              "IE-TREND"
+            ],
+            "sentiment": "negative"
+          },
+          "requested_subwindow": {
+            "date_from": "2023-01-01",
+            "date_to": "2023-01-31"
+          },
+          "requires_scope_confirmation": true,
+          "scope_ref": "scope:0666288ccf30c7c5",
+          "scope_refs": [
+            "scope:0666288ccf30c7c5"
+          ],
+          "tool": "get_opinion_breakdown"
+        },
+        {
+          "execution": "proposal_only",
+          "expected_support": "在明确子窗口内比较问题表述，不能证明运营措施导致变化。",
+          "parameters": {
+            "aspect": "logistics",
+            "product_ids": [
+              "IE-TREND"
+            ],
+            "sentiment": "negative"
+          },
+          "requested_subwindow": {
+            "date_from": "2023-03-01",
+            "date_to": "2023-03-31"
+          },
+          "requires_scope_confirmation": true,
+          "scope_ref": "scope:0666288ccf30c7c5",
+          "scope_refs": [
+            "scope:0666288ccf30c7c5"
+          ],
+          "tool": "get_opinion_breakdown"
+        }
+      ],
+      "gaps": [
+        "opinion_content_missing",
+        "period_specific_content_not_queried"
+      ],
+      "max_additional_queries": 2,
+      "note": "当前结果没有足以解释具体问题的观点内容；可在原范围内补查已有观点工具。建议在当前范围内明确首末两个可比窗口，分别建立只读补查任务；不自动改动日期。",
+      "requested_level": "content",
+      "scope_refs": [
+        "scope:0666288ccf30c7c5"
+      ],
+      "sentiment": "negative",
+      "source_result_ids": [
+        "r1"
+      ],
+      "status": "additional_query_available"
+    },
+    "automatic": true,
+    "cycles": 1,
+    "duration_ms": 55.31,
+    "evidence_status": "available",
+    "failed_stage": null,
+    "final_result_ids": [
+      "r1",
+      "r2",
+      "r3"
+    ],
+    "initial_result_ids": [
+      "r1"
+    ],
+    "initial_validation": {
+      "checks": [
+        {
+          "detail": "复核 5 行统计的计数及占比；0 行无成功标注，保留空占比",
+          "name": "数字与分母",
+          "passed": true
+        },
+        {
+          "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+          "name": "覆盖率",
+          "passed": true
+        },
+        {
+          "detail": "核对 0 处引文的原文位置及文件引用",
+          "name": "原文引用",
+          "passed": true
+        },
+        {
+          "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+          "name": "扩展统计",
+          "passed": true
+        },
+        {
+          "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+          "name": "正向统计",
+          "passed": true
+        },
+        {
+          "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+          "name": "范围身份",
+          "passed": true
+        },
+        {
+          "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+          "name": "情感语义",
+          "passed": true
+        },
+        {
+          "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+          "name": "查询结果完整性",
+          "passed": true
+        }
+      ],
+      "status": "passed"
+    },
+    "merged_validation": {
+      "checks": [
+        {
+          "detail": "复核 7 行统计的计数及占比；0 行无成功标注，保留空占比",
+          "name": "数字与分母",
+          "passed": true
+        },
+        {
+          "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+          "name": "覆盖率",
+          "passed": true
+        },
+        {
+          "detail": "核对 2 处引文的原文位置及文件引用",
+          "name": "原文引用",
+          "passed": true
+        },
+        {
+          "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+          "name": "扩展统计",
+          "passed": true
+        },
+        {
+          "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+          "name": "正向统计",
+          "passed": true
+        },
+        {
+          "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+          "name": "范围身份",
+          "passed": true
+        },
+        {
+          "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+          "name": "情感语义",
+          "passed": true
+        },
+        {
+          "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+          "name": "查询结果完整性",
+          "passed": true
+        }
+      ],
+      "status": "passed"
+    },
+    "remaining_assessment": {
+      "aspect": "logistics",
+      "execution": "proposal_only",
+      "followup_queries": [],
+      "gaps": [
+        "verbatim_evidence_not_sent_to_answer_model"
+      ],
+      "max_additional_queries": 2,
+      "note": "现有观点支持描述本次匹配评论报告的具体内容；不能把自述当作客观根因。",
+      "requested_level": "content",
+      "scope_refs": [
+        "scope:0666288ccf30c7c5",
+        "scope:11e780151ec4c99f",
+        "scope:5ccbcc9c0ca75342"
+      ],
+      "sentiment": "negative",
+      "source_result_ids": [
+        "r1",
+        "r2",
+        "r3"
+      ],
+      "status": "descriptive_evidence_available"
+    },
+    "requests": [
+      {
+        "execution_scope": {
+          "as_of": null,
+          "base_url": "https://offline.invalid/v1",
+          "dataset_version": "insight-evidence-v1",
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-31",
+          "model": "SIMULATED-model-A",
+          "product_ids": [
+            "IE-TREND"
+          ],
+          "prompt_version": "prompt-A",
+          "source": "amazon_reviews_2023"
+        },
+        "parameters": {
+          "aspect": "logistics",
+          "product_ids": [
+            "IE-TREND"
+          ],
+          "sentiment": "negative"
+        },
+        "privacy_mode": "local_opinions_no_new_external_text",
+        "proposed_tool": "get_opinion_breakdown",
+        "result_ids": [
+          "r2"
+        ],
+        "scope": {
+          "as_of": null,
+          "base_url": "https://offline.invalid/v1",
+          "baseline_from": "2022-12-01",
+          "baseline_to": "2022-12-31",
+          "dataset_version": "insight-evidence-v1",
+          "date_from": "2023-01-01",
+          "date_to": "2023-01-31",
+          "model": "SIMULATED-model-A",
+          "product_ids": [
+            "IE-TREND"
+          ],
+          "prompt_version": "prompt-A",
+          "source": "amazon_reviews_2023"
+        },
+        "scope_resolution": "verified_first_last_bucket",
+        "tool": "get_opinion_breakdown",
+        "validation": {
+          "checks": [
+            {
+              "detail": "复核 1 行统计的计数及占比；0 行无成功标注，保留空占比",
+              "name": "数字与分母",
+              "passed": true
+            },
+            {
+              "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+              "name": "覆盖率",
+              "passed": true
+            },
+            {
+              "detail": "核对 1 处引文的原文位置及文件引用",
+              "name": "原文引用",
+              "passed": true
+            },
+            {
+              "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+              "name": "扩展统计",
+              "passed": true
+            },
+            {
+              "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+              "name": "正向统计",
+              "passed": true
+            },
+            {
+              "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+              "name": "范围身份",
+              "passed": true
+            },
+            {
+              "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+              "name": "情感语义",
+              "passed": true
+            },
+            {
+              "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+              "name": "查询结果完整性",
+              "passed": true
+            }
+          ],
+          "status": "passed"
+        }
+      },
+      {
+        "execution_scope": {
+          "as_of": null,
+          "base_url": "https://offline.invalid/v1",
+          "dataset_version": "insight-evidence-v1",
+          "date_from": "2023-03-01",
+          "date_to": "2023-03-31",
+          "model": "SIMULATED-model-A",
+          "product_ids": [
+            "IE-TREND"
+          ],
+          "prompt_version": "prompt-A",
+          "source": "amazon_reviews_2023"
+        },
+        "parameters": {
+          "aspect": "logistics",
+          "product_ids": [
+            "IE-TREND"
+          ],
+          "sentiment": "negative"
+        },
+        "privacy_mode": "local_opinions_no_new_external_text",
+        "proposed_tool": "get_opinion_breakdown",
+        "result_ids": [
+          "r3"
+        ],
+        "scope": {
+          "as_of": null,
+          "base_url": "https://offline.invalid/v1",
+          "baseline_from": "2022-12-01",
+          "baseline_to": "2022-12-31",
+          "dataset_version": "insight-evidence-v1",
+          "date_from": "2023-03-01",
+          "date_to": "2023-03-31",
+          "model": "SIMULATED-model-A",
+          "product_ids": [
+            "IE-TREND"
+          ],
+          "prompt_version": "prompt-A",
+          "source": "amazon_reviews_2023"
+        },
+        "scope_resolution": "verified_first_last_bucket",
+        "tool": "get_opinion_breakdown",
+        "validation": {
+          "checks": [
+            {
+              "detail": "复核 1 行统计的计数及占比；0 行无成功标注，保留空占比",
+              "name": "数字与分母",
+              "passed": true
+            },
+            {
+              "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+              "name": "覆盖率",
+              "passed": true
+            },
+            {
+              "detail": "核对 1 处引文的原文位置及文件引用",
+              "name": "原文引用",
+              "passed": true
+            },
+            {
+              "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+              "name": "扩展统计",
+              "passed": true
+            },
+            {
+              "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+              "name": "正向统计",
+              "passed": true
+            },
+            {
+              "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+              "name": "范围身份",
+              "passed": true
+            },
+            {
+              "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+              "name": "情感语义",
+              "passed": true
+            },
+            {
+              "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+              "name": "查询结果完整性",
+              "passed": true
+            }
+          ],
+          "status": "passed"
+        }
+      }
+    ],
+    "status": "completed"
+  },
+  "tool_calls": 4,
+  "query_executions": 4,
+  "performance": {
+    "answer_duration_ms": 3935.228,
+    "answer_input_bytes": 3597,
+    "compression_duration_ms": 0.479,
+    "evidence_completion_duration_ms": 55.31,
+    "intent_resolution_duration_ms": 0.6772999768145382,
+    "planning_duration_ms": 5510.48,
+    "planning_model_duration_ms": 5509.7656000289135,
+    "query_duration_ms": 36.876,
+    "queue_duration_ms": 724.0,
+    "scope_resolution_duration_ms": 1.8823000136762857,
+    "total_duration_ms": 11256.359,
+    "validation_duration_ms": 0.07
+  },
+  "answer_generation": {
+    "answer_outcome": "facts_only",
+    "attempts": 1,
+    "compact_bytes": 6256,
+    "elapsed_seconds": 3.934,
+    "error_code": null,
+    "evidence_assessment": {
+      "aspect": "logistics",
+      "execution": "proposal_only",
+      "followup_queries": [],
+      "gaps": [
+        "verbatim_evidence_not_sent_to_answer_model"
+      ],
+      "max_additional_queries": 2,
+      "note": "现有观点支持描述本次匹配评论报告的具体内容；不能把自述当作客观根因。",
+      "requested_level": "content",
+      "scope_refs": [
+        "scope:0666288ccf30c7c5",
+        "scope:11e780151ec4c99f",
+        "scope:5ccbcc9c0ca75342"
+      ],
+      "sentiment": "negative",
+      "source_result_ids": [
+        "r1",
+        "r2",
+        "r3"
+      ],
+      "status": "descriptive_evidence_available"
+    },
+    "failed_stage": null,
+    "failure_reason": null,
+    "focus_augmented": [],
+    "generation_status": "llm",
+    "input_budget_bytes": 16000,
+    "input_bytes": 3597,
+    "insight_decisions": [],
+    "local_evidence_relations": {
+      "count": 1,
+      "external_model_input": false
+    },
+    "max_retries": 0,
+    "model_input_tokens": 815,
+    "model_output_tokens": 19,
+    "omitted_redundant_insights": 0,
+    "protocol": "compact_refs_v3",
+    "published_insights": 0,
+    "request_durations": [
+      {
+        "elapsed_seconds": 3.933,
+        "stage": "draft"
+      }
+    ],
+    "request_stages": [
+      "draft"
+    ],
+    "reviewed_insights": 0,
+    "sent_input_bytes": 3597,
+    "strategy": "llm",
+    "time_budget_seconds": 30.0,
+    "timeout_seconds": 15.0,
+    "usage": {
+      "completion_tokens": 19,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": null,
+        "audio_tokens": null,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": null
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 815,
+      "prompt_tokens": 815,
+      "prompt_tokens_details": {
+        "audio_tokens": null,
+        "cached_tokens": 0
+      },
+      "total_tokens": 834
+    },
+    "usage_available": true,
+    "usage_responses": 1,
+    "validated_draft": {
+      "focus": [
+        "finding:31033930a01de4d5db42",
+        "finding:19236c000b86903ac9c2",
+        "finding:cd1a4555ef64174d2d96"
+      ],
+      "insights": [],
+      "schema_version": "3.0"
+    }
+  },
+  "validation": {
+    "checks": [
+      {
+        "detail": "复核 7 行统计的计数及占比；0 行无成功标注，保留空占比",
+        "name": "数字与分母",
+        "passed": true
+      },
+      {
+        "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+        "name": "覆盖率",
+        "passed": true
+      },
+      {
+        "detail": "核对 2 处引文的原文位置及文件引用",
+        "name": "原文引用",
+        "passed": true
+      },
+      {
+        "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+        "name": "扩展统计",
+        "passed": true
+      },
+      {
+        "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+        "name": "正向统计",
+        "passed": true
+      },
+      {
+        "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+        "name": "范围身份",
+        "passed": true
+      },
+      {
+        "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+        "name": "情感语义",
+        "passed": true
+      },
+      {
+        "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+        "name": "查询结果完整性",
+        "passed": true
+      }
+    ],
+    "status": "passed"
+  },
+  "trace": [
+    {
+      "cache_hit": false,
+      "elapsed_ms": 7.96,
+      "event": "tool_call",
+      "parameters": "{}",
+      "result_id": "overview",
+      "status": "success",
+      "tool": "get_analysis_context"
+    },
+    {
+      "event": "model_response",
+      "finish_reason": "tool_calls",
+      "usage": {
+        "completion_tokens": 64,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 2163,
+        "prompt_tokens": 2163,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 2227
+      }
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 5.056,
+      "event": "tool_call",
+      "parameters": {
+        "aspect": "logistics",
+        "period": "month"
+      },
+      "result_id": "r1",
+      "status": "success",
+      "tool": "get_aspect_trend"
+    },
+    {
+      "event": "model_response",
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 13,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 2048,
+        "prompt_cache_miss_tokens": 1233,
+        "prompt_tokens": 3281,
+        "prompt_tokens_details": {
+          "cached_tokens": 2048
+        },
+        "total_tokens": 3294
+      }
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 12.351,
+      "event": "tool_call",
+      "parameters": "{\"product_ids\": [\"IE-TREND\"], \"aspect\": \"logistics\", \"sentiment\": \"negative\"}",
+      "phase": "evidence_supplement",
+      "result_id": "r2",
+      "status": "success",
+      "tool": "get_opinion_breakdown"
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 12.284,
+      "event": "tool_call",
+      "parameters": "{\"product_ids\": [\"IE-TREND\"], \"aspect\": \"logistics\", \"sentiment\": \"negative\"}",
+      "phase": "evidence_supplement",
+      "result_id": "r3",
+      "status": "success",
+      "tool": "get_opinion_breakdown"
+    }
+  ],
+  "error": null,
+  "model_requests": [
+    {
+      "case": "T02",
+      "stage": "planning",
+      "input_bytes": 6677,
+      "http_attempts": [
+        {
+          "index": 1,
+          "status_code": 200
+        }
+      ],
+      "raw_fixture_quote_sent": false,
+      "local_relation_sent": false,
+      "finish_reason": "tool_calls",
+      "content": "",
+      "usage": {
+        "completion_tokens": 64,
+        "prompt_tokens": 2163,
+        "total_tokens": 2227,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": null,
+          "audio_tokens": null,
+          "reasoning_tokens": 0,
+          "rejected_prediction_tokens": null
+        },
+        "prompt_tokens_details": {
+          "audio_tokens": null,
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 2163
+      },
+      "elapsed_seconds": 3.8714
+    },
+    {
+      "case": "T02",
+      "stage": "planning",
+      "input_bytes": 11069,
+      "http_attempts": [
+        {
+          "index": 1,
+          "status_code": 200
+        }
+      ],
+      "raw_fixture_quote_sent": false,
+      "local_relation_sent": false,
+      "finish_reason": "stop",
+      "content": "{\"status\":\"ok\",\"result_ids\":[\"r1\"]}",
+      "usage": {
+        "completion_tokens": 13,
+        "prompt_tokens": 3281,
+        "total_tokens": 3294,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": null,
+          "audio_tokens": null,
+          "reasoning_tokens": 0,
+          "rejected_prediction_tokens": null
+        },
+        "prompt_tokens_details": {
+          "audio_tokens": null,
+          "cached_tokens": 2048
+        },
+        "prompt_cache_hit_tokens": 2048,
+        "prompt_cache_miss_tokens": 1233
+      },
+      "elapsed_seconds": 1.5884
+    },
+    {
+      "case": "T02",
+      "stage": "answer_draft",
+      "input_bytes": 3597,
+      "http_attempts": [
+        {
+          "index": 1,
+          "status_code": 200
+        }
+      ],
+      "raw_fixture_quote_sent": false,
+      "local_relation_sent": false,
+      "finish_reason": "stop",
+      "content": "{\"focus\":[\"F1\",\"F2\",\"F3\"],\"insights\":[]}",
+      "usage": {
+        "completion_tokens": 19,
+        "prompt_tokens": 815,
+        "total_tokens": 834,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": null,
+          "audio_tokens": null,
+          "reasoning_tokens": 0,
+          "rejected_prediction_tokens": null
+        },
+        "prompt_tokens_details": {
+          "audio_tokens": null,
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 815
+      },
+      "elapsed_seconds": 2.5559
+    }
+  ]
+}

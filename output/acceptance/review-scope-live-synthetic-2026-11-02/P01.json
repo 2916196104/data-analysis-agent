@@ -1,0 +1,486 @@
+{
+  "case": "P01",
+  "question": "包装差评具体反映什么问题？",
+  "source": "SYNTHETIC_SQLITE_ONLY",
+  "task_id": "c902a4891f23408db41e1dd4714836d2",
+  "task_status": "succeeded",
+  "end_to_end_seconds": 0.469,
+  "polls": 2,
+  "checks": {
+    "task_succeeded": true,
+    "public_ok": true,
+    "independent_validation": true,
+    "direct_answer_AI_rule_check": true,
+    "evidence_relations_bound": true,
+    "idempotent_submission": true,
+    "public_read_stable_zero_model_calls": true,
+    "business_readonly": true,
+    "direct_content_query": true,
+    "no_redundant_completion": true
+  },
+  "answer": {
+    "schema_version": "1.0",
+    "status": "ok",
+    "summary": "已检索的包装负向原文涉及外箱状态、盒内固定、封口完整性，这些描述对应不同的包装现象。其中有买家明确自述外箱受压但商品完好，不能把包装负向提及全部解释为内件损坏。",
+    "highlights": [
+      {
+        "finding_ref": "finding:33db9470523745045f35",
+        "aspect_key": null,
+        "scope_ref": "scope:16da699a492ce6c5",
+        "source_result_ids": [
+          "r1"
+        ],
+        "text": "观点原文“外箱压瘪但商品完好”：6 条评论、6 条观点，占本次匹配评论 46.2%（分母 13 条），负面；评论依据：评论 #27。"
+      },
+      {
+        "finding_ref": "finding:37acb9adb54686914261",
+        "aspect_key": null,
+        "scope_ref": "scope:16da699a492ce6c5",
+        "source_result_ids": [
+          "r1"
+        ],
+        "text": "观点原文“内衬移位导致配件在盒内晃动”：4 条评论、4 条观点，占本次匹配评论 30.8%（分母 13 条），负面；评论依据：评论 #33。"
+      },
+      {
+        "finding_ref": "finding:7cd8876ed3d761ad00f8",
+        "aspect_key": null,
+        "scope_ref": "scope:16da699a492ce6c5",
+        "source_result_ids": [
+          "r1"
+        ],
+        "text": "观点原文“封口开裂”：3 条评论、3 条观点，占本次匹配评论 23.1%（分母 13 条），负面；评论依据：评论 #37。"
+      }
+    ],
+    "metrics": [
+      {
+        "finding_ref": "finding:33db9470523745045f35",
+        "scope_ref": "scope:16da699a492ce6c5",
+        "values": [
+          {
+            "review_count": 6,
+            "opinion_count": 6,
+            "review_rate": 0.461538
+          }
+        ]
+      },
+      {
+        "finding_ref": "finding:37acb9adb54686914261",
+        "scope_ref": "scope:16da699a492ce6c5",
+        "values": [
+          {
+            "review_count": 4,
+            "opinion_count": 4,
+            "review_rate": 0.307692
+          }
+        ]
+      },
+      {
+        "finding_ref": "finding:7cd8876ed3d761ad00f8",
+        "scope_ref": "scope:16da699a492ce6c5",
+        "values": [
+          {
+            "review_count": 3,
+            "opinion_count": 3,
+            "review_rate": 0.230769
+          }
+        ]
+      }
+    ],
+    "sample_note": "本次分析范围共 24 条评论，基于 24 条成功标注评论。",
+    "evidence_refs": [
+      {
+        "source_result_id": "r1",
+        "review_id": 27,
+        "product_id": "IE-PACK",
+        "published_at": "2023-02-10T00:00:00.000+00:00",
+        "evidence_ref": "sha256:014f5e0253e6a5097c04235e8efeba1049ec4909f582eabf1da72e94c24b05c9#line=21",
+        "opinion_source": "model",
+        "opinions": [
+          {
+            "aspect": "packaging",
+            "sentiment": "negative",
+            "quote": "外箱压瘪但商品完好",
+            "quote_start": 0,
+            "quote_end": 9,
+            "truncated": false
+          }
+        ]
+      },
+      {
+        "source_result_id": "r1",
+        "review_id": 33,
+        "product_id": "IE-PACK",
+        "published_at": "2023-02-10T00:00:00.000+00:00",
+        "evidence_ref": "sha256:014f5e0253e6a5097c04235e8efeba1049ec4909f582eabf1da72e94c24b05c9#line=27",
+        "opinion_source": "model",
+        "opinions": [
+          {
+            "aspect": "packaging",
+            "sentiment": "negative",
+            "quote": "内衬移位导致配件在盒内晃动",
+            "quote_start": 0,
+            "quote_end": 13,
+            "truncated": false
+          }
+        ]
+      },
+      {
+        "source_result_id": "r1",
+        "review_id": 37,
+        "product_id": "IE-PACK",
+        "published_at": "2023-02-10T00:00:00.000+00:00",
+        "evidence_ref": "sha256:014f5e0253e6a5097c04235e8efeba1049ec4909f582eabf1da72e94c24b05c9#line=31",
+        "opinion_source": "model",
+        "opinions": [
+          {
+            "aspect": "packaging",
+            "sentiment": "negative",
+            "quote": "封口开裂",
+            "quote_start": 0,
+            "quote_end": 4,
+            "truncated": false
+          }
+        ]
+      }
+    ],
+    "caveats": [
+      "现有标注只有六个上级维度；以上按观点原文和情感精确归组，同义表述未合并，不是完整细分主题排名。同一评论可有多条观点并进入多个组，评论数与观点数分别统计。"
+    ],
+    "generation_status": "template",
+    "source_result_ids": [
+      "r1"
+    ],
+    "scope_summary": [
+      {
+        "scope_ref": "scope:16da699a492ce6c5",
+        "source": "amazon_reviews_2023",
+        "dataset_version": "insight-evidence-v1",
+        "product_ids": [
+          "IE-PACK"
+        ],
+        "date_from": "2023-01-01",
+        "date_to": "2023-03-31",
+        "as_of": null,
+        "timezone": "UTC",
+        "annotation_profile_ref": "profile:6b27e4e29ab093c0"
+      }
+    ],
+    "details_available": true,
+    "insights": [],
+    "evidence_relations": [
+      {
+        "relation_id": "relation:33234152bd73c4824587",
+        "version": "local_evidence_spans_v1",
+        "status": "locally_verified_descriptive",
+        "aspect": "packaging",
+        "text": "已检索的包装负向原文涉及外箱状态、盒内固定、封口完整性，这些描述对应不同的包装现象。其中有买家明确自述外箱受压但商品完好，不能把包装负向提及全部解释为内件损坏。",
+        "finding_refs": [
+          "finding:33db9470523745045f35",
+          "finding:37acb9adb54686914261",
+          "finding:7cd8876ed3d761ad00f8"
+        ],
+        "source_result_ids": [
+          "r1"
+        ],
+        "evidence_ids": [
+          "evidence:3464693d3e6ea7add8c8",
+          "evidence:a0f6e4845d6e502c9878",
+          "evidence:0eb747b9a4859d5add56"
+        ],
+        "bindings": [
+          {
+            "finding_ref": "finding:33db9470523745045f35",
+            "source_result_id": "r1",
+            "scope_ref": "scope:16da699a492ce6c5",
+            "product_id": "IE-PACK",
+            "date_from": "2023-01-01",
+            "date_to": "2023-03-31",
+            "aspect": "packaging",
+            "sentiment": "negative",
+            "role": "outer_state",
+            "label": "外箱状态",
+            "evidence_id": "evidence:3464693d3e6ea7add8c8",
+            "review_id": 27,
+            "evidence_ref": "sha256:014f5e0253e6a5097c04235e8efeba1049ec4909f582eabf1da72e94c24b05c9#line=21",
+            "quote_sha256": "e727001fd69844b174c84613da63590855dc5f503ac6a76845574c20cd7e5917",
+            "quote_start": 0,
+            "quote_end": 9,
+            "reported_contents_intact": true
+          },
+          {
+            "finding_ref": "finding:37acb9adb54686914261",
+            "source_result_id": "r1",
+            "scope_ref": "scope:16da699a492ce6c5",
+            "product_id": "IE-PACK",
+            "date_from": "2023-01-01",
+            "date_to": "2023-03-31",
+            "aspect": "packaging",
+            "sentiment": "negative",
+            "role": "internal_retention",
+            "label": "盒内固定",
+            "evidence_id": "evidence:a0f6e4845d6e502c9878",
+            "review_id": 33,
+            "evidence_ref": "sha256:014f5e0253e6a5097c04235e8efeba1049ec4909f582eabf1da72e94c24b05c9#line=27",
+            "quote_sha256": "02dca6ca3b0a9300a689ff95f9fa73d09736c2c579acb1a83e279d1236caaacd",
+            "quote_start": 0,
+            "quote_end": 13,
+            "reported_contents_intact": false
+          },
+          {
+            "finding_ref": "finding:7cd8876ed3d761ad00f8",
+            "source_result_id": "r1",
+            "scope_ref": "scope:16da699a492ce6c5",
+            "product_id": "IE-PACK",
+            "date_from": "2023-01-01",
+            "date_to": "2023-03-31",
+            "aspect": "packaging",
+            "sentiment": "negative",
+            "role": "closure",
+            "label": "封口完整性",
+            "evidence_id": "evidence:0eb747b9a4859d5add56",
+            "review_id": 37,
+            "evidence_ref": "sha256:014f5e0253e6a5097c04235e8efeba1049ec4909f582eabf1da72e94c24b05c9#line=31",
+            "quote_sha256": "cede2fa4e3f6a592c7936fd7c1ef5b75b54842f737162eba8cf6fc46d68316e3",
+            "quote_start": 0,
+            "quote_end": 4,
+            "reported_contents_intact": false
+          }
+        ],
+        "unresolved_evidence_count": 0,
+        "external_model_input": false,
+        "limitation": "仅解释已检索且能够明确识别的表述；不是总体问题分类、标准主题标签或客观因果结论。"
+      }
+    ]
+  },
+  "automatic_evidence_completion": {
+    "additional_tool_calls": 0,
+    "assessment": {
+      "aspect": "packaging",
+      "execution": "proposal_only",
+      "followup_queries": [],
+      "gaps": [
+        "verbatim_evidence_not_sent_to_answer_model"
+      ],
+      "max_additional_queries": 2,
+      "note": "现有观点支持描述本次匹配评论报告的具体内容；不能把自述当作客观根因。",
+      "requested_level": "content",
+      "scope_refs": [
+        "scope:16da699a492ce6c5"
+      ],
+      "sentiment": "negative",
+      "source_result_ids": [
+        "r1"
+      ],
+      "status": "descriptive_evidence_available"
+    },
+    "automatic": false,
+    "cycles": 0,
+    "duration_ms": 0.0,
+    "initial_result_ids": [
+      "r1"
+    ],
+    "initial_validation": {
+      "checks": [
+        {
+          "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比",
+          "name": "数字与分母",
+          "passed": true
+        },
+        {
+          "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+          "name": "覆盖率",
+          "passed": true
+        },
+        {
+          "detail": "核对 3 处引文的原文位置及文件引用",
+          "name": "原文引用",
+          "passed": true
+        },
+        {
+          "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+          "name": "扩展统计",
+          "passed": true
+        },
+        {
+          "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+          "name": "正向统计",
+          "passed": true
+        },
+        {
+          "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+          "name": "范围身份",
+          "passed": true
+        },
+        {
+          "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+          "name": "情感语义",
+          "passed": true
+        },
+        {
+          "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+          "name": "查询结果完整性",
+          "passed": true
+        }
+      ],
+      "status": "passed"
+    },
+    "requests": [],
+    "status": "not_needed"
+  },
+  "tool_calls": 2,
+  "query_executions": 2,
+  "performance": {
+    "answer_duration_ms": 2.604,
+    "answer_input_bytes": 3199,
+    "compression_duration_ms": 0.631,
+    "evidence_completion_duration_ms": 0.0,
+    "intent_resolution_duration_ms": 6.729600019752979,
+    "planning_duration_ms": 6.783,
+    "planning_model_duration_ms": 0.0,
+    "query_duration_ms": 37.101,
+    "queue_duration_ms": 169.0,
+    "scope_resolution_duration_ms": 2.045200002612546,
+    "total_duration_ms": 105.393,
+    "validation_duration_ms": 0.177
+  },
+  "answer_generation": {
+    "answer_outcome": "facts_only",
+    "attempts": 0,
+    "compact_bytes": 3063,
+    "elapsed_seconds": 0.001,
+    "error_code": null,
+    "evidence_assessment": {
+      "aspect": "packaging",
+      "execution": "proposal_only",
+      "followup_queries": [],
+      "gaps": [
+        "verbatim_evidence_not_sent_to_answer_model"
+      ],
+      "max_additional_queries": 2,
+      "note": "现有观点支持描述本次匹配评论报告的具体内容；不能把自述当作客观根因。",
+      "requested_level": "content",
+      "scope_refs": [
+        "scope:16da699a492ce6c5"
+      ],
+      "sentiment": "negative",
+      "source_result_ids": [
+        "r1"
+      ],
+      "status": "descriptive_evidence_available"
+    },
+    "failed_stage": null,
+    "failure_reason": null,
+    "focus_augmented": [],
+    "generation_status": "template",
+    "input_budget_bytes": 16000,
+    "input_bytes": 3199,
+    "insight_decisions": [],
+    "local_evidence_relations": {
+      "count": 1,
+      "external_model_input": false
+    },
+    "max_retries": 0,
+    "model_input_tokens": 0,
+    "model_output_tokens": 0,
+    "omitted_redundant_insights": 0,
+    "protocol": "compact_refs_v3",
+    "published_insights": 0,
+    "request_durations": [],
+    "request_stages": [],
+    "reviewed_insights": 0,
+    "sent_input_bytes": 0,
+    "strategy": "template",
+    "time_budget_seconds": 30.0,
+    "timeout_seconds": 15.0,
+    "usage_available": false,
+    "usage_responses": 0,
+    "validated_draft": {
+      "caveats": [],
+      "items": [
+        {
+          "aspect_key": null,
+          "explanation": "以下按已有观点原文及情感归组，不能替代标准细分标签。",
+          "finding_ref": "finding:33db9470523745045f35"
+        },
+        {
+          "aspect_key": null,
+          "explanation": "以下按已有观点原文及情感归组，不能替代标准细分标签。",
+          "finding_ref": "finding:37acb9adb54686914261"
+        },
+        {
+          "aspect_key": null,
+          "explanation": "以下按已有观点原文及情感归组，不能替代标准细分标签。",
+          "finding_ref": "finding:7cd8876ed3d761ad00f8"
+        }
+      ],
+      "summary": "当前所选商品的已标注评论中，买家对包装的差评提到“外箱压瘪但商品完好”、“内衬移位导致配件在盒内晃动”、“封口开裂”。"
+    }
+  },
+  "validation": {
+    "checks": [
+      {
+        "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比",
+        "name": "数字与分母",
+        "passed": true
+      },
+      {
+        "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+        "name": "覆盖率",
+        "passed": true
+      },
+      {
+        "detail": "核对 3 处引文的原文位置及文件引用",
+        "name": "原文引用",
+        "passed": true
+      },
+      {
+        "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+        "name": "扩展统计",
+        "passed": true
+      },
+      {
+        "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+        "name": "正向统计",
+        "passed": true
+      },
+      {
+        "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+        "name": "范围身份",
+        "passed": true
+      },
+      {
+        "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+        "name": "情感语义",
+        "passed": true
+      },
+      {
+        "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+        "name": "查询结果完整性",
+        "passed": true
+      }
+    ],
+    "status": "passed"
+  },
+  "trace": [
+    {
+      "cache_hit": false,
+      "elapsed_ms": 11.828,
+      "event": "tool_call",
+      "parameters": "{}",
+      "result_id": "overview",
+      "status": "success",
+      "tool": "get_analysis_context"
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 25.803,
+      "event": "tool_call",
+      "parameters": "{\"aspect\": \"packaging\", \"sentiment\": \"negative\", \"topic\": null}",
+      "result_id": "r1",
+      "status": "success",
+      "tool": "get_opinion_breakdown"
+    }
+  ],
+  "error": null,
+  "model_requests": []
+}

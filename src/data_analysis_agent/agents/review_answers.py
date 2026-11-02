@@ -13,6 +13,7 @@ from data_analysis_agent.agents.review_compression import CompactAnalysisContext
 from data_analysis_agent.agents.review_results import AnalysisModel, EvidenceReference
 from data_analysis_agent.core.serialization import canonical_json
 from data_analysis_agent.agents.review_evidence import assess_evidence
+from data_analysis_agent.agents.review_semantics import opinion_request
 from data_analysis_agent.agents.review_evidence_semantics import apply_evidence_relations
 from data_analysis_agent.agents.review_insights import (
     COMPACT_DRAFT_PROMPT, COMPACT_REVIEW_PROMPT, DraftValidationError, InsightDraft, SupportReview, analysis_state, default_focus,
@@ -161,7 +162,7 @@ class AnswerAssembler:
         assessment = assess_evidence(context)
         if assessment['note'] and assessment['status'] not in ('facts_sufficient','descriptive_evidence_available','sample_descriptive_only'):
             notes.append(assessment['note'])
-        if facts and all(fact.kind in ('aspect', 'empty') for fact in facts) and re.search(r'具体|反映|解释|为什么', context.question):
+        if facts and all(fact.kind in ('aspect', 'empty') for fact in facts) and (opinion_request(context.question)['content_detail'] or re.search(r'具体|反映|解释|为什么', context.question)):
             notes.append('目前只能确认已有维度的提及数量和占比；未查询对应观点原文或二级主题，不能判断具体问题类型或原因。')
         if omitted:
             notes.append("正文仅列出主要发现，完整分组和统计保留在详情中。")

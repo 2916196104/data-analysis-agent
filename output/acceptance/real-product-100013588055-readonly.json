@@ -1,0 +1,50 @@
+{
+  "method": "local_readonly_no_external_model",
+  "product_id": "100013588055",
+  "source": "reviews_csv",
+  "dataset_version": "reviews-csv",
+  "date_from": "2020-08-25",
+  "date_to": "2022-08-27",
+  "status": "ok",
+  "summary": "当前已标注评论中，客服是差评提及最多的维度：505 条成功标注评论中有 165 条提到该维度，占 32.7%。其他较多的维度是使用效果 66 条（13.1%）、物流 53 条（10.5%）。这些数字说明评价涉及哪些维度，具体内容仍需查看对应观点。",
+  "tools": [
+    "get_top_issues"
+  ],
+  "tool_calls": 2,
+  "query_executions": 2,
+  "planning_model_calls": 0,
+  "answer_model_calls": 0,
+  "topic_model_calls": 0,
+  "performance": {
+    "scope_resolution_duration_ms": 142.20069997827522,
+    "intent_resolution_duration_ms": 6.015099992509931,
+    "planning_model_duration_ms": 0.0,
+    "planning_duration_ms": 6.056,
+    "query_duration_ms": 289.896,
+    "validation_duration_ms": 0.087,
+    "compression_duration_ms": 0.57,
+    "answer_duration_ms": 2.305,
+    "total_duration_ms": 450.47,
+    "evidence_completion_duration_ms": 0.0,
+    "answer_input_bytes": 3285
+  },
+  "review_count": 510,
+  "successful_reviews": 505,
+  "issues": [
+    {
+      "aspect": "service",
+      "count": 165,
+      "rate": 0.326733
+    },
+    {
+      "aspect": "effectiveness",
+      "count": 66,
+      "rate": 0.130693
+    },
+    {
+      "aspect": "logistics",
+      "count": 53,
+      "rate": 0.10495
+    }
+  ]
+}

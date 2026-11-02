@@ -166,20 +166,21 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(result["public_analysis"]["status"], "ok")
         self.assertIn("正向维度统计", result["answer"])
         self.assertNotIn("负面占比", result["answer"])
-        self.assertEqual(len(requests), 2)
+        self.assertEqual(len(requests), 0)
+        self.assertEqual(result["planning_model_calls"], 0)
 
     def test_positive_question_rejects_negative_tool_result(self):
         result, _ = self.run_script(
             [tools(("get_trend", {"period": "month"})), final("ok", "r1")],
-            question="不是问差评，我想知道好评",
+            question="查看好评主要维度，并看一条好评原文",
         )
         self.assertEqual(result["status"], "error", result)
         self.assertNotIn("answer", result)
 
     def test_model_timeout_after_successful_tools_preserves_only_diagnostics(self):
         result, requests = self.run_script(
-            [tools(("get_positive_aspects", {})), httpx.ReadTimeout("simulated timeout")],
-            question="好评主要集中在哪些方面？", settings=replace(SETTINGS, max_retries=0),
+            [tools(("get_aspect_trend", {"aspect": "packaging", "period": "month"})), httpx.ReadTimeout("simulated timeout")],
+            question="按月查看包装问题趋势", settings=replace(SETTINGS, max_retries=0),
         )
         self.assertEqual(result["status"], "error", result)
         self.assertEqual(result["error"]["code"], "timeout")

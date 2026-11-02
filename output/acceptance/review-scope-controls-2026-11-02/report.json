@@ -1,0 +1,1698 @@
+{
+  "mode": "scripted_sdk_synthetic_only",
+  "transport": "real_loopback_HTTP_uvicorn_background_TaskWorker_persisted_queue",
+  "model": "mock",
+  "wall_seconds": 10.5799,
+  "cases": [
+    {
+      "case": "BUDGET",
+      "question": "执行本轮已确认的只读查询\n{\"tool\": \"get_top_issues\", \"parameters\": {\"aspect\": \"packaging\"}, \"question\": \"\\u5305\\u88c5\\u5dee\\u8bc4\\u5177\\u4f53\\u53cd\\u6620\\u4ec0\\u4e48\\u95ee\\u9898\\uff1f\"}",
+      "source": "SYNTHETIC_SQLITE_ONLY",
+      "task_id": "3d81ae4428064c4ea2411162dcb2f8ad",
+      "task_status": "failed",
+      "end_to_end_seconds": 0.5102,
+      "polls": 4,
+      "checks": {
+        "expected_task_status": true,
+        "no_false_public_success": true,
+        "idempotent_submission": true,
+        "public_read_stable_zero_model_calls": true,
+        "business_readonly": true,
+        "no_out_of_bounds_or_over_budget_query": true,
+        "raw_public_analysis_not_stale_success": true,
+        "combined_validation_not_stale_success": true
+      },
+      "answer": {
+        "schema_version": "1.0",
+        "status": "failed",
+        "summary": "",
+        "highlights": [],
+        "metrics": [],
+        "sample_note": "",
+        "evidence_refs": [],
+        "caveats": [],
+        "generation_status": "unavailable",
+        "source_result_ids": [],
+        "scope_summary": [],
+        "details_available": false,
+        "insights": [],
+        "evidence_relations": []
+      },
+      "automatic_evidence_completion": {
+        "additional_tool_calls": 0,
+        "assessment": {
+          "aspect": "packaging",
+          "execution": "proposal_only",
+          "followup_queries": [
+            {
+              "execution": "proposal_only",
+              "expected_support": "补查匹配观点的具体问题类型；只支持报告内容，不证明客观因果。",
+              "parameters": {
+                "aspect": "packaging",
+                "product_ids": [
+                  "IE-PACK"
+                ],
+                "sentiment": "negative"
+              },
+              "requires_scope_confirmation": false,
+              "scope_ref": "scope:16da699a492ce6c5",
+              "scope_refs": [
+                "scope:16da699a492ce6c5"
+              ],
+              "tool": "get_aspect_drilldown"
+            }
+          ],
+          "gaps": [
+            "opinion_content_missing"
+          ],
+          "max_additional_queries": 2,
+          "note": "当前结果没有足以解释具体问题的观点内容；可在原范围内补查已有观点工具。",
+          "requested_level": "content",
+          "scope_refs": [
+            "scope:16da699a492ce6c5"
+          ],
+          "sentiment": "negative",
+          "source_result_ids": [
+            "r1"
+          ],
+          "status": "additional_query_available"
+        },
+        "automatic": false,
+        "cycles": 0,
+        "duration_ms": 0.239,
+        "error_type": "ReviewDataError",
+        "failed_stage": "eligibility",
+        "failure_reason": "原任务剩余工具预算不足，未执行补查。",
+        "initial_result_ids": [
+          "r1"
+        ],
+        "initial_validation": {
+          "checks": [
+            {
+              "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比",
+              "name": "数字与分母",
+              "passed": true
+            },
+            {
+              "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+              "name": "覆盖率",
+              "passed": true
+            },
+            {
+              "detail": "核对 0 处引文的原文位置及文件引用",
+              "name": "原文引用",
+              "passed": true
+            },
+            {
+              "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+              "name": "扩展统计",
+              "passed": true
+            },
+            {
+              "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+              "name": "正向统计",
+              "passed": true
+            },
+            {
+              "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+              "name": "范围身份",
+              "passed": true
+            },
+            {
+              "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+              "name": "情感语义",
+              "passed": true
+            },
+            {
+              "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+              "name": "查询结果完整性",
+              "passed": true
+            }
+          ],
+          "status": "passed"
+        },
+        "requests": [],
+        "status": "failed"
+      },
+      "tool_calls": 2,
+      "query_executions": 2,
+      "performance": {
+        "answer_duration_ms": 0.0,
+        "answer_input_bytes": 0,
+        "compression_duration_ms": 1.203,
+        "intent_resolution_duration_ms": 0.4524000105448067,
+        "planning_duration_ms": 0.499,
+        "planning_model_duration_ms": 0.0,
+        "query_duration_ms": 11.485,
+        "queue_duration_ms": 273.0,
+        "scope_resolution_duration_ms": 3.719100001035258,
+        "total_duration_ms": 52.086,
+        "validation_duration_ms": 0.114
+      },
+      "answer_generation": null,
+      "validation": {
+        "checks": [
+          {
+            "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比",
+            "name": "数字与分母",
+            "passed": true
+          },
+          {
+            "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+            "name": "覆盖率",
+            "passed": true
+          },
+          {
+            "detail": "核对 0 处引文的原文位置及文件引用",
+            "name": "原文引用",
+            "passed": true
+          },
+          {
+            "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+            "name": "扩展统计",
+            "passed": true
+          },
+          {
+            "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+            "name": "正向统计",
+            "passed": true
+          },
+          {
+            "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+            "name": "范围身份",
+            "passed": true
+          },
+          {
+            "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+            "name": "情感语义",
+            "passed": true
+          },
+          {
+            "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+            "name": "查询结果完整性",
+            "passed": true
+          },
+          {
+            "detail": "原任务剩余工具预算不足，未执行补查。",
+            "name": "证据补查",
+            "passed": false
+          }
+        ],
+        "status": "failed"
+      },
+      "trace": [
+        {
+          "cache_hit": false,
+          "elapsed_ms": 8.155,
+          "event": "tool_call",
+          "parameters": "{}",
+          "result_id": "overview",
+          "status": "success",
+          "tool": "get_analysis_context"
+        },
+        {
+          "cache_hit": false,
+          "elapsed_ms": 3.917,
+          "event": "tool_call",
+          "parameters": "{\"aspect\": \"packaging\"}",
+          "result_id": "r1",
+          "status": "success",
+          "tool": "get_top_issues"
+        }
+      ],
+      "error": {
+        "code": "business_error",
+        "message": "原任务剩余工具预算不足，未执行补查。"
+      },
+      "model_requests": []
+    },
+    {
+      "case": "QUERY_FAIL",
+      "question": "执行本轮已确认的只读查询\n{\"tool\": \"get_top_issues\", \"parameters\": {\"aspect\": \"packaging\"}, \"question\": \"\\u5305\\u88c5\\u5dee\\u8bc4\\u5177\\u4f53\\u53cd\\u6620\\u4ec0\\u4e48\\u95ee\\u9898\\uff1f\"}",
+      "source": "SYNTHETIC_SQLITE_ONLY",
+      "task_id": "3034b4162b014e4cabec2466c1100e0f",
+      "task_status": "failed",
+      "end_to_end_seconds": 1.0428,
+      "polls": 10,
+      "checks": {
+        "expected_task_status": true,
+        "no_false_public_success": true,
+        "idempotent_submission": true,
+        "public_read_stable_zero_model_calls": true,
+        "business_readonly": true,
+        "raw_public_analysis_not_stale_success": true,
+        "combined_validation_not_stale_success": true
+      },
+      "answer": {
+        "schema_version": "1.0",
+        "status": "failed",
+        "summary": "",
+        "highlights": [],
+        "metrics": [],
+        "sample_note": "",
+        "evidence_refs": [],
+        "caveats": [],
+        "generation_status": "unavailable",
+        "source_result_ids": [],
+        "scope_summary": [],
+        "details_available": false,
+        "insights": [],
+        "evidence_relations": []
+      },
+      "automatic_evidence_completion": {
+        "additional_tool_calls": 1,
+        "assessment": {
+          "aspect": "packaging",
+          "execution": "proposal_only",
+          "followup_queries": [
+            {
+              "execution": "proposal_only",
+              "expected_support": "补查匹配观点的具体问题类型；只支持报告内容，不证明客观因果。",
+              "parameters": {
+                "aspect": "packaging",
+                "product_ids": [
+                  "IE-PACK"
+                ],
+                "sentiment": "negative"
+              },
+              "requires_scope_confirmation": false,
+              "scope_ref": "scope:16da699a492ce6c5",
+              "scope_refs": [
+                "scope:16da699a492ce6c5"
+              ],
+              "tool": "get_aspect_drilldown"
+            }
+          ],
+          "gaps": [
+            "opinion_content_missing"
+          ],
+          "max_additional_queries": 2,
+          "note": "当前结果没有足以解释具体问题的观点内容；可在原范围内补查已有观点工具。",
+          "requested_level": "content",
+          "scope_refs": [
+            "scope:16da699a492ce6c5"
+          ],
+          "sentiment": "negative",
+          "source_result_ids": [
+            "r1"
+          ],
+          "status": "additional_query_available"
+        },
+        "automatic": true,
+        "cycles": 1,
+        "duration_ms": 12.006,
+        "error_type": "ReviewDataError",
+        "failed_stage": "query",
+        "failure_reason": "补查工具失败。",
+        "initial_result_ids": [
+          "r1"
+        ],
+        "initial_validation": {
+          "checks": [
+            {
+              "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比",
+              "name": "数字与分母",
+              "passed": true
+            },
+            {
+              "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+              "name": "覆盖率",
+              "passed": true
+            },
+            {
+              "detail": "核对 0 处引文的原文位置及文件引用",
+              "name": "原文引用",
+              "passed": true
+            },
+            {
+              "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+              "name": "扩展统计",
+              "passed": true
+            },
+            {
+              "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+              "name": "正向统计",
+              "passed": true
+            },
+            {
+              "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+              "name": "范围身份",
+              "passed": true
+            },
+            {
+              "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+              "name": "情感语义",
+              "passed": true
+            },
+            {
+              "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+              "name": "查询结果完整性",
+              "passed": true
+            }
+          ],
+          "status": "passed"
+        },
+        "requests": [
+          {
+            "execution_scope": {
+              "as_of": null,
+              "base_url": "https://offline.invalid/v1",
+              "dataset_version": "insight-evidence-v1",
+              "date_from": "2023-01-01",
+              "date_to": "2023-03-31",
+              "model": "SIMULATED-model-A",
+              "product_ids": [
+                "IE-PACK"
+              ],
+              "prompt_version": "prompt-A",
+              "source": "amazon_reviews_2023"
+            },
+            "parameters": {
+              "aspect": "packaging",
+              "product_ids": [
+                "IE-PACK"
+              ],
+              "sentiment": "negative"
+            },
+            "privacy_mode": "local_opinions_no_new_external_text",
+            "proposed_tool": "get_aspect_drilldown",
+            "scope": {
+              "as_of": null,
+              "base_url": "https://offline.invalid/v1",
+              "baseline_from": "2022-12-01",
+              "baseline_to": "2022-12-31",
+              "dataset_version": "insight-evidence-v1",
+              "date_from": "2023-01-01",
+              "date_to": "2023-03-31",
+              "model": "SIMULATED-model-A",
+              "product_ids": [
+                "IE-PACK"
+              ],
+              "prompt_version": "prompt-A",
+              "source": "amazon_reviews_2023"
+            },
+            "scope_resolution": "original_bound_scope",
+            "tool": "get_opinion_breakdown"
+          }
+        ],
+        "status": "failed"
+      },
+      "tool_calls": 3,
+      "query_executions": 3,
+      "performance": {
+        "answer_duration_ms": 0.0,
+        "answer_input_bytes": 0,
+        "compression_duration_ms": 0.801,
+        "intent_resolution_duration_ms": 0.1154000055976212,
+        "planning_duration_ms": 0.15,
+        "planning_model_duration_ms": 0.0,
+        "query_duration_ms": 9.305,
+        "queue_duration_ms": 916.0,
+        "scope_resolution_duration_ms": 1.7596999823581427,
+        "total_duration_ms": 54.633,
+        "validation_duration_ms": 0.087
+      },
+      "answer_generation": null,
+      "validation": {
+        "checks": [
+          {
+            "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比",
+            "name": "数字与分母",
+            "passed": true
+          },
+          {
+            "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+            "name": "覆盖率",
+            "passed": true
+          },
+          {
+            "detail": "核对 0 处引文的原文位置及文件引用",
+            "name": "原文引用",
+            "passed": true
+          },
+          {
+            "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+            "name": "扩展统计",
+            "passed": true
+          },
+          {
+            "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+            "name": "正向统计",
+            "passed": true
+          },
+          {
+            "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+            "name": "范围身份",
+            "passed": true
+          },
+          {
+            "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+            "name": "情感语义",
+            "passed": true
+          },
+          {
+            "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+            "name": "查询结果完整性",
+            "passed": true
+          },
+          {
+            "detail": "补查工具失败。",
+            "name": "证据补查",
+            "passed": false
+          }
+        ],
+        "status": "failed"
+      },
+      "trace": [
+        {
+          "cache_hit": false,
+          "elapsed_ms": 6.746,
+          "event": "tool_call",
+          "parameters": "{}",
+          "result_id": "overview",
+          "status": "success",
+          "tool": "get_analysis_context"
+        },
+        {
+          "cache_hit": false,
+          "elapsed_ms": 2.932,
+          "event": "tool_call",
+          "parameters": "{\"aspect\": \"packaging\"}",
+          "result_id": "r1",
+          "status": "success",
+          "tool": "get_top_issues"
+        },
+        {
+          "cache_hit": false,
+          "elapsed_ms": 0.157,
+          "event": "tool_call",
+          "parameters": "{\"product_ids\": [\"IE-PACK\"], \"aspect\": \"packaging\", \"sentiment\": \"negative\"}",
+          "phase": "evidence_supplement",
+          "result_id": null,
+          "status": "error",
+          "tool": "get_opinion_breakdown"
+        }
+      ],
+      "error": {
+        "code": "business_error",
+        "message": "补查工具失败。"
+      },
+      "model_requests": []
+    },
+    {
+      "case": "QUOTE",
+      "question": "执行本轮已确认的只读查询\n{\"tool\": \"get_top_issues\", \"parameters\": {\"aspect\": \"packaging\"}, \"question\": \"\\u5305\\u88c5\\u5dee\\u8bc4\\u5177\\u4f53\\u53cd\\u6620\\u4ec0\\u4e48\\u95ee\\u9898\\uff1f\"}",
+      "source": "SYNTHETIC_SQLITE_ONLY",
+      "task_id": "d539a47517d7460d9d00d94500eb332d",
+      "task_status": "failed",
+      "end_to_end_seconds": 1.0655,
+      "polls": 10,
+      "checks": {
+        "expected_task_status": true,
+        "no_false_public_success": true,
+        "idempotent_submission": true,
+        "public_read_stable_zero_model_calls": true,
+        "business_readonly": true,
+        "independent_quote_validation_failed": true,
+        "raw_public_analysis_not_stale_success": true,
+        "combined_validation_not_stale_success": true
+      },
+      "answer": {
+        "schema_version": "1.0",
+        "status": "failed",
+        "summary": "",
+        "highlights": [],
+        "metrics": [],
+        "sample_note": "",
+        "evidence_refs": [],
+        "caveats": [],
+        "generation_status": "unavailable",
+        "source_result_ids": [],
+        "scope_summary": [],
+        "details_available": false,
+        "insights": [],
+        "evidence_relations": []
+      },
+      "automatic_evidence_completion": {
+        "additional_tool_calls": 1,
+        "assessment": {
+          "aspect": "packaging",
+          "execution": "proposal_only",
+          "followup_queries": [
+            {
+              "execution": "proposal_only",
+              "expected_support": "补查匹配观点的具体问题类型；只支持报告内容，不证明客观因果。",
+              "parameters": {
+                "aspect": "packaging",
+                "product_ids": [
+                  "IE-PACK"
+                ],
+                "sentiment": "negative"
+              },
+              "requires_scope_confirmation": false,
+              "scope_ref": "scope:16da699a492ce6c5",
+              "scope_refs": [
+                "scope:16da699a492ce6c5"
+              ],
+              "tool": "get_aspect_drilldown"
+            }
+          ],
+          "gaps": [
+            "opinion_content_missing"
+          ],
+          "max_additional_queries": 2,
+          "note": "当前结果没有足以解释具体问题的观点内容；可在原范围内补查已有观点工具。",
+          "requested_level": "content",
+          "scope_refs": [
+            "scope:16da699a492ce6c5"
+          ],
+          "sentiment": "negative",
+          "source_result_ids": [
+            "r1"
+          ],
+          "status": "additional_query_available"
+        },
+        "automatic": true,
+        "cycles": 1,
+        "duration_ms": 38.288,
+        "error_type": "ReviewDataError",
+        "failed_stage": "independent_validation",
+        "failure_reason": "补查结果独立校验失败。",
+        "initial_result_ids": [
+          "r1"
+        ],
+        "initial_validation": {
+          "checks": [
+            {
+              "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比",
+              "name": "数字与分母",
+              "passed": true
+            },
+            {
+              "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+              "name": "覆盖率",
+              "passed": true
+            },
+            {
+              "detail": "核对 0 处引文的原文位置及文件引用",
+              "name": "原文引用",
+              "passed": true
+            },
+            {
+              "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+              "name": "扩展统计",
+              "passed": true
+            },
+            {
+              "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+              "name": "正向统计",
+              "passed": true
+            },
+            {
+              "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+              "name": "范围身份",
+              "passed": true
+            },
+            {
+              "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+              "name": "情感语义",
+              "passed": true
+            },
+            {
+              "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+              "name": "查询结果完整性",
+              "passed": true
+            }
+          ],
+          "status": "passed"
+        },
+        "requests": [
+          {
+            "execution_scope": {
+              "as_of": null,
+              "base_url": "https://offline.invalid/v1",
+              "dataset_version": "insight-evidence-v1",
+              "date_from": "2023-01-01",
+              "date_to": "2023-03-31",
+              "model": "SIMULATED-model-A",
+              "product_ids": [
+                "IE-PACK"
+              ],
+              "prompt_version": "prompt-A",
+              "source": "amazon_reviews_2023"
+            },
+            "parameters": {
+              "aspect": "packaging",
+              "product_ids": [
+                "IE-PACK"
+              ],
+              "sentiment": "negative"
+            },
+            "privacy_mode": "local_opinions_no_new_external_text",
+            "proposed_tool": "get_aspect_drilldown",
+            "scope": {
+              "as_of": null,
+              "base_url": "https://offline.invalid/v1",
+              "baseline_from": "2022-12-01",
+              "baseline_to": "2022-12-31",
+              "dataset_version": "insight-evidence-v1",
+              "date_from": "2023-01-01",
+              "date_to": "2023-03-31",
+              "model": "SIMULATED-model-A",
+              "product_ids": [
+                "IE-PACK"
+              ],
+              "prompt_version": "prompt-A",
+              "source": "amazon_reviews_2023"
+            },
+            "scope_resolution": "original_bound_scope",
+            "tool": "get_opinion_breakdown",
+            "validation": {
+              "checks": [
+                {
+                  "detail": "复核 1 行统计的计数及占比；0 行无成功标注，保留空占比",
+                  "name": "数字与分母",
+                  "passed": true
+                },
+                {
+                  "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+                  "name": "覆盖率",
+                  "passed": true
+                },
+                {
+                  "detail": "核对 3 处引文的原文位置及文件引用",
+                  "name": "原文引用",
+                  "passed": false
+                },
+                {
+                  "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+                  "name": "扩展统计",
+                  "passed": true
+                },
+                {
+                  "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+                  "name": "正向统计",
+                  "passed": true
+                },
+                {
+                  "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+                  "name": "范围身份",
+                  "passed": true
+                },
+                {
+                  "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+                  "name": "情感语义",
+                  "passed": true
+                },
+                {
+                  "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+                  "name": "查询结果完整性",
+                  "passed": true
+                }
+              ],
+              "status": "failed"
+            }
+          }
+        ],
+        "status": "failed"
+      },
+      "tool_calls": 3,
+      "query_executions": 3,
+      "performance": {
+        "answer_duration_ms": 0.0,
+        "answer_input_bytes": 0,
+        "compression_duration_ms": 0.762,
+        "intent_resolution_duration_ms": 0.11290001566521823,
+        "planning_duration_ms": 0.149,
+        "planning_model_duration_ms": 0.0,
+        "query_duration_ms": 32.779,
+        "queue_duration_ms": 928.0,
+        "scope_resolution_duration_ms": 1.8711000157054514,
+        "total_duration_ms": 81.899,
+        "validation_duration_ms": 0.088
+      },
+      "answer_generation": null,
+      "validation": {
+        "checks": [
+          {
+            "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比",
+            "name": "数字与分母",
+            "passed": true
+          },
+          {
+            "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+            "name": "覆盖率",
+            "passed": true
+          },
+          {
+            "detail": "核对 0 处引文的原文位置及文件引用",
+            "name": "原文引用",
+            "passed": true
+          },
+          {
+            "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+            "name": "扩展统计",
+            "passed": true
+          },
+          {
+            "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+            "name": "正向统计",
+            "passed": true
+          },
+          {
+            "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+            "name": "范围身份",
+            "passed": true
+          },
+          {
+            "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+            "name": "情感语义",
+            "passed": true
+          },
+          {
+            "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+            "name": "查询结果完整性",
+            "passed": true
+          },
+          {
+            "detail": "补查结果独立校验失败。",
+            "name": "证据补查",
+            "passed": false
+          }
+        ],
+        "status": "failed"
+      },
+      "trace": [
+        {
+          "cache_hit": false,
+          "elapsed_ms": 7.517,
+          "event": "tool_call",
+          "parameters": "{}",
+          "result_id": "overview",
+          "status": "success",
+          "tool": "get_analysis_context"
+        },
+        {
+          "cache_hit": false,
+          "elapsed_ms": 3.138,
+          "event": "tool_call",
+          "parameters": "{\"aspect\": \"packaging\"}",
+          "result_id": "r1",
+          "status": "success",
+          "tool": "get_top_issues"
+        },
+        {
+          "cache_hit": false,
+          "elapsed_ms": 22.804,
+          "event": "tool_call",
+          "parameters": "{\"product_ids\": [\"IE-PACK\"], \"aspect\": \"packaging\", \"sentiment\": \"negative\"}",
+          "phase": "evidence_supplement",
+          "result_id": "r0",
+          "status": "success",
+          "tool": "get_opinion_breakdown"
+        }
+      ],
+      "error": {
+        "code": "business_error",
+        "message": "补查结果独立校验失败。"
+      },
+      "model_requests": []
+    },
+    {
+      "case": "WRITE",
+      "question": "执行本轮已确认的只读查询\n{\"tool\": \"get_top_issues\", \"parameters\": {\"aspect\": \"packaging\"}, \"question\": \"\\u5305\\u88c5\\u5dee\\u8bc4\\u5177\\u4f53\\u53cd\\u6620\\u4ec0\\u4e48\\u95ee\\u9898\\uff1f\"}",
+      "source": "SYNTHETIC_SQLITE_ONLY",
+      "task_id": "78815179fb8c4253af7b8328c12d86e1",
+      "task_status": "failed",
+      "end_to_end_seconds": 1.1669,
+      "polls": 10,
+      "checks": {
+        "expected_task_status": true,
+        "no_false_public_success": true,
+        "idempotent_submission": true,
+        "public_read_stable_zero_model_calls": true,
+        "business_readonly": true,
+        "raw_public_analysis_not_stale_success": true,
+        "combined_validation_not_stale_success": true
+      },
+      "answer": {
+        "schema_version": "1.0",
+        "status": "failed",
+        "summary": "",
+        "highlights": [],
+        "metrics": [],
+        "sample_note": "",
+        "evidence_refs": [],
+        "caveats": [],
+        "generation_status": "unavailable",
+        "source_result_ids": [],
+        "scope_summary": [],
+        "details_available": false,
+        "insights": [],
+        "evidence_relations": []
+      },
+      "automatic_evidence_completion": {
+        "additional_tool_calls": 1,
+        "assessment": {
+          "aspect": "packaging",
+          "execution": "proposal_only",
+          "followup_queries": [
+            {
+              "execution": "proposal_only",
+              "expected_support": "补查匹配观点的具体问题类型；只支持报告内容，不证明客观因果。",
+              "parameters": {
+                "aspect": "packaging",
+                "product_ids": [
+                  "IE-PACK"
+                ],
+                "sentiment": "negative"
+              },
+              "requires_scope_confirmation": false,
+              "scope_ref": "scope:16da699a492ce6c5",
+              "scope_refs": [
+                "scope:16da699a492ce6c5"
+              ],
+              "tool": "get_aspect_drilldown"
+            }
+          ],
+          "gaps": [
+            "opinion_content_missing"
+          ],
+          "max_additional_queries": 2,
+          "note": "当前结果没有足以解释具体问题的观点内容；可在原范围内补查已有观点工具。",
+          "requested_level": "content",
+          "scope_refs": [
+            "scope:16da699a492ce6c5"
+          ],
+          "sentiment": "negative",
+          "source_result_ids": [
+            "r1"
+          ],
+          "status": "additional_query_available"
+        },
+        "automatic": true,
+        "cycles": 1,
+        "duration_ms": 24.785,
+        "error_type": "ReviewDataError",
+        "failed_stage": "query",
+        "failure_reason": "补查工具失败。",
+        "initial_result_ids": [
+          "r1"
+        ],
+        "initial_validation": {
+          "checks": [
+            {
+              "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比",
+              "name": "数字与分母",
+              "passed": true
+            },
+            {
+              "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+              "name": "覆盖率",
+              "passed": true
+            },
+            {
+              "detail": "核对 0 处引文的原文位置及文件引用",
+              "name": "原文引用",
+              "passed": true
+            },
+            {
+              "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+              "name": "扩展统计",
+              "passed": true
+            },
+            {
+              "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+              "name": "正向统计",
+              "passed": true
+            },
+            {
+              "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+              "name": "范围身份",
+              "passed": true
+            },
+            {
+              "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+              "name": "情感语义",
+              "passed": true
+            },
+            {
+              "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+              "name": "查询结果完整性",
+              "passed": true
+            }
+          ],
+          "status": "passed"
+        },
+        "requests": [
+          {
+            "execution_scope": {
+              "as_of": null,
+              "base_url": "https://offline.invalid/v1",
+              "dataset_version": "insight-evidence-v1",
+              "date_from": "2023-01-01",
+              "date_to": "2023-03-31",
+              "model": "SIMULATED-model-A",
+              "product_ids": [
+                "IE-PACK"
+              ],
+              "prompt_version": "prompt-A",
+              "source": "amazon_reviews_2023"
+            },
+            "parameters": {
+              "aspect": "packaging",
+              "product_ids": [
+                "IE-PACK"
+              ],
+              "sentiment": "negative"
+            },
+            "privacy_mode": "local_opinions_no_new_external_text",
+            "proposed_tool": "get_aspect_drilldown",
+            "scope": {
+              "as_of": null,
+              "base_url": "https://offline.invalid/v1",
+              "baseline_from": "2022-12-01",
+              "baseline_to": "2022-12-31",
+              "dataset_version": "insight-evidence-v1",
+              "date_from": "2023-01-01",
+              "date_to": "2023-03-31",
+              "model": "SIMULATED-model-A",
+              "product_ids": [
+                "IE-PACK"
+              ],
+              "prompt_version": "prompt-A",
+              "source": "amazon_reviews_2023"
+            },
+            "scope_resolution": "original_bound_scope",
+            "tool": "get_opinion_breakdown"
+          }
+        ],
+        "status": "failed"
+      },
+      "tool_calls": 3,
+      "query_executions": 3,
+      "performance": {
+        "answer_duration_ms": 0.0,
+        "answer_input_bytes": 0,
+        "compression_duration_ms": 0.753,
+        "intent_resolution_duration_ms": 0.10550001752562821,
+        "planning_duration_ms": 0.14,
+        "planning_model_duration_ms": 0.0,
+        "query_duration_ms": 10.096,
+        "queue_duration_ms": 955.0,
+        "scope_resolution_duration_ms": 1.7502999980933964,
+        "total_duration_ms": 66.356,
+        "validation_duration_ms": 0.088
+      },
+      "answer_generation": null,
+      "validation": {
+        "checks": [
+          {
+            "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比",
+            "name": "数字与分母",
+            "passed": true
+          },
+          {
+            "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+            "name": "覆盖率",
+            "passed": true
+          },
+          {
+            "detail": "核对 0 处引文的原文位置及文件引用",
+            "name": "原文引用",
+            "passed": true
+          },
+          {
+            "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+            "name": "扩展统计",
+            "passed": true
+          },
+          {
+            "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+            "name": "正向统计",
+            "passed": true
+          },
+          {
+            "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+            "name": "范围身份",
+            "passed": true
+          },
+          {
+            "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+            "name": "情感语义",
+            "passed": true
+          },
+          {
+            "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+            "name": "查询结果完整性",
+            "passed": true
+          },
+          {
+            "detail": "补查工具失败。",
+            "name": "证据补查",
+            "passed": false
+          }
+        ],
+        "status": "failed"
+      },
+      "trace": [
+        {
+          "cache_hit": false,
+          "elapsed_ms": 7.33,
+          "event": "tool_call",
+          "parameters": "{}",
+          "result_id": "overview",
+          "status": "success",
+          "tool": "get_analysis_context"
+        },
+        {
+          "cache_hit": false,
+          "elapsed_ms": 3.14,
+          "event": "tool_call",
+          "parameters": "{\"aspect\": \"packaging\"}",
+          "result_id": "r1",
+          "status": "success",
+          "tool": "get_top_issues"
+        },
+        {
+          "cache_hit": false,
+          "elapsed_ms": 0.202,
+          "event": "tool_call",
+          "parameters": "{\"product_ids\": [\"IE-PACK\"], \"aspect\": \"packaging\", \"sentiment\": \"negative\"}",
+          "phase": "evidence_supplement",
+          "result_id": null,
+          "status": "error",
+          "tool": "get_opinion_breakdown"
+        }
+      ],
+      "error": {
+        "code": "business_error",
+        "message": "补查工具失败。"
+      },
+      "model_requests": []
+    },
+    {
+      "case": "DATES",
+      "question": "物流负面占比按月有什么变化？具体问题类型在首末月份是否不同？",
+      "source": "SYNTHETIC_SQLITE_ONLY",
+      "task_id": "829164d5dd404ecfb6ccd0358febb2f9",
+      "task_status": "failed",
+      "end_to_end_seconds": 1.3186,
+      "polls": 12,
+      "checks": {
+        "expected_task_status": true,
+        "no_false_public_success": true,
+        "idempotent_submission": true,
+        "public_read_stable_zero_model_calls": true,
+        "business_readonly": true,
+        "no_out_of_bounds_or_over_budget_query": true,
+        "raw_public_analysis_not_stale_success": true,
+        "combined_validation_not_stale_success": true
+      },
+      "answer": {
+        "schema_version": "1.0",
+        "status": "failed",
+        "summary": "",
+        "highlights": [],
+        "metrics": [],
+        "sample_note": "",
+        "evidence_refs": [],
+        "caveats": [],
+        "generation_status": "unavailable",
+        "source_result_ids": [],
+        "scope_summary": [],
+        "details_available": false,
+        "insights": [],
+        "evidence_relations": []
+      },
+      "automatic_evidence_completion": {
+        "additional_tool_calls": 0,
+        "assessment": {
+          "aspect": "logistics",
+          "execution": "proposal_only",
+          "followup_queries": [
+            {
+              "execution": "proposal_only",
+              "expected_support": "在明确子窗口内比较问题表述，不能证明运营措施导致变化。",
+              "parameters": {
+                "aspect": "logistics",
+                "product_ids": [
+                  "IE-TREND"
+                ],
+                "sentiment": "negative"
+              },
+              "requested_subwindow": {
+                "date_from": "2022-01-01",
+                "date_to": "2023-01-31"
+              },
+              "requires_scope_confirmation": true,
+              "scope_ref": "scope:0666288ccf30c7c5",
+              "scope_refs": [
+                "scope:0666288ccf30c7c5"
+              ],
+              "tool": "get_opinion_breakdown"
+            },
+            {
+              "execution": "proposal_only",
+              "expected_support": "在明确子窗口内比较问题表述，不能证明运营措施导致变化。",
+              "parameters": {
+                "aspect": "logistics",
+                "product_ids": [
+                  "IE-TREND"
+                ],
+                "sentiment": "negative"
+              },
+              "requested_subwindow": {
+                "date_from": "2023-03-01",
+                "date_to": "2023-03-31"
+              },
+              "requires_scope_confirmation": true,
+              "scope_ref": "scope:0666288ccf30c7c5",
+              "scope_refs": [
+                "scope:0666288ccf30c7c5"
+              ],
+              "tool": "get_opinion_breakdown"
+            }
+          ],
+          "gaps": [
+            "opinion_content_missing",
+            "period_specific_content_not_queried"
+          ],
+          "max_additional_queries": 2,
+          "note": "当前结果没有足以解释具体问题的观点内容；可在原范围内补查已有观点工具。建议在当前范围内明确首末两个可比窗口，分别建立只读补查任务；不自动改动日期。",
+          "requested_level": "content",
+          "scope_refs": [
+            "scope:0666288ccf30c7c5"
+          ],
+          "sentiment": "negative",
+          "source_result_ids": [
+            "r1"
+          ],
+          "status": "additional_query_available"
+        },
+        "automatic": false,
+        "cycles": 0,
+        "duration_ms": 0.285,
+        "error_type": "ReviewDataError",
+        "failed_stage": "eligibility",
+        "failure_reason": "补查子窗口不是已验证的首末时间桶。",
+        "initial_result_ids": [
+          "r1"
+        ],
+        "initial_validation": {
+          "checks": [
+            {
+              "detail": "复核 5 行统计的计数及占比；0 行无成功标注，保留空占比",
+              "name": "数字与分母",
+              "passed": true
+            },
+            {
+              "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+              "name": "覆盖率",
+              "passed": true
+            },
+            {
+              "detail": "核对 0 处引文的原文位置及文件引用",
+              "name": "原文引用",
+              "passed": true
+            },
+            {
+              "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+              "name": "扩展统计",
+              "passed": true
+            },
+            {
+              "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+              "name": "正向统计",
+              "passed": true
+            },
+            {
+              "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+              "name": "范围身份",
+              "passed": true
+            },
+            {
+              "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+              "name": "情感语义",
+              "passed": true
+            },
+            {
+              "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+              "name": "查询结果完整性",
+              "passed": true
+            }
+          ],
+          "status": "passed"
+        },
+        "requests": [],
+        "status": "failed"
+      },
+      "tool_calls": 2,
+      "query_executions": 2,
+      "performance": {
+        "answer_duration_ms": 0.0,
+        "answer_input_bytes": 0,
+        "compression_duration_ms": 0.648,
+        "intent_resolution_duration_ms": 5.204200017033145,
+        "planning_duration_ms": 115.715,
+        "planning_model_duration_ms": 110.47460002009757,
+        "query_duration_ms": 12.952,
+        "queue_duration_ms": 883.0,
+        "scope_resolution_duration_ms": 1.6235999937634915,
+        "total_duration_ms": 333.61,
+        "validation_duration_ms": 0.093
+      },
+      "answer_generation": null,
+      "validation": {
+        "checks": [
+          {
+            "detail": "复核 5 行统计的计数及占比；0 行无成功标注，保留空占比",
+            "name": "数字与分母",
+            "passed": true
+          },
+          {
+            "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+            "name": "覆盖率",
+            "passed": true
+          },
+          {
+            "detail": "核对 0 处引文的原文位置及文件引用",
+            "name": "原文引用",
+            "passed": true
+          },
+          {
+            "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+            "name": "扩展统计",
+            "passed": true
+          },
+          {
+            "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+            "name": "正向统计",
+            "passed": true
+          },
+          {
+            "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+            "name": "范围身份",
+            "passed": true
+          },
+          {
+            "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+            "name": "情感语义",
+            "passed": true
+          },
+          {
+            "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+            "name": "查询结果完整性",
+            "passed": true
+          },
+          {
+            "detail": "补查子窗口不是已验证的首末时间桶。",
+            "name": "证据补查",
+            "passed": false
+          }
+        ],
+        "status": "failed"
+      },
+      "trace": [
+        {
+          "cache_hit": false,
+          "elapsed_ms": 7.257,
+          "event": "tool_call",
+          "parameters": "{}",
+          "result_id": "overview",
+          "status": "success",
+          "tool": "get_analysis_context"
+        },
+        {
+          "event": "model_response",
+          "finish_reason": "tool_calls",
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 10,
+            "total_tokens": 15
+          }
+        },
+        {
+          "cache_hit": false,
+          "elapsed_ms": 6.089,
+          "event": "tool_call",
+          "parameters": {
+            "aspect": "logistics",
+            "period": "month"
+          },
+          "result_id": "r1",
+          "status": "success",
+          "tool": "get_aspect_trend"
+        },
+        {
+          "event": "model_response",
+          "finish_reason": "stop",
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 10,
+            "total_tokens": 15
+          }
+        }
+      ],
+      "error": {
+        "code": "business_error",
+        "message": "补查子窗口不是已验证的首末时间桶。"
+      },
+      "model_requests": [
+        {
+          "case": "DATES",
+          "stage": "planning",
+          "input_bytes": 6677,
+          "http_attempts": [
+            {
+              "index": 1,
+              "status_code": 200
+            }
+          ],
+          "raw_fixture_quote_sent": false,
+          "local_relation_sent": false,
+          "finish_reason": "tool_calls",
+          "content": null,
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 10,
+            "total_tokens": 15,
+            "completion_tokens_details": null,
+            "prompt_tokens_details": null
+          },
+          "elapsed_seconds": 0.0587
+        },
+        {
+          "case": "DATES",
+          "stage": "planning",
+          "input_bytes": 11017,
+          "http_attempts": [
+            {
+              "index": 1,
+              "status_code": 200
+            }
+          ],
+          "raw_fixture_quote_sent": false,
+          "local_relation_sent": false,
+          "finish_reason": "stop",
+          "content": "{\"status\": \"ok\", \"result_ids\": [\"r1\"]}",
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 10,
+            "total_tokens": 15,
+            "completion_tokens_details": null,
+            "prompt_tokens_details": null
+          },
+          "elapsed_seconds": 0.0028
+        }
+      ]
+    },
+    {
+      "case": "AMBIGUOUS",
+      "question": "对比这两款商品的物流差评，具体发生在哪些环节？",
+      "source": "SYNTHETIC_SQLITE_ONLY",
+      "task_id": "5e5b1a6ea5f54a90a920ea57a3b64642",
+      "task_status": "succeeded",
+      "end_to_end_seconds": 1.022,
+      "polls": 10,
+      "checks": {
+        "expected_task_status": true,
+        "no_false_public_success": true,
+        "idempotent_submission": true,
+        "public_read_stable_zero_model_calls": true,
+        "business_readonly": true,
+        "specific_clarification": true,
+        "no_completion_after_incomplete_or_ambiguous": true
+      },
+      "answer": {
+        "schema_version": "1.0",
+        "status": "unsupported",
+        "summary": "请明确“这两款”指哪两款商品；当前没有可唯一恢复的比较对象。",
+        "highlights": [],
+        "metrics": [],
+        "sample_note": "",
+        "evidence_refs": [],
+        "caveats": [],
+        "generation_status": "unavailable",
+        "source_result_ids": [],
+        "scope_summary": [],
+        "details_available": false,
+        "insights": [],
+        "evidence_relations": []
+      },
+      "automatic_evidence_completion": {
+        "additional_tool_calls": 0,
+        "automatic": false,
+        "cycles": 0,
+        "requests": [],
+        "status": "not_started"
+      },
+      "tool_calls": 0,
+      "query_executions": 0,
+      "performance": {
+        "answer_duration_ms": 0.0,
+        "answer_input_bytes": 0,
+        "compression_duration_ms": 0.0,
+        "intent_resolution_duration_ms": 0.0,
+        "planning_duration_ms": 0.0,
+        "planning_model_duration_ms": 0.0,
+        "query_duration_ms": 0,
+        "queue_duration_ms": 900.0,
+        "scope_resolution_duration_ms": 2.1551999961957335,
+        "total_duration_ms": 3.971,
+        "validation_duration_ms": 0.0
+      },
+      "answer_generation": null,
+      "validation": null,
+      "trace": [],
+      "error": null,
+      "model_requests": []
+    },
+    {
+      "case": "PARTIAL",
+      "question": "包装负面观点具体主要集中在哪些方面？",
+      "source": "SYNTHETIC_SQLITE_ONLY",
+      "task_id": "bd67be7acebb41fc9805a0fcaed70890",
+      "task_status": "partial",
+      "end_to_end_seconds": 1.1024,
+      "polls": 10,
+      "checks": {
+        "expected_task_status": true,
+        "no_false_public_success": true,
+        "idempotent_submission": true,
+        "public_read_stable_zero_model_calls": true,
+        "business_readonly": true,
+        "no_completion_after_incomplete_or_ambiguous": true
+      },
+      "answer": {
+        "schema_version": "1.0",
+        "status": "partial",
+        "summary": "",
+        "highlights": [],
+        "metrics": [],
+        "sample_note": "",
+        "evidence_refs": [],
+        "caveats": [],
+        "generation_status": "unavailable",
+        "source_result_ids": [],
+        "scope_summary": [],
+        "details_available": false,
+        "insights": [],
+        "evidence_relations": []
+      },
+      "automatic_evidence_completion": {
+        "additional_tool_calls": 0,
+        "automatic": false,
+        "cycles": 0,
+        "requests": [],
+        "status": "not_started"
+      },
+      "tool_calls": 2,
+      "query_executions": 2,
+      "performance": {
+        "answer_duration_ms": 0.0,
+        "answer_input_bytes": 0,
+        "compression_duration_ms": 1.068,
+        "intent_resolution_duration_ms": 0.31419997685588896,
+        "planning_duration_ms": 0.357,
+        "planning_model_duration_ms": 0.0,
+        "query_duration_ms": 18.352,
+        "queue_duration_ms": 934.0,
+        "scope_resolution_duration_ms": 2.0143000001553446,
+        "total_duration_ms": 102.695,
+        "validation_duration_ms": 0.31
+      },
+      "answer_generation": {
+        "attempts": 0,
+        "error_code": "analysis_not_complete",
+        "generation_status": "unavailable",
+        "strategy": "blocked"
+      },
+      "validation": {
+        "checks": [
+          {
+            "detail": "复核 2 行统计的计数及占比；0 行无成功标注，保留空占比",
+            "name": "数字与分母",
+            "passed": true
+          },
+          {
+            "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+            "name": "覆盖率",
+            "passed": true
+          },
+          {
+            "detail": "核对 13 处引文的原文位置及文件引用",
+            "name": "原文引用",
+            "passed": true
+          },
+          {
+            "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+            "name": "扩展统计",
+            "passed": true
+          },
+          {
+            "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+            "name": "正向统计",
+            "passed": true
+          },
+          {
+            "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+            "name": "范围身份",
+            "passed": true
+          },
+          {
+            "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+            "name": "情感语义",
+            "passed": true
+          },
+          {
+            "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+            "name": "查询结果完整性",
+            "passed": true
+          }
+        ],
+        "status": "passed"
+      },
+      "trace": [
+        {
+          "cache_hit": false,
+          "elapsed_ms": 7.608,
+          "event": "tool_call",
+          "parameters": "{}",
+          "result_id": "overview",
+          "status": "success",
+          "tool": "get_analysis_context"
+        },
+        {
+          "cache_hit": false,
+          "elapsed_ms": 51.807,
+          "event": "tool_call",
+          "parameters": "{\"product_ids\": [\"IE-PACK\"], \"aspect\": \"packaging\", \"sentiment\": \"negative\"}",
+          "result_id": "r1",
+          "status": "success",
+          "tool": "get_aspect_drilldown"
+        }
+      ],
+      "error": {
+        "code": "partial_result",
+        "message": "部分记录或月份未完成，请查看 result 后显式重试。"
+      },
+      "model_requests": []
+    },
+    {
+      "case": "FAILED",
+      "question": "包装负面观点具体主要集中在哪些方面？",
+      "source": "SYNTHETIC_SQLITE_ONLY",
+      "task_id": "5adddd5e6bce4933b07d3fbda45ccb0e",
+      "task_status": "failed",
+      "end_to_end_seconds": 1.1854,
+      "polls": 11,
+      "checks": {
+        "expected_task_status": true,
+        "no_false_public_success": true,
+        "idempotent_submission": true,
+        "public_read_stable_zero_model_calls": true,
+        "business_readonly": true,
+        "no_completion_after_incomplete_or_ambiguous": true
+      },
+      "answer": {
+        "schema_version": "1.0",
+        "status": "failed",
+        "summary": "",
+        "highlights": [],
+        "metrics": [],
+        "sample_note": "",
+        "evidence_refs": [],
+        "caveats": [],
+        "generation_status": "unavailable",
+        "source_result_ids": [],
+        "scope_summary": [],
+        "details_available": false,
+        "insights": [],
+        "evidence_relations": []
+      },
+      "automatic_evidence_completion": {
+        "additional_tool_calls": 0,
+        "automatic": false,
+        "cycles": 0,
+        "requests": [],
+        "status": "not_started"
+      },
+      "tool_calls": 2,
+      "query_executions": 2,
+      "performance": {
+        "answer_duration_ms": 0.0,
+        "answer_input_bytes": 0,
+        "compression_duration_ms": 0.0,
+        "intent_resolution_duration_ms": 0.2586000191513449,
+        "planning_duration_ms": 0.291,
+        "planning_model_duration_ms": 0.0,
+        "query_duration_ms": 17.217,
+        "queue_duration_ms": 1076.0,
+        "scope_resolution_duration_ms": 1.5811000193934888,
+        "total_duration_ms": 49.366,
+        "validation_duration_ms": 0.0
+      },
+      "answer_generation": null,
+      "validation": null,
+      "trace": [
+        {
+          "cache_hit": false,
+          "elapsed_ms": 7.173,
+          "event": "tool_call",
+          "parameters": "{}",
+          "result_id": "overview",
+          "status": "success",
+          "tool": "get_analysis_context"
+        },
+        {
+          "cache_hit": false,
+          "elapsed_ms": 11.107,
+          "event": "tool_call",
+          "parameters": "{\"product_ids\": [\"IE-PACK\"], \"aspect\": \"packaging\", \"sentiment\": \"negative\"}",
+          "result_id": "r1",
+          "status": "success",
+          "tool": "get_aspect_drilldown"
+        }
+      ],
+      "error": {
+        "code": "business_error",
+        "message": "二级主题归并未完成；原始观点与失败原因已保留，未发布主题结论。"
+      },
+      "model_requests": []
+    }
+  ],
+  "all_checks_passed": true,
+  "actual_external_requests": 0,
+  "sdk_requests": 2,
+  "http_attempts_instrumented": true,
+  "planning_sdk_max_retries": 1,
+  "answer_sdk_max_retries": 0,
+  "input_tokens": 20,
+  "output_tokens": 10,
+  "usage_unreported_requests": 0,
+  "new_raw_text_or_relations_egress": false,
+  "human_quality_acceptance": "not_performed",
+  "quality_rule_checks_are_AI_not_human": true,
+  "boundary": "No production PostgreSQL, real business text, browser RTT or concurrency load test; queue poll .1s."
+}

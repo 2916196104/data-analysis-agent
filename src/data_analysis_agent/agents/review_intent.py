@@ -110,7 +110,7 @@ def _llm_intent(question, scope, context, mentions, settings, diagnostics, *, co
     return intent
 
 
-def _intent_plan(intent, scope, *, previous_parameters=None):
+def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False):
     if intent.needs_clarification or not intent.query_type:
         raise QuestionScopeError(intent.clarification_question or '请明确要查看维度汇总、观点细分、趋势还是评论原文。')
     params = {'product_ids': scope['product_ids']}
@@ -118,7 +118,7 @@ def _intent_plan(intent, scope, *, previous_parameters=None):
     if intent.sub_intent == 'drill_down' and intent.query_type not in {'aspect_summary', 'opinion_breakdown', 'aspect_drilldown'}:
         raise QuestionScopeError('请明确要下钻的评价维度；数据质量、星级和商品对比不能直接替代观点细分。')
     kind = {'drill_down': 'opinion_breakdown', 'evidence': 'evidence'}.get(intent.sub_intent, intent.query_type)
-    if (kind == 'opinion_breakdown' and intent.aspect and intent.sentiment in ('positive', 'negative') and not intent.topic) or intent.query_type == 'aspect_drilldown':
+    if (kind == 'opinion_breakdown' and intent.aspect and intent.sentiment in ('positive', 'negative') and not intent.topic and not local_content and len(scope['product_ids']) == 1) or intent.query_type == 'aspect_drilldown':
         if not intent.aspect or intent.sentiment not in ('positive', 'negative'):
             raise QuestionScopeError('二级主题分析需要一个明确维度及正向或负向情感。')
         if len(scope['product_ids']) != 1:
@@ -218,7 +218,7 @@ def _user_conditions(context, scope, products):
         question = user['question']
         try:
             followup = _followup_intent(question, conditions) if not product_mentions(question, products) else None
-            plan = _intent_plan(followup[0], scope, previous_parameters=followup[1]) if followup else build_query_plan(question, scope)
+            plan = _intent_plan(followup[0], scope, previous_parameters=followup[1], local_content=opinion_request(question)['content_detail']) if followup else build_query_plan(question, scope)
         except QuestionScopeError:
             continue
         if not plan.unsupported_reason:
@@ -240,6 +240,8 @@ def resolve_review_request(question, scope, products, *, settings, context=None,
                 sub_intent='drill_down' if plan.analysis_type == 'opinion_breakdown' else 'overview').model_dump())
         return scope, plan, False
     mentions = product_mentions(question, products)
+    if not mentions and len(scope['product_ids']) != 1 and re.search(r'当前空调|当前商品|当前产品|这款空调|这款商品|这款产品|该空调|该商品', question) and not re.search(r'全部|所有|整体|总体', question):
+        raise QuestionScopeError('当前选中了多款商品。请指定一款商品 ID，或明确询问“所有商品”的整体统计。')
     previous = (context or {}).get('validated') or {}
     prior_question = ((context or {}).get('user') or {}).get('question', '')
     prior_mentions = next((values for row in (context or {}).get('users', [{'question': prior_question}])
@@ -286,7 +288,7 @@ def resolve_review_request(question, scope, products, *, settings, context=None,
             within_selection = [value for value in inherited if value in scope['product_ids']]
             scope = bind_product_ids(within_selection or scope['product_ids'] or inherited, scope)
         intent_state.update(intent.model_dump())
-        return scope, _intent_plan(intent, scope, previous_parameters=last_params), True
+        return scope, _intent_plan(intent, scope, previous_parameters=last_params, local_content=semantic['content_detail']), True
     plan = build_query_plan(question, scope, product_groups=groups)
     if not plan.unsupported_reason:
         intent_state.update(query_type=KIND_TYPES.get(plan.analysis_type, 'pros_cons' if plan.analysis_type == 'pros_cons' else None),

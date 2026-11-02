@@ -123,6 +123,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
     """模型仅选择只读工具及结果引用；所有数字和引文由代码整理。"""
     started = perf_counter()
     timings = {key: 0.0 for key in (
+        "scope_resolution_duration_ms", "intent_resolution_duration_ms", "planning_model_duration_ms",
         "planning_duration_ms", "query_duration_ms", "validation_duration_ms",
         "compression_duration_ms", "answer_duration_ms", "total_duration_ms",
     )}
@@ -146,6 +147,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                 progress_error = exc
                 raise
     try:
+        scope_started = perf_counter()
         if not isinstance(question, str) or not question.strip() or len(question) > 4000:
             raise AgentExecutionError("问题必须为 1 至 4000 个字符的非空文本。")
         scope = BaselineScope.model_validate(scope).model_dump()
@@ -167,9 +169,17 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                                           (scope['source'], scope['dataset_version'])).fetchall()]
             if set(scope['product_ids']) - {row['product_id'] for row in products}:
                 raise QuestionScopeError('部分已选商品不属于当前数据集，请重新确认商品范围。')
+            if not products:
+                raise QuestionScopeError('当前数据集没有可分析的商品，请先选择有商品的数据集。')
+            if not scope['product_ids']:
+                # 页面以空列表表示全部商品；执行前冻结目录中的真实 ID。
+                scope['product_ids'] = sorted(row['product_id'] for row in products)
+            result['scope'] = scope
+            timings['scope_resolution_duration_ms'] = (perf_counter() - scope_started) * 1000
             planning_started = perf_counter()
             scope, plan, semantic_direct = resolve_review_request(question, scope, products, settings=settings,
                 context=conversation_context, diagnostics=result['intent_resolution'], intent_state=result['user_intent'])
+            timings['intent_resolution_duration_ms'] = (perf_counter() - planning_started) * 1000
             result['user_intent'].update(resolved_product_ids=list(scope['product_ids']),
                 effective_time_range={'date_from': scope['date_from'], 'date_to': scope['date_to']})
             sentiment_intent = plan.sentiment
@@ -190,7 +200,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             if "overview" not in context.results:
                 raise ReviewDataError("无法读取当前评论范围，请检查标注表和数据集。")
             status, ids = None, []
-            direct_query = semantic_direct or question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'opinion_breakdown', 'aspect_drilldown', 'pros_cons'}
+            simple_dimensions = len(plan.requirements) == 1 and plan.required_tools[0] in {'get_top_issues', 'get_positive_aspects'}
+            direct_query = semantic_direct or simple_dimensions or question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'opinion_breakdown', 'aspect_drilldown', 'pros_cons'}
             if direct_query:
                 # 已确认追问或确定的文本归组计划直接执行；仍走同一注册表、预算与发布校验。
                 for request in plan.requirements:
@@ -220,7 +231,9 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                             queries_before = context.query_duration_ms
                             text = agent.run(prompt, on_step=record_step)
                         finally:
-                            timings["planning_duration_ms"] += (perf_counter() - model_started) * 1000 - (context.query_duration_ms - queries_before)
+                            model_duration = (perf_counter() - model_started) * 1000 - (context.query_duration_ms - queries_before)
+                            timings["planning_duration_ms"] += model_duration
+                            timings["planning_model_duration_ms"] += model_duration
                             if agent.last_run is not None:
                                 model_responses += agent.last_run.model_calls
                                 for key, value in (agent.last_run.usage or {}).items():
@@ -329,6 +342,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                       cache_hits=context.cache_hits if context else 0,
                       query_executions=context.query_executions if context else 0,
                       tool_calls=context.tool_calls if context else 0, model_calls=llm.budget.calls if llm else 0,
+                      planning_model_calls=llm.budget.calls if llm else 0,
                       model_responses=model_responses, usage=usage or None,
                       answer_model_calls=result.get("answer_generation", {}).get("attempts", 0),
                       topic_model_calls=context.topic_model_calls if context else 0,

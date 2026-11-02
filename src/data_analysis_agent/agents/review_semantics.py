@@ -71,7 +71,7 @@ def product_mentions(question, products):
             subject = re.match(r'^(?:请|帮我|看看|查看|分析|一下|查询|统计|分别)*(.{2,100}?)的(?:(?:制冷|静音|安装|质量|效果|包装|物流|客服|服务|价格)(?:方面|相关)?的?)?(?:好评|差评|优缺点|优点|缺点|评价|使用效果)', clause.strip())
             if subject:
                 name = subject[1].strip(' “ ”「」\"')
-                generic = re.fullmatch(r'(?:这|那|该|所选|当前|上述|上轮|所有|全部)(?:两款|款|个)?(?:商品|产品|空调|机器)?|它们|两者|二者|两款商品|商品|产品|用户|消费者|买家|大家|(?:制冷|静音|安装|使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面)?', name)
+                generic = re.fullmatch(r'(?:这|那|该|所选|当前|上述|上轮|所有|全部)(?:两款|款|个)?(?:商品|产品|空调|机器)?|它们|两者|二者|两款商品|商品|产品|用户|消费者|买家|大家|(?:商品)?(?:制冷|静音|安装|使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面)?', name)
                 if not generic:
                     found.append(name)
                     brands = [value for value in brands if not name.startswith(value.removesuffix('空调'))]
@@ -186,5 +186,10 @@ def opinion_request(question):
                       '物流': 'logistics', '客服': 'service', '服务': 'service', '价格': 'price'}.items() if word in text), None)
     detail = bool(re.search(r"里面|细分|关注|提及最多|哪些问题|哪些方面|主要集中|具体.*(?:好|差|优点|缺点)|好在哪里|差在哪里", text))
     experience = bool(re.search(r"用起来.*(?:怎么样|如何)|效果.*(?:怎么样|如何)", text))
+    # 一级维度内询问内容，与只问数量/占比不同；所有合法维度共用这一判据。
+    content_detail = bool(aspect and re.search(
+        r'有什么问题|(?:投诉|抱怨|吐槽|不满意).*什么|具体差在哪|具体表现.*(?:方面|地方)|'
+        r'反映.*(?:什么|哪些).*问题|负面评价.*有哪些|好评.*具体体现|称赞.*(?:哪些|什么).*体验', text))
     return {"text": text, "topic": topic, "aspect": aspect,
-            "breakdown": bool(topic or experience or (aspect and detail))}
+            "content_detail": content_detail,
+            "breakdown": bool(topic or experience or (aspect and detail) or content_detail)}

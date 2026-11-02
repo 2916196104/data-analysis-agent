@@ -1,0 +1,316 @@
+{
+  "case": "DATES",
+  "question": "物流负面占比按月有什么变化？具体问题类型在首末月份是否不同？",
+  "source": "SYNTHETIC_SQLITE_ONLY",
+  "task_id": "829164d5dd404ecfb6ccd0358febb2f9",
+  "task_status": "failed",
+  "end_to_end_seconds": 1.3186,
+  "polls": 12,
+  "checks": {
+    "expected_task_status": true,
+    "no_false_public_success": true,
+    "idempotent_submission": true,
+    "public_read_stable_zero_model_calls": true,
+    "business_readonly": true,
+    "no_out_of_bounds_or_over_budget_query": true,
+    "raw_public_analysis_not_stale_success": true,
+    "combined_validation_not_stale_success": true
+  },
+  "answer": {
+    "schema_version": "1.0",
+    "status": "failed",
+    "summary": "",
+    "highlights": [],
+    "metrics": [],
+    "sample_note": "",
+    "evidence_refs": [],
+    "caveats": [],
+    "generation_status": "unavailable",
+    "source_result_ids": [],
+    "scope_summary": [],
+    "details_available": false,
+    "insights": [],
+    "evidence_relations": []
+  },
+  "automatic_evidence_completion": {
+    "additional_tool_calls": 0,
+    "assessment": {
+      "aspect": "logistics",
+      "execution": "proposal_only",
+      "followup_queries": [
+        {
+          "execution": "proposal_only",
+          "expected_support": "在明确子窗口内比较问题表述，不能证明运营措施导致变化。",
+          "parameters": {
+            "aspect": "logistics",
+            "product_ids": [
+              "IE-TREND"
+            ],
+            "sentiment": "negative"
+          },
+          "requested_subwindow": {
+            "date_from": "2022-01-01",
+            "date_to": "2023-01-31"
+          },
+          "requires_scope_confirmation": true,
+          "scope_ref": "scope:0666288ccf30c7c5",
+          "scope_refs": [
+            "scope:0666288ccf30c7c5"
+          ],
+          "tool": "get_opinion_breakdown"
+        },
+        {
+          "execution": "proposal_only",
+          "expected_support": "在明确子窗口内比较问题表述，不能证明运营措施导致变化。",
+          "parameters": {
+            "aspect": "logistics",
+            "product_ids": [
+              "IE-TREND"
+            ],
+            "sentiment": "negative"
+          },
+          "requested_subwindow": {
+            "date_from": "2023-03-01",
+            "date_to": "2023-03-31"
+          },
+          "requires_scope_confirmation": true,
+          "scope_ref": "scope:0666288ccf30c7c5",
+          "scope_refs": [
+            "scope:0666288ccf30c7c5"
+          ],
+          "tool": "get_opinion_breakdown"
+        }
+      ],
+      "gaps": [
+        "opinion_content_missing",
+        "period_specific_content_not_queried"
+      ],
+      "max_additional_queries": 2,
+      "note": "当前结果没有足以解释具体问题的观点内容；可在原范围内补查已有观点工具。建议在当前范围内明确首末两个可比窗口，分别建立只读补查任务；不自动改动日期。",
+      "requested_level": "content",
+      "scope_refs": [
+        "scope:0666288ccf30c7c5"
+      ],
+      "sentiment": "negative",
+      "source_result_ids": [
+        "r1"
+      ],
+      "status": "additional_query_available"
+    },
+    "automatic": false,
+    "cycles": 0,
+    "duration_ms": 0.285,
+    "error_type": "ReviewDataError",
+    "failed_stage": "eligibility",
+    "failure_reason": "补查子窗口不是已验证的首末时间桶。",
+    "initial_result_ids": [
+      "r1"
+    ],
+    "initial_validation": {
+      "checks": [
+        {
+          "detail": "复核 5 行统计的计数及占比；0 行无成功标注，保留空占比",
+          "name": "数字与分母",
+          "passed": true
+        },
+        {
+          "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+          "name": "覆盖率",
+          "passed": true
+        },
+        {
+          "detail": "核对 0 处引文的原文位置及文件引用",
+          "name": "原文引用",
+          "passed": true
+        },
+        {
+          "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+          "name": "扩展统计",
+          "passed": true
+        },
+        {
+          "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+          "name": "正向统计",
+          "passed": true
+        },
+        {
+          "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+          "name": "范围身份",
+          "passed": true
+        },
+        {
+          "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+          "name": "情感语义",
+          "passed": true
+        },
+        {
+          "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+          "name": "查询结果完整性",
+          "passed": true
+        }
+      ],
+      "status": "passed"
+    },
+    "requests": [],
+    "status": "failed"
+  },
+  "tool_calls": 2,
+  "query_executions": 2,
+  "performance": {
+    "answer_duration_ms": 0.0,
+    "answer_input_bytes": 0,
+    "compression_duration_ms": 0.648,
+    "intent_resolution_duration_ms": 5.204200017033145,
+    "planning_duration_ms": 115.715,
+    "planning_model_duration_ms": 110.47460002009757,
+    "query_duration_ms": 12.952,
+    "queue_duration_ms": 883.0,
+    "scope_resolution_duration_ms": 1.6235999937634915,
+    "total_duration_ms": 333.61,
+    "validation_duration_ms": 0.093
+  },
+  "answer_generation": null,
+  "validation": {
+    "checks": [
+      {
+        "detail": "复核 5 行统计的计数及占比；0 行无成功标注，保留空占比",
+        "name": "数字与分母",
+        "passed": true
+      },
+      {
+        "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母",
+        "name": "覆盖率",
+        "passed": true
+      },
+      {
+        "detail": "核对 0 处引文的原文位置及文件引用",
+        "name": "原文引用",
+        "passed": true
+      },
+      {
+        "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值",
+        "name": "扩展统计",
+        "passed": true
+      },
+      {
+        "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态",
+        "name": "正向统计",
+        "passed": true
+      },
+      {
+        "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致",
+        "name": "范围身份",
+        "passed": true
+      },
+      {
+        "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果",
+        "name": "情感语义",
+        "passed": true
+      },
+      {
+        "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证",
+        "name": "查询结果完整性",
+        "passed": true
+      },
+      {
+        "detail": "补查子窗口不是已验证的首末时间桶。",
+        "name": "证据补查",
+        "passed": false
+      }
+    ],
+    "status": "failed"
+  },
+  "trace": [
+    {
+      "cache_hit": false,
+      "elapsed_ms": 7.257,
+      "event": "tool_call",
+      "parameters": "{}",
+      "result_id": "overview",
+      "status": "success",
+      "tool": "get_analysis_context"
+    },
+    {
+      "event": "model_response",
+      "finish_reason": "tool_calls",
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 10,
+        "total_tokens": 15
+      }
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 6.089,
+      "event": "tool_call",
+      "parameters": {
+        "aspect": "logistics",
+        "period": "month"
+      },
+      "result_id": "r1",
+      "status": "success",
+      "tool": "get_aspect_trend"
+    },
+    {
+      "event": "model_response",
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 10,
+        "total_tokens": 15
+      }
+    }
+  ],
+  "error": {
+    "code": "business_error",
+    "message": "补查子窗口不是已验证的首末时间桶。"
+  },
+  "model_requests": [
+    {
+      "case": "DATES",
+      "stage": "planning",
+      "input_bytes": 6677,
+      "http_attempts": [
+        {
+          "index": 1,
+          "status_code": 200
+        }
+      ],
+      "raw_fixture_quote_sent": false,
+      "local_relation_sent": false,
+      "finish_reason": "tool_calls",
+      "content": null,
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 10,
+        "total_tokens": 15,
+        "completion_tokens_details": null,
+        "prompt_tokens_details": null
+      },
+      "elapsed_seconds": 0.0587
+    },
+    {
+      "case": "DATES",
+      "stage": "planning",
+      "input_bytes": 11017,
+      "http_attempts": [
+        {
+          "index": 1,
+          "status_code": 200
+        }
+      ],
+      "raw_fixture_quote_sent": false,
+      "local_relation_sent": false,
+      "finish_reason": "stop",
+      "content": "{\"status\": \"ok\", \"result_ids\": [\"r1\"]}",
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 10,
+        "total_tokens": 15,
+        "completion_tokens_details": null,
+        "prompt_tokens_details": null
+      },
+      "elapsed_seconds": 0.0028
+    }
+  ]
+}
