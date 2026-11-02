@@ -2,12 +2,16 @@ import { Table } from 'antd';
 import { rate } from '../../ResultCards';
 import type { AgentToolResult, RatingGroup } from '../../types';
 
+const aspectNames: Record<string, string> = { quality: '商品质量', effectiveness: '使用效果', price: '价格', packaging: '包装', logistics: '物流', service: '客服' };
+
 export default function ExtendedResults({ item }: { item: AgentToolResult }) {
   if (item.kind === 'aspect_drilldown') return <>
     <p>{item.data.population_mode === 'sample' ? '样本探索：非随机受限样本，占比不能代表总体。' : '对本次匹配观点集合进行二级主题分析。'}主题为模型归并候选，未经人工确认。</p>
     <p>纳入 {item.data.coverage.selected_reviews} 条评论、{item.data.coverage.selected_opinions} 条观点；已复核 {item.data.coverage.evaluated_opinions} 条，已归类 {item.data.coverage.classified_opinions} 条，未归类 {item.data.coverage.unclassified_opinions} 条。同一评论可进入多个主题，各主题内去重，数量不能相加作为总评论数。</p>
+    {item.data.aspect === null && <p>整体好评按维度归并，各主题占比以该维度实际纳入的评论为分母。</p>}
     <Table size="small" rowKey="topic_id" dataSource={item.data.topics} pagination={false} scroll={{ x: 640 }} columns={[
       { title: '候选子主题', dataIndex: 'name', width: 160 }, { title: '去重评论数', dataIndex: 'review_count' },
+      ...(item.data.aspect === null ? [{ title: '维度', dataIndex: 'aspect', render: (value: string) => aspectNames[value] || value }] : []),
       { title: '观点数', dataIndex: 'opinion_count' }, { title: '占纳入评论', key: 'rate', render: (_, row) => <>{rate(row.review_rate)}<div className="muted">分母 {row.review_denominator} 条</div></> },
       { title: '代表评论', key: 'review', render: (_, row) => `#${row.review_ids[0]}` },
     ]} />

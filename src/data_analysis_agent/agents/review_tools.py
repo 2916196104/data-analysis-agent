@@ -46,7 +46,7 @@ class OpinionBreakdownInput(AspectSelection):
 
 
 class AspectDrilldownInput(ProductSelection):
-    aspect: Aspect
+    aspect: Aspect | None = Field(default=None, description='指定一级维度；正向总结可省略，按六维度归并商品整体好评')
     sentiment: Literal['positive', 'negative']
 
 
@@ -319,7 +319,7 @@ def create_review_registry(context):
         ("compare_products", "比较已选商品在当前窗口的评论量、覆盖率、负面数量和占比。", ProductSelection),
         ("get_top_issues", "当前窗口六维度负面数量和占比；仅 include_baseline=true 时比较基线。", IssueInput),
         ("get_opinion_breakdown", "按已有观点原文与情感归组，返回去重评论数、观点数及可追溯原文；不是标准细分标签。", OpinionBreakdownInput),
-        ('get_aspect_drilldown', '对一个商品、一个维度及正向或负向观点进行有来源的候选二级主题归并，数量由代码计算。', AspectDrilldownInput),
+        ('get_aspect_drilldown', '对一个商品的正向观点或指定维度的负向观点进行有来源的主题总结；正向省略 aspect 时按维度组织整体好评，数量由代码计算。', AspectDrilldownInput),
         ("get_evidence", "分页查询带原文位置的评论证据，可筛选维度、情感、商品子集和当前/基线窗口。", EvidenceInput),
     ):
         if context.query_plan and name != "get_analysis_context" and name not in (

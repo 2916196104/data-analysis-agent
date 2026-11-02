@@ -26,6 +26,15 @@ it('主题表明确样本、去重分母及未归类，不冒充总体统计', (
   expect(screen.getByText(/未经人工确认/)).toBeTruthy();
 });
 
+it('整体好评主题表标明所属维度和各维度分母', () => {
+  const whole = { ...item, parameters: { product_ids: ['A'], sentiment: 'positive' }, data: { ...item.data,
+    aspect: null, topics: item.data.topics.map(row => ({ ...row, aspect: 'logistics', name: '发货及时' })) } } as AgentToolResult;
+  render(<ExtendedResults item={whole} />);
+  expect(screen.getByText('物流')).toBeTruthy();
+  expect(screen.getByText('发货及时')).toBeTruthy();
+  expect(screen.getByText(/各主题占比以该维度实际纳入的评论为分母/)).toBeTruthy();
+});
+
 it('主题追问保留分析目标和情感；部分结果不能作为可信父轮', () => {
   const result = { agent: true, status: 'ok', results: { r1: item }, result_ids: ['r1'], validation: { status: 'passed', checks: [] } } as unknown as AgentResult;
   const parent = { id: 'p', taskId: 'p', parameters: scope, result };

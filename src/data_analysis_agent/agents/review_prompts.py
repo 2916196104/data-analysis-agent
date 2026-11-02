@@ -3,7 +3,7 @@
 import re
 
 
-PROMPT_VERSION = "review-agent-v8"
+PROMPT_VERSION = "review-agent-v9"
 
 _POSITIVE_TERMS = ("好评", "优点", "满意", "喜欢", "称赞", "值得购买", "评价最好", "最受好评", "正向", "正面", "好在哪里")
 _NEGATIVE_TERMS = ("差评", "缺点", "不满意", "投诉", "抱怨", "吐槽", "负面", "问题", "不好", "痛点", "差在哪里")
@@ -61,6 +61,7 @@ positive 包括好评、优点、满意、喜欢、值得购买、哪些方面�
 商品对比调用 compare_products；
 维度问题及基线变化调用 get_top_issues；
 正向优点或好评维度排名调用 get_positive_aspects；该工具默认只返回六个维度的结构化统计，不要为了回答正向问题追加多页原文。
+询问具体好评、好评体现在哪里或总结好评时，调用 get_aspect_drilldown；指定维度时只总结该维度，单商品整体好评省略 aspect，按真实维度归并并保留证据。
 原文查询调用 get_evidence。
 原文可筛选 aspect、sentiment、product_ids，并选择 current 或 baseline 窗口。
 aspect、sentiment 必须使用上下文给出的枚举值。需要任意情感时 sentiment 使用 all。

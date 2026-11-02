@@ -118,8 +118,10 @@ def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False
     if intent.sub_intent == 'drill_down' and intent.query_type not in {'aspect_summary', 'opinion_breakdown', 'aspect_drilldown'}:
         raise QuestionScopeError('请明确要下钻的评价维度；数据质量、星级和商品对比不能直接替代观点细分。')
     kind = {'drill_down': 'opinion_breakdown', 'evidence': 'evidence'}.get(intent.sub_intent, intent.query_type)
-    if (kind == 'opinion_breakdown' and intent.aspect and intent.sentiment in ('positive', 'negative') and not intent.topic and not local_content and len(scope['product_ids']) == 1) or intent.query_type == 'aspect_drilldown':
-        if not intent.aspect or intent.sentiment not in ('positive', 'negative'):
+    if (kind == 'opinion_breakdown' and intent.sentiment in ('positive', 'negative') and not intent.topic and (
+            (intent.aspect and not local_content) or (intent.sentiment == 'positive' and local_content))
+            and len(scope['product_ids']) == 1) or intent.query_type == 'aspect_drilldown':
+        if intent.sentiment not in ('positive', 'negative') or (not intent.aspect and intent.sentiment != 'positive'):
             raise QuestionScopeError('二级主题分析需要一个明确维度及正向或负向情感。')
         if len(scope['product_ids']) != 1:
             raise QuestionScopeError('二级主题分析首版仅支持一款商品，请指定具体商品 ID。')
@@ -180,7 +182,7 @@ def _followup_intent(question, conditions):
     short_period = re.fullmatch(r'(?:换成|改成|改为)?按(月|日|天)(?:看|查看|统计)?[？?。]*', question.strip())
     summary_ref = bool(re.fullmatch(r'(?:那|那么)?(?:主要)?集中在(?:哪些|什么)(?:地方|方面)(?:呢)?[？?。]*', question.strip()))
     detail_ref = bool(re.fullmatch(r'(?:这些|那些|上述)(?:好评|差评|评价|观点)(?:具体)?(?:反映|说明|表达)(?:了)?什么[？?。]*', question.strip()))
-    if not conditions or not ((semantic['aspect'] and (short_aspect or semantic['breakdown'])) or short_sentiment or short_period or summary_ref or detail_ref):
+    if not conditions or not ((semantic['aspect'] and (short_aspect or semantic['breakdown'])) or semantic['positive_summary'] or short_sentiment or short_period or summary_ref or detail_ref):
         return None
     queries = conditions.get('queries', [])
     selected = [row for row in queries if semantic['aspect'] and row['parameters'].get('aspect') == semantic['aspect']] if len(queries) > 1 else queries
@@ -197,13 +199,14 @@ def _followup_intent(question, conditions):
     if short_sentiment and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown', 'evidence', 'trend', 'aspect_trend'}:
         raise QuestionScopeError('上轮没有可切换的评价情感目标，这次要看好差评汇总还是原文？')
     last_params = dict(last['parameters'])
+    whole_summary = semantic['positive_summary'] and bool(re.search(r'整体|总体|全部|所有|(?:商品|产品)的?好评', question))
     if short_period and last['kind'] == 'ratings':
         last_params['group_by'] = 'month'
     intent = ReviewIntent(query_type='opinion_breakdown' if semantic['breakdown'] or detail_ref else KIND_TYPES.get(last['kind']),
         sentiment=detect_sentiment_intent(question) or conditions.get('sentiment') or last_params.get('sentiment'),
-        aspect=semantic['aspect'] or last_params.get('aspect'),
+        aspect=None if whole_summary else semantic['aspect'] or last_params.get('aspect'),
         sub_intent='drill_down' if semantic['breakdown'] or detail_ref or last['kind'] in ('opinion_breakdown', 'aspect_drilldown') else 'overview',
-        topic=semantic['topic'] if semantic['aspect'] else last_params.get('topic'),
+        topic=None if whole_summary else semantic['topic'] if semantic['aspect'] else last_params.get('topic'),
         period=('month' if short_period.group(1) == '月' else 'day') if short_period else last_params.get('period', 'month'))
     return intent, last_params
 

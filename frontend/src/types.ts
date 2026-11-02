@@ -198,7 +198,7 @@ export interface AspectTopic {
   review_ids: number[]; opinion_ids: string[]; evidence_opinion_ids: string[];
 }
 export interface AspectDrilldown {
-  scope: AnalysisScope; summary: Summary; aspect: string; sentiment: string;
+  scope: AnalysisScope; summary: Summary; aspect: string | null; sentiment: string;
   analysis_status: 'complete' | 'partial' | 'failed' | 'insufficient_data'; population_mode: 'full' | 'sample';
   total: number; total_opinions: number; topics: AspectTopic[]; items: AgentEvidence[];
   grouping_version: string; grouping_model: string;

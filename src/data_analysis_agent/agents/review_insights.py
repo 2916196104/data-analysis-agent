@@ -220,7 +220,7 @@ def default_focus(catalog):
     selected, groups = [], set()
     # 先保留各维度/商品/情感的一个发现，避免前一组占满正文预算。
     for row in catalog:
-        group = (row['scope_ref'], row['aspect'] if row['kind'] == 'trend' else None,
+        group = (row['scope_ref'], row['aspect'] if row['kind'] in ('trend', 'topic') else None,
                  row['fact'].sentiment, row['kind'] == 'empty')
         if group not in groups:
             selected.append(row['fact_id']); groups.add(group)
@@ -303,9 +303,8 @@ def lead_summary(context, selected):
         left, right = '、'.join(metric['left_product_ids']), '、'.join(metric['right_product_ids'])
         return f"同口径下，商品 {left} 的负面评论占比{'高于' if metric['value'] > 0 else '低于'}商品 {right}；这反映评价差异，不能等同于真实产品性能差距。"
     if context.analysis_type == 'aspect_drilldown' and any(row['kind'] == 'topic' for row in selected):
-        basis = '本次纳入的非随机样本中' if any(row['population_mode'] == 'sample' for row in selected) else '本次匹配的已标注评论中'
-        names = '、'.join(list(dict.fromkeys(row['label'] for row in selected if row['kind'] == 'topic'))[:3])
-        return f'{basis}，具体评价主要体现在{names}，这些是模型归并的候选主题。'
+        from data_analysis_agent.agents.review_answer_facts import topic_summary
+        return topic_summary(context, [{'aspect': row['aspect'], 'name': row['label']} for row in selected if row['kind'] == 'topic'])
     from data_analysis_agent.agents.review_answer_facts import summary_options
     summary = summary_options(context, facts)[0]
     if any(row['kind'] == 'trend' for row in selected):

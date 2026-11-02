@@ -1,6 +1,7 @@
 """二级主题、去重分母、来源及部分失败；使用真实只读 SQL 和隔离评论。"""
 import csv
 from copy import deepcopy
+from dataclasses import replace
 import hashlib
 import json
 from unittest.mock import patch
@@ -152,16 +153,27 @@ class ReviewTopicTests(semantics_fixture.AssistantSemanticsFixture, unittest.Tes
             body = json.loads(request.content); payload = json.loads(body['messages'][-1]['content']); requests.append(body)
             schema = TopicCatalog if payload['stage'] == 'topic_discovery' else TopicBatch
             draft = semantic_response(SETTINGS, '', payload, schema, 10).model_dump()
+            if schema is TopicCatalog:
+                draft = {'themes': [{'n': row['name'], 'd': row['definition'], 'q': row['support_ids'][:2]} for row in draft['themes']]}
+            if schema is TopicBatch:
+                states = {'assigned': 'a', 'uncertain': 'u', 'conflicting': 'c', 'unclassified': 'n'}
+                draft = {'rows': [{'i': row['opinion_id'], 's': states[row['state']],
+                                  'm': [[match['key'], next(unit['quote'] for unit in payload['opinions'] if unit['opinion_id'] == row['opinion_id'])[match['start']:match['end']]] for match in row['matches']]}
+                                 for row in draft['assignments']]}
+                self.assertIn('rows', payload['schema']['properties'])
             if bad_counts[0]:
                 draft['review_count'] = 999999
             return completion({'role': 'assistant', 'content': json.dumps(draft)})
         def client(**kwargs):
-            self.assertEqual(kwargs['max_retries'], 0); self.assertLessEqual(kwargs['timeout'], 20)
+            self.assertEqual(kwargs['max_retries'], 0); self.assertLessEqual(kwargs['timeout'], SETTINGS.timeout_seconds)
             return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handle)))
         with patch('openai.OpenAI', side_effect=client):
             data = analyze_aspect_topics(self.extracted(), settings=SETTINGS)
         self.assertEqual(len(requests), 2)
         self.assertTrue(validate_topic_result(data))
+        self.assertEqual(data['coverage']['classified_opinions'], 4)
+        self.assertEqual(data['coverage']['unclassified_reasons']['uncertain'], 1)
+        self.assertEqual(data['coverage']['unclassified_reasons']['conflicting'], 1)
         bad_counts[0] = True
         with patch('openai.OpenAI', side_effect=client):
             rejected = analyze_aspect_topics(self.extracted(), settings=SETTINGS)
@@ -198,3 +210,37 @@ class ReviewTopicTests(semantics_fixture.AssistantSemanticsFixture, unittest.Tes
         self.assertEqual(public['statistics'], [])
         context = intent_fixture.load_analysis_context(self.tasks, {**self.scope(), 'context_task_id': incomplete['task_id'], 'conversation_id': 'conversation-A'})
         self.assertEqual(context['validated']['task_id'], task['task_id'])
+
+    def test_siliconflow_v32_topic_requests_disable_extra_thinking_only_for_that_provider(self):
+        from data_analysis_agent.agents.review_topics import _call, CLASSIFY_PROMPT
+        requests = []
+        def handle(request):
+            requests.append(json.loads(request.content))
+            return completion({'role': 'assistant', 'content': '{"rows":[{"i":"u1","s":"u","m":[]}]}'})
+        def client(**kwargs):
+            return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handle)))
+        for host, model, expected in [('https://api.siliconflow.cn/v1', 'Pro/deepseek-ai/DeepSeek-V3.2', False),
+                                      ('https://offline.invalid/v1', 'Pro/deepseek-ai/DeepSeek-V3.2', None),
+                                      ('https://api.siliconflow.cn/v1', 'another-model', None)]:
+            with patch('openai.OpenAI', side_effect=client):
+                result = _call(replace(SETTINGS, base_url=host, model=model), CLASSIFY_PROMPT,
+                               {'stage': 'topic_classification', 'themes': [], 'opinions': [{'opinion_id': 'u1', 'quote': '合成观点'}]}, TopicBatch, 10)
+            self.assertEqual(requests[-1].get('enable_thinking'), expected)
+            self.assertEqual(result.assignments[0].state, 'uncertain')
+
+    def test_support_spans_are_located_by_code_and_ambiguous_or_fabricated_text_is_rejected(self):
+        from data_analysis_agent.agents.review_topics import _call, CLASSIFY_PROMPT
+        support = ['耐心解答']
+        def handle(request):
+            return completion({'role': 'assistant', 'content': json.dumps({'rows': [{'i': 'u1', 's': 'a', 'm': [['t1', support[0]]]}]})})
+        def client(**kwargs):
+            return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handle)))
+        payload = {'opinions': [{'opinion_id': 'u1', 'quote': '😊耐心解答，服务好好'}]}
+        with patch('openai.OpenAI', side_effect=client):
+            result = _call(SETTINGS, CLASSIFY_PROMPT, payload, TopicBatch, 10)
+            match = result.assignments[0].matches[0]
+            self.assertEqual((match.start, match.end), (1, 5))
+            for value in ('好', '不存在的片段', ''):
+                support[0] = value
+                with self.assertRaisesRegex(ValueError, '片段'):
+                    _call(SETTINGS, CLASSIFY_PROMPT, payload, TopicBatch, 10)

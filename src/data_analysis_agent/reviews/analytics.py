@@ -510,13 +510,29 @@ def get_opinion_breakdown(db_path, *, aspect=None, sentiment="all", topic=None, 
 
 def get_aspect_opinions(db_path, *, aspect, sentiment, **scope):
     """提取二级分析的有限真实样本；完整总体计数仍由同一只读快照计算。"""
-    if aspect not in ASPECTS or sentiment not in ('positive', 'negative'):
+    if (aspect not in ASPECTS and not (aspect is None and sentiment == 'positive')) or sentiment not in ('positive', 'negative'):
         raise ReviewDataError('二级分析必须指定一个一级维度及正向或负向情感。')
     if len(scope.get('product_ids') or []) != 1:
         raise ReviewDataError('二级分析首版仅支持一个明确的商品 ID。')
     identity, where, filters, normalized = analysis_scope(**scope)
     with _snapshot(db_path) as connection:
-        evidence = get_evidence(connection, aspect=aspect, sentiment=sentiment, page_size=100, **scope)
+        evidence = get_evidence(connection, aspect=aspect, sentiment=sentiment, page_size=100 if aspect else 1, **scope)
+        if aspect is None:
+            # 整体好评按维度轮流取样，共用最多 100 条评论，避免最新单一维度占满预算。
+            by_aspect = [get_evidence(connection, aspect=key, sentiment=sentiment, page_size=100, **scope)['items'] for key in ASPECTS]
+            selected = {}
+            for index in range(max(map(len, by_aspect), default=0)):
+                for items in by_aspect:
+                    if index >= len(items):
+                        continue
+                    item = items[index]
+                    if item['review_id'] not in selected:
+                        if len(selected) >= 100:
+                            continue
+                        selected[item['review_id']] = {**item, 'opinions': []}
+                    saved = selected[item['review_id']]['opinions']
+                    saved.extend(opinion for opinion in item['opinions'] if opinion not in saved)
+            evidence['items'] = list(selected.values())
         summary = _summary(_summaries(connection, identity, where, filters)[0])
     for item in evidence['items']:
         item.pop('file_path', None)

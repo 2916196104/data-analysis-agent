@@ -151,8 +151,9 @@ def build_answer_facts(context, *, detailed=False):
         elif kind == 'aspect_drilldown':
             filters = stat['filters']
             for topic in filters['topics']:
-                basis = '纳入样本评论' if filters['population_mode'] == 'sample' else '该维度该情感的匹配评论'
-                detail = (f"{topic['name']}：{topic['review_count']} 条去重评论、{topic['opinion_count']} 条观点，"
+                basis = '该维度纳入样本评论' if filters['population_mode'] == 'sample' else '该维度该情感的匹配评论'
+                detail = (f"{ASPECTS[topic['aspect']]} · {topic['name']}：{topic['definition']}。"
+                          f"{topic['review_count']} 条去重评论、{topic['opinion_count']} 条观点，"
                           f"占{basis} {percent(topic['review_rate'])}（分母 {topic['review_denominator']} 条）。"
                           f"代表原文：“{topic['quote']}”（评论 #{topic['review_id']}）。")
                 add(stat, 'topic', detail, ['以下主题由模型发现并独立复核观点归属，未经人工确认。'], aspect=topic['aspect'],
@@ -195,7 +196,7 @@ def build_answer_facts(context, *, detailed=False):
             if not any(ref.source_result_id == stat["source_result_id"] for ref in context.evidence):
                 add(stat, "empty", "当前筛选条件没有匹配原文；没有证据不等于没有问题。", ["当前条件未找到匹配原文。"])
     # 普通回答优先主要发现；显式维度/商品组分别保留，较多分组提示详情。
-    limit = 15 if detailed or context.analysis_type == "pros_cons" else max(5, sum(fact.kind == "trend" for fact in facts))
+    limit = 15 if detailed or context.analysis_type in ('pros_cons', 'aspect_drilldown') else max(5, sum(fact.kind == "trend" for fact in facts))
     return facts[:limit], len(facts) > limit
 
 
@@ -207,6 +208,10 @@ def answer_caveats(context, facts):
             filters, coverage = stat['filters'], stat['filters']['coverage']
             messages.append(f"模型候选主题未经人工确认，未穷尽全部主题；同一评论可进入多个主题，数量不能相加。"
                 f"未归类 {coverage['unclassified_opinions']} 条（含模糊、矛盾及未处理观点）。")
+            if filters.get('aspect') is None:
+                resolved = {topic['aspect'] for topic in filters['topics']}
+                messages.append('整体好评按维度归并，各主题占比以该维度实际纳入的评论为分母。'
+                    + ('尚未形成可靠主题的维度：' + '、'.join(label for key, label in ASPECTS.items() if key not in resolved) + '；不据此推断没有好评。' if len(resolved) < len(ASPECTS) else ''))
             basis = '非随机样本评论' if filters['population_mode'] == 'sample' else '匹配评论'
             messages.append(f"本次二级主题分析纳入 {coverage['selected_reviews']} 条{basis}、{coverage['selected_opinions']} 条观点"
                 + ('，样本量较少' if coverage['selected_reviews'] < 20 else '') + '，主题归并结果不能直接代表更广泛的消费者评价。')
@@ -251,8 +256,7 @@ def summary_options(context, facts):
     from data_analysis_agent.agents.review_semantics import opinion_request
     content_detail = opinion_request(context.question)['content_detail']
     if context.analysis_type == 'aspect_drilldown':
-        topics = [row['name'] for stat in context.statistics for row in stat.get('filters', {}).get('topics', [])]
-        return ['模型归并候选主题主要包括' + '、'.join(topics[:3]) + '，以下数量均由后端依据真实观点归属计算。'] if topics else ['当前数据或归属复核不足，尚无可发布的二级主题。']
+        return [topic_summary(context, [row for stat in context.statistics for row in stat.get('filters', {}).get('topics', [])])]
     if context.analysis_type == "pros_cons":
         return ['以下按商品分别列出优点和缺点，每个方向展示最多两种常见原文表述，仅代表当前数据集的已标注样本。']
     if any(fact.kind == 'opinion_group' for fact in facts):
@@ -301,6 +305,22 @@ def summary_options(context, facts):
     if all(fact.kind == "aspect" for fact in facts):
         return [_aspect_ranking_summary(facts, positive=False)]
     return ["以下是当前范围内已核验的分析结果。"]
+
+
+def topic_summary(context, topics):
+    """只组织已通过归属复核的主题；整体总结先覆盖每个有依据的维度。"""
+    if not topics:
+        return '当前数据或归属复核不足，尚无可发布的具体评价总结。'
+    sampled = any(stat.get('filters', {}).get('population_mode') == 'sample' for stat in context.statistics)
+    basis = '本次纳入的非随机样本中' if sampled else '本次匹配的已标注评论中'
+    direction = '好评' if context.sentiment == 'positive' else '差评' if context.sentiment == 'negative' else '评价'
+    groups = {}
+    for topic in topics:
+        names = groups.setdefault(topic['aspect'], [])
+        if topic['name'] not in names:
+            names.append(topic['name'])
+    points = '；'.join(ASPECTS[aspect] + '方面主要体现在' + '、'.join(names[:3]) for aspect, names in groups.items())
+    return f'{basis}，{direction}的具体内容如下：{points}。这些是依据真实观点归并的候选主题。'
 
 
 def _aspect_ranking_summary(facts, *, positive):

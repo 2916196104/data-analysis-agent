@@ -99,7 +99,10 @@ def complete_evidence(db, result, plan, context, settings, run_dir, report):
         record['status']='explicit_examples_only'
         return plan
     if assessment['status']=='clarification_needed'or'followup_query_budget_exceeded'in assessment['gaps']:
-        record.update(status='clarification_needed',clarification='请明确商品、维度和情感；本轮最多补查两项，请先限定不超过两款商品。')
+        reason = ('本轮补查最多支持两款商品，请限定商品范围。' if 'followup_query_budget_exceeded' in assessment['gaps']
+                  else '本轮补查需要明确评价维度，例如物流、客服或使用效果。' if assessment['aspect'] is None
+                  else '本轮补查需要明确商品及正向或负向情感。')
+        record.update(status='clarification_needed',clarification=reason)
         return plan
     if analysis_state(compact)!='complete' or not assessment['followup_queries']:return plan
     started=perf_counter()

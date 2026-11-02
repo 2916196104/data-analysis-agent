@@ -66,6 +66,10 @@ class PublicAnswer(AnalysisModel):
 class AnswerGenerationStrategy:
     @staticmethod
     def choose(context, facts):
+        if context.analysis_type == 'aspect_drilldown' and any(stat.get('filters', {}).get('aspect') is None
+                for stat in context.statistics if stat['analysis_type'] == 'aspect_drilldown'):
+            # 整体好评保留各维度的全部已核验要点；单维度继续沿用既有回答与复核策略。
+            return 'template'
         if context.analysis_type == 'aspect_drilldown' and sum(fact.kind == 'topic' for fact in facts) < 2:
             return 'template'
         complex_types = {"trend", "aspect_trend", "comparison", "window_comparison", "composite", 'aspect_drilldown'}

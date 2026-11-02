@@ -8,7 +8,7 @@ from data_analysis_agent.agents.review_topics import TopicCatalog, TopicBatch
 def exact_topic_response(settings, prompt, payload, schema, timeout):
     """旧回归以精确表述提供受控语义响应，新语义案例另有预设同义分组。"""
     if schema is TopicCatalog:
-        return TopicCatalog(themes=[{'key': f't{index + 1}', 'name': f'观点主题{index + 1}',
+        return TopicCatalog(themes=[{'key': f't{index + 1}', 'name': row['quote'][:24],
             'definition': row['quote'], 'support_ids': [row['opinion_id']]}
             for index, row in enumerate(payload['opinions'][:8])])
     return TopicBatch(assignments=[{'opinion_id': row['opinion_id'],

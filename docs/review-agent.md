@@ -97,7 +97,7 @@
 
 继续使用 `POST /api/v1/tasks` 的 `kind="analysis"`，在已有分析参数中增加可选的 `question`。省略 `question` 仍执行原结构化分析，不调用问答模型，原任务载荷的幂等哈希保持不变。
 
-提交 Agent 任务时必须明确 `source` 和 `dataset_version`，同时保留原有商品、日期、基线和标注身份字段。客户端不能传入 `model_identity`；服务端自动冻结执行模型和 `review-agent-v2` 提示词版本。执行前或重试时发现模型身份变化，会要求重新提交任务；已完成的 v1 历史结果仍可读取和导出。
+提交 Agent 任务时必须明确 `source` 和 `dataset_version`，同时保留原有商品、日期、基线和标注身份字段。客户端不能传入 `model_identity`；服务端自动冻结执行模型和 `review-agent-v9` 提示词版本。执行前或重试时发现模型身份变化，会要求重新提交任务；已完成的历史结果仍可读取和导出。
 
 第三阶段增加四个只读 GET 端点，原端点不变：`/api/v1/analytics/data-quality`、`/api/v1/analytics/aspect-trend`、`/api/v1/analytics/rating-distribution`、`/api/v1/analytics/compare-windows`。前三者使用现有分析身份与范围参数；维度趋势可带 `aspect`、`period`，评分分布可带 `group_by=product|month|all`；窗口比较还须带 `baseline_from`、`baseline_to`。HTTP 调用方可以自行指定范围，Agent 层额外强制检查本次冻结范围。
 
@@ -123,6 +123,10 @@ Agent 结果直接保存在任务的 `result` 中：
 - 服务端每个任务独立执行只读问答；前端支持上述分析追问与澄清，不自动标注或执行任意 SQL/代码。原“开始分析”入口继续执行固定分析与规则检查。
 
 ## 验证
+
+具体好评总结支持“物流的好评体现在哪里”“客服的好评体现在哪里”及“给出100013588053商品评论中具体的好评”。前两者归并指定维度的正向观点，后者按维度总结单商品整体好评，沿用 `get_aspect_drilldown`。模型负责主题语义，代码保留来源、校验归属并计算数量；整体所有维度共享采样和模型预算，主题占比以各维度实际纳入的评论为分母。明确要求原文条数时继续使用原文检索。
+
+实现、验证范围与运行限制见[具体好评总结验收](2026-11-02_positive-summary-acceptance.md)。
 
 在项目根目录运行：
 

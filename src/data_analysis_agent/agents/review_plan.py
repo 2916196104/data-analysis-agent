@@ -184,8 +184,11 @@ def build_query_plan(question, scope, *, product_groups=None):
             else:
                 add("get_trend", period=period)
         if breakdown:
-            if len(aspects) == 1 and sentiment in ('positive', 'negative') and not semantic['topic'] and not semantic['content_detail'] and len(scope['product_ids']) == 1:
-                add('get_aspect_drilldown', product_ids=scope['product_ids'], aspect=aspects[0], sentiment=sentiment)
+            if semantic['positive_summary'] and not aspects and len(scope['product_ids']) != 1:
+                plan.unsupported_reason = '具体好评总结需要明确一款商品，请指定商品 ID。'
+                return plan
+            if ((len(aspects) == 1 and sentiment in ('positive', 'negative') and not semantic['content_detail']) or semantic['positive_summary']) and not semantic['topic'] and len(scope['product_ids']) == 1:
+                add('get_aspect_drilldown', product_ids=scope['product_ids'], aspect=aspects[0] if len(aspects) == 1 else None, sentiment=sentiment)
             else:
                 add("get_opinion_breakdown", aspect=aspects[0] if len(aspects) == 1 else None,
                     sentiment=sentiment or "all", topic=semantic["topic"])

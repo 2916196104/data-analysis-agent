@@ -69,6 +69,7 @@ class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
 
     def run_local(self, question, *, scope=None, context=None, settings=SETTINGS):
         with patch('openai.OpenAI', side_effect=AssertionError('no external calls')), \
+             patch('data_analysis_agent.agents.review_topics._call', side_effect=exact_topic_response), \
              patch('data_analysis_agent.agents.reviews.create_llm', side_effect=AssertionError('no planning model')):
             return run_review_agent(self.db, question, scope=scope or self.scope(), settings=replace(settings, semantic_parser_enabled=False), conversation_context=context)
 
@@ -81,18 +82,19 @@ class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
             with self.subTest(question=question):
                 result = self.run_local(question)
                 self.assertEqual(result['status'], 'ok', result.get('error'))
-                self.assertEqual(result['query_plan']['required_tools'], ['get_opinion_breakdown'])
-                self.assertEqual(result['user_intent']['query_type'], 'opinion_breakdown')
+                expected = 'aspect_drilldown' if sentiment == 'positive' and '制冷' not in question else 'opinion_breakdown'
+                self.assertEqual(result['query_plan']['required_tools'], ['get_' + expected])
+                self.assertEqual(result['user_intent']['query_type'], expected)
                 data = result['results']['r1']['data']
                 self.assertEqual((data['aspect'], data['sentiment'], data['total']), (aspect, sentiment, 2))
-                self.assertEqual(data['groups'][0]['review_count'], 2)
+                self.assertEqual(data['topics' if expected == 'aspect_drilldown' else 'groups'][0]['review_count'], 2)
                 self.assertTrue(all(opinion['sentiment'] == sentiment and opinion['aspect'] == aspect
                                     for item in data['items'] for opinion in item['opinions']))
                 answer = result['public_answer']
                 self.assertIn(self.quotes[aspect][sentiment == 'positive'], answer['summary'])
                 self.assertIn('分母 2 条', answer['highlights'][0]['text'])
                 self.assertEqual(result['answer_generation']['attempts'], 0)
-                self.assertEqual(result['topic_model_calls'], 0)
+                self.assertEqual(result['topic_model_calls'], 2 if expected == 'aspect_drilldown' else 0)
         self.assertEqual(hashlib.sha256(self.db.read_bytes()).hexdigest(), digest)
 
     def test_a_queue_followup_uses_parent_and_content_query(self):
@@ -106,7 +108,8 @@ class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(result['query_plan']['required_tools'], ['get_opinion_breakdown'])
         self.assertEqual(result['scope']['product_ids'], ['DIM-A'])
         self.assertIn('客服回复慢', result['public_answer']['summary'])
-        positive = self.work('客服好评具体体现在哪些方面？', parent=second['task_id'])
+        with patch('data_analysis_agent.agents.review_topics._call', side_effect=exact_topic_response):
+            positive = self.work('客服好评具体体现在哪些方面？', parent=second['task_id'])
         self.assertEqual(positive['status'], 'succeeded', positive.get('error'))
         self.assertEqual(positive['result']['results']['r1']['data']['sentiment'], 'positive')
         self.assertIn('客服解答清楚', positive['result']['public_answer']['summary'])

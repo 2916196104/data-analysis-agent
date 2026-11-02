@@ -12,15 +12,17 @@ import { chromium } from 'playwright';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const scopeMode = process.env.E2E_PRODUCT_SCOPE === '1';
+const summaryMode = process.env.E2E_POSITIVE_SUMMARY === '1';
 const answerMode = process.env.E2E_ANSWER_PHASE3 === '1';
-const topicMode = answerMode || process.env.E2E_TOPIC_PHASE2 === '1';
+const topicMode = summaryMode || answerMode || process.env.E2E_TOPIC_PHASE2 === '1';
 const intentMode = scopeMode || topicMode || process.env.E2E_INTENT_PHASE1 === '1';
 await mkdir(path.join(root, 'output/playwright'), { recursive: true });
-const out = await mkdtemp(path.join(root, `output/playwright/${scopeMode ? 'product-scope' : answerMode ? 'answer-phase3' : topicMode ? 'topics-phase2' : intentMode ? 'intent-phase1' : 'pros-cons'}-`));
+const out = await mkdtemp(path.join(root, `output/playwright/${summaryMode ? 'positive-summary' : scopeMode ? 'product-scope' : answerMode ? 'answer-phase3' : topicMode ? 'topics-phase2' : intentMode ? 'intent-phase1' : 'pros-cons'}-`));
 const python = path.join(root, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 const children = [], logs = [], errors = [], screenshots = [];
 const report = { source: 'isolated SQLite + real API/worker + Vite/Chromium; simulated product reviews', artifacts: out };
 let browser, page, modelCalls = 0, semanticCalls = 0;
+let summaryThemes = [];
 const model = createServer(async (request, response) => {
   modelCalls++;
   if (!intentMode) { response.writeHead(503); response.end(); return; }
@@ -44,19 +46,25 @@ const model = createServer(async (request, response) => {
     } else if (payload.stage === 'answer_support_review') {
       message = { role: 'assistant', content: JSON.stringify({ decisions: payload.insights.map((_, index) => ({ index, supported: true, reason: 'supported' })) }) };
     } else if (payload.stage === 'topic_discovery') {
-      const definitions = [['t1', '制冷速度', ['降温很快', '制冷速度快']], ['t2', '运行噪声', ['运行声音小']], ['t3', '配送时效', ['物流速度慢', '物流发货慢']]];
-      message = { role: 'assistant', content: JSON.stringify({ themes: definitions.flatMap(([key, name, quotes]) => {
-        const support_ids = payload.opinions.filter(row => quotes.includes(row.quote)).map(row => row.opinion_id);
-        const definition = name === '制冷速度' ? '关注开始运行后的温度变化速度'
+      const definitions = summaryMode ? summaryThemes.map(([aspect, name, quotes], i) => [`t${i + 1}`, name, quotes, aspect])
+        : [['t1', '制冷速度', ['降温很快', '制冷速度快']], ['t2', '运行噪声', ['运行声音小']], ['t3', '配送时效', ['物流速度慢', '物流发货慢']]];
+      message = { role: 'assistant', content: JSON.stringify({ themes: definitions.flatMap(([key, name, quotes, aspect]) => {
+        const support_ids = payload.opinions.filter(row => quotes.includes(row.quote) && (!aspect || row.aspect === aspect)).map(row => row.opinion_id);
+        const definition = summaryMode ? `${name}是这些买家认可的具体体验` : name === '制冷速度' ? '关注开始运行后的温度变化速度'
           : name === '运行噪声' ? '关注设备运行期间的声音强弱' : `${name}的直接评价`;
-        return support_ids.length ? [{ key, name, definition, support_ids: support_ids.slice(0, 6) }] : [];
+        return support_ids.length ? [{ n: name, d: definition, q: support_ids.slice(0, 2) }] : [];
       }) }) };
     } else if (payload.stage === 'topic_classification') {
-      const mapping = { 降温很快: 't1', 制冷速度快: 't1', 运行声音小: 't2', 物流速度慢: 't3', 物流发货慢: 't3' };
-      message = { role: 'assistant', content: JSON.stringify({ assignments: payload.opinions.map(row => {
-        const key = mapping[row.quote]; const assigned = payload.themes.some(theme => theme.key === key);
+      const mapping = { 降温很快: '制冷速度', 制冷速度快: '制冷速度', 运行声音小: '运行噪声', 物流速度慢: '配送时效', 物流发货慢: '配送时效' };
+      const assignments = payload.opinions.map(row => {
+        const index = summaryThemes.findIndex(([aspect, , quotes]) => aspect === row.aspect && quotes.includes(row.quote));
+        const name = summaryMode ? summaryThemes[index]?.[1] : mapping[row.quote];
+        const key = payload.themes.find(theme => theme.name === name)?.key; const assigned = !!key;
         return { opinion_id: row.opinion_id, state: assigned ? 'assigned' : 'uncertain', matches: assigned ? [{ key, start: 0, end: row.quote.length }] : [] };
-      }) }) };
+      });
+      message = { role: 'assistant', content: JSON.stringify({ rows: assignments.map(row => ({ i: row.opinion_id,
+        s: row.state === 'assigned' ? 'a' : 'u', m: row.matches.map(match => [match.key,
+          payload.opinions.find(unit => unit.opinion_id === row.opinion_id).quote.slice(match.start, match.end)]) })) }) };
     } else if (payload.schema) {
       semanticCalls++;
       assert.ok(!raw.includes('file_sha256') && !raw.includes('raw_json'));
@@ -129,8 +137,14 @@ meta.write_text('\\n'.join(json.dumps({'parent_asin': product, 'title': title, '
     ('DEMO-A','美的 1.5 匹风酷空调（模拟数据）','美的'), ('DEMO-B','小米 米家新一级能效空调（模拟数据）','小米'),
     ('DEMO-A2','美的 3匹风酷空调（模拟数据）','美的'), ('DEMO-B2','小米 3匹空调（模拟数据）','小米')]),encoding='utf-8')
 import_amazon_jsonl(out/'reviews.sqlite3',meta_path=meta,dataset_version='SIMULATED-frontend')
+if ${summaryMode ? 'True' : 'False'}:
+    sys.path.insert(0,'tests')
+    from test_review_positive_summary import add_summary_reviews, THEMES
+    add_summary_reviews(out/'reviews.sqlite3',out,product='DEMO-A',dataset='SIMULATED-frontend',identity=identity)
+    (out/'summary-themes.json').write_text(json.dumps(THEMES,ensure_ascii=False),encoding='utf-8')
 (out/'business-before.sha256').write_text(hashlib.sha256((out/'reviews.sqlite3').read_bytes()).hexdigest())
 `, out], { cwd: root, windowsHide: true, env: { ...process.env, PYTHONUTF8: '1' } });
+  if (summaryMode) summaryThemes = JSON.parse(await readFile(path.join(out, 'summary-themes.json'), 'utf8'));
   const apiPort = await port(), webPort = await port();
   const api = `http://127.0.0.1:${apiPort}/api/v1`, web = `http://127.0.0.1:${webPort}`;
   await new Promise(resolve => model.listen(0, '127.0.0.1', resolve));
@@ -250,6 +264,48 @@ main()
       'short name and natural-language prefix', 'outside product confirmation before query', 'unknown series rejected',
       'manual product switch queries new ID without old context', 'historical answer and scope survive switch/reload',
       '1440/1024/768 layouts and opinion tables', 'business database hash unchanged'];
+  } else if (summaryMode) {
+    const rounds = []; report.rounds = rounds;
+    await send('DEMO-A的好评集中在什么地方？');
+    for (const [question, aspect] of [['给出评论中具体的好评', null], ['物流的好评体现在哪里？', 'logistics'],
+      ['客服的好评体现在哪里？', 'service'], ['总结这个商品的整体好评', null]]) {
+      const task = await send(question);
+      assert.equal(task.result.status, 'ok', task.result.answer);
+      assert.equal(task.result.validation.status, 'passed');
+      assert.deepEqual(task.result.scope.product_ids, ['DEMO-A']);
+      const data = task.result.results.r1.data;
+      assert.equal(data.aspect, aspect); assert.equal(data.sentiment, 'positive');
+      assert.equal(task.result.analysis_intent, 'aspect_drilldown');
+      assert.ok(task.result.topic_model_calls > 0 && task.result.topic_model_calls <= 5);
+      assert.equal(task.result.answer_generation.attempts, aspect === null ? 0 : 1);
+      const expected = aspect === 'logistics' ? ['发货及时', '送达较快'] : aspect === 'service' ? ['客服响应及时', '解答耐心']
+        : summaryThemes.map(([, name]) => name);
+      for (const name of expected) assert.ok(task.result.public_answer.summary.includes(name), task.result.public_answer.summary);
+      assert.ok(data.opinions.every(row => row.sentiment === 'positive' && (!aspect || row.aspect === aspect)));
+      rounds.push(task);
+    }
+    const latest = page.locator('.chat-turn').last();
+    await latest.getByRole('region', { name: '分析回答' }).getByText(/发货及时/).first().waitFor();
+    const beforeText = await latest.getByRole('region', { name: '分析回答' }).innerText();
+    await latest.locator('.chat-report > summary').click();
+    for (const width of [1440, 1024, 768]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await latest.getByRole('region', { name: '分析回答' }).evaluate(node => node.scrollIntoView({ block: 'start' }));
+      await page.screenshot({ path: path.join(out, `summary-${width}.png`), animations: 'disabled' });
+      await latest.locator('.ant-table-wrapper').first().scrollIntoViewIfNeeded();
+      assert.equal(await latest.locator('.ant-table-row').count(), 8);
+      await page.screenshot({ path: path.join(out, `summary-table-${width}.png`), animations: 'disabled' });
+      const measure = await page.evaluate(() => ({ width: innerWidth, documentWidth: document.documentElement.scrollWidth,
+        inputBottom: document.querySelector('.chat-input-area').getBoundingClientRect().bottom }));
+      assert.ok(measure.documentWidth <= width + 1); assert.ok(measure.inputBottom <= 1001); screenshots.push(measure);
+    }
+    const beforeCalls = modelCalls;
+    await page.reload(); await page.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
+    await page.locator('.chat-turn').last().getByRole('region', { name: '分析回答' }).waitFor();
+    assert.equal(await page.locator('.chat-turn').last().getByRole('region', { name: '分析回答' }).innerText(), beforeText);
+    assert.equal(modelCalls, beforeCalls);
+    report.checks = ['four real API/worker summary rounds', 'product/positive context inherited', 'logistics and service synonyms merged',
+      'whole-product six-aspect summary', 'per-aspect denominators and sources', '1440/1024/768 screenshots', 'history restored without model calls', 'business database unchanged'];
   } else if (topicMode) {
     await send('美的空调好评主要集中在哪些方面？');
     const task = await send('使用效果具体好在哪里？');
