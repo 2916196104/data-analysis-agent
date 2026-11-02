@@ -116,8 +116,14 @@ def model_identity(
 def current_reviews_sql(
     connection: Any,
     identity: tuple[str, str, str],
+    *,
+    include_opinion_provenance: bool = False,
 ) -> tuple[str, tuple[str, str, str]]:
     """选择当前正文和指定模型版本；人工空快照仍代表有效的空结果。"""
+    # 默认列保持不变，只有内部语料读取需要真实来源行 ID。
+    model_provenance = (", 'model' opinion_source, o.id model_opinion_id, NULL human_opinion_id"
+                        if include_opinion_provenance else "")
+    human_provenance = ", 'human', NULL, o.id" if include_opinion_provenance else ""
     expected = {"review_workbench_schema", "review_human_reviews", "review_human_opinions"}
     names = table_names(connection) & expected
     if names:
@@ -130,8 +136,8 @@ def current_reviews_sql(
         human_columns = "h.id revision_id, COALESCE(h.action,'unreviewed') human_status,"
         human_join = """LEFT JOIN review_human_reviews h ON h.id=(
         SELECT MAX(id) FROM review_human_reviews WHERE annotation_id=a.id)"""
-        human_opinions = """UNION ALL
-        SELECT c.id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end
+        human_opinions = f"""UNION ALL
+        SELECT c.id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end{human_provenance}
         FROM current c JOIN review_human_opinions o ON o.human_review_id=c.revision_id
     """
     else:
@@ -152,7 +158,7 @@ def current_reviews_sql(
         LEFT JOIN attempts a ON a.review_id=r.id AND a.rn=1
         {human_join}
     ), effective_opinions AS (
-        SELECT c.id review_id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end
+        SELECT c.id review_id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end{model_provenance}
         FROM current c JOIN review_opinions o ON o.annotation_id=c.annotation_id
         WHERE c.processing_status='success' AND c.revision_id IS NULL
         {human_opinions}
