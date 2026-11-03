@@ -1,0 +1,1908 @@
+{
+  "label_version": "human-relevance-v1",
+  "manifest_sha256": "a17e77d4f7c5d83c5b1c80bad318b374432f5750a9151c826f451feb52b5c3f8",
+  "run_id": "a2f4907ec8cacc6bae4b52f8d89a9ee557ae09f1f4e7a7f3c6f3803b34848f33",
+  "scope_sha256": "167e14701623dc709a96ce8761a84f7a89c8eaba9c34f6f71025e2dc89e7f766",
+  "human_confirmed": true,
+  "reviewer": "小小小超人",
+  "queries": [
+    {
+      "id": "Q01",
+      "evidence_status": "answerable",
+      "note": "当前已索引语料中存在直接相关证据。排名2反映客服反复承诺24小时反馈，但最终未提供实质性反馈结果。排名1和排名5涉及多次联系或客服推脱，仅部分相关。排名3和排名4主要描述安装延迟，缺少售后回复时效证据。"
+    },
+    {
+      "id": "Q02",
+      "evidence_status": "answerable",
+      "note": "当前已索引语料中存在直接描述客服服务态度差的相关证据。排名1明确反映客服态度不好、敷衍回复；排名2明确描述客服推脱、售后态度差；排名3直接描述客服态度恶劣、说话难听。排名4仅笼统评价服务差，排名5主要涉及售后推脱不处理问题，均缺少直接的沟通态度描述，因此仅部分相关。无过滤与带过滤的Top-5结果完全相同，当前查询未观察到过滤对检索排序和相关性的改善。由于索引覆盖率仅18.33%，不能据此推断完整评论数据中此类问题的发生比例。"
+    },
+    {
+      "id": "Q03",
+      "evidence_status": "no_known_relevant",
+      "note": "当前两组Top-5检索结果均未发现客服耐心解答或积极协助解决问题的直接正向证据。无过滤检索返回的5条观点全部为负向客服反馈；带过滤检索虽然返回5条正向服务观点，但主要涉及安装师傅、物流人员、保修期限等内容，与客服耐心解答和问题解决不符。说明当前情感与服务维度过滤尚不能准确限定具体服务对象。由于当前索引仅覆盖1091条有效观点中的200条，无法排除未索引语料中存在相关正向证据，建议后续检查索引覆盖情况及客服服务子维度的检索表现。"
+    },
+    {
+      "id": "Q04",
+      "evidence_status": "answerable",
+      "note": "当前已索引语料中存在购买后售后无人跟进或不予处理的直接证据。Review 9975 明确描述商品到货后无人安装，反映问题后始终未得到解决；Review 10013 明确描述向客服反映安装问题后遭到反复推脱、不予处理。其余部分结果涉及安装延迟、无人主动安排或物流异常，但缺少明确的售后反馈及处理过程证据。两种检索方式均能找到直接相关证据，但部分结果仍存在售后处理与普通安装、物流问题之间的语义混淆。当前索引覆盖率仅18.33%，无法据此判断完整评论数据中此类问题的发生比例。"
+    },
+    {
+      "id": "Q05",
+      "evidence_status": "answerable",
+      "note": "当前已索引语料中存在快速配送的直接相关证据。排名1明确评价送货速度快；排名2明确描述第一天下单、第二天到货，直接符合快速收货的判断标准。排名3仅提及27号收到商品，缺少下单日期；排名5描述次日完成安装，但未明确配送时间，均仅部分相关。排名4仅评价配送人员态度，与配送速度无关。无过滤与带过滤Top-5结果完全相同，当前查询未观察到过滤带来的质量改善。由于索引覆盖率仅18.33%，不能据此推断完整评论数据中的快速配送评价比例。"
+    },
+    {
+      "id": "Q06",
+      "evidence_status": "answerable",
+      "note": "当前已索引语料中存在明确的配送延误与未收到货的相关证据，包括未实际收货却被签收、直接抱怨送货缓慢、等待八天才到货，以及补发商品未按承诺时间送达等情况。无过滤结果中有一条仅涉及到货后的安装延迟，不属于配送问题；带过滤检索排除了该结果，并补充了直接相关的配送延误证据。当前结果足以确认存在此类负面反馈，但由于索引覆盖率仅18.33%，不能推断其在完整数据集中的发生比例。"
+    },
+    {
+      "id": "Q07",
+      "evidence_status": "answerable",
+      "note": "当前已索引语料中存在配送承诺时间被推迟的直接证据。Review 9979 明确描述原定27号送货，随后被推迟至29号，经消费者要求调整为28号，直接符合配送日期变更的考察标准。排名1、3、4反映物流速度缓慢或到货等待时间过长，但缺少承诺日期变化的明确证据，仅部分相关。排名5属于商品到货后的安装安排延迟，与配送时间推迟无关。无过滤与带过滤Top-5结果完全相同，未观察到过滤对本题检索排序或严格相关性的改善。当前索引覆盖率仅18.33%，无法判断此类问题在完整评论数据中的发生频率，也不能仅凭本条证据认定存在反复延期现象。"
+    },
+    {
+      "id": "Q08",
+      "evidence_status": "unreviewed",
+      "note": ""
+    },
+    {
+      "id": "Q09",
+      "evidence_status": "unreviewed",
+      "note": ""
+    },
+    {
+      "id": "Q10",
+      "evidence_status": "unreviewed",
+      "note": ""
+    },
+    {
+      "id": "Q11",
+      "evidence_status": "answerable",
+      "note": "当前已索引语料中存在明确描述空调制冷速度快、制冷效果好的正向证据。无过滤Top-5中排名3、4直接相关，但排名1、2为负向制冷评价，排名5为制热评价，存在情感方向及制冷、制热语义混淆。带过滤检索成功排除负向制冷评价，并将直接相关的正向制冷证据提升至排名1、2、4、5；但排名3仍为制热评价，说明effectiveness/positive过滤无法进一步区分制冷与制热。当前索引覆盖率仅18.33%，不能据此判断完整评论数据中的制冷好评比例。"
+    },
+    {
+      "id": "Q12",
+      "evidence_status": "answerable",
+      "note": "当前已索引语料中存在明确反映空调制冷效果差、长时间运行仍不凉快的直接证据。Review 9978 明确描述空调设置16度并运行一天后仍不凉快；Review 9960、9951也反映空调不凉快或开着不冷，但未说明具体运行时长。无过滤排名4、5涉及制热功能，与本题无关。带过滤检索排除了这两条结果，并补充了安装后短期不制冷以及笼统使用体验不佳的反馈，使Top-5严格相关结果由3条增加至4条。当前索引覆盖率仅18.33%，不能据此推断完整评论数据中此类问题的发生比例。"
+    },
+    {
+      "id": "Q13",
+      "evidence_status": "unreviewed",
+      "note": ""
+    },
+    {
+      "id": "Q14",
+      "evidence_status": "answerable",
+      "note": "当前已索引语料中存在商品价格划算、购买实惠的直接正向证据。Review 9902明确描述活动购买特别合适、物美价廉；Review 9903明确评价实惠，均符合本题关于划算及购买价值的判断标准。Review 9901仅表达推荐意愿，Review 9909仅评价价格合理，缺少更明确的性价比证据，按严格标准仅部分相关。无过滤排名4、5涉及安装服务，与价格价值判断无关。带过滤检索已展示的结果排除了安装服务干扰，并增加了直接相关的实惠评价，但排名5尚未评审，需补充确认。当前索引覆盖率仅18.33%，不能据此推断完整评论数据中的高性价比评价比例。"
+    },
+    {
+      "id": "Q15",
+      "evidence_status": "unreviewed",
+      "note": ""
+    },
+    {
+      "id": "Q16",
+      "evidence_status": "no_known_relevant",
+      "note": "当前已检查的检索结果中，未发现明确描述纸箱破裂、外包装破损或包装损坏的直接证据。无过滤Top-5主要涉及商品到货时间、配送速度及整体质量评价，与包装破损无关。带过滤已展示的结果涉及纸箱内缺少外机固定螺丝及额外收费问题，属于配件完整性或安装费用争议，并非包装物理破损。由于当前索引仅覆盖1091条有效观点中的200条，尚不能排除未索引语料中存在包装破损反馈。建议检查剩余带过滤结果，并在后续覆盖评估中核查包装破损相关原始评论。"
+    },
+    {
+      "id": "Q17",
+      "evidence_status": "no_known_relevant",
+      "note": "当前已检查的检索结果中未发现明确描述包装完整、包装严实或运输保护到位的正向证据。无过滤Top-5全部涉及商品质量、推荐意愿、配送人员态度、价格及配送速度，与包装完整性不相关；带过滤packaging/positive未返回结果，呈现当前索引及标签范围内的正向包装证据缺失。由于索引仅覆盖1091条有效观点中的200条，无法判断未索引语料是否存在包装好评。建议后续核查完整语料中的包装完好、包装严实、保护到位、没有破损等表达，并检查包装维度的正向标注覆盖情况。在完成覆盖核查前，不应认定完整数据集不存在此类反馈。"
+    },
+    {
+      "id": "Q18",
+      "evidence_status": "answerable",
+      "note": "当前已索引语料中存在商品到货后安装服务延迟的直接证据。Review 9963明确描述收货超过一天仍无人安装；Review 9948反映到货几天后安装人员仍未上门；Review 9975明确描述货已到达但无人安装，反馈后仍未解决。Review 9987和9925均反映安装人员未上门或无人预约，但当前观点未明确说明商品是否到货，暂评为部分相关，建议核查完整原文。无过滤与带过滤Top-5结果及排序完全相同，当前未观察到结构化过滤带来的检索改善。相关结果均属于service/negative，说明本题可识别安装服务问题，但不能将其误归类为物流未到货。当前索引覆盖率仅18.33%，不能据此推断完整评论数据中的安装延迟发生比例。"
+    },
+    {
+      "id": "Q19",
+      "evidence_status": "unreviewed",
+      "note": ""
+    },
+    {
+      "id": "Q20",
+      "evidence_status": "answerable",
+      "note": "当前已索引语料中存在明确的制冷不足及无法有效降温的负向证据。无过滤排名1、2、3分别描述制冷不行、制冷效果差及安装不久后不制冷；带过滤进一步检索到空调设置16度并运行一天仍不凉快的直接证据。无过滤排名5为正向制冷评价，与本题要求的负向证据方向相反。带过滤检索排除了该正向干扰，并提高了严格相关结果数量，但仍存在笼统使用体验与具体制冷问题的语义混淆。当前索引覆盖率仅18.33%，不能推断完整评论数据中的制冷问题发生比例。"
+    },
+    {
+      "id": "Q21",
+      "evidence_status": "answerable",
+      "note": "当前已索引语料中存在明确的制冷不足及无法有效降温的负向证据。无过滤排名1、2、3分别描述制冷不行、制冷效果差及安装不久后不制冷；带过滤进一步检索到空调设置16度并运行一天仍不凉快的直接证据。无过滤排名5为正向制冷评价，与本题要求的负向证据方向相反。带过滤检索排除了该正向干扰，并提高了严格相关结果数量，但仍存在笼统使用体验与具体制冷问题的语义混淆。当前索引覆盖率仅18.33%，不能推断完整评论数据中的制冷问题发生比例。"
+    },
+    {
+      "id": "Q22",
+      "evidence_status": "unreviewed",
+      "note": ""
+    },
+    {
+      "id": "Q23",
+      "evidence_status": "unreviewed",
+      "note": ""
+    },
+    {
+      "id": "Q24",
+      "evidence_status": "unreviewed",
+      "note": ""
+    }
+  ],
+  "judgments": [
+    {
+      "query_id": "Q01",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:5e9b0b0bd2c6488a4f3210a33f61c235f72045a7974caae12fef3eaab2b1356c",
+      "grade": 1,
+      "note": "A 语义：评论涉及多次电话沟通及安装延迟，但未明确说明售后是否回复或回复是否延迟，仅部分相关。"
+    },
+    {
+      "query_id": "Q01",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:912ab26ea62189692db84b6f310c62dd49548b238da64a4a6a4bd2b0ac47c3d1",
+      "grade": 2,
+      "note": "直接相关：客服反复承诺24小时反馈，但最终没有实质性反馈结果，符合反复联系售后却得不到有效反馈的场景。"
+    },
+    {
+      "query_id": "Q01",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:448657827e2b3fb316212c5cfc3851c02f2a1bb05513d63655a06477e9abaca4",
+      "grade": 1,
+      "note": "A 语义：评论涉及多次电话沟通及安装延迟，但未明确说明售后是否回复或回复是否延迟，仅部分相关。"
+    },
+    {
+      "query_id": "Q01",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:a4909f9f365ade84aac9401e1f62c6780f7edaac5a7db8d936e96ad75ef3adfb",
+      "grade": 0,
+      "note": "A 语义：评论反映无人安排安装、需要自行联系安装人员，但未明确涉及售后回复情况，与当前问题不直接相关。"
+    },
+    {
+      "query_id": "Q01",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:46a955c0c4cf7dd12b9a3e906575c7a801a72279550f905fa1cf7577763c44a4",
+      "grade": 1,
+      "note": "A 语义：评论提到向客服反馈问题后遭到反复推脱、不予处理，涉及售后反馈质量，但没有明确说明客服回复延迟或不回复，因此仅部分相关。"
+    },
+    {
+      "query_id": "Q01",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:5e9b0b0bd2c6488a4f3210a33f61c235f72045a7974caae12fef3eaab2b1356c",
+      "grade": 1,
+      "note": "A 语义：评论涉及安装延迟及多次电话沟通，但未明确说明客服回复延迟或不回复，缺少直接的回复时效证据，仅部分相关。"
+    },
+    {
+      "query_id": "Q01",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:912ab26ea62189692db84b6f310c62dd49548b238da64a4a6a4bd2b0ac47c3d1",
+      "grade": 2,
+      "note": "直接相关：评论明确反映客服反复承诺24小时反馈，但最终没有实质性反馈结果，符合售后反馈延迟或缺失的判断标准。"
+    },
+    {
+      "query_id": "Q01",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:448657827e2b3fb316212c5cfc3851c02f2a1bb05513d63655a06477e9abaca4",
+      "grade": 2,
+      "note": "直接相关：评论明确描述咨询客服后得不到人工回复，一直只有自动回复，符合联系售后但无法获得有效回应的场景。"
+    },
+    {
+      "query_id": "Q01",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:46a955c0c4cf7dd12b9a3e906575c7a801a72279550f905fa1cf7577763c44a4",
+      "grade": 2,
+      "note": "直接相关：评论反映客服始终使用机器人回复，消费者无法获得针对问题的有效解答。虽然存在自动回复，但缺少实质性回应，符合售后无有效反馈的场景。"
+    },
+    {
+      "query_id": "Q01",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:20a354dc01c079203f35b9e3bebc2f182db62fbd776f15bd63c73336e3ff5ea2",
+      "grade": 1,
+      "note": "A 语义：评论涉及向客服反映问题后遭到反复推脱、不予处理，但未明确说明客服回复延迟或不回复，属于售后处理不积极，仅部分相关。"
+    },
+    {
+      "query_id": "Q02",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:8f30868ed56023f5de0cac89b1bcf891a8dccf47cb0c7eeb46de94bcd3e37c94",
+      "grade": 2,
+      "note": "直接相关：评论明确指出客服态度非常不好，并存在敷衍回复的行为，直接描述了客服服务态度差，符合问题的判断标准。"
+    },
+    {
+      "query_id": "Q02",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:41d9c6a2eadc994dfd96e471cc0a879ee201a50366a9cda3ba03b2dd84f5bc28",
+      "grade": 2,
+      "note": "直接相关：评论明确指出客服遇到问题时推脱，并直接评价售后态度差，能够作为客服服务态度不佳的负面证据。"
+    },
+    {
+      "query_id": "Q02",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:6fdef8e8d183778e244ef14087e7ae612b88a2b1fc71392b13c4deb9eef9e02e",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商家客服态度恶劣、说话难听，直接符合客服沟通态度差的考察目标，相关性很高。"
+    },
+    {
+      "query_id": "Q02",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:de163981307cbcb13baac37c55e4bc169f10eb275ced7cc2adbaa1fa1e907ae3",
+      "grade": 1,
+      "note": "A 语义：评论仅笼统评价服务差，没有明确指出客服人员的沟通态度或具体言语行为，无法区分态度差与其他服务问题，仅部分相关。"
+    },
+    {
+      "query_id": "Q02",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:7e000c096962eae7f1abcbc6ee31d64861f6508a2815442c3003d1114a83d1f9",
+      "grade": 1,
+      "note": "A 语义：结合原文，评论主要描述安装人员不联系、客服反复推脱且不处理问题，体现售后处理质量差，但未直接描述客服说话不耐烦或沟通态度，属于部分相关。"
+    },
+    {
+      "query_id": "Q02",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:8f30868ed56023f5de0cac89b1bcf891a8dccf47cb0c7eeb46de94bcd3e37c94",
+      "grade": 2,
+      "note": "直接相关：评论明确指出客服态度非常不好，并存在敷衍回复的行为，直接描述了客服服务态度差，符合问题的判断标准。"
+    },
+    {
+      "query_id": "Q02",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:41d9c6a2eadc994dfd96e471cc0a879ee201a50366a9cda3ba03b2dd84f5bc28",
+      "grade": 2,
+      "note": "直接相关：评论明确指出客服遇到问题时推脱，并直接评价售后态度差，能够作为客服服务态度不佳的负面证据。"
+    },
+    {
+      "query_id": "Q02",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:6fdef8e8d183778e244ef14087e7ae612b88a2b1fc71392b13c4deb9eef9e02e",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商家客服态度恶劣、说话难听，直接符合客服沟通态度差的考察目标，相关性很高。"
+    },
+    {
+      "query_id": "Q02",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:de163981307cbcb13baac37c55e4bc169f10eb275ced7cc2adbaa1fa1e907ae3",
+      "grade": 1,
+      "note": "A 语义：评论仅笼统评价服务差，没有明确指出客服人员的沟通态度或具体言语行为，无法区分态度差与其他服务问题，仅部分相关。"
+    },
+    {
+      "query_id": "Q02",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:7e000c096962eae7f1abcbc6ee31d64861f6508a2815442c3003d1114a83d1f9",
+      "grade": 1,
+      "note": "A 语义：结合原文，评论主要描述安装人员不联系、客服反复推脱且不处理问题，体现售后处理质量差，但未直接描述客服说话不耐烦或沟通态度，属于部分相关。"
+    },
+    {
+      "query_id": "Q03",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:3d30869d0faf6e2b9d30c7d382c64e499049e5a7708bbc01bd3d3da34ff52e41",
+      "grade": 0,
+      "note": "A 语义：评论描述联系客服后只有机器人回答，属于负向客服服务反馈，未体现客服耐心解答或积极解决问题，不符合本题要求的正向服务证据。"
+    },
+    {
+      "query_id": "Q03",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:8f30868ed56023f5de0cac89b1bcf891a8dccf47cb0c7eeb46de94bcd3e37c94",
+      "grade": 0,
+      "note": "A 语义：评论明确描述客服态度不好、敷衍回复，属于负向服务反馈，与本题要求的耐心解答和积极协助解决问题的正向证据相反。"
+    },
+    {
+      "query_id": "Q03",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:448657827e2b3fb316212c5cfc3851c02f2a1bb05513d63655a06477e9abaca4",
+      "grade": 0,
+      "note": "A 语义：评论反映客服不回复、仅提供自动回复，属于负向服务反馈，不能作为客服耐心解释或协助解决问题的正向证据。"
+    },
+    {
+      "query_id": "Q03",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:46a955c0c4cf7dd12b9a3e906575c7a801a72279550f905fa1cf7577763c44a4",
+      "grade": 0,
+      "note": "A 语义：评论描述客服长期使用机器人回复，用户无法获得有效解答，属于负向客服体验，不符合本题的正向服务评审标准。"
+    },
+    {
+      "query_id": "Q03",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:41d9c6a2eadc994dfd96e471cc0a879ee201a50366a9cda3ba03b2dd84f5bc28",
+      "grade": 0,
+      "note": "A 语义：评论明确反映客服推脱问题、售后态度差，属于负向服务反馈，未体现耐心解释或协助解决问题。"
+    },
+    {
+      "query_id": "Q03",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:2f49818fc3ef217ebcaa91c599dc9cc0851cda67703f08107240a1d437e5156e",
+      "grade": 0,
+      "note": "A 语义：评论正面评价安装师傅的技术和服务质量，但未涉及客服人员耐心解答或协助解决问题，服务对象与本题不符。"
+    },
+    {
+      "query_id": "Q03",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:79d605251fe4ba11c9263d6812c2a3789e22d22db145c9fa746dad5f8401b627",
+      "grade": 0,
+      "note": "A 语义：评论描述安装师傅服务态度良好，属于正向安装服务反馈，但没有涉及客服人员的解答态度或问题解决过程，不符合本题标准。"
+    },
+    {
+      "query_id": "Q03",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:3fa1b1e98c67c6b78bf2a5fdf0316c92c981bc82ebf8146e1527995ffc16ee7c",
+      "grade": 0,
+      "note": "A 语义：该观点仅正面评价安装师傅和物流人员。原文反而明确描述客服态度不好、敷衍回复，因此不能作为客服耐心解释或协助解决问题的正向证据。"
+    },
+    {
+      "query_id": "Q03",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:58d76cde81809369765da11604c95db0beb2346cdbfb5fe50cc9f094c2d42f2c",
+      "grade": 0,
+      "note": "A 语义：评论描述产品保修服务期限较长，属于售后保障政策评价，没有涉及客服沟通态度、耐心解答或协助解决问题。"
+    },
+    {
+      "query_id": "Q03",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:4d1416ccbe626f91502a0d4f6457f7e7c46a940cf81c83cd931b7842028cc5a2",
+      "grade": 0,
+      "note": "A 语义：评论正面评价上门安装服务，但未描述客服人员是否耐心解释或帮助解决问题，属于其他服务环节的正向评价。"
+    },
+    {
+      "query_id": "Q04",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:196e622ef3fb591391ca8ef87dacc9347837db0d1442ba543206482f53926116",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商品到货后无人安装，并且已经向相关人员反映问题，但始终没有得到解决，直接符合购买后售后无人跟进、不予处理的场景。"
+    },
+    {
+      "query_id": "Q04",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:40ef88d12b3b17b21e537b0c817705f6d3923d215a250332c4989ca260f9c5b4",
+      "grade": 0,
+      "note": "A 语义：评论描述物流异常及未实际收到商品的问题，但未提及向售后反馈、客服跟进或问题处理情况，无法判断是否存在售后无人处理的问题。"
+    },
+    {
+      "query_id": "Q04",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:69590eb28c16058e8acb63f3eba61b0fba6183b80c8f7b0dc04aff3f10a419a4",
+      "grade": 1,
+      "note": "A 语义：评论描述商品到货后安装服务延迟，涉及购买后的服务问题，但没有明确说明是否联系售后、是否有人跟进或拒绝处理，仅部分相关。"
+    },
+    {
+      "query_id": "Q04",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:650aeda15d0be3f3499d97eff9dacc6fa77cb3b6059a2eb5f5bb7af67d02d522",
+      "grade": 1,
+      "note": "A 语义：评论反映商品购买后无人主动安排安装，需要消费者自行寻找安装人员，体现售后服务跟进不足，但未明确说明问题反馈后是否持续无人处理，仅部分相关。直接相关：评论明确描述商品到货后无人安装、安装人员不联系，并且向客服反映问题后遭到反复推脱、不予处理，直接符合售后缺乏有效跟进和问题解决的判断标准。"
+    },
+    {
+      "query_id": "Q04",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:20a354dc01c079203f35b9e3bebc2f182db62fbd776f15bd63c73336e3ff5ea2",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商品到货后无人安装、安装人员不联系，并且向客服反映问题后遭到反复推脱、不予处理，直接符合售后缺乏有效跟进和问题解决的判断标准。"
+    },
+    {
+      "query_id": "Q04",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:196e622ef3fb591391ca8ef87dacc9347837db0d1442ba543206482f53926116",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商品到货后无人安装，并且已经向相关人员反映问题，但始终没有得到解决，直接符合购买后售后无人跟进、不予处理的场景。"
+    },
+    {
+      "query_id": "Q04",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:69590eb28c16058e8acb63f3eba61b0fba6183b80c8f7b0dc04aff3f10a419a4",
+      "grade": 1,
+      "note": ""
+    },
+    {
+      "query_id": "Q04",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:650aeda15d0be3f3499d97eff9dacc6fa77cb3b6059a2eb5f5bb7af67d02d522",
+      "grade": 1,
+      "note": "A 语义：评论反映商品购买后无人主动安排安装，需要消费者自行寻找安装人员，体现售后服务跟进不足，但未明确说明问题反馈后是否持续无人处理，仅部分相关。"
+    },
+    {
+      "query_id": "Q04",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:20a354dc01c079203f35b9e3bebc2f182db62fbd776f15bd63c73336e3ff5ea2",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商品到货后无人安装、安装人员不联系，并且向客服反映问题后遭到反复推脱、不予处理，直接符合售后缺乏有效跟进和问题解决的判断标准。"
+    },
+    {
+      "query_id": "Q04",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:5e9b0b0bd2c6488a4f3210a33f61c235f72045a7974caae12fef3eaab2b1356c",
+      "grade": 1,
+      "note": "A 语义：评论描述商品到货后长时间无人安装，并涉及大量电话沟通，体现售后服务迟迟未落实，但未明确说明电话沟通对象及售后是否承诺跟进或拒绝处理，因此仅部分相关。"
+    },
+    {
+      "query_id": "Q05",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:a10eb38526bfbfec622429d6b47dcbd559be9c15c05b1f4bce2eaade80788866",
+      "grade": 2,
+      "note": "直接相关：评论明确描述送货速度较快，直接符合下单后快速收到商品的正向配送评价标准。"
+    },
+    {
+      "query_id": "Q05",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:3e208cc5ea56f7ba0a5d04e1ff49645900042be7f36136a99c0855ee16295399",
+      "grade": 2,
+      "note": "直接相关：评论明确表示第一天下单、第二天收到商品，具有清晰的下单与到货时间信息，直接证明配送速度较快。"
+    },
+    {
+      "query_id": "Q05",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:26ada2a14b8d730a4ada665455cd2d7cf533b4dea91df467535ef4f295c27f68",
+      "grade": 1,
+      "note": "A 语义：评论提到27号就收到商品，能够确认商品已经送达，但缺少具体下单日期，无法准确判断配送所用时间，因此仅部分相关。建议检查完整原文是否包含下单时间。"
+    },
+    {
+      "query_id": "Q05",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:afd22ff7ae75cbc7ef121f7deb7d52ce5fd6cc3ebab1655ad1640cd9b109aeff",
+      "grade": 0,
+      "note": "A 语义：评论仅正面评价送货人员的服务态度，没有描述物流配送速度或商品到货时间，与快速收货问题不相关。"
+    },
+    {
+      "query_id": "Q05",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:e1845a2a17404afeb266862e5b35d11ab45b6b700085e5828d78aeb86fdf95d9",
+      "grade": 1,
+      "note": "A 语义：评论描述14号下单、15号下午完成安装，说明购买到安装完成的过程较快，并可间接推断商品已到货，但未明确描述配送到货时间或速度，不能将安装快直接等同于送货快，仅部分相关。"
+    },
+    {
+      "query_id": "Q05",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:a10eb38526bfbfec622429d6b47dcbd559be9c15c05b1f4bce2eaade80788866",
+      "grade": 2,
+      "note": "直接相关：评论明确描述送货速度较快，直接符合下单后快速收到商品的正向配送评价标准。"
+    },
+    {
+      "query_id": "Q05",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:3e208cc5ea56f7ba0a5d04e1ff49645900042be7f36136a99c0855ee16295399",
+      "grade": 2,
+      "note": "直接相关：评论明确表示第一天下单、第二天收到商品，具有清晰的下单与到货时间信息，直接证明配送速度较快。"
+    },
+    {
+      "query_id": "Q05",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:26ada2a14b8d730a4ada665455cd2d7cf533b4dea91df467535ef4f295c27f68",
+      "grade": 1,
+      "note": "A 语义：评论提到27号就收到商品，能够确认商品已经送达，但缺少具体下单日期，无法准确判断配送所用时间，因此仅部分相关。建议检查完整原文是否包含下单时间。"
+    },
+    {
+      "query_id": "Q05",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:afd22ff7ae75cbc7ef121f7deb7d52ce5fd6cc3ebab1655ad1640cd9b109aeff",
+      "grade": 0,
+      "note": "A 语义：评论仅正面评价送货人员的服务态度，没有描述物流配送速度或商品到货时间，与快速收货问题不相关。"
+    },
+    {
+      "query_id": "Q05",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:e1845a2a17404afeb266862e5b35d11ab45b6b700085e5828d78aeb86fdf95d9",
+      "grade": 1,
+      "note": "A 语义：评论描述14号下单、15号下午完成安装，说明购买到安装完成的过程较快，并可间接推断商品已到货，但未明确描述配送到货时间或速度，不能将安装快直接等同于送货快，仅部分相关。"
+    },
+    {
+      "query_id": "Q06",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:40ef88d12b3b17b21e537b0c817705f6d3923d215a250332c4989ca260f9c5b4",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商品尚未实际收到，却已被标记为签收，属于未收到货的负面配送反馈，符合本题标准。"
+    },
+    {
+      "query_id": "Q06",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:cca02f94eb8dc081d30bb124607572bbcd7bf9d1c0aa76e9bcc1ed3dfc0a575a",
+      "grade": 2,
+      "note": "直接相关：评论明确表示送货很慢，直接反映配送速度不佳，符合配送延误或送货迟缓的考察目标。"
+    },
+    {
+      "query_id": "Q06",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:63ededbc8320911c80a3cf4c98ead556667131d4e45e034dfdf01511c04aec83",
+      "grade": 2,
+      "note": "直接相关：评论明确表示商品等待八天才送达，提供了具体的配送等待时间，并直接抱怨到货时间过长。"
+    },
+    {
+      "query_id": "Q06",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:5e9b0b0bd2c6488a4f3210a33f61c235f72045a7974caae12fef3eaab2b1356c",
+      "grade": 0,
+      "note": "A 语义：评论明确说明商品已经到货，问题在于到货后安装人员迟迟未上门，属于安装服务延迟，不属于商品配送延误。"
+    },
+    {
+      "query_id": "Q06",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:d668e441575e0a7e72981bd9c8665ad6f6a406855ac1333349718125262965e3",
+      "grade": 2,
+      "note": "直接相关：评论明确抱怨物流速度太慢，直接符合本题关于配送延误和到货迟缓的判断标准。"
+    },
+    {
+      "query_id": "Q06",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:40ef88d12b3b17b21e537b0c817705f6d3923d215a250332c4989ca260f9c5b4",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商品尚未实际收到，却已被标记为签收，属于未收到货的负面配送反馈，符合本题标准。"
+    },
+    {
+      "query_id": "Q06",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:cca02f94eb8dc081d30bb124607572bbcd7bf9d1c0aa76e9bcc1ed3dfc0a575a",
+      "grade": 2,
+      "note": "直接相关：评论明确表示送货很慢，直接反映配送速度不佳，符合配送延误或送货迟缓的考察目标。"
+    },
+    {
+      "query_id": "Q06",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:63ededbc8320911c80a3cf4c98ead556667131d4e45e034dfdf01511c04aec83",
+      "grade": 2,
+      "note": "直接相关：评论明确表示商品等待八天才送达，提供了具体的配送等待时间，并直接抱怨到货时间过长。"
+    },
+    {
+      "query_id": "Q06",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:d668e441575e0a7e72981bd9c8665ad6f6a406855ac1333349718125262965e3",
+      "grade": 2,
+      "note": "直接相关：评论明确抱怨物流速度太慢，直接符合本题关于配送延误和到货迟缓的判断标准。"
+    },
+    {
+      "query_id": "Q06",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:a4909f9f365ade84aac9401e1f62c6780f7edaac5a7db8d936e96ad75ef3adfb",
+      "grade": 2,
+      "note": "直接相关：评论描述补发商品原本承诺第二天送达，但等待三天仍无消息，属于补发配送未按承诺完成、物流信息或交付进度延迟的负面证据。"
+    },
+    {
+      "query_id": "Q07",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:cca02f94eb8dc081d30bb124607572bbcd7bf9d1c0aa76e9bcc1ed3dfc0a575a",
+      "grade": 1,
+      "note": "A 语义：评论明确反映配送速度较慢，但未提及原定送货时间、承诺日期或配送计划被推迟的情况，仅与配送延误主题部分相关。"
+    },
+    {
+      "query_id": "Q07",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:09e5dca9b7d5e6014bb330d36829ffcc30e5aa5a8c9d7c9c78116c4fe9fbb5b0",
+      "grade": 2,
+      "note": "直接相关：评论明确描述原定27号送货，后来被推迟至29号，经消费者要求调整为28号，存在明确的送货承诺日期变更，直接符合配送时间被推迟的考察标准。但仅能确认该次日期变更，不能据此认定多次反复延期。"
+    },
+    {
+      "query_id": "Q07",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:d668e441575e0a7e72981bd9c8665ad6f6a406855ac1333349718125262965e3",
+      "grade": 1,
+      "note": "A 语义：评论直接抱怨物流速度缓慢，但没有描述约定送货日期被调整或承诺时间未兑现的过程，属于一般性配送缓慢反馈，仅部分相关。"
+    },
+    {
+      "query_id": "Q07",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:63ededbc8320911c80a3cf4c98ead556667131d4e45e034dfdf01511c04aec83",
+      "grade": 0,
+      "note": "A 语义：评论明确描述等待八天才收到商品，说明配送耗时较长，但未提供原先承诺的到货日期，无法判断是否发生送货时间被推迟的情况，仅部分相关。"
+    },
+    {
+      "query_id": "Q07",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:9973c99dfc2c883208a634f5b6dc888ece4e59d8e14262e04258a15350b6b4fd",
+      "grade": 0,
+      "note": "A 语义：评论明确说明商品已经到货，延迟的是后续安装人员的安排时间，而非商品送货时间，与本题考察的配送承诺时间推迟不相关。该观点的物流维度标签是否适当可另行复核。"
+    },
+    {
+      "query_id": "Q07",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:cca02f94eb8dc081d30bb124607572bbcd7bf9d1c0aa76e9bcc1ed3dfc0a575a",
+      "grade": 1,
+      "note": "A 语义：评论明确反映配送速度较慢，但未提及原定送货时间、承诺日期或配送计划被推迟的情况，仅与配送延误主题部分相关。"
+    },
+    {
+      "query_id": "Q07",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:09e5dca9b7d5e6014bb330d36829ffcc30e5aa5a8c9d7c9c78116c4fe9fbb5b0",
+      "grade": 2,
+      "note": "直接相关：评论明确描述原定27号送货，后来被推迟至29号，经消费者要求调整为28号，存在明确的送货承诺日期变更，直接符合配送时间被推迟的考察标准。但仅能确认该次日期变更，不能据此认定多次反复延期。"
+    },
+    {
+      "query_id": "Q07",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:d668e441575e0a7e72981bd9c8665ad6f6a406855ac1333349718125262965e3",
+      "grade": 1,
+      "note": "A 语义：评论直接抱怨物流速度缓慢，但没有描述约定送货日期被调整或承诺时间未兑现的过程，属于一般性配送缓慢反馈，仅部分相关。"
+    },
+    {
+      "query_id": "Q07",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:63ededbc8320911c80a3cf4c98ead556667131d4e45e034dfdf01511c04aec83",
+      "grade": 1,
+      "note": "A 语义：评论明确描述等待八天才收到商品，说明配送耗时较长，但未提供原先承诺的到货日期，无法判断是否发生送货时间被推迟的情况，仅部分相关。"
+    },
+    {
+      "query_id": "Q07",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:9973c99dfc2c883208a634f5b6dc888ece4e59d8e14262e04258a15350b6b4fd",
+      "grade": 0,
+      "note": "A 语义：评论明确说明商品已经到货，延迟的是后续安装人员的安排时间，而非商品送货时间，与本题考察的配送承诺时间推迟不相关。该观点的物流维度标签是否适当可另行复核。"
+    },
+    {
+      "query_id": "Q08",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:8d942ca9a55cf10cd6d4ba07c30f4f8d105421bfc50be75b1ce071b2c3d74f02",
+      "grade": 1,
+      "note": "A 语义：评论明确指出收到的第一台机器存在故障，属于商品质量问题，但未描述具体故障原因，也没有提到做工粗糙、零件松动或装配不牢等结构缺陷，仅部分相关。"
+    },
+    {
+      "query_id": "Q08",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:bbf259d39f1b42deddda775fa30a3d2822e58f1c1c20039ee35e53850696d88f",
+      "grade": 1,
+      "note": "A 语义：评论仅笼统评价商品质量差，未提供做工、零部件连接或装配质量方面的具体描述，不能直接证明存在结构缺陷，仅部分相关。"
+    },
+    {
+      "query_id": "Q08",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:b9a67d169aabe6736a01441e6ad08145e1b69fcbddce360486f4d2fded129597",
+      "grade": 1,
+      "note": "A 语义：评论仅笼统评价商品质量差，未提供做工、零部件连接或装配质量方面的具体描述，不能直接证明存在结构缺陷，仅部分相关。"
+    },
+    {
+      "query_id": "Q08",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:dd2bb26efac6ad6c7c6847274cb275c3fe7bfcd801c29568f711ea28327d291c",
+      "grade": 0,
+      "note": "A 语义：该观点仅描述售后服务麻烦，没有提供商品做工、零件结构或装配质量方面的证据，与当前问题不相关。"
+    },
+    {
+      "query_id": "Q08",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:9beb35b6b9e52407cbc9464af4e37a64409d9947eaddd8ce7e5d16961e526913",
+      "grade": 2,
+      "note": "A 语义：评论仅概括性评价商品质量差，没有明确指出做工粗糙、零部件松动或结构不牢等具体问题，仅部分相关。"
+    },
+    {
+      "query_id": "Q08",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:8d942ca9a55cf10cd6d4ba07c30f4f8d105421bfc50be75b1ce071b2c3d74f02",
+      "grade": 1,
+      "note": "A 语义：评论明确指出收到的第一台机器存在故障，属于商品质量问题，但未描述具体故障原因，也没有提到做工粗糙、零件松动或装配不牢等结构缺陷，仅部分相关。"
+    },
+    {
+      "query_id": "Q08",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:bbf259d39f1b42deddda775fa30a3d2822e58f1c1c20039ee35e53850696d88f",
+      "grade": 1,
+      "note": "A 语义：评论笼统反映商品购买不久后出现多种质量问题，但没有说明具体故障表现或零部件结构情况，无法确认是否存在做工粗糙或零件不牢的问题，仅部分相关。"
+    },
+    {
+      "query_id": "Q08",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:b9a67d169aabe6736a01441e6ad08145e1b69fcbddce360486f4d2fded129597",
+      "grade": 1,
+      "note": "A 语义：评论仅笼统评价商品质量差，未提供做工、零部件连接或装配质量方面的具体描述，不能直接证明存在结构缺陷，仅部分相关。"
+    },
+    {
+      "query_id": "Q08",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:9beb35b6b9e52407cbc9464af4e37a64409d9947eaddd8ce7e5d16961e526913",
+      "grade": 1,
+      "note": "A 语义：评论明确表达对商品整体质量的不满，但没有描述具体的做工缺陷、零件松动或装配结构问题，不能直接回答当前关于做工与零件牢固程度的问题，仅部分相关。"
+    },
+    {
+      "query_id": "Q08",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:ba0e27ac7d2e488d4bd121ee2f9117196cbebe44a733cd8a2c71b27bbc3da9d6",
+      "grade": 1,
+      "note": "A 语义：评论明确表达对商品整体质量的不满，但没有描述具体的做工缺陷、零件松动或装配结构问题，不能直接回答当前关于做工与零件牢固程度的问题，仅部分相关。"
+    },
+    {
+      "query_id": "Q09",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:bbf259d39f1b42deddda775fa30a3d2822e58f1c1c20039ee35e53850696d88f",
+      "grade": 2,
+      "note": "A 语义：评论明确提到商品购买不久就出现各种问题"
+    },
+    {
+      "query_id": "Q09",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:591fa4c6f930298ba77b45add8bff303598fb01ca10c0993e87cada61276a11a",
+      "grade": 0,
+      "note": "A 语义：观点仅描述售后服务质量差，没有涉及商品使用时间、零部件损坏或故障情况，与本题的短期损坏及耐用性问题不相关。"
+    },
+    {
+      "query_id": "Q09",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:f5634428d285fb73c0495e1526a7d47161ab65f06d9619e0f63e7ef713c3f06d",
+      "grade": 0,
+      "note": "A 语义：评论仅评价售后服务差，没有明确描述商品故障或使用不久后损坏的情况，不能作为商品耐用性或早期故障的证据。"
+    },
+    {
+      "query_id": "Q09",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:3f01d5ca80aaae05b21df76eb5049b2653ab75fbd2ecfbe92391f3b4a9787cdb",
+      "grade": 1,
+      "note": "A 语义：评论表示商品不好用、问题较多，但没有明确说明具体故障类型、损坏情况或购买后的使用时长，无法确认是否属于短期故障，仅部分相关。"
+    },
+    {
+      "query_id": "Q09",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:7e000c096962eae7f1abcbc6ee31d64861f6508a2815442c3003d1114a83d1f9",
+      "grade": 0,
+      "note": "A 语义：观点仅描述售后服务差，没有提供商品损坏、故障或短期耐用性问题的直接证据，与当前问题不相关。"
+    },
+    {
+      "query_id": "Q09",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:bbf259d39f1b42deddda775fa30a3d2822e58f1c1c20039ee35e53850696d88f",
+      "grade": 2,
+      "note": "A 语义：评论明确提到商品购买不久就出现各种问题"
+    },
+    {
+      "query_id": "Q09",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:8d942ca9a55cf10cd6d4ba07c30f4f8d105421bfc50be75b1ce071b2c3d74f02",
+      "grade": 2,
+      "note": "直接相关：评论明确描述收到的第一台机器就是坏机器，属于新机到货即存在故障的早期质量问题，符合短期故障的考察范围。但该证据不能证明机器是在正常使用一段时间后损坏的。"
+    },
+    {
+      "query_id": "Q09",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:9beb35b6b9e52407cbc9464af4e37a64409d9947eaddd8ce7e5d16961e526913",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q09",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:b9a67d169aabe6736a01441e6ad08145e1b69fcbddce360486f4d2fded129597",
+      "grade": 1,
+      "note": "A 语义：评论仅笼统评价商品质量差，没有明确提及具体损坏、故障表现或使用时间，不能直接证明购买不久就发生故障，仅部分相关。"
+    },
+    {
+      "query_id": "Q09",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:7edb73f56f63ce63847d2b00ce40d0b7b51a4aa53b8c7c0dae809fdfa71cc315",
+      "grade": 2,
+      "note": "直接相关：评论明确表示刚购买的空调遥控器就发生损坏，同时具备购买时间较短与具体部件损坏两个关键信息，直接符合短期故障的判断标准。"
+    },
+    {
+      "query_id": "Q10",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:f79b0ab113ae21fa82f236063d243d53d5eecd9b43bc84c52e6edbfe6d0c1c98",
+      "grade": 1,
+      "note": "A 语义：评论正面评价商品整体质量，表达了对产品质量可靠性的认可，但没有具体描述用料、材质、做工或结构牢固程度，无法直接证明机器用料扎实或做工可靠，仅部分相关。"
+    },
+    {
+      "query_id": "Q10",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:2f49818fc3ef217ebcaa91c599dc9cc0851cda67703f08107240a1d437e5156e",
+      "grade": 0,
+      "note": "A 语义：评论正面评价安装师傅的技术和服务水平，属于安装服务体验，不涉及机器本身的材质、用料或制造工艺，与本题不相关。"
+    },
+    {
+      "query_id": "Q10",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:98f49c79100917ed646a870d8f557a6c46d15311617a9b656db0c36c7e936bcb",
+      "grade": 0,
+      "note": "A 语义：评论仅表达对安装师傅服务表现的认可，没有描述商品用料、做工或结构质量，属于跨维度的服务评价，与本题不相关。"
+    },
+    {
+      "query_id": "Q10",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:79d605251fe4ba11c9263d6812c2a3789e22d22db145c9fa746dad5f8401b627",
+      "grade": 0,
+      "note": "A 语义：评论描述安装师傅服务态度良好，属于安装服务正向评价，没有提供机器用料扎A 语义：评论评价安装师傅和物流人员的服务态度，未涉及商品材质、制造工艺或结构可靠性，不能作为机器用料和做工质量的正向证据。实或做工可靠的证据，与本题不相关。"
+    },
+    {
+      "query_id": "Q10",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:3fa1b1e98c67c6b78bf2a5fdf0316c92c981bc82ebf8146e1527995ffc16ee7c",
+      "grade": 0,
+      "note": "A 语义：评论评价安装师傅和物流人员的服务态度，未涉及商品材质、制造工艺或结构可靠性，不能作为机器用料和做工质量的正向证据。"
+    },
+    {
+      "query_id": "Q10",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:f79b0ab113ae21fa82f236063d243d53d5eecd9b43bc84c52e6edbfe6d0c1c98",
+      "grade": 1,
+      "note": "A 语义：评论正面评价商品整体质量，表达了对产品质量可靠性的认可，但没有具体描述用料、材质、做工或结构牢固程度，无法直接证明机器用料扎实或做工可靠，仅部分相关。"
+    },
+    {
+      "query_id": "Q10",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:8839dc37c0e5d33db3705a2d2a47708d41eeca8adada79ceeb140e30065bfd9b",
+      "grade": 0,
+      "note": "A 语义：评论仅描述产品外观设计简洁大方，属于外观审美评价，未涉及材质质量、做工工艺或零件结构可靠性，不能直接回答本题关于用料和做工的问题。"
+    },
+    {
+      "query_id": "Q11",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:a81ab038a3b91ff704497bd2381d98fff7d73609fcdfa9e10b8e18f400b26cb1",
+      "grade": 0,
+      "note": "A 语义：评论明确描述空调开机一天仍不凉快，属于负向制冷效果反馈，与本题要求的制冷快、降温效果好的正向证据相反，按本题正向检索标准评为不相关。"
+    },
+    {
+      "query_id": "Q11",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:90931b7d405af59574965bdfcb31dc7877bad5b97f532b816da5a45070128dcf",
+      "grade": 0,
+      "note": "A 语义：评论描述空调运行时不冷，属于负向制冷效果反馈，无法作为制冷速度快或降温效果好的正向证据，按本题评审标准为不相关。"
+    },
+    {
+      "query_id": "Q11",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:320ecbe760c11f05395e004ca0432f3de84fa55c80db402b20fe2747031f0229",
+      "grade": 2,
+      "note": "直接相关：评论明确评价空调制冷速度快、制冷效果好，能够直接支持炎热天气下开机后较快降温的判断，符合本题标准。"
+    },
+    {
+      "query_id": "Q11",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:9dae05eeb42347527022d7053178b96add455dd051b808ffc879f91b89c2f26a",
+      "grade": 2,
+      "note": "直接相关：评论明确描述制冷效果很好且速度快，同时具备制冷效果和降温速度两个关键要素，符合本题正向制冷评价标准。"
+    },
+    {
+      "query_id": "Q11",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:0b65b7ffc25e39b53e7c80372671de43e58701bb833ad00148d17344c7ef64cb",
+      "grade": 0,
+      "note": "直接相关：评论明确描述制冷效果很好且速度快，同时具备制冷效果和降温速度两个关键要素，符合本题正向制冷评价标准。"
+    },
+    {
+      "query_id": "Q11",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:320ecbe760c11f05395e004ca0432f3de84fa55c80db402b20fe2747031f0229",
+      "grade": 2,
+      "note": "直接相关：评论明确评价空调制冷速度快、制冷效果好，能够直接支持炎热天气下开机后较快降温的判断，符合本题标准。"
+    },
+    {
+      "query_id": "Q11",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:9dae05eeb42347527022d7053178b96add455dd051b808ffc879f91b89c2f26a",
+      "grade": 2,
+      "note": "直接相关：评论明确描述制冷效果很好且速度快，同时具备制冷效果和降温速度两个关键要素，符合本题正向制冷评价标准。"
+    },
+    {
+      "query_id": "Q11",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:0b65b7ffc25e39b53e7c80372671de43e58701bb833ad00148d17344c7ef64cb",
+      "grade": 0,
+      "note": "A 语义：评论描述暖风开启后很快变暖，属于空调制热效果的正向评价，未涉及制冷或降温速度，与本题考察的快速制冷不相关。"
+    },
+    {
+      "query_id": "Q11",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:94acdf4ca7f6d4ddc5bd4892d6cd88ae99c93b0ec7746dc4e171412dccd01b3d",
+      "grade": 2,
+      "note": "直接相关：评论明确描述空调制冷速度快，并同时提到节能和制热效果好。其中制冷快直接符合炎热天气下快速降温的考察标准。"
+    },
+    {
+      "query_id": "Q11",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:52f493d7c40a1f7366cdd2d7a628650eb268b1a78b0607317aebc2db8ac0c4bb",
+      "grade": 2,
+      "note": "直接相关：评论明确正面评价空调制冷效果非常好，符合本题制冷效果好的判断标准。但未明确描述具体降温时间，不能进一步证明制冷速度有多快。"
+    },
+    {
+      "query_id": "Q12",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:b978326c4bc5bde52ab7efb2b320dd42fa596ed25ec39fa5dd75930f6b1de845",
+      "grade": 2,
+      "note": "直接相关：评论明确描述空调使用时一点都不凉快，直接反映制冷效果不足，符合本题关于制冷差的判断标准。但未明确说明运行时长，不能据此判断降温具体耗时。"
+    },
+    {
+      "query_id": "Q12",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:90931b7d405af59574965bdfcb31dc7877bad5b97f532b816da5a45070128dcf",
+      "grade": 2,
+      "note": "直接相关：评论明确表示空调开着却不冷，直接反映运行状态下制冷效果不佳，符合本题制冷不足的判断标准，但未明确提供运行时长。"
+    },
+    {
+      "query_id": "Q12",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:a81ab038a3b91ff704497bd2381d98fff7d73609fcdfa9e10b8e18f400b26cb1",
+      "grade": 2,
+      "note": "直接相关：评论明确描述空调设置16度并运行一天后仍不凉快，直接体现长时间运行无法有效降温，同时符合制冷效果差和降温不足的考察标准。"
+    },
+    {
+      "query_id": "Q12",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:5130c88a2716c04cb74551c8b711cde006b78e31b1270e3016414c55e7639e8b",
+      "grade": 0,
+      "note": "A 语义：评论表示尚未测试制热功能，属于制热效果未知的描述，没有涉及制冷效果或降温速度，与本题不相关。"
+    },
+    {
+      "query_id": "Q12",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:0b65b7ffc25e39b53e7c80372671de43e58701bb833ad00148d17344c7ef64cb",
+      "grade": 0,
+      "note": "A 语义：评论正面描述暖风开启后很快变暖，属于制热效果评价，没有涉及制冷不足或降温缓慢，与本题考察的负向制冷问题不相关。"
+    },
+    {
+      "query_id": "Q12",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:b978326c4bc5bde52ab7efb2b320dd42fa596ed25ec39fa5dd75930f6b1de845",
+      "grade": 2,
+      "note": "直接相关：评论明确描述空调使用时一点都不凉快，直接反映制冷效果不足，符合本题关于制冷差的判断标准。但未明确说明运行时长，不能据此判断降温具体耗时。"
+    },
+    {
+      "query_id": "Q12",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:90931b7d405af59574965bdfcb31dc7877bad5b97f532b816da5a45070128dcf",
+      "grade": 2,
+      "note": "直接相关：评论明确表示空调开着却不冷，直接反映运行状态下制冷效果不佳，符合本题制冷不足的判断标准，但未明确提供运行时长。"
+    },
+    {
+      "query_id": "Q12",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:a81ab038a3b91ff704497bd2381d98fff7d73609fcdfa9e10b8e18f400b26cb1",
+      "grade": 2,
+      "note": "直接相关：评论明确描述空调设置16度并运行一天后仍不凉快，直接体现长时间运行无法有效降温，同时符合制冷效果差和降温不足的考察标准。"
+    },
+    {
+      "query_id": "Q12",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:af778ac60c25bfa5de48cdaf1b16d589bedaede4e842d34d1ea9f66358eedcf1",
+      "grade": 2,
+      "note": "直接相关：评论明确描述空调安装仅几天就出现不制冷的情况，直接反映制冷功能异常，符合本题关于制冷效果差的判断标准。但该证据描述的是安装后短期不制冷，不能证明单次运行很久才无法降温。"
+    },
+    {
+      "query_id": "Q12",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:3f01d5ca80aaae05b21df76eb5049b2653ab75fbd2ecfbe92391f3b4a9787cdb",
+      "grade": 1,
+      "note": "A 语义：评论笼统描述商品不好用、问题多，属于负向使用体验，但未明确提及制冷不足、降温缓慢或运行时长，无法直接证明存在本题所问的制冷问题，仅部分相关。"
+    },
+    {
+      "query_id": "Q13",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:5937f49107ccb3ea815f3a486e651cc75cf67bdb4c3c5874f989b0b43f0dfe4f",
+      "grade": 0,
+      "note": "A 语义：评论明确表示空调运行声音不大，晚上睡觉时也不会受到噪声干扰，属于正向静音评价，与本题要求的噪声大或影响休息的负面证据方向相反。"
+    },
+    {
+      "query_id": "Q13",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:200d595ec8820330371b67f4d27d9a2093220355206177834a5f29433270c9fa",
+      "grade": 0,
+      "note": "A 语义：评论表示夜间几乎听不到机器声音，睡觉不会受到影响，属于正向静音体验，不能作为运行噪声大或影响夜间休息的负面证据。"
+    },
+    {
+      "query_id": "Q13",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:b327fc4919eba75ddb1a05e9f8b90c2d2ce05d3c35ff8e04e4a78543bd7e5af2",
+      "grade": 0,
+      "note": "A 语义：评论描述晚上屏幕显示自动关闭、不影响休息，涉及显示屏亮度及夜间使用体验，并非机器运行噪声，与本题考察的声音干扰问题不相关。"
+    },
+    {
+      "query_id": "Q13",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:aea90c30776b6bc5aeb90bb94b6389403fe88f47c484a4e79c8c50e49c98e626",
+      "grade": 2,
+      "note": "直接相关：评论明确指出空调外机运行噪声较大，符合本题声音大的判断标准。但未明确说明噪声是否传入室内或影响夜间睡眠，不能进一步认定已经造成睡眠干扰。"
+    },
+    {
+      "query_id": "Q13",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:ea6b2d7ab91923edea1ff8ae9ac77942d2fa83bc4993b257395b0ef1c125af72",
+      "grade": 2,
+      "note": "直接相关：评论明确抱怨机器噪音大，符合本题关于运行噪声过大的判断标准。其中不制暖属于另一项使用效果问题，与噪声判断无关；评论未明确描述实际睡眠受影响的情况。"
+    },
+    {
+      "query_id": "Q13",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:ea6b2d7ab91923edea1ff8ae9ac77942d2fa83bc4993b257395b0ef1c125af72",
+      "grade": 2,
+      "note": "直接相关：评论明确抱怨机器噪音大，符合本题关于运行噪声过大的判断标准。其中不制暖属于另一项使用效果问题，与噪声判断无关；评论未明确描述实际睡眠受影响的情况。"
+    },
+    {
+      "query_id": "Q13",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:b632e2eabbd5004d82bdc257a7de1fa2f4b1cca189f74b42e8ac6bad6f757fd0",
+      "grade": 2,
+      "note": "直接相关：评论连续强调机器噪音巨大，明确表达对运行噪声过大的强烈不满，直接符合本题声音大的判断标准。但没有明确说明噪声发生在夜间或实际影响睡眠。"
+    },
+    {
+      "query_id": "Q13",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:4e2dc90bc4a660505abcdcc52eef8dfc23c5c3706ef0511ac4c561160c6e7588",
+      "grade": 0,
+      "note": "A 语义：评论描述空调总是自动停机，属于运行稳定性或功能异常问题，没有涉及机器声音、噪声大小或睡眠干扰，与本题不相关。"
+    },
+    {
+      "query_id": "Q13",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:90931b7d405af59574965bdfcb31dc7877bad5b97f532b816da5a45070128dcf",
+      "grade": 0,
+      "note": "A 语义：评论描述空调运行时不冷，属于制冷效果不足的问题，没有提供机器运行噪声或夜间休息受到干扰的证据，与本题不相关。"
+    },
+    {
+      "query_id": "Q13",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:895aa8b55221bbb0db24c275be6c70b2d9cca67576aa31716919e3aa84d55f88",
+      "grade": 0,
+      "note": "A 语义：评论描述睡醒后发现地板积水，属于漏水或排水异常问题。虽然出现了睡觉场景，但没有描述机器声音或噪声干扰，不能作为夜间噪声问题的证据。"
+    },
+    {
+      "query_id": "Q14",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:fffe81e2c121d27649406ca8c6130eb14c443417011526dd46300a16f21bf47b",
+      "grade": 1,
+      "note": "A 语义：评论表达对商品的整体推荐意愿，但没有明确涉及价格、购买成本或性价比。值得推荐不等于价格划算，仅部分相关。建议检查完整原文是否包含价格或购买价值评价。"
+    },
+    {
+      "query_id": "Q14",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:a3c7e9f370d368d2af8741a118022749d512c706596c4d422c21afbdd894874e",
+      "grade": 1,
+      "note": "A 语义：评论明确正面评价商品价格合理，属于价格满意度反馈，但没有进一步体现物美价廉、性价比高或购买特别划算，按本题严格标准仅部分相关。"
+    },
+    {
+      "query_id": "Q14",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:7a466e9c948206084774df65a194a790d3bdcfd21b17836ed7a56ea7797caa47",
+      "grade": 2,
+      "note": "直接相关：评论明确表示商品在活动期间购买特别合适，并使用物美价廉评价购买体验，同时体现价格实惠与商品价值，直接符合本题划算、性价比高的判断标准。"
+    },
+    {
+      "query_id": "Q14",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:79d605251fe4ba11c9263d6812c2a3789e22d22db145c9fa746dad5f8401b627",
+      "grade": 0,
+      "note": "A 语义：评论仅评价安装师傅服务态度良好，属于安装服务正向反馈，没有涉及商品价格、购买成本或性价比，与本题不相关。"
+    },
+    {
+      "query_id": "Q14",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:166d13df74ae93511c1a1f7cb2dbd671c21e31bf3312d9fdc027e5c68440e4ba",
+      "grade": 0,
+      "note": "A 语义：评论仅表示安装服务很好，未涉及商品购买价格、价格合理性或物有所值，不能作为花这笔钱值得的直接证据。"
+    },
+    {
+      "query_id": "Q14",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:fffe81e2c121d27649406ca8c6130eb14c443417011526dd46300a16f21bf47b",
+      "grade": 1,
+      "note": "A 语义：评论表达对商品的整体推荐意愿，但没有明确涉及价格、购买成本或性价比。值得推荐不等于价格划算，仅部分相关。建议检查完整原文是否包含价格或购买价值评价。"
+    },
+    {
+      "query_id": "Q14",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:a3c7e9f370d368d2af8741a118022749d512c706596c4d422c21afbdd894874e",
+      "grade": 1,
+      "note": "A 语义：评论明确正面评价商品价格合理，属于价格满意度反馈，但没有进一步体现物美价廉、性价比高或购买特别划算，按本题严格标准仅部分相关。"
+    },
+    {
+      "query_id": "Q14",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:7a466e9c948206084774df65a194a790d3bdcfd21b17836ed7a56ea7797caa47",
+      "grade": 2,
+      "note": "直接相关：评论明确表示商品在活动期间购买特别合适，并使用物美价廉评价购买体验，同时体现价格实惠与商品价值，直接符合本题划算、性价比高的判断标准。"
+    },
+    {
+      "query_id": "Q14",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:db784368ce4e6cc5afc9d0fb9816c4b93655d13183a0b3f49b83b4a009325f3b",
+      "grade": 2,
+      "note": "直接相关：评论明确使用实惠评价商品购买体验，表达了价格经济、购买划算的正向感受，符合本题关于价格划算和购买价值的判断标准。"
+    },
+    {
+      "query_id": "Q15",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:f8cec7cc5e15fc6ad877f3c44624abbe57e5c954c35a9304699f4bf41d911d3d",
+      "grade": 2,
+      "note": "直接相关：评论明确表示购买后仅相隔一天商品就降价，直接体现购买时点与后续价格变化带来的不满，符合本题刚买就降价的判断标准。具体降价金额未知，不能推断实际损失数额。"
+    },
+    {
+      "query_id": "Q15",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:a3c7e9f370d368d2af8741a118022749d512c706596c4d422c21afbdd894874e",
+      "grade": 0,
+      "note": "A 语义：评论明确评价商品价格合理，属于正向价格反馈，与本题要求的售价偏高或购买后降价的负面价格证据方向相反。"
+    },
+    {
+      "query_id": "Q15",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:b9a67d169aabe6736a01441e6ad08145e1b69fcbddce360486f4d2fded129597",
+      "grade": 0,
+      "note": "A 语义：评论仅笼统抱怨商品质量差，没有涉及购买价格、售价过高或购买后降价，不能作为负面价格变化的证据。"
+    },
+    {
+      "query_id": "Q15",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:bbf259d39f1b42deddda775fa30a3d2822e58f1c1c20039ee35e53850696d88f",
+      "grade": 0,
+      "note": "A 语义：评论描述商品购买不久后出现多种质量问题，属于商品质量及耐用性反馈，没有提及售价过高、价格变化或降价损失，与本题不相关。"
+    },
+    {
+      "query_id": "Q15",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:5d5a2fa27703a189360754417c168435ebd88ed2220e87d4408923ac07720642",
+      "grade": 0,
+      "note": "A 语义：评论使用便宜没好货评价商品，表达低价对应质量不佳的不满，但没有认为商品售价偏高，也未涉及购买后降价，不能作为本题的直接证据。"
+    },
+    {
+      "query_id": "Q15",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:f8cec7cc5e15fc6ad877f3c44624abbe57e5c954c35a9304699f4bf41d911d3d",
+      "grade": 2,
+      "note": "直接相关：评论明确表示购买后仅相隔一天商品就降价，直接体现购买时点与后续价格变化带来的不满，符合本题刚买就降价的判断标准。具体降价金额未知，不能推断实际损失数额。"
+    },
+    {
+      "query_id": "Q15",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:5d5a2fa27703a189360754417c168435ebd88ed2220e87d4408923ac07720642",
+      "grade": 0,
+      "note": "A 语义：评论使用便宜没好货评价商品，表达低价对应质量不佳的不满，但没有认为商品售价偏高，也未涉及购买后降价，不能作为本题的直接证据。"
+    },
+    {
+      "query_id": "Q15",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:a4af5f3e143b1041e912364332193456a8542b27373b1380cfbe88609c29fb60",
+      "grade": 1,
+      "note": "A 语义：评论表达购买后觉得不划算或后悔的感受，与购买价值存在一定关联。但结合原文，其不满主要来自商品质量差和服务差，没有明确证据证明售价偏高或购买后降价，因此仅部分相关。该观点的price标签粒度可进一步复核。"
+    },
+    {
+      "query_id": "Q15",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:b51dff1275611d330218224fb51849448c4929ad509adfd85545b5d269269066",
+      "grade": 1,
+      "note": "A 语义：评论明确抱怨已支付300元安装费后，又被要求额外支付140元，反映购买后的附加费用负担及收费争议。但费用属于安装服务而非商品售价，也没有涉及购买后降价，仅部分相关。"
+    },
+    {
+      "query_id": "Q15",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:71186da6217aa00c64510f804a16b8c1c1ad26d3dd11319a0e3948a569db513a",
+      "grade": 1,
+      "note": "A 语义：评论表示空调本身价格不高，但安装费用达到400多元，明确表达对附加安装费用的不满。该反馈与购买成本有关，但并未认为商品售价偏高，也未涉及购买后降价，仅部分相关。"
+    },
+    {
+      "query_id": "Q16",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:26ada2a14b8d730a4ada665455cd2d7cf533b4dea91df467535ef4f295c27f68",
+      "grade": 0,
+      "note": "A 语义：评论仅提到27号收到商品，属于商品到货时间信息，没有涉及纸箱破损、外包装损坏或包装完整性，与本题不相关。"
+    },
+    {
+      "query_id": "Q16",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:f79b0ab113ae21fa82f236063d243d53d5eecd9b43bc84c52e6edbfe6d0c1c98",
+      "grade": 0,
+      "note": "A 语义：评论笼统评价商品质量有保证，属于正向商品质量反馈，没有描述纸箱或外包装是否破损，无法回答本题。"
+    },
+    {
+      "query_id": "Q16",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:a10eb38526bfbfec622429d6b47dcbd559be9c15c05b1f4bce2eaade80788866",
+      "grade": 0,
+      "note": "A 语义：评论仅正面评价送货速度较快，属于物流时效反馈，没有涉及纸箱或外包装的完整性，与包装破损问题不相关。"
+    },
+    {
+      "query_id": "Q16",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:b9a67d169aabe6736a01441e6ad08145e1b69fcbddce360486f4d2fded129597",
+      "grade": 1,
+      "note": "A 语义：评论笼统抱怨商品质量差，但没有明确提到纸箱破损、外包装损坏或包装异常，不能将商品质量问题直接推断为包装破损。"
+    },
+    {
+      "query_id": "Q16",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:9beb35b6b9e52407cbc9464af4e37a64409d9947eaddd8ce7e5d16961e526913",
+      "grade": 0,
+      "note": "A 语义：评论仅描述商品质量差，没有涉及外包装、纸箱或运输包装的损坏情况，缺少包装破损的直接证据，与本题不相关。"
+    },
+    {
+      "query_id": "Q16",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:3bb08cc26a0be9738f43afb92733a9aefe0ff7f580d589b2237513219376752c",
+      "grade": 0,
+      "note": "A 语义：评论描述纸箱内缺少外机固定螺丝以及额外收费问题，属于包装配件完整性或安装收费问题，没有明确描述纸箱、外包装破裂或损坏，不能作为包装破损的证据。"
+    },
+    {
+      "query_id": "Q17",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:f79b0ab113ae21fa82f236063d243d53d5eecd9b43bc84c52e6edbfe6d0c1c98",
+      "grade": 0,
+      "note": "A 语义：评论笼统评价商品整体质量有保证，属于正向商品质量反馈，但没有涉及纸箱完整性、包装材料、包装保护或运输防护措施，不能作为包装完好的正向证据。"
+    },
+    {
+      "query_id": "Q17",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:fffe81e2c121d27649406ca8c6130eb14c443417011526dd46300a16f21bf47b",
+      "grade": 0,
+      "note": "A 语义：评论表达商品值得推荐，结合原文主要涉及外观、制热、静音等使用体验，没有描述包装是否完好或保护是否到位，与本题无关。"
+    },
+    {
+      "query_id": "Q17",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:afd22ff7ae75cbc7ef121f7deb7d52ce5fd6cc3ebab1655ad1640cd9b109aeff",
+      "grade": 0,
+      "note": "A 语义：评论正面评价送货人员的服务态度，但未提及商品包装是否完整、是否破损或是否具有良好的运输保护措施，不能将配送服务好等同于包装保护到位。"
+    },
+    {
+      "query_id": "Q17",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:7a466e9c948206084774df65a194a790d3bdcfd21b17836ed7a56ea7797caa47",
+      "grade": 0,
+      "note": "A 语义：评论描述活动购买价格合适、物美价廉，原文还涉及制冷效果和智能控制，但没有出现包装完整性或运输保护方面的评价，与本题不相关。"
+    },
+    {
+      "query_id": "Q17",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:a10eb38526bfbfec622429d6b47dcbd559be9c15c05b1f4bce2eaade80788866",
+      "grade": 0,
+      "note": "A 语义：评论正面评价商品送货速度较快，但没有描述纸箱、包装完整性或包装保护情况。配送速度快不能证明包装完好，与本题不相关。"
+    },
+    {
+      "query_id": "Q18",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:69590eb28c16058e8acb63f3eba61b0fba6183b80c8f7b0dc04aff3f10a419a4",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商品已经收货超过一天，但安装人员仍未上门，直接符合到货后安装等待、安装服务延迟的考察标准。该问题属于安装服务而非物流配送延误。"
+    },
+    {
+      "query_id": "Q18",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:5e9b0b0bd2c6488a4f3210a33f61c235f72045a7974caae12fef3eaab2b1356c",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商品到货几天后仍无人上门安装，并且多次电话沟通，直接体现到货后安装安排长期拖延，符合本题标准。"
+    },
+    {
+      "query_id": "Q18",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:bd29ad37ac947d7fb56fc269b99f5192bd534791ac4c9e8b4d454d2198b9fa1f",
+      "grade": 1,
+      "note": "A 语义：评论明确反映安装人员未上门，并且电话询问后仍无法确定安装时间，属于安装服务延迟。但当前观点未明确说明商品已经到货，缺少本题要求的到货后等待条件，暂评为部分相关，建议检查完整原文。"
+    },
+    {
+      "query_id": "Q18",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:196e622ef3fb591391ca8ef87dacc9347837db0d1442ba543206482f53926116",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商品已经到货，但始终无人安排安装，反馈问题后仍未解决，同时具备到货事实、安装等待及售后处理不足的证据，符合本题标准。"
+    },
+    {
+      "query_id": "Q18",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:3f5985a1601f38555ef556a22639e24136e4b3589914ef82506a3a8d2e7c83ec",
+      "grade": 1,
+      "note": "A 语义：评论明确描述无人上门安装，也没有人员主动联系预约安装时间，属于安装安排不到位。但未明确说明商品已经到货，暂无法完整确认到货后安装延迟的场景，仅部分相关，建议检查完整原文。"
+    },
+    {
+      "query_id": "Q18",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:69590eb28c16058e8acb63f3eba61b0fba6183b80c8f7b0dc04aff3f10a419a4",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商品已经收货超过一天，但安装人员仍未上门，直接符合到货后安装等待、安装服务延迟的考察标准。该问题属于安装服务而非物流配送延误。"
+    },
+    {
+      "query_id": "Q18",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:5e9b0b0bd2c6488a4f3210a33f61c235f72045a7974caae12fef3eaab2b1356c",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商品到货几天后仍无人上门安装，并且多次电话沟通，直接体现到货后安装安排长期拖延，符合本题标准。"
+    },
+    {
+      "query_id": "Q18",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:bd29ad37ac947d7fb56fc269b99f5192bd534791ac4c9e8b4d454d2198b9fa1f",
+      "grade": 1,
+      "note": "A 语义：评论明确反映安装人员未上门，并且电话询问后仍无法确定安装时间，属于安装服务延迟。但当前观点未明确说明商品已经到货，缺少本题要求的到货后等待条件，暂评为部分相关，建议检查完整原文。"
+    },
+    {
+      "query_id": "Q18",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:196e622ef3fb591391ca8ef87dacc9347837db0d1442ba543206482f53926116",
+      "grade": 2,
+      "note": "直接相关：评论明确描述商品已经到货，但始终无人安排安装，反馈问题后仍未解决，同时具备到货事实、安装等待及售后处理不足的证据，符合本题标准。"
+    },
+    {
+      "query_id": "Q18",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:3f5985a1601f38555ef556a22639e24136e4b3589914ef82506a3a8d2e7c83ec",
+      "grade": 1,
+      "note": "A 语义：评论明确描述无人上门安装，也没有人员主动联系预约安装时间，属于安装安排不到位。但未明确说明商品已经到货，暂无法完整确认到货后安装延迟的场景，仅部分相关，建议检查完整原文。"
+    },
+    {
+      "query_id": "Q19",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:a10eb38526bfbfec622429d6b47dcbd559be9c15c05b1f4bce2eaade80788866",
+      "grade": 0,
+      "note": "A 语义：评论描述商品配送速度较快，属于物流时效的正向反馈，没有涉及客服人员的回复速度或沟通效率，与本题不相关。"
+    },
+    {
+      "query_id": "Q19",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:3e208cc5ea56f7ba0a5d04e1ff49645900042be7f36136a99c0855ee16295399",
+      "grade": 0,
+      "note": "A 语义：评论明确描述第一天下单、第二天到货，反映物流配送效率较高，但没有涉及客服回复是否及时，属于跨维度检索结果，与本题不相关。"
+    },
+    {
+      "query_id": "Q19",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:912ab26ea62189692db84b6f310c62dd49548b238da64a4a6a4bd2b0ac47c3d1",
+      "grade": 0,
+      "note": "A 语义：评论明确反映客服承诺24小时反馈，但最终没有实质性结果，属于负向客服反馈体验，与本题要求的及时回复、无需久等的正向证据方向相反。"
+    },
+    {
+      "query_id": "Q19",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:448657827e2b3fb316212c5cfc3851c02f2a1bb05513d63655a06477e9abaca4",
+      "grade": null,
+      "note": "A 语义：评论明确指出客服不回复、一直使用自动回复，属于客服响应不佳的负向反馈，不能作为客服回复及时的正向证据。"
+    },
+    {
+      "query_id": "Q19",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:cca02f94eb8dc081d30bb124607572bbcd7bf9d1c0aa76e9bcc1ed3dfc0a575a",
+      "grade": 0,
+      "note": "A 语义：评论仅描述送货速度慢，属于负向物流配送反馈，不涉及客服回复速度，且无法证明客服回答是否及时，与本题不相关。"
+    },
+    {
+      "query_id": "Q19",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:79d605251fe4ba11c9263d6812c2a3789e22d22db145c9fa746dad5f8401b627",
+      "grade": 0,
+      "note": "A 语义：评论正面评价安装师傅的服务态度，属于安装服务体验，没有涉及客服人员是否及时回复或让消费者等待，与本题不相关。"
+    },
+    {
+      "query_id": "Q19",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:3fa1b1e98c67c6b78bf2a5fdf0316c92c981bc82ebf8146e1527995ffc16ee7c",
+      "grade": 0,
+      "note": "A 语义：评论正面评价安装师傅和物流人员的服务态度，但原文明确描述客服态度不好、敷衍回复，不能作为客服响应及时的正向证据。"
+    },
+    {
+      "query_id": "Q19",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:58d76cde81809369765da11604c95db0beb2346cdbfb5fe50cc9f094c2d42f2c",
+      "grade": 0,
+      "note": "A 语义：评论描述商品保修服务期限较长，属于售后保障政策评价，没有涉及客服回复速度、沟通效率或等待时间，与本题不相关。"
+    },
+    {
+      "query_id": "Q19",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:4cf6660c44ff1824494f7a9f695d4b681ea3f15cae2a35d9f0a9cdcec4129982",
+      "grade": 0,
+      "note": "A 语义：评论笼统评价服务水平不比城市差，但未明确指出客服人员，也没有描述回复时间或响应效率，不能证明客服回答及时，与本题不相关。"
+    },
+    {
+      "query_id": "Q19",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:4d1416ccbe626f91502a0d4f6457f7e7c46a940cf81c83cd931b7842028cc5a2",
+      "grade": 0,
+      "note": "A 语义：评论正面评价上门安装服务，但未涉及客服沟通、答复时间或回复速度，安装服务满意不能直接证明客服回复及时，与本题不相关。"
+    },
+    {
+      "query_id": "Q20",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:87309cbfc4abe58e795c8887c7c0a945173ba78870882ae15899eb1407642697",
+      "grade": 2,
+      "note": "直接相关：评论明确描述空调制冷不行，属于制冷效果不足的负向反馈，符合本题要求。原文另有安装问题，但不影响该制冷观点的相关性。"
+    },
+    {
+      "query_id": "Q20",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:54e10c8d105d8b67f3228a5dfb8e1a14e1d61f703f51337f6e49db479a57324f",
+      "grade": 2,
+      "note": "直接相关：评论明确指出制冷效果差，直接反映空调无法达到理想降温效果，符合本题制冷不足的判断标准。"
+    },
+    {
+      "query_id": "Q20",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:af778ac60c25bfa5de48cdaf1b16d589bedaede4e842d34d1ea9f66358eedcf1",
+      "grade": 2,
+      "note": "直接相关：评论明确描述空调安装仅几天就出现不制冷的问题，直接符合制冷功能不足的考察标准，但不能据此判断单次运行的降温时长。"
+    },
+    {
+      "query_id": "Q20",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:ba0e27ac7d2e488d4bd121ee2f9117196cbebe44a733cd8a2c71b27bbc3da9d6",
+      "grade": 1,
+      "note": "A 语义：原文描述机器质量差、根本没有效果且经常自动停机，属于负向使用体验，但未明确指出制冷或降温问题，无法确认是否符合本题具体要求，仅部分相关。"
+    },
+    {
+      "query_id": "Q20",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:52f493d7c40a1f7366cdd2d7a628650eb268b1a78b0607317aebc2db8ac0c4bb",
+      "grade": 0,
+      "note": "A 语义：评论明确正面评价空调制冷效果非常好，与本题要求的制冷不足、无法降温的负向证据方向相反，因此不相关。"
+    },
+    {
+      "query_id": "Q20",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:87309cbfc4abe58e795c8887c7c0a945173ba78870882ae15899eb1407642697",
+      "grade": 2,
+      "note": "直接相关：评论明确描述空调制冷不行，属于制冷效果不足的负向反馈，符合本题要求。原文另有安装问题，但不影响该制冷观点的相关性。"
+    },
+    {
+      "query_id": "Q20",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:54e10c8d105d8b67f3228a5dfb8e1a14e1d61f703f51337f6e49db479a57324f",
+      "grade": 2,
+      "note": "直接相关：评论明确指出制冷效果差，直接反映空调无法达到理想降温效果，符合本题制冷不足的判断标准。"
+    },
+    {
+      "query_id": "Q20",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:af778ac60c25bfa5de48cdaf1b16d589bedaede4e842d34d1ea9f66358eedcf1",
+      "grade": 2,
+      "note": "直接相关：评论明确描述空调安装仅几天就出现不制冷的问题，直接符合制冷功能不足的考察标准，但不能据此判断单次运行的降温时长。"
+    },
+    {
+      "query_id": "Q20",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:a81ab038a3b91ff704497bd2381d98fff7d73609fcdfa9e10b8e18f400b26cb1",
+      "grade": 2,
+      "note": "直接相关：评论明确描述空调设置16度并持续运行一天仍不凉快，直接证明存在长时间运行却无法有效降温的问题，符合本题制冷不足的判断标准。"
+    },
+    {
+      "query_id": "Q20",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:bf733aca4cce39949bb5489a2dc4ac1c53ececde65182e27c27b8c6c8ccc1dbf",
+      "grade": 1,
+      "note": "A 语义：评论描述空调没有效果，属于负向使用体验，但未明确说明具体是制冷不足、制热异常还是其他功能问题，缺少直接的降温证据，仅部分相关。建议结合完整原文进一步确认。"
+    },
+    {
+      "query_id": "Q21",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:bbf259d39f1b42deddda775fa30a3d2822e58f1c1c20039ee35e53850696d88f",
+      "grade": 1,
+      "note": ""
+    },
+    {
+      "query_id": "Q21",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:dd2bb26efac6ad6c7c6847274cb275c3fe7bfcd801c29568f711ea28327d291c",
+      "grade": 1,
+      "note": ""
+    },
+    {
+      "query_id": "Q21",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:3f01d5ca80aaae05b21df76eb5049b2653ab75fbd2ecfbe92391f3b4a9787cdb",
+      "grade": 0,
+      "note": ""
+    },
+    {
+      "query_id": "Q21",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:7e000c096962eae7f1abcbc6ee31d64861f6508a2815442c3003d1114a83d1f9",
+      "grade": 1,
+      "note": ""
+    },
+    {
+      "query_id": "Q21",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:b9a67d169aabe6736a01441e6ad08145e1b69fcbddce360486f4d2fded129597",
+      "grade": 0,
+      "note": ""
+    },
+    {
+      "query_id": "Q21",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:3f01d5ca80aaae05b21df76eb5049b2653ab75fbd2ecfbe92391f3b4a9787cdb",
+      "grade": 0,
+      "note": ""
+    },
+    {
+      "query_id": "Q21",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:c8785d555d0389524ba0389d247296d44021f4aee16950072243d5f01376716a",
+      "grade": 1,
+      "note": ""
+    },
+    {
+      "query_id": "Q21",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:534cfa305aef9a9443cc42169dd3c627e46fb09bda8f9c68be6631116b799ea2",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q21",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:06f3ac935122c802bbbcb43cb13ba405b4046d39ac56a78c4fc123e4021caee5",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q21",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:6544ec41b63bff387122c98a3a80cf4b56cbb7227bcb01f217d655d953873016",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q22",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:fb32d53ff781ea295be25a9dd4b3a7b8be99d350dd9cfc50b706d5ec014a2f5d",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q22",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:049fd41acef7cb756a8adb16881a920ad3be7c5223dc36a4df2c94a456332db5",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q22",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:8839dc37c0e5d33db3705a2d2a47708d41eeca8adada79ceeb140e30065bfd9b",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q22",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:b52a5bb3016f656f1e143ddd8dfa63caf90303100323e3f18062359cbf8355f9",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q22",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:8957c25d6e1b97d8f9fd4d1bfdf91f45790d7df544367fb09150ccc897990990",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q23",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:1e19b69bda80cb52dbb0648142794b0d7716be4ec66cee5878d2ff051ecc403d",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q23",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:58d76cde81809369765da11604c95db0beb2346cdbfb5fe50cc9f094c2d42f2c",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q23",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:0561723fdd46ee29bdd5e62aa75ffc50643794f283ac7c8550cf3ecd2faba18e",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q23",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:6304832f034a77eae19fb2209d9c78451eadf80979518dc4d3faad3094498e6e",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q23",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:ba0e27ac7d2e488d4bd121ee2f9117196cbebe44a733cd8a2c71b27bbc3da9d6",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q23",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:1e19b69bda80cb52dbb0648142794b0d7716be4ec66cee5878d2ff051ecc403d",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q23",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:0561723fdd46ee29bdd5e62aa75ffc50643794f283ac7c8550cf3ecd2faba18e",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q23",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:6304832f034a77eae19fb2209d9c78451eadf80979518dc4d3faad3094498e6e",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q23",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:fa7f7e6592e7598f10c37ef829da743d1e49b1d24cc0ebc2cd2926550df3e1cf",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q23",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:022032ca8ef4b670d4e61e49c173f8a4246a3af2742478c22ed2c1eb90172b24",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q24",
+      "mode": "unfiltered",
+      "rank": 1,
+      "key": "rag-opinion-v1:029842ef23ec984ad576fbc3827001f5b246166147d3eab520a8b17f68663dd3",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q24",
+      "mode": "unfiltered",
+      "rank": 2,
+      "key": "rag-opinion-v1:dd2bb26efac6ad6c7c6847274cb275c3fe7bfcd801c29568f711ea28327d291c",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q24",
+      "mode": "unfiltered",
+      "rank": 3,
+      "key": "rag-opinion-v1:bbf259d39f1b42deddda775fa30a3d2822e58f1c1c20039ee35e53850696d88f",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q24",
+      "mode": "unfiltered",
+      "rank": 4,
+      "key": "rag-opinion-v1:7e000c096962eae7f1abcbc6ee31d64861f6508a2815442c3003d1114a83d1f9",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q24",
+      "mode": "unfiltered",
+      "rank": 5,
+      "key": "rag-opinion-v1:aea90c30776b6bc5aeb90bb94b6389403fe88f47c484a4e79c8c50e49c98e626",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q24",
+      "mode": "filtered",
+      "rank": 1,
+      "key": "rag-opinion-v1:029842ef23ec984ad576fbc3827001f5b246166147d3eab520a8b17f68663dd3",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q24",
+      "mode": "filtered",
+      "rank": 2,
+      "key": "rag-opinion-v1:bbf259d39f1b42deddda775fa30a3d2822e58f1c1c20039ee35e53850696d88f",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q24",
+      "mode": "filtered",
+      "rank": 3,
+      "key": "rag-opinion-v1:aea90c30776b6bc5aeb90bb94b6389403fe88f47c484a4e79c8c50e49c98e626",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q24",
+      "mode": "filtered",
+      "rank": 4,
+      "key": "rag-opinion-v1:8d942ca9a55cf10cd6d4ba07c30f4f8d105421bfc50be75b1ce071b2c3d74f02",
+      "grade": null,
+      "note": ""
+    },
+    {
+      "query_id": "Q24",
+      "mode": "filtered",
+      "rank": 5,
+      "key": "rag-opinion-v1:b9a67d169aabe6736a01441e6ad08145e1b69fcbddce360486f4d2fded129597",
+      "grade": null,
+      "note": ""
+    }
+  ]
+}
