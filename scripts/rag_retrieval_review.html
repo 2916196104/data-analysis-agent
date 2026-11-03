@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Step 4A 本地人工评审</title>
+<style>
+body{font:15px/1.6 system-ui,sans-serif;max-width:1200px;margin:24px auto;padding:0 20px;color:#172b26;background:#f5f8f6}
+header,section{background:white;padding:20px;margin:16px 0;border:1px solid #d5e1da;border-radius:10px}
+h1{font-size:24px}h2{font-size:20px}h3{font-size:17px}button{background:#166343;color:white;border:0;border-radius:6px;padding:10px 18px;cursor:pointer}
+label{display:inline-block;margin:6px 12px 6px 0}input,select,textarea{font:inherit;max-width:100%;padding:6px;border:1px solid #a8bbb1;border-radius:4px}
+textarea{width:95%;min-height:50px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{vertical-align:top;border-bottom:1px solid #d5e1da;text-align:left;padding:10px;overflow-wrap:anywhere}
+th:first-child{width:55%}blockquote{margin:8px 0;padding:8px;border-left:3px solid #469574;white-space:pre-wrap}summary{cursor:pointer;color:#166343}pre{white-space:pre-wrap;overflow-wrap:anywhere}
+.bar{position:sticky;top:0;background:#edf5f0;padding:12px;z-index:1}.meta{font-size:13px;color:#51675c}#error{color:#9b2828} @media(max-width:768px){th:first-child{width:50%}td,th{padding:6px}}
+</style>
+<header><h1>Step 4A 本地人工相关性评审</h1>
+<p>2 分：直接回答核心问题且主题、事实和情感方向相符。1 分：相近但信息不足。0 分：主题、极性错误或证据不支持。空白表示尚未评审。</p>
+<p>先判断每个问题的证据状态，再对两个检索版本逐条评分。不能用距离代替判断；必要时展开原文。标签可能有误，请在备注中区分语义、标签、覆盖、过滤和待判断问题。当前清单只覆盖 Top-5，不能据此断言完整 200 条或未索引 891 条没有相关证据。</p>
+<p>无已知相关证据、样本不足和未评审问题不纳入普通质量指标。恢复评分可导入先前下载的标签。页面不发出任何网络请求；含真实原文，请保留在本地。</p></header>
+<div class="bar"><label>评审人 <input id="reviewer" autocomplete="off"></label><label><input type="checkbox" id="confirmed">我确认已填写的分数和证据状态由本人实际评审</label>
+<button id="save">保存人工标签 JSON</button><label>恢复标签 <input id="restore" type="file" accept=".json"></label><p id="error" role="status"></p></div>
+<main id="main"></main>
+<script>
+const payload=__REVIEW_PAYLOAD__;
+const run=payload.run;let labels=payload.labels;
+const main=document.getElementById('main');
+function el(tag,text,parent){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(parent)parent.append(n);return n}
+function selector(values,value,onchange,parent){const s=el('select',undefined,parent);for(const [v,t]of values){const o=el('option',t,s);o.value=v} s.value=value;s.onchange=()=>onchange(s.value);return s}
+function render(){
+ main.replaceChildren();document.getElementById('reviewer').value=labels.reviewer;document.getElementById('confirmed').checked=labels.human_confirmed;
+ for(const q of run.manifest.queries){
+  const box=el('section',undefined,main);el('h2',q.id+' · '+q.text,box);el('p','考察：'+q.ability+'；标准：'+q.criterion,box);
+  const qlabel=labels.queries.find(x=>x.id===q.id);el('label','证据状态：',box);
+  selector([['unreviewed','未评审'],['answerable','有可判断的相关证据'],['no_known_relevant','无已知相关证据（受限索引）'],['insufficient_sample','样本不足']],qlabel.evidence_status,v=>qlabel.evidence_status=v,box);
+  const qnote=el('textarea',undefined,box);qnote.placeholder='问题级备注：证据是否只在未索引语料中存在、是否需要进一步检查等';qnote.value=qlabel.note;qnote.oninput=()=>qlabel.note=qnote.value;
+  for(const s of run.searches.filter(x=>x.query_id===q.id)){
+   el('h3',(s.mode==='filtered'?'带过滤':'无过滤')+' · '+JSON.stringify(s.filters),box);
+   if(!s.hits.length){el('p','没有返回结果。仍需选择问题的证据状态。',box);continue}
+   const table=el('table',undefined,box),head=el('tr',undefined,el('thead',undefined,table));el('th','观点与必要原文',head);el('th','相关性与备注',head);const tbody=el('tbody',undefined,table);
+   for(const h of s.hits){
+    const j=labels.judgments.find(x=>x.query_id===q.id&&x.mode===s.mode&&x.rank===h.rank&&x.key===h.key);
+    const tr=el('tr',undefined,tbody),left=el('td',undefined,tr),right=el('td',undefined,tr);
+    el('strong','排名 '+h.rank+' · '+h.aspect+' / '+h.sentiment,left);el('p','cosine distance = '+h.cosine_distance.toFixed(6)+'；review '+h.review_id+'；annotation '+h.annotation_id,left).className='meta';el('blockquote',h.quote,left);
+    const details=el('details',undefined,left);el('summary','检查原文与字符区间 ['+h.quote_start+', '+h.quote_end+')',details);el('pre',h.review_text,details);el('p',h.key,details).className='meta';
+    el('label','人工相关性：',right);selector([['','未评审'],['2','2 高度相关'],['1','1 部分相关'],['0','0 不相关']],j.grade===null?'':String(j.grade),v=>j.grade=v===''?null:Number(v),right);
+    const note=el('textarea',undefined,right);note.placeholder='备注：A 语义 / B 语料标签 / C 覆盖 / D 过滤排序 / E 尚不能判断';note.value=j.note;note.oninput=()=>j.note=note.value;
+   }
+  }
+ }
+}
+document.getElementById('save').onclick=()=>{
+ labels.reviewer=document.getElementById('reviewer').value.trim();labels.human_confirmed=document.getElementById('confirmed').checked;
+ if(labels.human_confirmed&&!labels.reviewer){document.getElementById('error').textContent='确认人工评分时请填写评审人。';return}
+ const blob=new Blob([JSON.stringify(labels,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download='labels.human.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);document.getElementById('error').textContent='已保存。请将下载文件放入本次本地评审目录，再运行 score 命令。';
+};
+document.getElementById('restore').onchange=async event=>{try{const value=JSON.parse(await event.target.files[0].text());for(const k of ['run_id','manifest_sha256','scope_sha256','label_version'])if(value[k]!==labels[k])throw Error();
+ if(!Array.isArray(value.judgments)||!Array.isArray(value.queries)||value.judgments.length!==labels.judgments.length||value.queries.length!==labels.queries.length)throw Error();
+ const keys=x=>JSON.stringify(x.judgments.map(j=>[j.query_id,j.mode,j.rank,j.key]));if(keys(value)!==keys(labels))throw Error();labels=value;render();document.getElementById('error').textContent='已恢复标签。';}catch{document.getElementById('error').textContent='标签不属于本次运行或格式错误。'}};
+render();
+</script></html>

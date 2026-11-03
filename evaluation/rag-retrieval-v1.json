@@ -1,0 +1,346 @@
+{
+  "version": "rag-retrieval-quality-v1",
+  "frozen_at": "2026-11-03",
+  "scope": {
+    "source": "reviews_csv",
+    "dataset_version": "reviews-csv",
+    "product_ids": [
+      "100013588055"
+    ],
+    "date_from": "2021-09-11",
+    "date_to": "2022-08-26",
+    "model": "Pro/deepseek-ai/DeepSeek-V3.2",
+    "prompt_version": "review-opinions-v1-e61de599683cba6703c2f61e85125d0be4627c2763440486aa717e4bc884036e"
+  },
+  "label_profile_key": "1b58dc189d7d3ea6a55713a989f4555837eb83492690afdc020d808a268a5304",
+  "embedding_space_id": "embedding-space-v1:11e6754662dbd13fc56c6e624bc9416c1c2766f962787267fd4a57b1fa8d622e",
+  "text_builder_version": "quote-utf8-v1",
+  "rules": {
+    "version": "human-relevance-v1",
+    "relevant_grade": 2,
+    "partial_grade": 1,
+    "grades": {
+      "2": "直接回答核心问题，事实、主题及情感方向一致",
+      "1": "主题相近但不能直接回答，或缺少必要信息",
+      "0": "主题错误、情感冲突或证据不支持"
+    },
+    "precision_denominator": "k; missing ranks count as zero only for human-confirmed answerable queries",
+    "unjudged": "N/A; each evaluated prefix must be fully judged",
+    "no_known_relevant": "separate returned-candidate rate; quality metrics N/A",
+    "recall": "N/A; complete indexed candidate judgments are not collected",
+    "abstention": "no distance threshold; returning a candidate does not assert relevance"
+  },
+  "inventory_snapshot_sha256": "92e3c0ec0ff391e38110affb086def5e7b7a6ccd6412dea6f56cbe1133006ecd",
+  "queries": [
+    {
+      "id": "Q01",
+      "text": "问了售后好几次都等不到回音，有这类反馈吗？",
+      "aspect": "service",
+      "sentiment": "negative",
+      "ability": "同义改写与回复时效",
+      "filters": {
+        "aspect": "service",
+        "sentiment": "negative"
+      },
+      "criterion": "回复延迟或不回复；仅态度差为部分相关",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q02",
+      "text": "有人说客服说话不耐烦、服务态度差吗？",
+      "aspect": "service",
+      "sentiment": "negative",
+      "ability": "客服态度与回复速度区分",
+      "filters": {
+        "aspect": "service",
+        "sentiment": "negative"
+      },
+      "criterion": "直接描述态度；仅回复慢不等于态度差",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q03",
+      "text": "客服会耐心解释并帮忙解决问题吗？",
+      "aspect": "service",
+      "sentiment": "positive",
+      "ability": "正向服务",
+      "filters": {
+        "aspect": "service",
+        "sentiment": "positive"
+      },
+      "criterion": "耐心解答或协助解决；负向服务为不相关",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q04",
+      "text": "买完之后出了状况，一直没人跟进处理吗？",
+      "aspect": "service",
+      "sentiment": "negative",
+      "ability": "售后间接描述",
+      "filters": {
+        "aspect": "service",
+        "sentiment": "negative"
+      },
+      "criterion": "售后不处理或无人跟进；仅售前体验不足以回答",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q05",
+      "text": "下单后很快就收到货的评价有哪些？",
+      "aspect": "logistics",
+      "sentiment": "positive",
+      "ability": "正向配送同义",
+      "filters": {
+        "aspect": "logistics",
+        "sentiment": "positive"
+      },
+      "criterion": "快速到货；安装快不能直接回答",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q06",
+      "text": "买家有没有抱怨迟迟收不到货？",
+      "aspect": "logistics",
+      "sentiment": "negative",
+      "ability": "配送延误",
+      "filters": {
+        "aspect": "logistics",
+        "sentiment": "negative"
+      },
+      "criterion": "未到货或配送延误；安装等待需区分",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q07",
+      "text": "约好的送货时间总往后推，有人遇到吗？",
+      "aspect": "logistics",
+      "sentiment": "negative",
+      "ability": "承诺时点与间接表达",
+      "filters": {
+        "aspect": "logistics",
+        "sentiment": "negative"
+      },
+      "criterion": "配送时间被推迟；泛泛服务不好最多部分相关",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q08",
+      "text": "收到的机器有没有做工粗糙、零件不牢的问题？",
+      "aspect": "quality",
+      "sentiment": "negative",
+      "ability": "质量与外观包装区分",
+      "filters": {
+        "aspect": "quality",
+        "sentiment": "negative"
+      },
+      "criterion": "做工/零件结构问题；单纯包装破损不能回答",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q09",
+      "text": "用了不久就坏了或者发生故障的反馈有哪些？",
+      "aspect": "quality",
+      "sentiment": "negative",
+      "ability": "耐用性与故障",
+      "filters": {
+        "aspect": "quality",
+        "sentiment": "negative"
+      },
+      "criterion": "短期损坏/故障；单纯效果一般最多部分相关",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q10",
+      "text": "有没有夸机器用料扎实、做工可靠的？",
+      "aspect": "quality",
+      "sentiment": "positive",
+      "ability": "稀少正向质量",
+      "filters": {
+        "aspect": "quality",
+        "sentiment": "positive"
+      },
+      "criterion": "明确用料/做工可靠；单说好用不能直接证明",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q11",
+      "text": "炎热时开机，屋里很快就凉下来了吗？",
+      "aspect": "effectiveness",
+      "sentiment": "positive",
+      "ability": "使用效果口语表达",
+      "filters": {
+        "aspect": "effectiveness",
+        "sentiment": "positive"
+      },
+      "criterion": "降温快/制冷好；配送快不相关",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q12",
+      "text": "开了很久还是不凉快，有这样的评价吗？",
+      "aspect": "effectiveness",
+      "sentiment": "negative",
+      "ability": "效果不足与否定",
+      "filters": {
+        "aspect": "effectiveness",
+        "sentiment": "negative"
+      },
+      "criterion": "制冷差或降温慢；正向制冷不相关",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q13",
+      "text": "晚上休息会不会被机器的声音吵到？",
+      "aspect": "effectiveness",
+      "sentiment": "negative",
+      "ability": "噪声的间接表达",
+      "filters": {
+        "aspect": "effectiveness",
+        "sentiment": "negative"
+      },
+      "criterion": "噪声影响休息/声音大；无噪声为方向冲突",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q14",
+      "text": "哪些反馈觉得花这笔钱挺值的？",
+      "aspect": "price",
+      "sentiment": "positive",
+      "ability": "价格口语表达",
+      "filters": {
+        "aspect": "price",
+        "sentiment": "positive"
+      },
+      "criterion": "划算/性价比高；仅功能好不能推出值得",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q15",
+      "text": "有人觉得售价偏高，或者刚买就降价了吗？",
+      "aspect": "price",
+      "sentiment": "negative",
+      "ability": "价格负向与售后混淆",
+      "filters": {
+        "aspect": "price",
+        "sentiment": "negative"
+      },
+      "criterion": "价格高/降价损失；仅客服差不能回答",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q16",
+      "text": "到手时纸箱或外包装有没有破损？",
+      "aspect": "packaging",
+      "sentiment": "negative",
+      "ability": "极少包装样本",
+      "filters": {
+        "aspect": "packaging",
+        "sentiment": "negative"
+      },
+      "criterion": "包装损坏；机器自身外观/安装问题需区分",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q17",
+      "text": "有没有专门夸包装完整、保护到位的评价？",
+      "aspect": "packaging",
+      "sentiment": "positive",
+      "ability": "标签层面零覆盖",
+      "filters": {
+        "aspect": "packaging",
+        "sentiment": "positive"
+      },
+      "criterion": "明确正向包装；无证据须标无已知或样本不足",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q18",
+      "text": "货到了却迟迟没人来安装，这是哪类反馈？",
+      "aspect": "service",
+      "sentiment": "negative",
+      "ability": "安装与物流跨维度混淆",
+      "filters": {
+        "aspect": "service",
+        "sentiment": "negative"
+      },
+      "criterion": "到货后安装等待；物流未到不能直接回答",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q19",
+      "text": "客服并没有让人久等，回答还挺及时，有这种说法吗？",
+      "aspect": "service",
+      "sentiment": "positive",
+      "ability": "否定负向措辞",
+      "filters": {
+        "aspect": "service",
+        "sentiment": "positive"
+      },
+      "criterion": "及时回复；被等待词吸引的负向回复为不相关",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q20",
+      "text": "不是制冷快，而是根本降不下温，有没有类似抱怨？",
+      "aspect": "effectiveness",
+      "sentiment": "negative",
+      "ability": "否定句极性",
+      "filters": {
+        "aspect": "effectiveness",
+        "sentiment": "negative"
+      },
+      "criterion": "制冷不足；制冷快的正向评价不相关",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q21",
+      "text": "总体不错但有些地方又让人不满意，能找到这样的反馈吗？",
+      "aspect": "effectiveness",
+      "sentiment": "mixed",
+      "ability": "混合感情与短quote上下文",
+      "filters": {
+        "aspect": "effectiveness"
+      },
+      "criterion": "必要原文同时包含优缺点；单一极性quote最多部分相关，备注说明",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q22",
+      "text": "只陈述使用情况、不带明显褒贬的评价有哪些？",
+      "aspect": "effectiveness",
+      "sentiment": "neutral",
+      "ability": "中性标签零样本",
+      "filters": {
+        "aspect": "effectiveness",
+        "sentiment": "neutral"
+      },
+      "criterion": "中性事实描述；已知中性标签为零，不伪造相关观点",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q23",
+      "text": "这款设备的电池续航能撑一天吗？",
+      "aspect": "effectiveness",
+      "sentiment": "unknown",
+      "ability": "无已知证据/超出产品主题",
+      "filters": {
+        "aspect": "effectiveness"
+      },
+      "criterion": "仅明确电池续航可回答；制冷/配送不能证明，人工确认是否无证据",
+      "evidence_status": "pending_human_review"
+    },
+    {
+      "id": "Q24",
+      "text": "有没有提到机身生锈或金属腐蚀的情况？",
+      "aspect": "quality",
+      "sentiment": "negative",
+      "ability": "具体主题覆盖探针",
+      "filters": {
+        "aspect": "quality",
+        "sentiment": "negative"
+      },
+      "criterion": "明确生锈/腐蚀；泛泛质量差最多部分相关，不能预判存在证据",
+      "evidence_status": "pending_human_review"
+    }
+  ]
+}
