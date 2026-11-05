@@ -321,5 +321,64 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
         with self.assertRaises(QuestionScopeError):
             _followup_intent('那差评呢',{'queries':[{'kind':'semantic_evidence','parameters':{}}]})
 
+    def test_p3_equivalent_report_with_unrelated_context_generates_exact_citation(self):
+        text='外观颜色合我心意；我感觉制冷不给力；配送员非常守时。'
+        self.sources=[source(self.scope(),text,'我感觉制冷不给力'),
+                      source(self.scope(),'制热很快。','制热很快',rid=2)]
+        result=self.run_question();self.assert_success(result)
+        ref=result['public_answer']['evidence_refs'][0]
+        self.assertEqual(ref['opinions'][0]['quote'],'我感觉制冷不给力')
+        self.assertIn('我感觉制冷不给力',result['answer'])
+        assessment=result['results']['r1']['data']['assessment']
+        self.assertEqual(assessment['supported_target_fact_ids'],['cooling_poor'])
+        self.assertEqual(assessment['fact_bindings'][0]['key'],ref['opinions'][0]['opinion_key'])
+        self.assertEqual(self.encoder.calls,[[QUESTION]])
+        self.assertEqual(result['total_model_calls'],0)
+
+    def test_p3_durability_question_reaches_encoder_but_is_not_invented(self):
+        for question in ('有没有空调使用十年仍然耐用的反馈？','请问是否有空调用了多年仍然耐用的评论？'):
+            result=self.run_question(question);self.assert_success(result)
+            self.assertEqual(self.encoder.calls[-1],[question])
+            self.assertEqual(result['public_answer']['evidence_refs'],[])
+            self.assertEqual(result['answer_generation']['evidence_assessment']['reason'],'query_semantics_uncovered')
+
+    def test_p3_same_review_multiple_facts_full_quote(self):
+        quote='制冷效果不错；噪声太大'
+        self.sources=[source(self.scope(),quote+'。',quote),source(self.scope(),'制热很快。','制热很快',rid=2)]
+        question='有没有同一评论既说制冷好又抱怨噪音大的反馈？'
+        result=self.run_question(question);self.assert_success(result)
+        self.assertEqual(result['public_answer']['evidence_refs'][0]['opinions'][0]['quote'],quote)
+        assessment=result['results']['r1']['data']['assessment']
+        self.assertEqual(assessment['relation']['review_ids'],[1])
+        self.assertEqual(set(assessment['fact_bindings'][0]['fact_ids']),{'cooling_good','noise_high'})
+
+    def test_p3_compact_fact_binding_tampering_is_rejected(self):
+        result=self.run_question();self.assert_success(result)
+        for field,value in [('fact_ids',['cooling_fast']),('quote_sha256','0'*64),('review_id',999),('quote_start',12)]:
+            compact=deepcopy(result['compact_context'])
+            compact['statistics'][0]['filters']['assessment']['fact_bindings'][0][field]=value
+            with self.assertRaises(ValueError):semantic_answer(CompactAnalysisContext.model_validate(compact))
+        compact=deepcopy(result['compact_context'])
+        compact['evidence'][0]['opinions'][0]['quote']='制冷很快'
+        with self.assertRaises(ValueError):semantic_answer(CompactAnalysisContext.model_validate(compact))
+
+    def test_p3_history_retains_legacy_permission_instead_of_promoting(self):
+        from data_analysis_agent.agents.review_retrieval import LEGACY_POLICY
+        self.sources=[source(self.scope(),'制冷不佳；外观漂亮。','制冷不佳'),
+                      source(self.scope(),'制热很快。','制热很快',rid=2)]
+        result=self.run_question();self.assert_success(result)
+        self.assertTrue(result['public_answer']['evidence_refs'])
+        data=result['results']['r1']['data']
+        data['assessment']=assess_retrieval(QUESTION,data['retrieval']['evidence'],policy=LEGACY_POLICY)
+        self.assertEqual(data['assessment']['permitted_keys'],[])
+        self.assertTrue(validate_retrieval(data,QUESTION))
+        task={'status':'succeeded','result':result}
+        public=read_public_analysis(task)
+        self.assertEqual(public['status'],'ok')
+        answer=read_public_answer(task,public_analysis=public)
+        self.assertEqual(answer['evidence_refs'],[])
+        data['assessment']['policy']='unapproved'
+        self.assertFalse(validate_retrieval(data,QUESTION))
+
 
 if __name__=='__main__':unittest.main()

@@ -44,7 +44,19 @@ def _product_clause(value):
 def product_mentions(question, products):
     """只提取用户明确写出的实体；不把页面默认商品当作用户指代。"""
     found = []
-    for clause in re.split(r'以及|还有|与|和|及|对比|比较|[，,；;、]', question):
+    # A conjunction inside an exact catalog title is part of the product name.
+    title_spans = [(m.start(),m.end()) for row in products if row['title']
+                   for m in re.finditer(re.escape(row['title']),question)]
+    breaks = [m for m in re.finditer(r'以及|还有|与|和|及|对比|比较|[，,；;、]',question)
+              if not any(start <= m.start() < end for start,end in title_spans)]
+    clauses = []; start = 0
+    for split in breaks:
+        clauses.append(question[start:split.start()]); start = split.end()
+    clauses.append(question[start:])
+    for clause in clauses:
+        # Existential question operators are not part of an entity. Exact IDs and
+        # catalog titles still take priority; unknown named products still fail closed.
+        clause = re.sub(r'^(?:请问|想问|想知道|想了解)?(?:有没有|是否有|有无|是否存在)', '', clause.strip()).strip()
         clause = _product_clause(clause)
         explicit = [row['product_id'] for row in products if re.search(
             r'(?<![A-Za-z0-9_])' + re.escape(row['product_id']) + r'(?![A-Za-z0-9_])', clause)]
@@ -52,11 +64,12 @@ def product_mentions(question, products):
         if explicit:
             found.extend(explicit)
             continue
+        clause = re.sub(r'^(?:不是|并非|并不是)(?=(?:空调|商品|产品))', '', clause)
         brands = []
         for brand in sorted({row.get('brand') for row in products if row.get('brand')}, key=len, reverse=True):
             if brand not in {'其他', '未知'} and brand in clause:
                 brands.append(brand + '空调' if brand + '空调' in clause else brand)
-        head = re.split(r'好评|差评|优缺点|优点|缺点|评价|使用效果|制冷|静音|安装|质量|效果|包装|物流|客服|服务|价格|趋势|问题|哪些|什么|怎么样|如何', clause, maxsplit=1)[0]
+        head = re.split(r'好评|差评|优缺点|优点|缺点|评价|使用|用了|用过|运行|购买|买了|制热|耐用|寿命|使用效果|制冷|静音|安装|质量|效果|包装|物流|客服|服务|价格|趋势|问题|哪些|什么|怎么样|如何', clause, maxsplit=1)[0]
         match = re.search(r'([\w\u4e00-\u9fff]{2,30}空调)', head)
         if match:
             name = match[1]

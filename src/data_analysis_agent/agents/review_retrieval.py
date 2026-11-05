@@ -9,6 +9,7 @@ import math
 import re
 
 from data_analysis_agent.core.serialization import content_sha256
+from data_analysis_agent.agents.review_reported_facts import POLICY, assess as assess_reported_facts
 from data_analysis_agent.reviews.embedding import LocalBgeM3Embedder
 from data_analysis_agent.reviews.embedding_store import SPACE_ID
 from data_analysis_agent.reviews.rag_corpus import _document, RagOpinionDocument, RagReviewState
@@ -17,7 +18,7 @@ from data_analysis_agent.reviews.semantic_retrieval import (
 )
 
 TOOL = 'search_semantic_evidence'
-POLICY = 'literal_reported_statement_v1'
+LEGACY_POLICY = 'literal_reported_statement_v1'
 STATISTICS = r'占比|比例|百分比|多少|几条|数量|统计|趋势|排名|分布|覆盖率|数据质量|对比|比较|主要|最多'
 COMPLEX = r'同时|同一|既.+又|不仅|而且|但|却|又|而是|不是|并非|或者|还是|之前|之后|先.+再|导致|原因|为什么|长期|耐用|睡眠|所有|每个|一定|和|以及|与|[、；;，,]'
 LITERAL_STATEMENT = (r'(?:空调)?(?:制冷|制热)(?:不足|不行|效果差|效果好|很快|很慢|不快)|'
@@ -29,7 +30,7 @@ def wants_semantic_search(question):
     # SQL browsing/pagination and aggregates keep their existing semantics.
     if question.startswith('执行本轮已确认的只读查询') or re.search(STATISTICS, question):
         return False
-    return bool(re.search(r'语义检索|类似.*(?:评论|反馈|抱怨|证据)|(?:有没有|是否有).*(?:评论|反馈|抱怨|证据)|'
+    return bool(re.search(r'语义检索|类似.*(?:评论|反馈|抱怨|证据)|(?:有没有|是否有|有无|是否存在).*(?:评论|反馈|抱怨|证据)|'
                          r'(?:找|检索|搜索).*(?:评论|原文|反馈|证据)', question))
 
 
@@ -79,7 +80,7 @@ def _literal_target(question):
     return target
 
 
-def assess_retrieval(question, evidence):
+def assess_literal_retrieval(question, evidence):
     """Only license 'a buyer explicitly reported X', never objective/population X.
 
     Exact whole-quote assertions plus conservative context veto. Unknown paraphrases,
@@ -115,13 +116,21 @@ def assess_retrieval(question, evidence):
             supported.append(row['key'])
         judgments.append({'key': row['key'], 'support': 'direct_report' if direct else 'unknown',
                           'reason': 'literal_assertion' if direct else 'context_unresolved' if veto else 'semantic_not_verified'})
-    return {'policy': POLICY, 'status': 'sufficient' if supported else 'insufficient',
+    return {'policy': LEGACY_POLICY, 'status': 'sufficient' if supported else 'insufficient',
         'target': target, 'supported_target_fact_ids': ['reported_statement'] if supported else [],
         'missing_required_fact_ids': [] if supported else ['reported_statement'],
         'permitted_keys': supported, 'candidate_judgments': judgments,
         'reason': 'explicit_report_only' if supported else 'no_candidates' if not evidence else
                   'query_semantics_uncovered' if target is None else 'no_verified_direct_report',
         'scope_of_claim': 'retrieved_buyer_report_only', 'general_entailment': False}
+
+
+def assess_retrieval(question, evidence, *, policy=POLICY):
+    if policy == POLICY:
+        return assess_reported_facts(question, evidence)
+    if policy == LEGACY_POLICY:
+        return assess_literal_retrieval(question, evidence)
+    raise ValueError('unknown evidence permission policy')
 
 
 def execute_retrieval(context, scope):
@@ -175,7 +184,7 @@ def validate_retrieval(data, question):
                     'source','dataset_version','product_id','review_content_sha256','published_at','opinion_source')): return False
             if query.aspect is not None and doc.aspect != query.aspect: return False
             if query.sentiment is not None and doc.sentiment != query.sentiment: return False
-        return data['assessment'] == assess_retrieval(question,evidence)
+        return data['assessment'] == assess_retrieval(question,evidence,policy=data['assessment']['policy'])
     except (KeyError,ValueError,TypeError,AttributeError,UnicodeError,SemanticRetrievalError):
         return False
 

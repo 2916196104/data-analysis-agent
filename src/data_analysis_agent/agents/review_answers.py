@@ -389,11 +389,12 @@ def unavailable_answer(status="failed", reason=None):
 
 def semantic_answer(context):
     """Reuse PublicAnswer; publish only licensed verbatim reports, never raw candidates."""
-    from data_analysis_agent.agents.review_retrieval import POLICY
+    from data_analysis_agent.agents.review_retrieval import POLICY, LEGACY_POLICY
+    from data_analysis_agent.agents.review_reported_facts import validate_answer_bindings
     if len(context.statistics) != 1 or context.statistics[0]['analysis_type'] != 'semantic_evidence':
         raise ValueError('语义回答上下文不一致。')
     stat = context.statistics[0]; filters = stat['filters']; assessment = filters['assessment']
-    if (filters['question'] != context.question or assessment['policy'] != POLICY
+    if (filters['question'] != context.question or assessment['policy'] not in (POLICY, LEGACY_POLICY)
             or (filters['context_policy'],filters['context_version']) != ('quote_full_review_veto','1')):
         raise ValueError('语义回答许可版本不一致。')
     scope = next((row for row in context.scope_summary if row['scope_ref']==stat['scope_ref']),None)
@@ -404,13 +405,16 @@ def semantic_answer(context):
         raise ValueError('语义回答引用与许可集合不一致。')
     if (assessment['status'] == 'sufficient') != bool(keys):
         raise ValueError('语义回答状态与证据不一致。')
+    if assessment['policy'] == POLICY and not validate_answer_bindings(context.question,assessment,context.evidence):
+        raise ValueError('语义回答事实、关系或引用绑定不一致。')
     highlights = []
     for ref in context.evidence:
         if (ref.source_result_id != stat['source_result_id'] or ref.product_id not in scope['product_ids']
                 or not scope['date_from'] <= ref.published_at[:10] <= scope['date_to']):
             raise ValueError('语义回答引用越过查询范围。')
         for quote in ref.opinions:
-            if quote.truncated or not quote.annotation_id or quote.quote.strip('。！! ') != assessment['target']:
+            if (quote.truncated or not quote.annotation_id or
+                    (assessment['policy']==LEGACY_POLICY and quote.quote.strip('。！! ') != assessment['target'])):
                 raise ValueError('语义回答必须保留完整许可引文。')
             highlights.append(AnswerHighlight(finding_ref=quote.opinion_key, aspect_key=quote.aspect,
                 scope_ref=stat['scope_ref'], source_result_ids=[ref.source_result_id],
