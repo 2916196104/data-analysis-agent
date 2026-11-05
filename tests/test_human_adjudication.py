@@ -17,8 +17,8 @@ from test_e1_readiness import review_fixture
 ROOT=Path(__file__).resolve().parents[1]
 
 
-def bundle_fixture():
-    reference,contract,prepared,_=review_fixture(quotes=('[合成] 客服回复及时',))
+def bundle_fixture(quotes=('[合成] 客服回复及时',)):
+    reference,contract,prepared,_=review_fixture(quotes=quotes)
     c=contract.model_dump(mode='json');before=dict(contract=c,independent_target_fact_ids=[])
     proposed=deepcopy(before);proposed['contract']['required_facts']['items'][0]['description']+='且满足合成使用条件'
     cases=[]

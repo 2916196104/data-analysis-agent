@@ -17,8 +17,9 @@ class Element{
  append(...nodes){this.children.push(...nodes);}replaceChildren(...nodes){this.children=[];this._text='';this.append(...nodes);}click(){return this.onclick?.();}
 }
 const elements=Object.fromEntries(data.ids.map(id=>[id,new Element('div')]));elements.payload.textContent=JSON.stringify(data.bundle);
+const findId=(node,id)=>node.id===id?node:node.children.map(c=>findId(c,id)).find(Boolean);
 const context=vm.createContext({structuredClone,Blob,TextEncoder,crypto:require('node:crypto').webcrypto,Date,JSON,console,module:{exports:{}},
- document:{body:new Element('body'),getElementById:id=>elements[id],createElement:tag=>new Element(tag),createTextNode:text=>{const e=new Element('text');e.textContent=text;return e;}},
+ document:{body:new Element('body'),getElementById:id=>elements[id]||findId(elements.content,id),createElement:tag=>new Element(tag),createTextNode:text=>{const e=new Element('text');e.textContent=text;return e;}},
  window:{addEventListener(){},scrollTo(){}},URL:{createObjectURL:b=>{context.savedBlob=b;return 'blob:synthetic';},revokeObjectURL(){}},setTimeout:fn=>fn()});
 const tree=(e,tag)=>[...(e.tag===tag?[e]:[]),...e.children.flatMap(c=>tree(c,tag))];
 const button=text=>tree(elements.content,'button').find(e=>e.textContent===text);
@@ -28,9 +29,9 @@ const input=label=>{const node=tree(elements.content,'label').find(e=>e._text===
 
 
 class AdjudicationPageTests(unittest.TestCase):
-    def run_ui(self,assertions,extra_fact=False):
+    def run_ui(self,assertions,extra_fact=False,bundle=None):
         html=(ROOT/'scripts/templates/e1_adjudication.html').read_text(encoding='utf-8')
-        bundle=bundle_fixture()
+        bundle=bundle or bundle_fixture()
         if extra_fact:
             for variant in ('before','proposed'):
                 bundle['queries'][0][variant]['contract']['required_facts']['items'].append(dict(id='f1',description='第二合成目标',sentiment='positive'))
@@ -79,6 +80,8 @@ assert.ok(Object.values(saved.queries).every(q=>q.event_id));assert.ok(Object.va
 
     def test_selected_fact_for_new_citation_survives_render(self):
         self.run_ui(r"""
+elements.exposure.value='unsure';elements.exposure.onchange();elements.contextAck.checked=true;elements.contextAck.onchange();
+button('载入原契约').click();const reason=input('本人确认理由 / 如何解决原歧义');reason.value='合成确认原契约';reason.oninput();await button('确认本查询契约').click();
 elements.casesTab.click();const target=()=>tree(elements.content,'label').find(e=>e._text==='点击引用时对应的目标事实').children.find(e=>e.tag==='select');
 target().value='f1';target().onchange();await button('引用到所选事实（不自动判direct）').click();
 assert.equal(target().value,'f1');await elements.save.onclick();const s=JSON.parse(await context.savedBlob.text());

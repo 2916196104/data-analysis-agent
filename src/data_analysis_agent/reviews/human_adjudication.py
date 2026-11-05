@@ -58,6 +58,19 @@ def completion_payload(session):
         pair_events={k:v['event_id'] for k,v in session['pairs'].items()})
 
 
+def draft_differs(row):
+    """A saved edit is not a confirmed replacement, even if an old event remains."""
+    if 'draft' not in row:
+        return False
+    try:
+        draft=row['draft']
+        return (strict_json_loads(draft['text'])!=row['payload']
+                or draft['choice']!=(row.get('choice') or '')
+                or draft['rationale']!=row.get('rationale',''))
+    except (ValueError,KeyError,TypeError):
+        return True
+
+
 def review_errors(review,contract,independent,case):
     """Human-label consistency only; this function cannot prove semantic entailment."""
     errors=[];required={f['id'] for f in contract['required_facts']['items']}
@@ -173,12 +186,15 @@ def validate_session(bundle,session):
             payload=dict(payload=row['payload'],revision=row['revision'],choice=row['choice'],rationale=row.get('rationale',''))
             require(payload['choice'] in ('original','proposed','custom') and bool(payload['rationale'].strip()),'adjudication_contract_decision_missing')
             if payload['choice'] in ('original','proposed'):require(row['payload']==source['before' if payload['choice']=='original' else 'proposed'],'adjudication_contract_choice_mismatch')
+            require(not draft_differs(row),'adjudication_contract_draft_unconfirmed')
             require(event_ok(row['event_id'],'contract',qid,payload),'adjudication_contract_record_missing_or_stale')
         except (ValueError,KeyError,TypeError) as exc:problems.append(str(exc) if isinstance(exc,ValueError) else '契约结构无效')
         query_errors[qid]=problems
         if not problems:valid_q.add(qid)
     for cid,case in cs.items():
         row=session['cases'][cid];query=session['queries'][case['query_id']];problems=[]
+        for archived in row.get('review_history',[]):
+            require(archived['review_sha256']==content_sha256(archived['review']),'adjudication_review_history_hash_invalid')
         if case['query_id'] not in valid_q:problems.append('先确认共享查询契约')
         if row['contract_revision']!=query['revision']:problems.append('契约版本变化，必须重新评审')
         try:

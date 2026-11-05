@@ -6,7 +6,7 @@
 @media(max-width:1000px){.shell{grid-template-columns:150px minmax(0,1fr)}.columns{grid-template-columns:1fr}main{padding:16px}.row{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){header,footer{padding:16px}.shell{display:block}aside{height:auto;position:static;padding:10px 16px;border-bottom:1px solid #dbe5df}#navList{display:flex;overflow-x:auto;gap:5px;max-height:110px;flex-wrap:wrap}.nav{width:auto;white-space:nowrap}.row{grid-template-columns:1fr}section,article{padding:14px}main{padding:12px}h1{font-size:21px}}
 </style></head><body>
-<header><h1>查询契约与人工裁决</h1><p>先确认共享契约，再复核证据。原判断永久保留；建议不会自动变成你的决定。</p>
+<header><h1>查询契约与人工裁决</h1><p>先确认共享契约，再复核证据。原判断永久保留；建议不会自动变成你的决定。</p><p class="banner">进度只保存在本页内存中。关闭或重新载入前请导出；重新打开后须恢复导出的 JSON，才会载入你的确认记录。</p>
 <div class="row"><label>本人评审代号<input id="reviewer"></label><label>既往相关性评分接触情况<select id="exposure"><option value="">请本人声明</option><option value="not_seen">未接触</option><option value="seen">曾接触</option><option value="unsure">不确定</option></select></label><div><button id="save">导出本轮进度</button><label>恢复已导出的进度<input id="restore" type="file" accept="application/json"></label></div></div>
 <label class="check"><input type="checkbox" id="contextAck">本人理解：完整评论只用于解释或否决quote，支持事实来自quote内；当前来源历史未证明，本轮为单人复核。</label>
 <p id="progress" class="banner"></p><p id="message" class="status" role="status" aria-live="polite"></p></header>
