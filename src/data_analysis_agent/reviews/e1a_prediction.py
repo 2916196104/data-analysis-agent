@@ -61,8 +61,14 @@ def run_r0(value, sources, *, expected_scope, expected_input_sha256, expected_so
     try:validate_observed_sources(p,sources,expected_sources_sha256=expected_sources_sha256)
     except (ValueError,TypeError,PreparationError,SourceValidationError):
         return PredictionOutput(**fields,execution_status='validation_failed',reason_codes=('source_validation_failed',))
+    return _predict_r0_validated(p)
+
+
+def _predict_r0_validated(p):
+    """Same R0 projection, called only after the entry point's source checks."""
+    batch=p.prepared.candidate_batch
+    fields=dict(input_sha256=digest(p),contract_sha256=p.contract_sha256,query_id=batch.query_id,mode=batch.mode)
     try:
-        # Deliberate exploratory entry after its own source guard; strict entry is unchanged.
         raw=_judge(p.contract,batch,p.independent_target_fact_ids,
                    _input_digest(p.contract,batch,p.independent_target_fact_ids))
         evidence={f.id:[w for w in raw.condition_evidence_refs if w.fact_id==f.id] for f in p.contract.required_facts.items}
