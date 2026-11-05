@@ -230,6 +230,10 @@ class NaturalLanguageAnswerGenerator:
         context = CompactAnalysisContext.model_validate(compact_context)
         if question != context.question or not context.source_result_ids or not context.statistics:
             raise ValueError("回答问题或统计上下文不完整。")
+        if context.analysis_type == 'semantic_evidence':
+            return semantic_answer(context), {'strategy':'template', 'attempts':0,
+                'generation_status':'template', 'evidence_assessment':context.statistics[0]['filters']['assessment'],
+                'external_model_input':False, 'answer_outcome':'reported_quotes_only'}
         state = analysis_state(context)
         if state != 'complete':
             return unavailable_answer(state), {'strategy': 'blocked', 'attempts': 0, 'generation_status': 'unavailable', 'error_code': 'analysis_not_complete',
@@ -383,6 +387,44 @@ def unavailable_answer(status="failed", reason=None):
     return PublicAnswer(status=status, summary=(reason or "当前问题超出已有分析能力，请调整查询目标。") if status == "unsupported" else "").model_dump()
 
 
+def semantic_answer(context):
+    """Reuse PublicAnswer; publish only licensed verbatim reports, never raw candidates."""
+    from data_analysis_agent.agents.review_retrieval import POLICY
+    if len(context.statistics) != 1 or context.statistics[0]['analysis_type'] != 'semantic_evidence':
+        raise ValueError('语义回答上下文不一致。')
+    stat = context.statistics[0]; filters = stat['filters']; assessment = filters['assessment']
+    if (filters['question'] != context.question or assessment['policy'] != POLICY
+            or (filters['context_policy'],filters['context_version']) != ('quote_full_review_veto','1')):
+        raise ValueError('语义回答许可版本不一致。')
+    scope = next((row for row in context.scope_summary if row['scope_ref']==stat['scope_ref']),None)
+    if scope is None or context.source_result_ids != [stat['source_result_id']]:
+        raise ValueError('语义回答来源或范围不一致。')
+    keys = [quote.opinion_key for ref in context.evidence for quote in ref.opinions]
+    if keys != assessment['permitted_keys'] or len(keys) != len(set(keys)):
+        raise ValueError('语义回答引用与许可集合不一致。')
+    if (assessment['status'] == 'sufficient') != bool(keys):
+        raise ValueError('语义回答状态与证据不一致。')
+    highlights = []
+    for ref in context.evidence:
+        if (ref.source_result_id != stat['source_result_id'] or ref.product_id not in scope['product_ids']
+                or not scope['date_from'] <= ref.published_at[:10] <= scope['date_to']):
+            raise ValueError('语义回答引用越过查询范围。')
+        for quote in ref.opinions:
+            if quote.truncated or not quote.annotation_id or quote.quote.strip('。！! ') != assessment['target']:
+                raise ValueError('语义回答必须保留完整许可引文。')
+            highlights.append(AnswerHighlight(finding_ref=quote.opinion_key, aspect_key=quote.aspect,
+                scope_ref=stat['scope_ref'], source_result_ids=[ref.source_result_id],
+                text=f'评论 #{ref.review_id}（{ref.published_at[:10]}）写道：“{quote.quote}” [{ref.source_result_id}]'))
+    summary = ('在本次检索到的评论中，有买家明确报告了以下情况。' if keys else
+        '本次检索没有返回候选证据，暂时无法回答；这不表示全量评论不存在相关反馈。' if filters['candidate_count']==0 else
+        '已检索到候选观点，但当前本地校验不能确认其直接支持所问结论；暂不作确定判断。')
+    return PublicAnswer(status='ok', summary=summary, highlights=highlights, evidence_refs=context.evidence,
+        caveats=['仅描述本次检索且可明确核验的买家自述，不代表客观性能、总体比例或全部评论。',
+                 '完整评论仅作上下文否决；相似度不代表事实支持。未识别表达属于语义覆盖不足。'],
+        sample_note='语义Top-K候选不作为统计样本或总体分母。', generation_status='template',
+        source_result_ids=context.source_result_ids, scope_summary=context.scope_summary, details_available=True).model_dump()
+
+
 def read_public_answer(task, *, public_analysis=None):
     """冻结历史快照转换；只读、零模型调用，持久化文字也必须重新验证。"""
     from data_analysis_agent.agents.review_compression import read_public_analysis
@@ -397,6 +439,8 @@ def read_public_answer(task, *, public_analysis=None):
         scope_summary=public["scope_summary"], sample_summary=public["summary_metrics"], key_findings=public["highlights"],
         statistics=public["statistics"], evidence=public["evidence_refs"], caveats=public["caveats"], source_result_ids=public["source_result_ids"])
     try:
+        if context.analysis_type == 'semantic_evidence':
+            return semantic_answer(context)
         detailed = bool(re.search(r"详细|展开|完整分析", context.question))
         facts, _ = build_answer_facts(context, detailed=detailed)
         if not facts:

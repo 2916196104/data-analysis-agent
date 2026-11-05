@@ -36,6 +36,7 @@ class ReviewIntent(Input):
 
 
 KIND_TYPES = {'pros_cons': 'pros_cons', 'positive_aspects': 'aspect_summary', 'issues': 'aspect_summary',
+              'semantic_evidence': 'evidence',
               'aspect_drilldown': 'aspect_drilldown',
               'opinion_breakdown': 'opinion_breakdown', 'evidence': 'evidence', 'trend': 'trend',
               'aspect_trend': 'trend', 'comparison': 'comparison', 'quality': 'quality',
@@ -190,6 +191,8 @@ def _followup_intent(question, conditions):
         labels = '、'.join(dict.fromkeys(KIND_LABELS.get(row['kind'], row['kind']) for row in queries))
         raise QuestionScopeError(f'上轮包含{labels}。这次要看该维度的汇总、趋势还是原文？')
     last = selected[0]
+    if last['kind'] == 'semantic_evidence':
+        raise QuestionScopeError('上轮为语义检索，请补充完整的检索问题；省略追问不能自动改为按时间浏览原文。')
     if summary_ref and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown'}:
         raise QuestionScopeError('上轮是' + KIND_LABELS.get(last['kind'], last['kind']) + '。这次要继续该统计，还是查看评价维度和观点细分？')
     if short_period and last['kind'] not in {'trend', 'aspect_trend', 'ratings'}:
@@ -243,6 +246,21 @@ def resolve_review_request(question, scope, products, *, settings, context=None,
                 sub_intent='drill_down' if plan.analysis_type == 'opinion_breakdown' else 'overview').model_dump())
         return scope, plan, False
     mentions = product_mentions(question, products)
+    from data_analysis_agent.agents.review_retrieval import wants_semantic_search
+    if wants_semantic_search(question):
+        # No LLM-selected scope and no balanced-sentiment product expansion for RAG.
+        if mentions:
+            scope = bind_product_ids(match_product_mentions(mentions, products,
+                selected_ids=scope['product_ids']), scope)
+        dates = re.findall(r'\d{4}-\d{2}-\d{2}', question)
+        if dates:
+            if len(dates) != 2 or not scope['date_from'] <= dates[0] <= dates[1] <= scope['date_to']:
+                raise QuestionScopeError('语义检索日期必须明确且位于当前选择范围内，请先确认日期。')
+            scope = BaselineScope.model_validate({**scope,'date_from':dates[0],'date_to':dates[1]}).model_dump()
+        plan = build_query_plan(question, scope)
+        intent_state.update(query_type='evidence', sub_intent='evidence', sentiment=None,
+                            topic=None, aspect=None)
+        return scope, plan, True
     if not mentions and len(scope['product_ids']) != 1 and re.search(r'当前空调|当前商品|当前产品|这款空调|这款商品|这款产品|该空调|该商品', question) and not re.search(r'全部|所有|整体|总体', question):
         raise QuestionScopeError('当前选中了多款商品。请指定一款商品 ID，或明确询问“所有商品”的整体统计。')
     previous = (context or {}).get('validated') or {}

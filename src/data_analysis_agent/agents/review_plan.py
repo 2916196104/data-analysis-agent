@@ -12,6 +12,7 @@ from data_analysis_agent.core.errors import ReviewDataError
 ASPECT_WORDS = {"质量": "quality", "效果": "effectiveness", "价格": "price", "包装": "packaging",
                 "物流": "logistics", "客服": "service", "服务": "service"}
 TOOL_KINDS = {"get_positive_aspects": "positive_aspects", "get_top_issues": "issues",
+              "search_semantic_evidence": "semantic_evidence",
               "get_trend": "trend", "get_aspect_trend": "aspect_trend", "get_evidence": "evidence",
               "get_data_quality": "quality", "get_rating_distribution": "ratings",
               "compare_products": "comparison", "compare_time_windows": "window_comparison",
@@ -72,6 +73,16 @@ class ReviewQueryPlan:
 
 
 def build_query_plan(question, scope, *, product_groups=None):
+    from data_analysis_agent.agents.review_retrieval import wants_semantic_search, TOOL
+    if wants_semantic_search(question):
+        plan = ReviewQueryPlan('semantic_evidence', None, scope,
+            requirements=[{'tool': TOOL, 'parameters': {}}], requires_evidence=True,
+            max_evidence_pages=1, max_evidence_items=5, answer_question=question)
+        if len(scope.get('product_ids', [])) != 1:
+            plan.unsupported_reason = '语义检索需要明确选择一款商品，不能静默跨商品检索。'
+        if re.search(r'最近|上周|上月|去年|半年|基线|第\s*\d+\s*页', question):
+            plan.unsupported_reason = '语义检索沿用当前明确日期，暂不支持相对时间、基线或分页；请先明确范围。'
+        return plan
     question = normalize_question(question)
     sentiment = detect_sentiment_intent(question)
     plan = ReviewQueryPlan("analysis", sentiment, scope)
@@ -91,6 +102,9 @@ def build_query_plan(question, scope, *, product_groups=None):
             return plan
     if explicit:
         tool, params = explicit["tool"], explicit["parameters"]
+        if tool == 'search_semantic_evidence':
+            plan.unsupported_reason = '请直接输入原始评论问题进行语义检索，不能由追问工具参数改写问题。'
+            return plan
         add(tool, **params)
         plan.sentiment = params.get("sentiment") if tool == "get_evidence" else (
             "positive" if tool == "get_positive_aspects" else

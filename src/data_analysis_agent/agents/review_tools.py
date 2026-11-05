@@ -18,6 +18,7 @@ from data_analysis_agent.core.validation import Input, Text
 from data_analysis_agent.reviews import analytics
 from data_analysis_agent.reviews.opinions import ASPECTS, SENTIMENTS, Aspect
 from data_analysis_agent.reviews.parameters import BaselineScope
+from data_analysis_agent.reviews.semantic_retrieval import SemanticRetrievalError
 
 
 QUERY_SIGNATURES = {name: signature(getattr(analytics, name)) for name in (
@@ -83,7 +84,8 @@ class EvidenceInput(ProductSelection):
 
 class ReviewToolContext:
     def __init__(self, connection, scope, run_dir: Path, max_tool_calls, progress=None,
-                 sentiment_intent: str | None = None, query_plan=None, settings=None):
+                 sentiment_intent: str | None = None, query_plan=None, settings=None,
+                 question=None, semantic_service_factory=None):
         self.connection, self.scope, self.run_dir = connection, scope, run_dir
         self.max_tool_calls, self.progress = max_tool_calls, progress
         self.sentiment_intent = {"positive_aspects": "positive", "negative_aspects": "negative"}.get(
@@ -92,6 +94,7 @@ class ReviewToolContext:
         self.tool_calls, self.limit_reached = 0, False
         self.query_plan = query_plan
         self.settings, self.topic_model_calls = settings, 0
+        self.question, self.semantic_service_factory = question, semantic_service_factory
         self.cache_hits, self.query_executions, self.model_tool_attempts = 0, 0, 0
         self.evidence_queries, self.evidence_items = 0, 0
         self.query_duration_ms = 0.0
@@ -226,6 +229,18 @@ class ReviewToolContext:
             extracted = self.query('get_aspect_opinions', **scope, **values)
             kind, data = 'aspect_drilldown', analyze_aspect_topics(extracted, settings=self.settings, progress=self.progress)
             self.topic_model_calls += data['model_calls']
+        elif name == 'search_semantic_evidence':
+            from data_analysis_agent.agents.review_retrieval import execute_retrieval
+            if self.evidence_queries >= 1:
+                raise ReviewDataError('本轮语义检索已执行，不自动扩大候选或重试。')
+            self.query_executions += 1
+            started = perf_counter()
+            try:
+                kind, data = 'semantic_evidence', execute_retrieval(self, scope)
+            finally:
+                self.query_duration_ms += (perf_counter()-started)*1000
+            self.evidence_queries += 1
+            self.evidence_items += len(data['retrieval']['evidence'])
         elif name == "get_evidence":
             if values["sentiment"] == "all":
                 values["sentiment"] = None
@@ -274,6 +289,8 @@ class ReviewTool(Tool):
             return ToolResponse.error("INVALID_PARAM", "参数无效或超出已选范围，请依据工具声明和上下文修正。")
         except ReviewDataError as exc:
             return ToolResponse.error("INVALID_PARAM", str(exc))
+        except SemanticRetrievalError as exc:
+            return ToolResponse.error('RETRIEVAL_FAILED', '语义检索未完成（' + exc.code + '）；未生成业务结论。')
         except Exception:
             return ToolResponse.error("QUERY_FAILED", "查询失败，请检查已有数据、标注版本和统计范围。")
 
@@ -321,6 +338,7 @@ def create_review_registry(context):
         ("get_opinion_breakdown", "按已有观点原文与情感归组，返回去重评论数、观点数及可追溯原文；不是标准细分标签。", OpinionBreakdownInput),
         ('get_aspect_drilldown', '对一个商品的正向观点或指定维度的负向观点进行有来源的主题总结；正向省略 aspect 时按维度组织整体好评，数量由代码计算。', AspectDrilldownInput),
         ("get_evidence", "分页查询带原文位置的评论证据，可筛选维度、情感、商品子集和当前/基线窗口。", EvidenceInput),
+        ('search_semantic_evidence', '使用本轮原问题和固定范围做语义检索；候选不等于事实支持，不接受范围或问题改写。', Input),
     ):
         if context.query_plan and name != "get_analysis_context" and name not in (
             context.query_plan.required_tools + context.query_plan.optional_tools

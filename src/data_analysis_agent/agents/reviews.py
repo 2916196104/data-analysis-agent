@@ -119,7 +119,8 @@ class UnsupportedReviewQuery(ValueError):
     """明确不支持的任务在模型调用前结束，不发布替代方向的统计。"""
 
 
-def run_review_agent(db, question, *, scope, settings, progress=None, conversation_context=None):
+def run_review_agent(db, question, *, scope, settings, progress=None, conversation_context=None,
+                     semantic_service_factory=None):
     """模型仅选择只读工具及结果引用；所有数字和引文由代码整理。"""
     started = perf_counter()
     timings = {key: 0.0 for key in (
@@ -194,7 +195,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             if plan.analysis_type == "pros_cons" and len(plan.requirements) + 1 > settings.max_tool_calls:
                 raise UnsupportedReviewQuery("本轮商品数量超过工具调用预算，请减少商品后分析优缺点。")
             context = ReviewToolContext(connection, scope, Path(temporary), settings.max_tool_calls, report,
-                                        sentiment_intent=sentiment_intent, query_plan=plan, settings=settings)
+                                        sentiment_intent=sentiment_intent, query_plan=plan, settings=settings,
+                                        question=question, semantic_service_factory=semantic_service_factory)
             registry = create_review_registry(context)
             overview = registry.execute_tool("get_analysis_context", "{}", automatic=True)
             if "overview" not in context.results:
@@ -208,6 +210,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                     response = registry.execute_tool(request["tool"], json.dumps(request["parameters"], ensure_ascii=False), automatic=True)
                     payload = response.to_dict()
                     if payload.get("status") != "success":
+                        if request['tool'] == 'search_semantic_evidence':
+                            raise ReviewDataError(payload.get('error',{}).get('message') or '语义检索未完成；未生成业务结论。')
                         raise ReviewDataError(payload.get("message") or "已确认的追问执行失败。")
                 status, ids = "ok", [key for key in context.results if key != "overview"]
             else:
@@ -290,7 +294,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                 result.update(build_analysis_artifacts({**result, "results": context.results}, plan))
                 timings["compression_duration_ms"] = round((perf_counter() - compression_started) * 1000, 3)
         # 关闭只读事务和规划客户端后才解释已核验快照，生成阶段没有查询入口。
-        if result['status']=='ok' and not any(item['kind']=='aspect_drilldown' and item['data']['analysis_status']=='partial' for item in selected):
+        if result['status']=='ok' and plan.analysis_type != 'semantic_evidence' and not any(item['kind']=='aspect_drilldown' and item['data']['analysis_status']=='partial' for item in selected):
             from data_analysis_agent.agents.review_evidence_loop import complete_evidence
             with TemporaryDirectory(prefix='review-evidence-') as evidence_dir:
                 plan=complete_evidence(db,result,plan,context,settings,Path(evidence_dir),report)
@@ -312,6 +316,10 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             answer_started = perf_counter()
             result["public_answer"], result["answer_generation"] = NaturalLanguageAnswerGenerator().generate(
                 result["analysis_question"], result["compact_context"], settings=settings, validated=result["validation"]["status"] == "passed")
+            if plan.analysis_type == 'semantic_evidence':
+                answer = result['public_answer']
+                result['answer'] = '\n\n'.join([answer['summary'], *(row['text'] for row in answer['highlights'])])
+                result['answer_sections'] = [{'result_id':item['result_id'], 'kind':item['kind'], 'text':result['answer']} for item in selected]
             timings["answer_duration_ms"] = round((perf_counter() - answer_started) * 1000, 3)
     except QuestionScopeError as exc:
         result['user_intent'].update(needs_clarification=True, clarification_question=str(exc))

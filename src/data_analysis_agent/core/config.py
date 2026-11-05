@@ -39,6 +39,7 @@ class AgentSettings:
     answer_timeout_seconds: float = 15
     answer_max_retries: int = 0
     semantic_parser_enabled: bool = True
+    rag_model_cache: str | None = None
 
     @classmethod
     def from_values(cls, values: dict[str, str]) -> "AgentSettings":
@@ -93,6 +94,7 @@ class AgentSettings:
             answer_timeout_seconds=answer_timeout,
             answer_max_retries=integer("ANSWER_MAX_RETRIES", 0, 0, 1),
             semantic_parser_enabled=semantic_mode == 'rules_then_llm',
+            rag_model_cache=values.get('RAG_MODEL_CACHE', '').strip() or None,
         )
 
 

@@ -59,6 +59,9 @@ class EvidenceQuote(AnalysisModel):
     quote_start: int
     quote_end: int
     truncated: bool = False
+    opinion_key: str | None = None
+    annotation_id: int | None = None
+    effective_snapshot_sha256: str | None = None
 
 
 class EvidenceReference(AnalysisModel):
@@ -215,6 +218,14 @@ def adapt_result(item, bound_scope):
                     "review_id", "product_id", "published_at", "evidence_ref", "opinion_source")},
                 opinions=[EvidenceQuote(**{key: opinion[key] for key in ("aspect", "sentiment", "quote", "quote_start", "quote_end")})
                           for opinion in row["opinions"]]))
+    elif kind == 'semantic_evidence':
+        from data_analysis_agent.agents.review_retrieval import permitted_references
+        result.evidence_refs = permitted_references(data, item['result_id'])
+        result.filters = {'assessment': deepcopy(data['assessment']),
+            'question': data['retrieval']['query']['question'],
+            'candidate_count': len(data['retrieval']['evidence']),
+            'context_policy': data['retrieval']['context_policy'], 'context_version': data['retrieval']['context_version']}
+        result.sentiment = None
     else:
         raise ValueError("无法适配的分析结果类型。")
     return result

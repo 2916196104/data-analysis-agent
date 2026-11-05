@@ -144,6 +144,11 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
         expected = expected_scopes.get(result_id) if expected_scopes is not None else expected_scope
         if expected is not None:
             scope_ok &= _scope_matches(data.get("scope"), expected)
+        if item['kind'] == 'semantic_evidence':
+            from data_analysis_agent.agents.review_retrieval import validate_retrieval
+            question = query_plan.answer_question if query_plan and query_plan.answer_question else data.get('retrieval',{}).get('query',{}).get('question')
+            quotes_ok &= validate_retrieval(data, question)
+            quote_count += len(data.get('retrieval', {}).get('evidence', []))
         if item["kind"] == "positive_aspects":
             positive_ok &= _validate_positive_aspects(data)
         if item["kind"] in ("evidence", "opinion_breakdown", 'aspect_drilldown'):
