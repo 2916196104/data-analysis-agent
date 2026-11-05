@@ -276,6 +276,134 @@ class WindowsIsolationTests(unittest.TestCase):
                 proof=permission_probe(box,exe,protected_paths=[ref,sentinel],readable_paths=[request])
             print('ACTUAL_WINDOWS_PROOF',json.dumps(proof))
             self.assertTrue(proof['passed'],proof)
+            self.assertTrue(proof['token_is_appcontainer'])
+            self.assertEqual(proof['network_capabilities'],0)
+            self.assertFalse(proof['child_processes_allowed'])
+            self.assertTrue(proof['creation_flags'] & 8)
+            self.assertFalse(proof['creation_flags'] & 0x08000000)
+
+    def test_actual_worker_json_and_input_output_isolation(self):
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);exe=stage_python(root);runtime=root/'runtime';runtime.mkdir()
+            request=eight_fixture()[0][0];path=runtime/'request.json';write_new(path,request.model_dump(mode='json'))
+            reference=root/'reference';reference.mkdir();gold=reference/'answer.json'
+            gold.write_text('SYNTHETIC_GOLD_NEVER_TO_PREDICTOR',encoding='utf-8')
+            with AppContainer(root) as box:
+                box.grant(exe.parent);box.grant(runtime)
+                proof=permission_probe(box,exe,protected_paths=[reference,gold],readable_paths=[path])
+                self.assertTrue(proof['passed'],proof)
+                result=box.run(exe,['-I','-B','-m','data_analysis_agent.reviews.e1a_b3_worker',str(path),digest(request)],cwd=exe.parent,timeout_seconds=10)
+            print('ACTUAL_WORKER_JSON',json.dumps({k:v for k,v in result.items() if k not in ('stdout','stderr')}))
+            self.assertEqual(result['exit_code'],0,result['stderr'].decode(errors='replace'))
+            data=json.loads(result['stdout'])
+            self.assertEqual(data,execute_request(request,expected_request_sha256=digest(request)).model_dump(mode='json'))
+            self.assertEqual(data['execution_status'],'completed')
+            self.assertTrue(data['evidence_refs'])
+            for forbidden in ('reference_state','human_confirmed','reviewer_decisions','decision_rationale','SYNTHETIC_GOLD_NEVER_TO_PREDICTOR'):
+                self.assertNotIn(forbidden,result['stdout'].decode());self.assertNotIn(forbidden,path.read_text(encoding='utf-8'))
+            receipt=seal_attempt(root/'raw',case_id='SYNTHETIC',input_sha256=request.input_sha256,process_result=result)
+            self.assertEqual(receipt['status'],'raw_saved')
+            self.assertEqual((root/'raw/output.raw').read_bytes(),result['stdout'])
+
+    def test_actual_reference_and_private_write_permissions(self):
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);exe=stage_python(root);runtime=root/'runtime';runtime.mkdir()
+            allowed=runtime/'input.json';allowed.write_text('{"SYNTHETIC_INPUT":true}',encoding='utf-8')
+            reference=root/'reference';reference.mkdir();gold=reference/'answer.json';gold.write_text('SYNTHETIC_SECRET',encoding='utf-8')
+            private=root/'private';private.mkdir();private_file=private/'private.json';private_file.write_text('SYNTHETIC_PRIVATE',encoding='utf-8')
+            code='''import ctypes as c,sys,json
+from ctypes import wintypes as w
+k=c.WinDLL('kernel32',use_last_error=True)
+k.CreateFileW.argtypes=[w.LPCWSTR,w.DWORD,w.DWORD,c.c_void_p,w.DWORD,w.DWORD,w.HANDLE];k.CreateFileW.restype=w.HANDLE
+k.CloseHandle.argtypes=[w.HANDLE]
+result=[]
+for path in sys.argv[1:]:
+ row={"path":path}
+ for name,flag in (("read",0x80000000),("write",0x40000000)):
+  handle=k.CreateFileW(path,flag,7,None,3,0x02000000,None)
+  if handle==c.c_void_p(-1).value:row[name]=c.get_last_error()
+  else:k.CloseHandle(handle);row[name]=0
+ result.append(row)
+print(json.dumps(result))
+'''
+            before={p:p.read_bytes() for p in (allowed,gold,private_file)}
+            with AppContainer(root) as box:
+                box.grant(exe.parent);box.grant(runtime)
+                result=box.run(exe,['-I','-B','-c',code,str(allowed),str(gold),str(private_file)],cwd=exe.parent,timeout_seconds=10)
+            self.assertEqual(result['exit_code'],0,result['stderr'])
+            rows=json.loads(result['stdout']);print('ACTUAL_ACCESS_CHECKS',json.dumps(rows))
+            self.assertEqual((rows[0]['read'],rows[0]['write']),(0,5))
+            for row in rows[1:]:self.assertEqual((row['read'],row['write']),(5,5))
+            self.assertEqual({p:p.read_bytes() for p in before},before)
+
+    def test_actual_timeout_terminates_process(self):
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);exe=stage_python(root)
+            with AppContainer(root) as box:
+                box.grant(exe.parent)
+                result=box.run(exe,['-I','-B','-c','import time;print("SYNTHETIC_STARTED",flush=True);time.sleep(30);print("LATE_OUTPUT")'],cwd=exe.parent,timeout_seconds=0.7)
+            print('ACTUAL_TIMEOUT',json.dumps({k:v for k,v in result.items() if k not in ('stdout','stderr')}))
+            self.assertTrue(result['timed_out']);self.assertEqual(result['exit_code'],124)
+            self.assertIn(b'SYNTHETIC_STARTED',result['stdout']);self.assertNotIn(b'LATE_OUTPUT',result['stdout'])
+            self.assertLess(result['elapsed_seconds'],5)
+            receipt=seal_attempt(root/'raw',case_id='SYNTHETIC',input_sha256='1'*64,process_result=result)
+            self.assertEqual(receipt['status'],'timeout')
+
+    def test_actual_failure_missing_and_invalid_outputs(self):
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);exe=stage_python(root)
+            examples=[('failure','raise RuntimeError("SYNTHETIC_FAILURE")','execution_failed'),
+                      ('missing','pass','missing_output'),('invalid','print("INVALID_SYNTHETIC_JSON")','invalid_output')]
+            with AppContainer(root) as box:
+                box.grant(exe.parent)
+                for name,code,expected in examples:
+                    result=box.run(exe,['-I','-B','-c',code],cwd=exe.parent,timeout_seconds=10)
+                    receipt=seal_attempt(root/name,case_id='SYNTHETIC',input_sha256='1'*64,process_result=result)
+                    print('ACTUAL_FAILURE_HANDLING',name,json.dumps(receipt))
+                    self.assertEqual(receipt['status'],expected)
+                    self.assertEqual((root/name/'output.raw').read_bytes(),result['stdout'])
+                    if name=='failure':self.assertIn(b'SYNTHETIC_FAILURE',result['stderr']);self.assertNotEqual(result['exit_code'],0)
+
+    def test_actual_child_creation_remains_blocked(self):
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);exe=stage_python(root)
+            code='''import subprocess,sys,json
+try:
+ child=subprocess.run([sys.executable,"-c","print('UNEXPECTED_CHILD')"],capture_output=True)
+ print(json.dumps({"blocked":False,"exit_code":child.returncode}))
+except OSError as e:
+ print(json.dumps({"blocked":True,"winerror":e.winerror}))
+'''
+            with AppContainer(root) as box:
+                box.grant(exe.parent)
+                result=box.run(exe,['-I','-B','-c',code],cwd=exe.parent,timeout_seconds=10)
+            self.assertEqual(result['exit_code'],0,result['stderr']);data=json.loads(result['stdout'])
+            print('ACTUAL_CHILD_BLOCK',json.dumps(data))
+            self.assertTrue(data['blocked']);self.assertEqual(data['winerror'],367)
+
+    def test_actual_synthetic_eight_case_runner_and_independent_audit(self):
+        requests,release,sources=eight_fixture()
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);prepared=root/'prepared'
+            config=freeze_requests(requests,release_sha256=digest(release),destination=prepared)
+            reference=root/'reference';reference.mkdir();gold=reference/'answer.json'
+            gold.write_text('SYNTHETIC_GOLD_NOT_RUNTIME_INPUT',encoding='utf-8')
+            basis=b'SYNTHETIC B3-A TEST AUTHORIZATION ONLY';basis_sha=sha256(basis).hexdigest()
+            permit=ExecutionPermit(action='b3_eight_case_r0_debug',data_kind='synthetic',config_sha256=digest(config),
+                approval_ref='SYNTHETIC',authorization_basis_sha256=basis_sha)
+            manifest=run_debug(prepared,expected_config_sha256=digest(config),permit=permit,
+                expected_permit_sha256=digest(permit),authorization_basis=basis,expected_basis_sha256=basis_sha,
+                destination=root/'run',protected_paths=[reference,gold])
+            self.assertEqual([r['status'] for r in manifest['results']],['raw_saved']*8)
+            self.assertTrue(all(r['process']['token_is_appcontainer'] for r in manifest['results']))
+            for cid,_,_ in FIXED_CASES:
+                self.assertTrue(read(root/'run/isolation'/(cid+'.json'))['passed'])
+            metrics=audit_sealed_run(prepared,root/'run',expected_config_sha256=digest(config),
+                expected_manifest_sha256=file_sha(root/'run/raw-manifest.json'),release=release,sources=sources,destination=root/'audit')
+            self.assertEqual(metrics['overall']['valid_comparisons'],8)
+            self.assertEqual(metrics['paired']['state_agreement']['paired_query_denominator'],2)
+            print('ACTUAL_SYNTHETIC_RUNNER',json.dumps(dict(cases=8,appcontainers=8,valid_audits=8,
+                empty_candidates=1,paired_queries=2,real_predictions=0)))
 
 
 if __name__=='__main__':unittest.main()

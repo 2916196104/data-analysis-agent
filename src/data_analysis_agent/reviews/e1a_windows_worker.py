@@ -193,8 +193,11 @@ class AppContainer:
             allowed_env.update(TEMP=str(cwd), TMP=str(cwd), PATH=str(Path(os.environ['SystemRoot']) / 'System32'))
             env = c.create_unicode_buffer('\0'.join(f'{n}={v}' for n,v in sorted(allowed_env.items(), key=lambda p:p[0].upper())) + '\0\0')
             command = c.create_unicode_buffer(subprocess.list2cmdline([str(executable), *map(str, args)]))
+            # CREATE_NO_WINDOW still initializes ConDrv; child-process policy blocks
+            # its console-host creation. Detach the console, keep the explicit pipes.
+            creation_flags = 0x00080000 | 0x00000008 | 0x00000004 | 0x00000400
             _check(k.CreateProcessW(str(executable), command, None, None, True,
-                0x00080000 | 0x08000000 | 0x00000004 | 0x00000400, env, str(cwd), c.byref(si), c.byref(proc)), 'create_appcontainer')
+                creation_flags, env, str(cwd), c.byref(si), c.byref(proc)), 'create_appcontainer')
             token = w.HANDLE()
             _check(a.OpenProcessToken(proc.process, 8, c.byref(token)), 'open_worker_token')
             flag = w.DWORD(); needed = w.DWORD()
@@ -221,6 +224,7 @@ class AppContainer:
             null = out_w = err_w = None
             return dict(pid=proc.pid, token_is_appcontainer=True, package_sid=self.sid_string,
                         network_capabilities=0, inherited_handles='only_null_stdin_stdout_stderr_pipes', child_processes_allowed=False,
+                        creation_flags=creation_flags,
                         timed_out=timed_out, exit_code=code.value, elapsed_seconds=time.perf_counter()-started,
                         stdout=stdout.result(timeout=5), stderr=stderr.result(timeout=5))
         finally:
