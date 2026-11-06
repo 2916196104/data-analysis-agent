@@ -142,6 +142,9 @@ def execute_retrieval(context, scope):
     if not context.question or not wants_semantic_search(context.question):
         raise SemanticRetrievalError('semantic_query_not_bound')
     expected = _scope(scope)
+    from data_analysis_agent.agents.review_task_contract import evidence_question, evidence_scope_matches
+    if not evidence_scope_matches(context.question, scope):
+        raise SemanticRetrievalError('question_scope_mismatch')
     service = (context.semantic_service_factory(context.connection, deepcopy(scope))
                if context.semantic_service_factory else create_semantic_service(context.connection, scope, context.settings))
     if not isinstance(service, SemanticRetrievalService) or service.scope != expected:
@@ -152,8 +155,10 @@ def execute_retrieval(context, scope):
         raise SemanticRetrievalError('result_scope_or_question_mismatch')
     payload = result.to_dict()
     started=perf_counter()
-    assessment=assess_retrieval(context.question, payload['evidence'])
+    fact_question=evidence_question(context.question)
+    assessment=assess_retrieval(fact_question, payload['evidence'])
     data = {'scope': expected.model_dump(mode='json'), 'retrieval': payload,
+            'assessment_question':fact_question,
             'assessment': assessment, 'timings':dict(service.timings,
                 permission_ms=(perf_counter()-started)*1000)}
     if not validate_retrieval(data, context.question):
@@ -192,7 +197,12 @@ def validate_retrieval(data, question):
                     'source','dataset_version','product_id','review_content_sha256','published_at','opinion_source')): return False
             if query.aspect is not None and doc.aspect != query.aspect: return False
             if query.sentiment is not None and doc.sentiment != query.sentiment: return False
-        return data['assessment'] == assess_retrieval(question,evidence,policy=data['assessment']['policy'])
+        fact_question=question
+        if 'assessment_question' in data:
+            from data_analysis_agent.agents.review_task_contract import evidence_question, evidence_scope_matches
+            fact_question=evidence_question(question)
+            if data['assessment_question']!=fact_question or not evidence_scope_matches(question,data['scope']):return False
+        return data['assessment'] == assess_retrieval(fact_question,evidence,policy=data['assessment']['policy'])
     except (KeyError,ValueError,TypeError,AttributeError,UnicodeError,SemanticRetrievalError):
         return False
 

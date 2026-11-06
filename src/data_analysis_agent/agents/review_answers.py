@@ -405,7 +405,11 @@ def semantic_answer(context):
         raise ValueError('语义回答引用与许可集合不一致。')
     if (assessment['status'] == 'sufficient') != bool(keys):
         raise ValueError('语义回答状态与证据不一致。')
-    if assessment['policy'] == POLICY and not validate_answer_bindings(context.question,assessment,context.evidence):
+    from data_analysis_agent.agents.review_task_contract import evidence_question
+    fact_question=filters.get('assessment_question',context.question)
+    if fact_question not in (context.question,evidence_question(context.question)):
+        raise ValueError('事实目标与原问题不一致。')
+    if assessment['policy'] == POLICY and not validate_answer_bindings(fact_question,assessment,context.evidence):
         raise ValueError('语义回答事实、关系或引用绑定不一致。')
     highlights = []
     for ref in context.evidence:

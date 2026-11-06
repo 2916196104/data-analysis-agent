@@ -223,6 +223,7 @@ def adapt_result(item, bound_scope):
         result.evidence_refs = permitted_references(data, item['result_id'])
         result.filters = {'assessment': deepcopy(data['assessment']),
             'question': data['retrieval']['query']['question'],
+            'assessment_question':data.get('assessment_question',data['retrieval']['query']['question']),
             'candidate_count': len(data['retrieval']['evidence']),
             'context_policy': data['retrieval']['context_policy'], 'context_version': data['retrieval']['context_version']}
         result.sentiment = None

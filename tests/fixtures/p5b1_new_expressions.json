@@ -1,0 +1,19 @@
+{
+  "version": "p5b1-synthetic-new-expressions-v1",
+  "purpose": "Developer-authored protocol scenarios, not human gold or a measured generalization benchmark",
+  "relation_to_p5": "New expressions outside the original fifteen probes; no semantic rule is trained or added from this file",
+  "cases": [
+    {"id":"N01","question":"有无制冷不佳的评论？","quote":"调到最低档，房间还是闷热的","review_text":"调到最低档，房间还是闷热的。外观挺漂亮。","mock_status":"supported"},
+    {"id":"N02","question":"是否存在配送太慢的抱怨？","quote":"等了整整一周才收到","review_text":"等了整整一周才收到。","mock_status":"supported"},
+    {"id":"N03","question":"想了解有没有客服不耐烦的反馈？","quote":"咨询时对方很有耐心","review_text":"咨询时对方很有耐心。","mock_status":"refuted"},
+    {"id":"N04","question":"有无包装破损的评论？","quote":"纸箱裂开一条口子","review_text":"纸箱裂开一条口子，但里面的机器完好。","mock_status":"supported"},
+    {"id":"N05","question":"是否存在制冷效果不好的反馈？","quote":"制冷效果不好","review_text":"🎈先说清楚：不是制冷效果不好，我指的是送得慢。","mock_status":"refuted","context_veto":"不是制冷效果不好"},
+    {"id":"N06","question":"有无制热不佳的反馈？","quote":"制热不佳","review_text":"制热不佳。更正：那是我没开制热模式，撤回前面的评价。","mock_status":"refuted","context_veto":"更正：那是我没开制热模式，撤回前面的评价"},
+    {"id":"N07","question":"有无噪声很大的评论？","quote":"要是半夜声音很大，我就关机","review_text":"要是半夜声音很大，我就关机。","mock_status":"unknown"},
+    {"id":"N08","question":"是否存在客服态度差的抱怨？","quote":"上门安装的人态度很差","review_text":"上门安装的人态度很差，客服我没联系过。","mock_status":"not_supported"},
+    {"id":"N09","question":"有无制冷效果不佳的评论？","quote":"外形很顺眼","review_text":"外形很顺眼。房间一直凉不下来。","mock_status":"not_supported"},
+    {"id":"N10","question":"有没有屋里始终凉不下来的反馈？","quote":"开半天还是热","review_text":"开半天还是热。","mock_status":"blocked_unresolved_target"},
+    {"id":"N11","question":"不是风力小，而是只吹热风，有没有这样的反馈？","quote":"冷风模式吹出来是热的","review_text":"冷风模式吹出来是热的。","mock_status":"blocked_unresolved_target"},
+    {"id":"N12","question":"有无制冷不足的评论？","quote":null,"review_text":null,"mock_status":"empty"}
+  ]
+}

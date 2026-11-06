@@ -187,6 +187,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             result.update(scope=scope, query_plan=plan.to_dict(), sentiment_intent=sentiment_intent,
                           analysis_intent=plan.analysis_type, analysis_question=(plan.answer_question or question)
                           if question.startswith('执行本轮已确认的只读查询') else question)
+            result['query_contract']=plan.task_contract.model_dump(mode='json')
             if plan.analysis_type == 'aspect_drilldown':
                 result['user_intent'].update(query_type='aspect_drilldown', sub_intent='drill_down')
             timings['planning_duration_ms'] = (perf_counter() - planning_started) * 1000

@@ -140,7 +140,10 @@ class AssistantSemanticsTests(AssistantSemanticsFixture, unittest.TestCase):
             products = connection.execute("SELECT product_id,title FROM products WHERE source='reviews_csv'").fetchall()
         with self.assertRaisesRegex(QuestionScopeError, '确认切换'):
             resolve_question_scope('查询 OTHER 在 2020-09-01 至 2020-09-30 的使用效果', self.scope(), products)
-        resolved = resolve_question_scope('查询 OTHER 在 2020-09-01 至 2020-09-30 的使用效果', self.scope(product_ids=['OTHER']), products)
+        with self.assertRaisesRegex(QuestionScopeError, '确认切换日期'):
+            resolve_question_scope('查询 OTHER 在 2020-09-01 至 2020-09-30 的使用效果', self.scope(product_ids=['OTHER']), products)
+        resolved = resolve_question_scope('查询 OTHER 在 2020-09-01 至 2020-09-30 的使用效果',
+            self.scope(product_ids=['OTHER'],date_from='2020-09-01',date_to='2020-09-30'), products)
         self.assertEqual(resolved['product_ids'], ['OTHER'])
         self.assertEqual(resolved['date_from'], '2020-09-01')
         self.assertEqual(resolved['dataset_version'], 'reviews-csv')

@@ -7,6 +7,7 @@ import re
 from data_analysis_agent.agents.review_prompts import detect_sentiment_directions, detect_sentiment_intent
 from data_analysis_agent.agents.review_semantics import normalize_question, opinion_request
 from data_analysis_agent.core.errors import ReviewDataError
+from data_analysis_agent.agents.review_task_contract import RuntimeQueryContract
 
 
 ASPECT_WORDS = {"质量": "quality", "效果": "effectiveness", "价格": "price", "包装": "packaging",
@@ -34,13 +35,17 @@ class ReviewQueryPlan:
     unsupported_reason: str | None = None
     answer_question: str | None = None
     product_groups: list[dict] = field(default_factory=list)
+    task_contract: RuntimeQueryContract | None = None
 
     @property
     def required_tools(self):
         return list(dict.fromkeys(item["tool"] for item in self.requirements))
 
     def to_dict(self):
-        return {**asdict(self), "required_tools": self.required_tools}
+        data = {**asdict(self), "required_tools": self.required_tools}
+        if self.task_contract is not None:data['task_contract'] = self.task_contract.model_dump(mode='json')
+        else:data.pop('task_contract', None)
+        return data
 
     def check_call(self, name, parameters):
         if name == "get_analysis_context":
@@ -73,6 +78,16 @@ class ReviewQueryPlan:
 
 
 def build_query_plan(question, scope, *, product_groups=None):
+    from data_analysis_agent.agents.review_task_contract import task_limit, build_task_contract
+    limit = task_limit(question)
+    plan = (ReviewQueryPlan('unsupported', None, scope, unsupported_reason=limit[1]) if limit
+            else _build_query_plan(question, scope, product_groups=product_groups))
+    plan.task_contract = build_task_contract(question, scope, plan)
+    if plan.task_contract.support_status == 'unsupported':plan.unsupported_reason = plan.task_contract.unsupported_reason
+    return plan
+
+
+def _build_query_plan(question, scope, *, product_groups=None):
     from data_analysis_agent.agents.review_retrieval import wants_semantic_search, TOOL
     if wants_semantic_search(question):
         plan = ReviewQueryPlan('semantic_evidence', None, scope,

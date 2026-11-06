@@ -130,8 +130,10 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
         question='有没有同一评论既表扬客服又抱怨物流、并提到制冷不足的反馈？'
         query=retrieval_request(question)
         self.assertIsNone(query.aspect);self.assertIsNone(query.sentiment)
-        result=self.run_question(question);self.assert_success(result)
-        self.assertEqual(result['answer_generation']['evidence_assessment']['reason'],'query_semantics_uncovered')
+        result=self.run_question(question)
+        self.assertEqual(result['status'],'unsupported')
+        self.assertEqual(result['query_contract']['support_status'],'unsupported')
+        self.assertEqual(self.encoder.calls,[])
         self.assertEqual(result['public_answer']['evidence_refs'],[])
 
     def test_quote_outside_context_never_supplies_support_and_denial_vetoes(self):

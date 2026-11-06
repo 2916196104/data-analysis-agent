@@ -1,0 +1,630 @@
+{
+  "$defs": {
+    "Candidate": {
+      "additionalProperties": false,
+      "properties": {
+        "rank": {
+          "minimum": 1,
+          "title": "Rank",
+          "type": "integer"
+        },
+        "key": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Key",
+          "type": "string"
+        },
+        "source_identity_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Identity Sha256",
+          "type": "string"
+        },
+        "review_id": {
+          "exclusiveMinimum": 0,
+          "title": "Review Id",
+          "type": "integer"
+        },
+        "annotation_id": {
+          "exclusiveMinimum": 0,
+          "title": "Annotation Id",
+          "type": "integer"
+        },
+        "product_id": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Product Id",
+          "type": "string"
+        },
+        "published_at": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Published At",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "quote_start": {
+          "minimum": 0,
+          "title": "Quote Start",
+          "type": "integer"
+        },
+        "quote_end": {
+          "exclusiveMinimum": 0,
+          "title": "Quote End",
+          "type": "integer"
+        },
+        "review_text": {
+          "maxLength": 40000,
+          "minLength": 1,
+          "title": "Review Text",
+          "type": "string"
+        },
+        "review_text_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Review Text Sha256",
+          "type": "string"
+        },
+        "effective_snapshot_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Effective Snapshot Sha256",
+          "type": "string"
+        },
+        "review_content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Review Content Sha256",
+          "type": "string"
+        },
+        "label_profile_key": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Label Profile Key",
+          "type": "string"
+        },
+        "file_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "File Sha256",
+          "type": "string"
+        },
+        "line_number": {
+          "exclusiveMinimum": 0,
+          "title": "Line Number",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rank",
+        "key",
+        "source_identity_sha256",
+        "review_id",
+        "annotation_id",
+        "product_id",
+        "published_at",
+        "quote",
+        "quote_start",
+        "quote_end",
+        "review_text",
+        "review_text_sha256",
+        "effective_snapshot_sha256",
+        "review_content_sha256",
+        "label_profile_key",
+        "file_sha256",
+        "line_number"
+      ],
+      "title": "Candidate",
+      "type": "object"
+    },
+    "FactRelation": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "before",
+            "same_review"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "fact_ids": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Fact Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "fact_ids"
+      ],
+      "title": "FactRelation",
+      "type": "object"
+    },
+    "RequiredFact": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Description",
+          "type": "string"
+        },
+        "sentiment": {
+          "anyOf": [
+            {
+              "enum": [
+                "positive",
+                "negative",
+                "neutral",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sentiment"
+        }
+      },
+      "required": [
+        "id",
+        "description"
+      ],
+      "title": "RequiredFact",
+      "type": "object"
+    },
+    "RequiredFacts": {
+      "additionalProperties": false,
+      "properties": {
+        "operator": {
+          "default": "all_of",
+          "enum": [
+            "all_of",
+            "any_of"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "items": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RequiredFact"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "relations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FactRelation"
+          },
+          "title": "Relations",
+          "type": "array"
+        }
+      },
+      "title": "RequiredFacts",
+      "type": "object"
+    },
+    "RuntimeQueryContract": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": "review-runtime-contract-v1",
+          "default": "review-runtime-contract-v1",
+          "title": "Version",
+          "type": "string"
+        },
+        "original_question": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Original Question",
+          "type": "string"
+        },
+        "evidence_question": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Evidence Question",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/RuntimeScope"
+        },
+        "scope_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Scope Sha256",
+          "type": "string"
+        },
+        "task_type": {
+          "enum": [
+            "statistics",
+            "evidence",
+            "mixed",
+            "clarify"
+          ],
+          "title": "Task Type",
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "sql_statistics",
+            "fact_search",
+            "opinion_summary",
+            "cause_check",
+            "unsupported"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_entity": {
+          "default": "unknown",
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Target Entity",
+          "type": "string"
+        },
+        "subtopic": {
+          "default": "unknown",
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Subtopic",
+          "type": "string"
+        },
+        "sentiment_intent": {
+          "anyOf": [
+            {
+              "enum": [
+                "positive",
+                "negative",
+                "neutral",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "const": "mixed",
+              "type": "string"
+            }
+          ],
+          "default": "unknown",
+          "title": "Sentiment Intent"
+        },
+        "required_facts": {
+          "$ref": "#/$defs/RequiredFacts"
+        },
+        "statistics": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StatisticGoal"
+          },
+          "title": "Statistics",
+          "type": "array"
+        },
+        "support_status": {
+          "enum": [
+            "supported",
+            "retrieval_only",
+            "unsupported"
+          ],
+          "title": "Support Status",
+          "type": "string"
+        },
+        "unsupported_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unsupported Reason"
+        },
+        "uncertainty": {
+          "default": [],
+          "items": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Uncertainty",
+          "type": "array"
+        }
+      },
+      "required": [
+        "original_question",
+        "evidence_question",
+        "scope",
+        "scope_sha256",
+        "task_type",
+        "operation",
+        "support_status"
+      ],
+      "title": "RuntimeQueryContract",
+      "type": "object"
+    },
+    "RuntimeScope": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Model",
+          "type": "string"
+        },
+        "prompt_version": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "product_ids": {
+          "default": [],
+          "items": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Product Ids",
+          "type": "array"
+        },
+        "date_from": {
+          "maxLength": 10,
+          "title": "Date From",
+          "type": "string"
+        },
+        "date_to": {
+          "maxLength": 10,
+          "title": "Date To",
+          "type": "string"
+        },
+        "as_of": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "As Of"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "dataset_version": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dataset Version"
+        },
+        "baseline_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline From"
+        },
+        "baseline_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline To"
+        },
+        "timezone": {
+          "const": "UTC",
+          "default": "UTC",
+          "title": "Timezone",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "prompt_version",
+        "date_from",
+        "date_to"
+      ],
+      "title": "RuntimeScope",
+      "type": "object"
+    },
+    "StatisticGoal": {
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Tool",
+          "type": "string"
+        },
+        "metric": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Metric",
+          "type": "string"
+        },
+        "value_path": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Value Path",
+          "type": "string"
+        },
+        "numerator": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Numerator",
+          "type": "string"
+        },
+        "denominator": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Denominator"
+        },
+        "definition_key": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Definition Key"
+        }
+      },
+      "required": [
+        "tool",
+        "metric",
+        "value_path",
+        "numerator"
+      ],
+      "title": "StatisticGoal",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": "p5b-evidence-input-draft-v1",
+      "default": "p5b-evidence-input-draft-v1",
+      "title": "Version",
+      "type": "string"
+    },
+    "request_id": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "contract": {
+      "$ref": "#/$defs/RuntimeQueryContract"
+    },
+    "contract_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Contract Sha256",
+      "type": "string"
+    },
+    "retrieval_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Retrieval Sha256",
+      "type": "string"
+    },
+    "source_policy": {
+      "const": "current_effective_readonly_v1",
+      "default": "current_effective_readonly_v1",
+      "title": "Source Policy",
+      "type": "string"
+    },
+    "context_policy": {
+      "const": "quote_full_review_veto",
+      "default": "quote_full_review_veto",
+      "title": "Context Policy",
+      "type": "string"
+    },
+    "context_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Context Version",
+      "type": "string"
+    },
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/Candidate"
+      },
+      "maxItems": 5,
+      "title": "Candidates",
+      "type": "array"
+    },
+    "input_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Contract Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "request_id",
+    "contract",
+    "contract_sha256",
+    "retrieval_sha256",
+    "candidates",
+    "input_sha256"
+  ],
+  "title": "JudgeInput",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:data-analysis-agent:p5b1:model_input:draft-v1"
+}

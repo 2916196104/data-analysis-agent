@@ -38,7 +38,11 @@ def _title_matches(mention, title):
 
 
 def _product_clause(value):
-    return re.sub(r'^(?:(?:请|帮我|看看|查看|分析|一下|查询|按日|按月|按天|按月份|统计|分别|总结|说说|告诉我|给出|列出|展示|提供)\s*|(?:用户|消费者|买家|大家)?(?:对于|对|关于|针对)\s*)+', '', value.strip())
+    return re.sub(r'^(?:(?:请|帮我|看看|查看|分析|介绍|概括|谈谈|讲讲|一下|查询|按日|按月|按天|按月份|统计|分别|总结|说说|告诉我|给出|列出|展示|提供)\s*|(?:用户|消费者|买家|大家)?(?:对于|对|关于|针对)\s*)+', '', value.strip())
+
+
+def _generic_product(value):
+    return bool(re.fullmatch(r'(?:这|那|该|所选|当前|本|上述|上轮|所有|全部)(?:两款|两台|款|个|台)?(?:商品|产品|空调|机器|机型|型号|设备)?|它|它们|两者|二者|两款商品|商品|产品', value))
 
 
 def product_mentions(question, products):
@@ -57,13 +61,13 @@ def product_mentions(question, products):
         # Existential question operators are not part of an entity. Exact IDs and
         # catalog titles still take priority; unknown named products still fail closed.
         clause = re.sub(r'^(?:请问|想问|想知道|想了解)?(?:有没有|是否有|有无|是否存在)', '', clause.strip()).strip()
-        clause = _product_clause(clause)
         explicit = [row['product_id'] for row in products if re.search(
             r'(?<![A-Za-z0-9_])' + re.escape(row['product_id']) + r'(?![A-Za-z0-9_])', clause)]
         explicit += [row['title'] for row in products if row['title'] and row['title'] in clause]
         if explicit:
             found.extend(explicit)
             continue
+        clause = _product_clause(clause)
         clause = re.sub(r'^(?:不是|并非|并不是)(?=(?:空调|商品|产品))', '', clause)
         brands = []
         for brand in sorted({row.get('brand') for row in products if row.get('brand')}, key=len, reverse=True):
@@ -85,7 +89,7 @@ def product_mentions(question, products):
             if subject:
                 name = subject[1].strip(' “ ”「」\"')
                 generic = re.fullmatch(r'(?:这|那|该|所选|当前|上述|上轮|所有|全部)(?:两款|款|个)?(?:商品|产品|空调|机器)?|它们|两者|二者|两款商品|商品|产品|用户|消费者|买家|大家|(?:商品|产品)?评论(?:中|里)?(?:具体|主要)?|整体|总体|具体|(?:商品)?(?:制冷|静音|安装|使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面)?', name)
-                if not generic:
+                if not generic and not _generic_product(name):
                     found.append(name)
                     brands = [value for value in brands if not name.startswith(value.removesuffix('空调'))]
         found.extend(brands)
@@ -114,13 +118,20 @@ def match_product_mentions(mentions, products, *, selected_ids=(), strict=False)
 
 
 def _pros_cons_products(question, products, *, selected_ids=()):
+    explicit = product_mentions(question, products)
+    if explicit and all(any(value in (row['product_id'],row['title']) for row in products) for value in explicit):
+        groups=[]
+        for value in explicit:
+            ids=match_product_mentions([value],products,selected_ids=selected_ids,strict=True)
+            if not any(group['product_ids']==ids for group in groups):groups.append({'label':value,'product_ids':ids})
+        return groups
     head = re.split(r"优缺点|优点|缺点|好评|差评|正面|负面", question, maxsplit=1)[0]
     mentions = []
     for part in re.split(r"以及|与|和|、|[，,]|比较|对比", head):
         part = _product_clause(part)
         if not any(_title_matches(part, row['title']) or part == row['product_id'] for row in products):
-            part = re.sub(r"(?:的|各自)$", "", part).strip()
-        if part and part not in {"它", "这款", "这款商品", "这款空调", "这个商品", "所选商品", "当前商品", "两款商品", "商品"}:
+            part = re.sub(r"(?:的|各自|(?:都)?有(?:哪些|什么)|(?:都)?怎样|如何)$", "", part).strip()
+        if part and not _generic_product(part):
             mentions.append(part)
     groups = []
     for mention in mentions:
@@ -175,6 +186,8 @@ def resolve_question_scope(question, scope, products, *, product_groups=None):
         start, end = (date.fromisoformat(value) for value in dates)
         if start > end:
             raise ValueError('本轮指定的开始日期必须早于结束日期。')
+        if not scope['date_from'] <= start.isoformat() <= end.isoformat() <= scope['date_to']:
+            raise QuestionScopeError('本轮日期超出当前选择范围，请先确认切换日期。')
         resolved.update(date_from=start.isoformat(), date_to=end.isoformat())
         if resolved['baseline_to'] >= resolved['date_from']:
             previous_end = start - timedelta(days=1)

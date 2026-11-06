@@ -255,4 +255,8 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
         {"name": "情感语义", "passed": bool(semantic_ok), "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果"},
         {"name": "查询结果完整性", "passed": refs_ok, "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证"},
     ]
+    if query_plan is not None and query_plan.task_contract is not None:
+        from data_analysis_agent.agents.review_task_contract import task_matches
+        checks.append({"name":"查询目标匹配","passed":task_matches(query_plan.task_contract,selected,scope=query_plan.scope),
+                       "detail":"核对本轮任务目标、指标口径、事实与绑定范围；工具成功不替代任务完成"})
     return {"status": "passed" if all(check["passed"] for check in checks) else "failed", "checks": checks}

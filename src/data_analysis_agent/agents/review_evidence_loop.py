@@ -115,6 +115,8 @@ def complete_evidence(db, result, plan, context, settings, run_dir, report):
         if context.tool_calls+len(requests)>settings.max_tool_calls:
             raise ReviewDataError('原任务剩余工具预算不足，未执行补查。')
         record.update(cycles=1,status='running',automatic=True)
+        # Supplementary execution may expand the plan, but not the user's goals.
+        if plan.task_contract is not None:result['query_goal_plan']=plan.to_dict()
         merged=deepcopy(plan)
         record['requests']=deepcopy(requests)
         for request in record['requests']:

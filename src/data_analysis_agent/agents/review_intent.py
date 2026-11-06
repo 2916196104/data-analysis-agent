@@ -234,6 +234,17 @@ def _user_conditions(context, scope, products):
 
 
 def resolve_review_request(question, scope, products, *, settings, context=None, diagnostics=None, intent_state=None):
+    from data_analysis_agent.agents.review_task_contract import build_task_contract, task_limit
+    if task_limit(question):
+        return scope, build_query_plan(question, scope), True
+    bound, plan, direct = _resolve_review_request(question, scope, products, settings=settings,
+        context=context, diagnostics=diagnostics, intent_state=intent_state)
+    plan.task_contract = build_task_contract(question, bound, plan)
+    if plan.task_contract.support_status == 'unsupported':plan.unsupported_reason = plan.task_contract.unsupported_reason
+    return bound, plan, direct
+
+
+def _resolve_review_request(question, scope, products, *, settings, context=None, diagnostics=None, intent_state=None):
     diagnostics = diagnostics if diagnostics is not None else {}
     intent_state = intent_state if intent_state is not None else {}
     diagnostics.update(method='rules', model_calls=0, context_turns=(context or {}).get('turns_read', 0))
