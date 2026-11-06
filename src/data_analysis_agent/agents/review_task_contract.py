@@ -11,6 +11,33 @@ from data_analysis_agent.reviews.query_contract import ContractModel, TaskType, 
 from data_analysis_agent.agents.review_reported_facts import target
 
 VERSION = 'review-runtime-contract-v1'
+
+# Explicit descriptions for the existing v2 fact grammar. These do not add new
+# facts, inference edges, causes, dates or answer permissions.
+KNOWN_FACT_DESCRIPTIONS = {
+    'cooling_failure': '买家反馈空调无法制冷',
+    'cooling_poor': '买家反馈空调制冷效果不足或差',
+    'cooling_good': '买家反馈空调制冷效果好',
+    'cooling_slow': '买家反馈空调制冷速度慢',
+    'cooling_fast': '买家反馈空调制冷速度快',
+    'heating_failure': '买家反馈空调无法制热',
+    'heating_poor': '买家反馈空调制热效果不足或差',
+    'heating_good': '买家反馈空调制热效果好',
+    'heating_fast': '买家反馈空调制热速度快',
+    'noise_high': '买家反馈空调噪音大',
+    'noise_low': '买家反馈空调噪音小或运行安静',
+    'delivery_fast': '买家反馈物流配送或到货快',
+    'delivery_slow': '买家反馈物流配送或到货慢',
+    'service_good': '买家反馈客服态度好',
+    'service_bad': '买家反馈客服态度差',
+    'installer_good': '买家反馈安装师傅态度好',
+    'installer_bad': '买家反馈安装师傅态度差',
+    'packaging_bad': '买家反馈包装破损',
+    'packaging_good': '买家反馈包装完好',
+    'price_high': '买家反馈商品价格偏高',
+    'price_low': '买家反馈商品价格便宜',
+}
+
 DATE_PREFIX = re.compile(r'^\s*(?:(?:请问|在|从)\s*)?(\d{4}-\d{2}-\d{2})\s*(?:至|到|~|～|—)\s*'
                          r'(\d{4}-\d{2}-\d{2})\s*(?:期间|之间|内)?\s*[，,:：]?\s*(.+)$', re.S)
 
@@ -119,7 +146,7 @@ def build_task_contract(question, scope, plan):
     facts = RequiredFacts()
     entity = subtopic = 'unknown'
     if request:
-        items = tuple(RequiredFact(id=fid, description=fid) for fid in request['facts'])
+        items = tuple(RequiredFact(id=fid, description=KNOWN_FACT_DESCRIPTIONS.get(fid, fid)) for fid in request['facts'])
         relations = (FactRelation(kind='same_review', fact_ids=tuple(request['facts'])),) if request['relation'] else ()
         facts = RequiredFacts(items=items, relations=relations)
         domains = {fid.split('_')[0] for fid in request['facts']}
