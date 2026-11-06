@@ -73,7 +73,8 @@ class SiliconFlowTests(unittest.TestCase):
 
     def test_real_factory_blocks_before_sdk_or_network_even_with_valid_config(self):
         with patch.object(provider,'OpenAI',side_effect=AssertionError('no SDK client')):
-            with self.assertRaisesRegex(provider.ShadowProviderError,'compatibility_unverified'):
+            code=('risk_authorization_required' if provider.compatibility_evidence()['strict_schema_verified'] else 'compatibility_unverified')
+            with self.assertRaisesRegex(provider.ShadowProviderError,code):
                 provider.create_judge(**self.config.model_dump(mode='json'))
         for name,value in (('transport',{}),('encoding','o200k_base'),('allow_unverified',True)):
             with self.assertRaises(ValueError):provider.create_judge(**(self.config.model_dump(mode='json')|{name:value}))
@@ -204,7 +205,8 @@ class SiliconFlowTests(unittest.TestCase):
         with patch.object(provider,'OpenAI',side_effect=AssertionError('no client')),\
              patch.object(entry,'create_semantic_service',side_effect=AssertionError('no service')):
             check=entry.preflight(self.env,Path(__file__).parents[1]/'.env',provider_name='siliconflow')
-            self.assertEqual(check['status'],'blocked_compatibility');self.assertTrue(check['shadow_key_configured'])
+            self.assertIn(check['status'],('blocked_compatibility','blocked_budget_risk_authorization'))
+            self.assertTrue(check['shadow_key_configured'])
             self.assertFalse(check['offline_tokenizer_ready']);self.assertFalse(check['json_object_fallback'])
             self.assertEqual(check['real_llm_calls'],0)
             destination=self.directory/'should-not-exist'
@@ -263,6 +265,87 @@ class SiliconFlowTests(unittest.TestCase):
         self.assertTrue(marker.exists());self.assertEqual(int(marker.read_text()),run.diagnostics['process_id'])
         self.assertEqual(run.outcome.execution_state,'cancelled');self.assertTrue(run.diagnostics['termination_requested'])
         self.assertFalse(watcher.is_alive())
+
+    def test_admission_evidence_is_bound_to_files_model_schema_and_parameters(self):
+        # Synthetic receipts exercise binding logic only; production pins remain unchanged.
+        from hashlib import sha256
+        root=Path(self.directory)/'receipts';root.mkdir()
+        usage=dict(provider='siliconflow',base_url=provider.BASE_URL,model=provider.MODEL,
+            response_model=provider.MODEL,documented_service_version=provider.DOCUMENTED_VERSION,
+            http_status=200,finish_reason='stop',reasoning_tokens=0,reasoning_content_present=False,
+            completed_at_utc='2026-11-06T09:32:27+00:00')
+        values={'result.json':dict(status='validated_shadow',b1_b2_output_valid=True,http_strict_request_accepted=True),
+            'provider-usage.json':usage,
+            'offline-result-verification.json':dict(execution_state='validated_shadow',fact_id_matches=True,
+                key_matches=True,source_identity_matches=True,exact_original_slice=True,quote_bounds_match=True),
+            'request-body.json':provider.request_body('{}')|dict(max_tokens=768)}
+        pins={}
+        for name,value in values.items():
+            raw=canonical_json(value).encode();(root/name).write_bytes(raw);pins[name]=sha256(raw).hexdigest()
+        with patch.object(provider,'PROBE_DIR',root),patch.object(provider,'PROBE_DIGESTS',pins):
+            self.assertTrue(provider.compatibility_evidence()['strict_schema_verified'])
+            for target,value in (('MODEL','different-model'),('DOCUMENTED_VERSION','changed-version')):
+                with patch.object(provider,target,value):self.assertFalse(provider.compatibility_evidence()['strict_schema_verified'])
+            schema=provider.strict_output_schema()
+            with patch.object(provider,'strict_output_schema',return_value=schema|dict(title='changed')):
+                self.assertFalse(provider.compatibility_evidence()['strict_schema_verified'])
+            body=provider.request_body('{}');body['enable_thinking']=True
+            with patch.object(provider,'request_body',return_value=body):
+                self.assertFalse(provider.compatibility_evidence()['strict_schema_verified'])
+            (root/'provider-usage.json').write_text('{}',encoding='utf-8')
+            self.assertIn('model_strict_schema_unverified',provider.compatibility_blockers(estimated_budget_risk_accepted=True))
+
+    def test_estimated_budget_acceptance_never_bypasses_schema_or_response_checks(self):
+        self.config=self.config.model_copy(update=dict(estimated_budget_risk_accepted=True))
+        def handle(req):
+            self.calls.append(1);body=json.loads(req.content)
+            return httpx.Response(200,json=completion(json.loads(body['messages'][1]['content'])))
+        judge=provider.SiliconFlowShadowJudge(self.config,transport=httpx.MockTransport(handle))
+        self.judges.append(judge);raw=judge.judge(model_payload(request_for()))
+        self.assertEqual(judge.metrics['input_estimation_method'],'utf8_bytes_div2_plus1024_v1')
+        self.assertEqual(audit_output(request_for(),raw).execution_state,'validated_shadow')
+        # Risk acceptance still rejects an unknown reasoning usage field.
+        def missing(req):
+            value=completion(json.loads(json.loads(req.content)['messages'][1]['content']))
+            value['usage'].pop('completion_tokens_details');return httpx.Response(200,json=value)
+        judge=provider.SiliconFlowShadowJudge(self.config,transport=httpx.MockTransport(missing));self.judges.append(judge)
+        with self.assertRaises(provider.ShadowProviderError):judge.judge(model_payload(request_for()))
+        self.assertEqual(judge.metrics['state'],'reasoning_usage_missing')
+        with patch.object(provider,'compatibility_evidence',return_value=dict(strict_schema_verified=False)),\
+             patch.object(provider,'OpenAI',side_effect=AssertionError('no live client')):
+            with self.assertRaisesRegex(ValueError,'compatibility_unverified'):
+                provider.create_judge(**self.config.model_dump(mode='json'))
+
+    def test_business_admission_needs_both_authorizations_and_stops_on_missing_usage(self):
+        from types import SimpleNamespace
+        self.enterContext(patch.object(provider,'compatibility_evidence',return_value=dict(
+            strict_schema_verified=True,non_thinking_observed=True,error=None)))
+        root=Path(__file__).parents[1]
+        with patch.object(entry,'create_semantic_service',side_effect=AssertionError('must not read database')):
+            for data,risk in ((False,False),(True,False),(False,True)):
+                with self.assertRaisesRegex(ValueError,'preflight_incomplete'):
+                    entry.run_authorized(self.env,root/'.env',Path(self.directory)/'no-output',
+                        provider_name='siliconflow',business_authorized=data,estimated_budget_risk_accepted=risk)
+        calls=[]
+        class Adapter:
+            def __init__(self,**kwargs):
+                self.config=json.loads(kwargs['judge_factory'].config_json)
+                assert self.config['estimated_budget_risk_accepted'] is True
+            def run(self,c,r,**kwargs):
+                return SimpleNamespace(outcome=SimpleNamespace(execution_state='validated_shadow'),judgments=None,
+                    diagnostics=dict(input_sha256='synthetic'),debug_record=lambda:dict(publication_allowed=False))
+        def search(query):
+            calls.append(query)
+            return SimpleNamespace(to_dict=lambda:dict(evidence=[],query=dict(question=query.question)))
+        with TemporaryDirectory(dir=root/'outputs/rag-semantic-retrieval') as temp,\
+             patch.object(entry,'StructuredEvidenceShadow',Adapter),\
+             patch.object(entry,'create_semantic_service',return_value=SimpleNamespace(search=search)),\
+             patch.object(entry,'close_embedding_processes'):
+            with self.assertRaisesRegex(ValueError,'provider_usage_missing_or_failed'):
+                entry.run_authorized(self.env,root/'.env',Path(temp)/'run',provider_name='siliconflow',
+                    business_authorized=True,estimated_budget_risk_accepted=True)
+        self.assertEqual([c.question for c in calls],[entry.CASES[0][1]])
+        self.assertEqual(calls[0].top_k,5)
 
 
 if __name__=='__main__':unittest.main()

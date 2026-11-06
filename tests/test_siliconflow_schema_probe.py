@@ -221,15 +221,18 @@ class SyntheticProbeTests(unittest.TestCase):
         self.assertTrue(marker.exists());self.assertEqual(int(marker.read_text()),run.diagnostics['process_id'])
         self.assertEqual(run.outcome.execution_state,'cancelled');self.assertFalse(thread.is_alive())
 
-    def test_business_factory_and_three_compatibility_blockers_remain_closed(self):
-        self.assertEqual(probe.provider.compatibility_blockers(),('model_strict_schema_unverified',
-            'native_tokenizer_binding_unverified','model_non_thinking_budget_unverified'))
-        with self.assertRaisesRegex(ValueError,'compatibility_unverified'):
+    def test_business_factory_budget_risks_remain_closed_after_probe(self):
+        blockers=probe.provider.compatibility_blockers()
+        self.assertIn('native_tokenizer_binding_unverified',blockers)
+        self.assertIn('model_non_thinking_budget_unverified',blockers)
+        code='risk_authorization_required' if probe.provider.compatibility_evidence()['strict_schema_verified'] else 'compatibility_unverified'
+        with self.assertRaisesRegex(ValueError,code):
             probe.provider.create_judge(**self.config.model_dump(mode='json'))
         with self.assertRaises(ValueError):
             probe.provider.create_judge(**(self.config.model_dump(mode='json')|dict(probe_only=True)))
         check=probe.provider.preflight(self.env)
-        self.assertEqual(check['status'],'blocked_compatibility');self.assertEqual(len(check['missing']),3)
+        self.assertIn(check['status'],('blocked_compatibility','blocked_budget_risk_authorization'))
+        self.assertEqual(len(check['missing']),len(blockers))
 
 
 if __name__=='__main__':unittest.main()

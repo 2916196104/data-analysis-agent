@@ -31,10 +31,13 @@ BOUND=dict(source='reviews_csv',dataset_version='reviews-csv',product_ids=['1000
            date_from='2021-09-11',date_to='2022-08-26',timezone='UTC')
 
 
-def preflight(shadow_env, business_env, *, provider_name='openai'):
+def preflight(shadow_env, business_env, *, provider_name='openai',business_authorized=False,
+              estimated_budget_risk_accepted=False):
     """Configuration only: no SDK instance, database connection, embedding or API probe."""
     if provider_name=='siliconflow':
-        check=siliconflow.preflight(shadow_env)
+        check=siliconflow.preflight(shadow_env,estimated_budget_risk_accepted=estimated_budget_risk_accepted)
+        if not business_authorized:check['missing'].append('fixed_business_data_and_send_authorization_required')
+        check['spending_authorized']=business_authorized and estimated_budget_risk_accepted
         try:
             settings,identity=configured_identity(business_env)
             db_configured=is_postgres(read_settings(business_env).get('DATABASE_URL',''))
@@ -45,7 +48,9 @@ def preflight(shadow_env, business_env, *, provider_name='openai'):
         except ValueError:
             db_configured=rag_configured=False;profile=None
             check['missing'].append('business_scope_identity_not_configured')
+        if not check['missing']:check['status']='ready_for_explicit_fixed_business_run'
         return check|dict(scope=BOUND,label_profile_key=profile,db_configured=db_configured,
+            business_data_and_send_authorized=business_authorized,
             rag_configured=rag_configured,cases=[dict(case=cid,question=q,intended_probe=kind,
             phenomenon_observed='not_checked') for cid,q,kind in CASES])
     if provider_name!='openai':raise ValueError('unknown_shadow_provider')
@@ -89,14 +94,19 @@ def preflight(shadow_env, business_env, *, provider_name='openai'):
         account_access_checked=False,publication_allowed=False)
 
 
-def run_authorized(shadow_env,business_env,output_dir, *, provider_name='openai'):
+def run_authorized(shadow_env,business_env,output_dir, *, provider_name='openai',business_authorized=False,
+                   estimated_budget_risk_accepted=False):
     """Explicit real action, never called by preflight. At most three, stop on failure."""
-    check=(preflight(shadow_env,business_env,provider_name=provider_name) if provider_name!='openai'
+    check=(preflight(shadow_env,business_env,provider_name=provider_name,business_authorized=business_authorized,
+                    estimated_budget_risk_accepted=estimated_budget_risk_accepted) if provider_name!='openai'
            else preflight(shadow_env,business_env))
     if check['missing']:raise ValueError('shadow_preflight_incomplete')
     # No provider switch, dotenv entry or CLI argument can approve compatibility.
-    if provider_name=='siliconflow' and siliconflow.compatibility_blockers():
-        raise ValueError('siliconflow_compatibility_unverified')
+    if provider_name=='siliconflow':
+        if not business_authorized or not estimated_budget_risk_accepted:
+            raise ValueError('fixed_business_and_budget_authorization_required')
+        if siliconflow.compatibility_blockers(estimated_budget_risk_accepted=estimated_budget_risk_accepted):
+            raise ValueError('siliconflow_compatibility_unverified')
     destination=Path(output_dir).resolve()
     if not destination.is_relative_to(ROOT/'outputs/rag-semantic-retrieval'):
         raise ValueError('private_output_required')
@@ -105,6 +115,8 @@ def run_authorized(shadow_env,business_env,output_dir, *, provider_name='openai'
         with path.open('x',encoding='utf-8') as out:out.write(canonical_json(value))
     save(destination/'preflight.json',check)
     provider=(siliconflow.scoped_config(shadow_env) if provider_name=='siliconflow' else scoped_config(shadow_env))
+    if provider_name=='siliconflow':
+        provider=provider.model_copy(update=dict(estimated_budget_risk_accepted=estimated_budget_risk_accepted))
     factory_module='review_shadow_siliconflow' if provider_name=='siliconflow' else 'review_shadow_openai'
     cost_key='cost_cny_at_peak_rates' if provider_name=='siliconflow' else 'cost_usd'
     budget=Decimal('0.108') if provider_name=='siliconflow' else Decimal('0.06')
@@ -141,6 +153,14 @@ def run_authorized(shadow_env,business_env,output_dir, *, provider_name='openai'
             else:unknown_usage_cases+=1
             records.append(dict(case=cid,status=run.outcome.execution_state,semantic_review='pending',
                 usage_known=bool(usage and usage.get('usage_known')),publication_allowed=False))
+            if provider_name=='siliconflow' and run.outcome.execution_state=='validated_shadow':
+                # A structurally valid result cannot conceal a missing/failed usage receipt.
+                if not usage or not usage.get('usage_known') or usage.get('state')!='response_received':
+                    raise ValueError('provider_usage_missing_or_failed')
+                if (usage.get('reasoning_tokens')!=0 or usage.get('reasoning_content_present') is not False
+                    or usage.get('finish_reason')!='stop' or usage.get('response_model') not in (
+                        siliconflow.MODEL,'deepseek-ai/'+siliconflow.DOCUMENTED_VERSION)):
+                    raise ValueError('provider_observation_conflict')
             if known_cost>budget:raise ValueError('spending_budget_exceeded')
             if run.outcome.execution_state!='validated_shadow':break
     except Exception as exc:
@@ -162,14 +182,18 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',choices=('preflight','run'),nargs='?',default='preflight')
     parser.add_argument('--provider',choices=('openai','siliconflow'),default='siliconflow')
+    parser.add_argument('--authorize-fixed-business-shadow',action='store_true')
+    parser.add_argument('--accept-estimated-token-risk',action='store_true')
     parser.add_argument('--shadow-env',default=str(ROOT/'.env.shadow'))
     parser.add_argument('--business-env',default=str(ROOT/'.env'))
     parser.add_argument('--output-dir',default=str(ROOT/'outputs/rag-semantic-retrieval'/
         ('first-llm-shadow-'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))))
     args=parser.parse_args()
     try:
-        result=(preflight(args.shadow_env,args.business_env,provider_name=args.provider) if args.action=='preflight'
-                else run_authorized(args.shadow_env,args.business_env,args.output_dir,provider_name=args.provider))
+        approvals=dict(business_authorized=args.authorize_fixed_business_shadow,
+                       estimated_budget_risk_accepted=args.accept_estimated_token_risk)
+        result=(preflight(args.shadow_env,args.business_env,provider_name=args.provider,**approvals) if args.action=='preflight'
+                else run_authorized(args.shadow_env,args.business_env,args.output_dir,provider_name=args.provider,**approvals))
         print(json.dumps(result,ensure_ascii=False,indent=2))
     except Exception:
         print(json.dumps(dict(status='stopped',error='configuration_or_execution_failed',publication_allowed=False)))
