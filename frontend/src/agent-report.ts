@@ -16,6 +16,7 @@ export function sampleState(row: Summary): { label: string; color?: string; reas
 export function sectionSummary(item: AgentToolResult): string {
   const data = item.data;
   switch (item.kind) {
+    case 'semantic_evidence': return `本次召回 ${item.data.retrieval.evidence.length} 个候选；${item.data.assessment.status === 'sufficient' ? '已有支持本次回答的证据' : item.data.assessment.status === 'limited' ? '仅有部分支持' : '尚不足以支持回答'}。候选数量不代表相关反馈总数。`;
     case 'aspect_drilldown': return `${item.data.population_mode === 'sample' ? '样本探索' : '二级主题分析'}：${item.data.topics.length} 个模型候选主题，未归类 ${item.data.coverage.unclassified_opinions} 条观点。`;
     case 'opinion_breakdown': return `匹配 ${item.data.total} 条评论、${item.data.total_opinions} 条观点，按原文和情感归组。`;
     case 'positive_aspects': return `正向维度：${item.data.summary.positive_review_count} 条正向观点评论；维度占比以正向观点评论数为分母。`;

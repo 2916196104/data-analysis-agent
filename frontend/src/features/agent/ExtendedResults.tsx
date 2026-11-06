@@ -5,6 +5,10 @@ import type { AgentToolResult, RatingGroup } from '../../types';
 const aspectNames: Record<string, string> = { quality: '商品质量', effectiveness: '使用效果', price: '价格', packaging: '包装', logistics: '物流', service: '客服' };
 
 export default function ExtendedResults({ item }: { item: AgentToolResult }) {
+  if (item.kind === 'semantic_evidence') return <>
+    <p>本次召回 {item.data.retrieval.evidence.length} 个候选观点；{item.data.assessment.status === 'sufficient' ? '已有支持回答的证据。' : item.data.assessment.status === 'limited' ? '仅部分目标获得支持。' : '当前证据不足以支持回答。'}</p>
+    <p className="muted">候选不等于已许可证据，也不代表全量反馈数量；可许可的原文引用显示在回答中。</p>
+  </>;
   if (item.kind === 'aspect_drilldown') return <>
     <p>{item.data.population_mode === 'sample' ? '样本探索：非随机受限样本，占比不能代表总体。' : '对本次匹配观点集合进行二级主题分析。'}主题为模型归并候选，未经人工确认。</p>
     <p>纳入 {item.data.coverage.selected_reviews} 条评论、{item.data.coverage.selected_opinions} 条观点；已复核 {item.data.coverage.evaluated_opinions} 条，已归类 {item.data.coverage.classified_opinions} 条，未归类 {item.data.coverage.unclassified_opinions} 条。同一评论可进入多个主题，各主题内去重，数量不能相加作为总评论数。</p>

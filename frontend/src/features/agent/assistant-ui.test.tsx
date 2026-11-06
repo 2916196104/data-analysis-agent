@@ -49,6 +49,19 @@ function seedAnalysis() {
 }
 
 describe('助手界面模式接入', () => {
+  it('刷新恢复分析会话时选择评论分析，随后仍允许手动切换基础问答', async () => {
+    seedAnalysis();
+    vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id ? { ...task, status: 'succeeded' } : null, refresh: vi.fn() }));
+    localStorage.setItem(`review-agent-chat:${API_BASE}`, JSON.stringify({ turns: [{ kind: 'analysis', id: 'restored',
+      question: '合成历史分析', requestKey: 'restored-key', taskId: 'analysis-task',
+      parameters: { source: 'fixture', dataset_version: 'reviews', product_ids: ['A'], model: 'fixture', base_url: 'offline', prompt_version: 'v1',
+        date_from: '2023-02-01', date_to: '2023-02-28', baseline_from: '2023-01-01', baseline_to: '2023-01-31' } }], activeId: 'restored' }));
+    render(<App />);
+    await waitFor(() => expect((screen.getByRole('radio', { name: '评论分析' }) as HTMLInputElement).checked).toBe(true));
+    fireEvent.click(screen.getByRole('radio', { name: '基础问答' }));
+    expect((screen.getByRole('radio', { name: '基础问答' }) as HTMLInputElement).checked).toBe(true);
+    expect(api.submit).not.toHaveBeenCalled();
+  });
   it('默认基础问答，无商品和标注版本也能发送，分析词句不触发任务', async () => {
     const chat = vi.spyOn(api, 'chat').mockResolvedValue({ answer: '**当前模式**不读取业务数据。' });
     render(<App />);

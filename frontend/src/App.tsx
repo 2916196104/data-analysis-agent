@@ -113,6 +113,10 @@ export default function App() {
   const inputSessionId = useRef(chat.activeSessionId);
   activeChatId.current = chat.activeSessionId;
   useEffect(() => {
+    // Restore the active message's mode without undoing a subsequent manual mode switch.
+    if (chat.activeMessage) setChatMode(chat.activeMessage.kind === 'analysis' ? 'analysis' : 'basic');
+  }, [chat.activeSessionId, chat.activeMessage?.id]);
+  useEffect(() => {
     if (inputSessionId.current === chat.activeSessionId) return;
     inputSessionId.current = chat.activeSessionId;
     setBasicInput('');

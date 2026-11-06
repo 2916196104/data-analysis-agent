@@ -138,3 +138,8 @@
   .chat-scope-summary span + span { padding-left: 0; border-left: 0; }
   .public-answer { padding: 14px; }
 }
+.answer-evidence-item { margin: 12px 0; padding: 10px 12px; border: 1px solid var(--border-color, #dce7e0); border-radius: 8px; }
+.answer-evidence-item summary { cursor: pointer; color: #23734a; }
+.answer-evidence-item p, .answer-evidence-item blockquote { overflow-wrap: anywhere; white-space: pre-wrap; }
+.answer-evidence-item blockquote { margin: 12px 0; padding-left: 12px; border-left: 3px solid #5caa7b; }
+.answer-review-context mark { background: #dff2d9; color: inherit; }

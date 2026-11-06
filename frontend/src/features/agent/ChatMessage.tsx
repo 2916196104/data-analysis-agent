@@ -92,8 +92,8 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
             action={<Button disabled={chat.pending} onClick={() => void chat.retry(turn)}>重试提交</Button>} />)}
         {turn.taskId && !task && !state.error && <div className="chat-status" role="status"><Spin size="small" /> 正在读取任务…</div>}
         {state.error && <Alert type="error" showIcon message="任务连接异常" description={state.error} action={<Button onClick={state.refresh}>重新连接</Button>} />}
-        {task && isActive(task.status) && <div className="chat-status" role="status"><Spin size="small" /> {stageLabels[task.progress.stage] || '正在分析…'}</div>}
-        {task?.error && <Alert type="error" showIcon message={task.error.message} description={<details><summary>错误详情</summary>{task.error.code}</details>} />}
+        {task && isActive(task.status) && <div className="chat-status" role="status"><Spin size="small" /> {task.progress.stage === 'starting' ? '正在准备分析，首次本地检索可能需要加载模型，请稍候…' : stageLabels[task.progress.stage] || '正在分析…'}</div>}
+        {task?.error && <Alert type="error" showIcon message={task.error.message === 'embedding_failed' ? '本地语义检索暂不可用，请检查模型运行配置后重试。' : task.error.message} description={<details><summary>错误详情</summary>{task.error.code}</details>} />}
         {task?.status === 'partial' && <Alert type="warning" showIcon message="任务部分完成" description="完整回答尚未确认，统计与原文暂不展示。可以重试任务。" />}
         {task?.status === 'failed' && <p role="status">分析未完成，未发布统计与原文。请重试任务。</p>}
         {task?.status === 'succeeded' && savedResult && !result && <Alert type="error" message="分析结果未通过校验，未发布回答。" />}
@@ -101,7 +101,10 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
         {task && canRetry(task.status) && <Button className="spaced" loading={active && chat.posting} disabled={chat.pending} onClick={() => void chat.retry(turn)}>重试任务</Button>}
         {result && <>
           {result.public_answer && ['ok', 'unsupported'].includes(result.public_answer.status)
-            ? <PublicAnswerView answer={result.public_answer} />
+            ? <PublicAnswerView answer={result.public_answer} evidence={(result.result_ids || []).flatMap(id => {
+              const item = result.results[id];
+              return item?.kind === 'semantic_evidence' ? item.data.retrieval.evidence : [];
+            })} />
             : <p>{result.status === 'unsupported' ? '当前问题超出已有分析能力，请调整查询目标。'
               : '历史分析结果已保存，可展开统计详情查看已核验的指标与原文。'}</p>}
           <Button size="small" onClick={() => exportAgentReport(result, turn.taskId)}>导出分析报告</Button>

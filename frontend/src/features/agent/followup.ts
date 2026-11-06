@@ -15,9 +15,9 @@ export interface Clarification { message: string; choices: QueryChoice[]; resolv
 export interface QueryParent { id: string; taskId?: string; question?: string; parameters: AnalysisParameters; selection?: AnalysisParameters; result?: AgentResult }
 
 const aspects: Record<string, string> = { 质量: 'quality', 效果: 'effectiveness', 包装: 'packaging', 物流: 'logistics', 客服: 'service', 服务: 'service', 价格: 'price' };
-const names: Record<QueryIntent['kind'], string> = { trend: '评论趋势', aspect_trend: '维度趋势', evidence: '原文证据',
+const names: Record<QueryIntent['kind'], string> = { semantic_evidence: '语义检索证据', trend: '评论趋势', aspect_trend: '维度趋势', evidence: '原文证据',
   comparison: '商品对比', issues: '问题分布', quality: '数据质量', ratings: '星级分布', window_comparison: '时间窗口对比', positive_aspects: '正向维度', opinion_breakdown: '观点文本分析', aspect_drilldown: '二级主题分析' };
-const tools: Record<QueryIntent['kind'], string> = { trend: 'get_trend', aspect_trend: 'get_aspect_trend', evidence: 'get_evidence',
+const tools: Record<QueryIntent['kind'], string> = { semantic_evidence: 'search_semantic_evidence', trend: 'get_trend', aspect_trend: 'get_aspect_trend', evidence: 'get_evidence',
   comparison: 'compare_products', issues: 'get_top_issues', quality: 'get_data_quality', ratings: 'get_rating_distribution', window_comparison: 'compare_time_windows', positive_aspects: 'get_positive_aspects', opinion_breakdown: 'get_opinion_breakdown', aspect_drilldown: 'get_aspect_drilldown' };
 const scopeKeys = ['source', 'dataset_version', 'model', 'base_url', 'prompt_version', 'date_from', 'date_to', 'baseline_from', 'baseline_to', 'as_of'] as const;
 

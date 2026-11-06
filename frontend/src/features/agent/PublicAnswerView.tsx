@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Button } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
-import type { PublicAnswer } from '../../types';
+import type { PublicAnswer, SemanticEvidence } from '../../types';
 import { publicAnswerText } from './public-answer';
+import AnswerEvidence from './AnswerEvidence';
 
-export default function PublicAnswerView({ answer }: { answer: PublicAnswer }) {
+export default function PublicAnswerView({ answer, evidence = [] }: { answer: PublicAnswer; evidence?: SemanticEvidence[] }) {
   const [copied, setCopied] = useState(false);
   async function copyAnswer() {
     const text = publicAnswerText(answer);
@@ -30,6 +31,7 @@ export default function PublicAnswerView({ answer }: { answer: PublicAnswer }) {
     <p className="public-answer-summary">{answer.status === 'partial' ? `部分完成：${answer.summary}` : answer.summary}</p>
     {answer.status === 'ok' && <>
       {!!answer.highlights.length && <ol className="public-answer-highlights">{answer.highlights.map(item => <li key={item.finding_ref}>{item.text}</li>)}</ol>}
+      <AnswerEvidence answer={answer} evidence={evidence} />
       {answer.insights?.map((item, index) => <p key={`${item.kind}-${index}`}><strong>{item.kind === 'interpretation' ? '可能的解释：' : '分析建议：'}</strong>{item.text}</p>)}
       {answer.sample_note && <p>{answer.sample_note}</p>}
       {answer.caveats.map(note => <p className="muted" key={note}>{note}</p>)}

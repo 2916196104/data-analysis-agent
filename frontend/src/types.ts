@@ -204,7 +204,15 @@ export interface AspectDrilldown {
   grouping_version: string; grouping_model: string;
   coverage: { selected_reviews: number; selected_opinions: number; evaluated_opinions: number; classified_opinions: number; unclassified_opinions: number };
 }
+export interface SemanticEvidence {
+  key: string; rank: number; review_id: number; product_id: string; annotation_id: number;
+  quote: string; quote_start: number; quote_end: number; review_text: string;
+  effective_snapshot_sha256: string; file_sha256: string; line_number: number;
+}
 export type AgentToolResult = { result_id: string; parameters: Record<string, unknown> } & (
+  { kind: 'semantic_evidence'; data: { retrieval: { evidence: SemanticEvidence[] };
+    assessment: { status: 'sufficient' | 'limited' | 'insufficient'; reason: string } } }
+  |
   { kind: 'context'; data: { summary: Summary; products?: { product_id: string; title: string | null }[] } }
   | { kind: 'trend'; data: { period: string; summary: Summary; buckets: (Summary & { bucket: string })[] } }
   | { kind: 'comparison'; data: { products: (Summary & { product_id: string })[]; no_reviews_product_ids?: string[] } }

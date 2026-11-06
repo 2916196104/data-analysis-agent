@@ -55,6 +55,15 @@ it('降级显示可靠摘要与明确生成状态，不显示模型错误原文'
   expect(screen.getByText(answer.summary)).toBeTruthy();
 });
 
+it('本地编码失败展示可操作提示且不发布证据；首次准备显示等待说明', () => {
+  const failed = show({ ...task, status: 'failed', result: null, error: { code: 'business_error', message: 'embedding_failed' } });
+  expect(screen.getByText('本地语义检索暂不可用，请检查模型运行配置后重试。')).toBeTruthy();
+  expect(screen.queryByRole('region', { name: '分析回答' })).toBeNull();
+  failed.unmount();
+  show({ ...task, status: 'running', result: null, progress: { stage: 'starting', completed: 0, total: null, unit: 'items' } });
+  expect(screen.getByText('正在准备分析，首次本地检索可能需要加载模型，请稍候…')).toBeTruthy();
+});
+
 it('把事实、可能解释和分析建议分开展示，复制保留性质标签', () => {
   const enriched: PublicAnswer = { ...answer, insights: [
     { kind: 'interpretation', text: '这是对已有评价关系的可能理解。', finding_refs: ['finding:1'], evidence_ids: [] },

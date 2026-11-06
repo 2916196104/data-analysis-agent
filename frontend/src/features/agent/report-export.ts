@@ -15,6 +15,7 @@ const summaryTable = (rows: [string, Summary][]) => table(
 
 function statistics(item: AgentToolResult): string {
   switch (item.kind) {
+    case 'semantic_evidence': return sectionSummary(item);
     case 'aspect_drilldown': return `${item.data.population_mode === 'sample' ? '样本探索，占比不代表总体。' : '二级主题分析。'}模型归并候选未经人工确认。各主题以该维度纳入评论为分母。\n\n` + table(['维度', '候选主题', '具体内容', '去重评论数', '观点数', '占该维度纳入评论', '分母'], item.data.topics.map(row => [row.aspect, row.name, row.definition, row.review_count, row.opinion_count, percent(row.review_rate), row.review_denominator]));
     case 'opinion_breakdown': return `按原始观点文本和情感归组，同义表述未合并，非标准细分主题排名。匹配 ${item.data.total} 条评论、${item.data.total_opinions} 条观点。\n\n` + table(['观点原文', '情感', '评论数', '观点数', '占匹配评论', '评论依据'], item.data.groups.map(row => [row.quote, row.sentiment, row.review_count, row.opinion_count, percent(row.review_rate), row.review_id]));
     case 'positive_aspects': return table(['维度', '正面提及评论数', '正向观点评论（分母）', '正向提及占比', '成功标注（分母）', '占成功标注比例'],
