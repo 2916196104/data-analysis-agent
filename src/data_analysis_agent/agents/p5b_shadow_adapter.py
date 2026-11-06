@@ -99,18 +99,23 @@ def invoke_worker(argv: Sequence[str], payload: bytes, *, timeout_seconds: float
 
         reader = threading.Thread(target=receive, name="p5b-shadow-reader", daemon=True)
         reader.start()
-        # Bound the size of the original payload separately before invoking.
-        try:
-            proc.stdin.write(payload)
-            proc.stdin.close()
-        except BrokenPipeError:
-            pass
+        # Writing stdin may block indefinitely if a worker never consumes it.
+        # A daemon writer lets the parent enforce the same wall-clock deadline.
+        def send():
+            try:
+                proc.stdin.write(payload)
+                proc.stdin.close()
+            except (BrokenPipeError, OSError, ValueError):
+                pass
+
+        writer = threading.Thread(target=send, name="p5b-shadow-writer", daemon=True)
+        writer.start()
         while True:
             if over_limit.is_set():
                 return ("output_budget_exceeded", bytes(output))
             if monotonic() >= deadline:
                 return ("timeout", b"")
-            if proc.poll() is not None and not reader.is_alive():
+            if proc.poll() is not None and not reader.is_alive() and not writer.is_alive():
                 break
             reader.join(min(0.025, max(0.0, deadline - monotonic())))
         if over_limit.is_set():
