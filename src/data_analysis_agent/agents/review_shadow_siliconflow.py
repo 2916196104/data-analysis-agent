@@ -245,6 +245,7 @@ class SiliconFlowShadowJudge:
         values, _ = _settings(config.env_file, config.env_sha256)
         self.config, self.encoding = config, encoding
         self.used = False
+        self._diagnostic_capture = None
         self.metrics = dict(provider='siliconflow', state='not_called', model=MODEL, base_url=BASE_URL,
             documented_service_version=DOCUMENTED_VERSION, prompt_version=PROMPT_VERSION,
             model_calls=0, usage_known=False, currency='CNY', price_checked_on='2026-11-06',
@@ -263,6 +264,10 @@ class SiliconFlowShadowJudge:
         self.client = OpenAI(api_key=values['SHADOW_API_KEY'].strip(),base_url=BASE_URL,
             max_retries=0,timeout=timeout,http_client=http_client,
             default_headers={'Accept-Encoding':'identity'})
+
+    def set_diagnostic_capture(self, capture):
+        # Set by an explicitly opted-in development worker, never by model/config/env data.
+        self._diagnostic_capture = capture
 
     def _trace(self,name,info):
         # Whitelist event names only: never persist headers, URLs, bodies or errors.
@@ -353,6 +358,11 @@ class SiliconFlowShadowJudge:
             content=message.content
             if not isinstance(content,str) or not content.strip(): raise ShadowProviderError('empty_completion')
             if len(content.encode('utf-8'))>65536: raise ShadowProviderError('completion_too_large')
+            if self._diagnostic_capture is not None:
+                try:
+                    self._diagnostic_capture(content, secrets=(self.client.api_key,))
+                except Exception:
+                    pass
             strict_json_loads(content)
             self.metrics['state']='response_received'
             return content  # B1/B2 still perform the full source/fact/relation audit.

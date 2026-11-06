@@ -58,12 +58,15 @@ def worker_executable():
     return buffer.value
 
 
-def _invoke(factory, payload, settings, *, deadline, cancel_event):
+def _invoke(factory, payload, settings, *, deadline, cancel_event, development_diagnostic=None):
     config = strict_json_loads(factory.config_json)
     if type(config) is not dict:
         raise StructuredEvidenceError('invalid_factory_config')
-    wire = canonical_json(dict(factory=factory.entrypoint, config=config, payload=payload,
-                               max_output_bytes=settings.max_output_bytes)).encode('utf-8')
+    control = dict(factory=factory.entrypoint, config=config, payload=payload,
+                   max_output_bytes=settings.max_output_bytes)
+    if development_diagnostic is not None:
+        control['development_diagnostic'] = development_diagnostic
+    wire = canonical_json(control).encode('utf-8')
     if len(wire) > 1024 * 1024:
         raise StructuredEvidenceError('input_budget_exceeded')
     env = {k:v for k,v in os.environ.items() if k.upper() in (
@@ -175,9 +178,10 @@ def _invoke(factory, payload, settings, *, deadline, cancel_event):
 
 
 class StructuredEvidenceShadow:
-    def __init__(self, *, settings=None, judge_factory=None):
+    def __init__(self, *, settings=None, judge_factory=None, development_diagnostic_dir=None):
         self.settings = settings or ShadowSettings()
         self.judge_factory = judge_factory
+        self.development_diagnostic_dir = development_diagnostic_dir
 
     def run(self, contract, result, *, trusted_contract_sha256, request_id, cancel_event=None):
         started = monotonic()
@@ -212,9 +216,20 @@ class StructuredEvidenceShadow:
         if not isinstance(self.judge_factory,JudgeFactory):
             return finish(ShadowOutcome('model_failed',('judge_not_configured',)))
         try:
+            development_diagnostic = None
+            if self.development_diagnostic_dir is not None:
+                from data_analysis_agent.agents.review_shadow_diagnostics import destination
+                directory = destination(self.development_diagnostic_dir)
+                development_diagnostic = dict(directory=str(directory), envelope=request.model_dump(mode='json'))
             diagnostics['attempts'] = 1
-            status, raw, process_info = _invoke(self.judge_factory,payload,self.settings,deadline=deadline,cancel_event=cancel_event)
+            status, raw, process_info = _invoke(self.judge_factory,payload,self.settings,deadline=deadline,
+                cancel_event=cancel_event, development_diagnostic=development_diagnostic)
             diagnostics.update(process_info)
+            if development_diagnostic is not None:
+                try:
+                    diagnostics['failure_diagnostic_saved'] = (directory/'failure.json').is_file()
+                except OSError:
+                    diagnostics['failure_diagnostic_saved'] = False
             if status != 'completed':
                 return finish(ShadowOutcome('cancelled' if status=='cancelled' else 'model_failed',(status,)))
             diagnostics['output_sha256'] = sha256(raw).hexdigest()

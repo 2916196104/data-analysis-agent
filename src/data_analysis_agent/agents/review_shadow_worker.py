@@ -12,14 +12,21 @@ def main():
         os.dup2(sink.fileno(), 1)
         os.dup2(sink.fileno(), 2)
     judge = None
+    capture = None
     try:
         raw = sys.stdin.buffer.read(1024 * 1024 + 1)
         if len(raw) > 1024 * 1024:
             return 73
         request = json.loads(raw)
+        if request.get('development_diagnostic') is not None:
+            from data_analysis_agent.agents.review_shadow_diagnostics import FailureCapture
+            settings = request['development_diagnostic']
+            capture = FailureCapture(settings['directory'], settings['envelope'], request['max_output_bytes'])
         module, name = request['factory'].split(':')
         factory = getattr(importlib.import_module(module), name)
         judge = factory(**request['config'])
+        if capture is not None and callable(getattr(judge,'set_diagnostic_capture',None)):
+            judge.set_diagnostic_capture(capture.capture)
         result = judge.judge(request['payload'])
         if not isinstance(result, str):
             return 71
@@ -29,10 +36,22 @@ def main():
         encoded = result.encode('utf-8')
         if len(encoded) > request['max_output_bytes']:
             return 72
+        if capture is not None:
+            try:
+                if capture.raw is None:
+                    capture.capture(result)
+                capture.finish()
+            except Exception:
+                pass  # Retention failure never changes the authoritative parent audit.
         with os.fdopen(output_fd, 'wb', closefd=False) as output:
             output.write(encoded)
         return 0
     except Exception:
+        if capture is not None:
+            try:
+                capture.finish(provider_failed=True)
+            except Exception:
+                pass
         return 70
     finally:
         try:

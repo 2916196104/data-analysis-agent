@@ -104,7 +104,9 @@ class MockJudgePort(Protocol):
 
 
 class StructuredEvidenceError(ValueError):
-    pass
+    def __init__(self, code, detail=None):
+        super().__init__(code)
+        self.detail = detail
 
 
 def require(condition, code):
@@ -212,14 +214,26 @@ class ShadowOutcome:
 
 
 def check_span(span, candidate, *, context=False):
-    require(span.key == candidate.key and span.source_identity_sha256 == candidate.source_identity_sha256, 'citation_identity_mismatch')
+    if not (span.key == candidate.key and span.source_identity_sha256 == candidate.source_identity_sha256):
+        raise StructuredEvidenceError('citation_identity_mismatch', dict(candidate_key=candidate.key,
+            start=span.start, end=span.end, key_matches=span.key == candidate.key,
+            source_identity_matches=span.source_identity_sha256 == candidate.source_identity_sha256))
     lower, upper = (0, len(candidate.review_text)) if context else (candidate.quote_start, candidate.quote_end)
-    require(lower <= span.start < span.end <= upper
-            and candidate.review_text[span.start:span.end] == span.text, 'citation_span_mismatch')
+    bounds_valid = lower <= span.start < span.end <= upper
+    text_matches = candidate.review_text[span.start:span.end] == span.text
+    if not (bounds_valid and text_matches):
+        raise StructuredEvidenceError('citation_span_mismatch', dict(
+            candidate_key=candidate.key, start=span.start, end=span.end,
+            allowed_start=lower, allowed_end=upper, quote_start=candidate.quote_start,
+            quote_end=candidate.quote_end, review_code_points=len(candidate.review_text),
+            coordinate_unit='unicode_code_point', bounds_valid=bounds_valid, text_matches=text_matches,
+            matches_if_quote_relative=(0 <= span.start < span.end <= len(candidate.quote)
+                and candidate.quote[span.start:span.end] == span.text)))
 
 
-def audit_output(request, raw):
+def audit_output(request, raw, *, failure_details=None):
     """Structural/source consistency only; never a production answer licence."""
+    location = None
     try:
         output = parse(raw, JudgeOutput)
         require(output.request_id == request.request_id and output.input_sha256 == content_sha256(request.model_dump(mode='json')), 'input_binding_mismatch')
@@ -231,11 +245,15 @@ def audit_output(request, raw):
         expected = {(fid,key) for fid in ids for key in candidates}
         judgments = {(j.fact_id,j.key):j for j in output.fact_judgments}
         require(set(judgments) == expected and len(judgments) == len(output.fact_judgments), 'fact_matrix_mismatch')
-        for judgment in judgments.values():
+        for judgment_index, judgment in enumerate(judgments.values()):
             candidate = candidates[judgment.key]
-            for refs, context in ((judgment.support_refs,False),(judgment.refutation_refs,False),(judgment.context_veto_refs,True)):
+            for field_name, refs, context in (('support_refs',judgment.support_refs,False),
+                    ('refutation_refs',judgment.refutation_refs,False),('context_veto_refs',judgment.context_veto_refs,True)):
                 require(len({canonical_json(r.model_dump()) for r in refs}) == len(refs), 'duplicate_citation')
-                for ref in refs:check_span(ref,candidate,context=context)
+                for ref_index, ref in enumerate(refs):
+                    location = dict(section='fact_judgments', judgment_index=judgment_index,
+                        candidate_key=candidate.key, reference_type=field_name, reference_index=ref_index)
+                    check_span(ref,candidate,context=context)
             if judgment.status == 'supported':
                 require(judgment.support_refs and not judgment.refutation_refs and not judgment.context_veto_refs
                         and judgment.reason_code == 'direct_report', 'support_without_valid_basis')
@@ -256,9 +274,12 @@ def audit_output(request, raw):
             result = results[rid]
             require(len({w.fact_id for w in result.witnesses}) == len(result.witnesses)
                     and all(w.fact_id in relation.fact_ids and w.key in candidates for w in result.witnesses), 'relation_witness_mismatch')
-            for ref in (*result.support_refs, *result.refutation_refs):
-                require(ref.key in {w.key for w in result.witnesses}, 'relation_citation_mismatch')
-                check_span(ref,candidates[ref.key])
+            for field_name, refs in (('support_refs',result.support_refs),('refutation_refs',result.refutation_refs)):
+                for ref_index, ref in enumerate(refs):
+                    location = dict(section='relation_judgments', relation_id=rid,
+                        reference_type=field_name, reference_index=ref_index)
+                    require(ref.key in {w.key for w in result.witnesses}, 'relation_citation_mismatch')
+                    check_span(ref,candidates[ref.key])
             if result.status != 'supported':
                 require(not result.support_refs, 'unresolved_relation_has_support')
                 require(result.status != 'refuted' or result.refutation_refs, 'relation_refutation_without_basis')
@@ -287,5 +308,12 @@ def audit_output(request, raw):
             unmet_relation_ids=tuple(rid for rid,r in results.items() if r.status!='supported'),
             structural_goal_satisfied=core and relation_ok)
     except (ValueError, TypeError, KeyError, AttributeError, UnicodeError, RecursionError) as exc:
-        return ShadowOutcome('output_invalid', (str(exc) if isinstance(exc,StructuredEvidenceError) else 'invalid_output_schema_or_json',))
+        code = str(exc) if isinstance(exc,StructuredEvidenceError) else 'invalid_output_schema_or_json'
+        if failure_details is not None:
+            detail = dict(error_code=code)
+            if isinstance(exc,StructuredEvidenceError) and exc.detail:
+                detail.update(location or {})
+                detail.update(exc.detail)
+            failure_details.append(detail)
+        return ShadowOutcome('output_invalid', (code,))
 
