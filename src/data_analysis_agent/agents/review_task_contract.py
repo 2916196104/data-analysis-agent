@@ -119,7 +119,11 @@ def build_task_contract(question, scope, plan):
     facts = RequiredFacts()
     entity = subtopic = 'unknown'
     if request:
-        items = tuple(RequiredFact(id=fid, description=fid) for fid in request['facts'])
+        # target() has already verified these complete clauses; no new intent inference.
+        pair = re.fullmatch(r'同一(?:条)?评论(?:中)?既(?:说)?(.+?)又(?:说|抱怨)?(.+)', request['text'])
+        clauses = pair.groups() if pair else (request['text'],)
+        items = tuple(RequiredFact(id=fid, description=f'买家自述该商品的体验：{clause}')
+                      for fid, clause in zip(request['facts'], clauses, strict=True))
         relations = (FactRelation(kind='same_review', fact_ids=tuple(request['facts'])),) if request['relation'] else ()
         facts = RequiredFacts(items=items, relations=relations)
         domains = {fid.split('_')[0] for fid in request['facts']}
@@ -161,6 +165,19 @@ def build_task_contract(question, scope, plan):
         operation=operation,target_entity=entity,subtopic=subtopic,required_facts=facts,statistics=statistics,
         support_status=status,unsupported_reason=reason,
         uncertainty=('目标语义未被当前规则覆盖；仅允许检索和明确说明不足，不能许可确定结论。',) if status=='retrieval_only' else ())
+
+
+def matches_saved_task_contract(stored, current):
+    """Old v1 records used fact IDs as descriptions; preserve their original bytes."""
+    expected = current.model_dump(mode='json')
+    try:
+        old_items = stored['required_facts']['items']
+        for old, new in zip(old_items, expected['required_facts']['items'], strict=True):
+            if old['id'] == new['id'] and old['description'] == old['id']:
+                new['description'] = old['description']
+        return stored == expected
+    except (ValueError, KeyError, TypeError):
+        return False
 
 
 def _path(data, path):

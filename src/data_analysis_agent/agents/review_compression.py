@@ -318,7 +318,7 @@ def read_public_analysis(task, options=None):
                                requires_evidence=any(item["tool"] in {"get_evidence", "get_opinion_breakdown", 'get_aspect_drilldown', 'search_semantic_evidence'} for item in requests), max_evidence_items=10)
         stored=(result.get('query_plan') or {}).get('task_contract')
         if stored is not None:
-            from data_analysis_agent.agents.review_task_contract import build_task_contract
+            from data_analysis_agent.agents.review_task_contract import build_task_contract, matches_saved_task_contract
             saved_plan=result.get('query_goal_plan') or result['query_plan']
             if saved_plan.get('task_contract')!=stored:
                 raise ValueError('原查询目标与补查计划的契约不一致。')
@@ -326,7 +326,7 @@ def read_public_analysis(task, options=None):
                 requirements=saved_plan['requirements'],unsupported_reason=saved_plan.get('unsupported_reason'),
                 product_groups=saved_plan.get('product_groups',[]),requires_evidence=saved_plan.get('requires_evidence',False))
             plan.task_contract=build_task_contract(result['question'],result['scope'],goal_plan)
-            if stored!=plan.task_contract.model_dump(mode='json') or result.get('query_contract',stored)!=stored:
+            if not matches_saved_task_contract(stored,plan.task_contract) or result.get('query_contract',stored)!=stored:
                 raise ValueError('运行时查询契约版本或身份不一致。')
         validation = validate_report(result["results"], result["result_ids"],
                                      sentiment_intent=result.get("sentiment_intent"), query_plan=plan,

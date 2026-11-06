@@ -4,7 +4,7 @@ No Agent registration, scoring, sync, model construction or network client. Repo
 and encoder are injected; the production repository only opens existing PostgreSQL.
 """
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import math
@@ -132,6 +132,7 @@ class SemanticResult:
     source_policy: str = 'current_effective_readonly_v1'
     context_policy: str = 'quote_full_review_veto'
     context_version: str = '1'
+    _source_validation: object = field(default=None, repr=False, compare=False)
 
     def to_dict(self):
         return dict(version='semantic-retrieval-v1', query=self.query.model_dump(mode='json'),
@@ -141,6 +142,29 @@ class SemanticResult:
             text_builder_version=self.text_builder_version, source_policy=self.source_policy,
             context_policy=self.context_policy, context_version=self.context_version,
             evidence=[row.to_dict() for row in self.evidence])
+
+
+_SOURCE_VALIDATOR = object()
+
+
+@dataclass(frozen=True)
+class _SourceValidation:
+    issuer: object
+    result_sha256: str
+
+
+def _result_integrity(result):
+    return content_sha256([result.to_dict(), result.scope.model_dump(mode='json'),
+                           [asdict(row.document) for row in result.evidence]])
+
+
+def require_source_validated_result(result):
+    """An in-memory P0 binding, not a historic seal or an assertion from JSON."""
+    proof = getattr(result, '_source_validation', None)
+    _require(isinstance(result, SemanticResult) and isinstance(proof, _SourceValidation)
+             and proof.issuer is _SOURCE_VALIDATOR
+             and proof.result_sha256 == _result_integrity(result), 'p0_validation_binding_missing_or_changed')
+    return result
 
 
 class QueryEncoder(Protocol):
@@ -311,6 +335,8 @@ class SemanticRetrievalService:
                     evidence.append(SemanticEvidence(rank,distance,doc,source.state,source.review_text,
                         sha256(source.review_text.encode('utf-8')).hexdigest()))
                 result = SemanticResult(query,scope,info,tuple(evidence))
+                result = replace(result, _source_validation=_SourceValidation(
+                    _SOURCE_VALIDATOR, _result_integrity(result)))
             return result
         except SemanticRetrievalError: raise
         except Exception: raise SemanticRetrievalError('repository_failed') from None
