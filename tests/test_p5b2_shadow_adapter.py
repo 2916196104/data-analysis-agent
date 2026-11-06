@@ -23,11 +23,21 @@ class P5B2ShadowAdapterTests(unittest.TestCase):
 
     def test_id_only_descriptions_are_not_model_eligible(self):
         c = fixtures.contract()
+        raw = c.model_dump(mode='json')
+        for fact in raw['required_facts']['items']:
+            fact['description'] = fact['id']
+        from data_analysis_agent.agents.review_task_contract import RuntimeQueryContract
+        c = RuntimeQueryContract.model_validate(raw)
         result, sources = fixtures.retrieval(c.original_question)
         with self.assertRaisesRegex(contract.PrototypeError, 'unresolved_fact_description'):
             contract.prepare_input(c, result,
                 trusted_contract_sha256=content_sha256(c.model_dump(mode='json')),
                 trusted_sources=sources, request_id='SYNTHETIC')
+
+    def test_existing_v2_facts_have_explanations(self):
+        c = fixtures.contract()
+        self.assertTrue(c.required_facts.items)
+        self.assertTrue(all(f.description != f.id for f in c.required_facts.items))
 
     def test_b2_contract_uses_trusted_source(self):
         c = fixtures.authored_compound()
