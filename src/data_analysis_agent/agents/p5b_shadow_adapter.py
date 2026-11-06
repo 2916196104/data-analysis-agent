@@ -7,12 +7,10 @@ post-snapshot diagnostic path, not while holding a database transaction.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 import os
 import signal
 import subprocess
-import sys
 import threading
 from time import monotonic
 from typing import Sequence
@@ -134,7 +132,7 @@ def invoke_worker(argv: Sequence[str], payload: bytes, *, timeout_seconds: float
                 _end_process_tree(proc)
             if proc.stdin:
                 try: proc.stdin.close()
-                except OSError: pass
+                except (OSError, ValueError): pass
             if proc.stdout:
                 try: proc.stdout.close()
                 except OSError: pass
