@@ -1,0 +1,114 @@
+{
+  "version": "shadow-quality-cases-v1",
+  "purpose": "Assistant-reviewed synthetic development expectations, independent of the tested SiliconFlow model; not independently human-adjudicated gold or held-out generalization data",
+  "provenance": "Existing local draft C01-C12 retained; C13-C15 and the rubric were authored by the coding assistant before any tested-model call. All products, speakers and comments are fictional. No target-model output generated these expectations.",
+  "batches": [["C01", "C02", "C03", "C04", "C05"], ["C06", "C07", "C08", "C09", "C10"], ["C11", "C12", "C13", "C14", "C15"]],
+  "cases": [
+    {
+      "id": "C01", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "我咨询时，客服态度恶劣，还反复打断我。",
+      "review_text": "虚构样机松果-X：我咨询时，客服态度恶劣，还反复打断我。外箱倒是完好的。",
+      "expected_status": "supported", "expected_reason": "本人直接体验，客服对象明确；其他包装评价不撤回该事实。"
+    },
+    {
+      "id": "C02", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "客服很有耐心，我对这次沟通很满意。",
+      "review_text": "虚构样机松果-X：客服很有耐心，我对这次沟通很满意。我没有发表过别的客服评价。",
+      "expected_status": "not_supported", "expected_reason": "相反的正面体验不支持负面目标，也不是撤回本人或另一买家的既有投诉。"
+    },
+    {
+      "id": "C03", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "我先前写的客服态度差不属实，我撤回那句评价。",
+      "review_text": "虚构样机松果-X的补记：我先前写的客服态度差不属实，我撤回那句评价。",
+      "expected_status": "refuted", "expected_reason": "作者明确否认并撤回自己此前针对客服的同一评价；反驳依据在 quote 内。"
+    },
+    {
+      "id": "C04", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "客服对我态度很差。",
+      "review_text": "虚构样机松果-X：客服对我态度很差。更新：我把配送员认成客服了，上面针对客服的评价作废。",
+      "veto_text": "更新：我把配送员认成客服了，上面针对客服的评价作废。",
+      "expected_status": "refuted", "expected_reason": "quote 初步支持，但同评论全文明确纠正对象并撤回该客服主张；只能以 context_veto_refs 否决。"
+    },
+    {
+      "id": "C05", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "朋友说，他昨天遇到的客服态度很差。",
+      "review_text": "虚构样机松果-X：朋友说，他昨天遇到的客服态度很差。这是他的经历，我本人没联系过客服。",
+      "expected_status": "not_supported", "expected_reason": "明确是朋友的转述，不能证明评论作者的亲身经历；也没有撤回朋友的主张。"
+    },
+    {
+      "id": "C06", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "如果客服下次态度差，我就取消订单。",
+      "review_text": "虚构样机松果-X：如果客服下次态度差，我就取消订单。目前我还没联系过客服。",
+      "expected_status": "not_supported", "expected_reason": "清楚表达尚未发生的条件假设，未报告目标事实；不是否定范围不明的 unknown。"
+    },
+    {
+      "id": "C07", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "安装人员对我态度恶劣。",
+      "review_text": "虚构样机松果-X：安装人员对我态度恶劣。我没联系过客服。",
+      "expected_status": "not_supported", "expected_reason": "对象明确是安装人员，不是客服；明确对象不符与对象无法判断应分开。"
+    },
+    {
+      "id": "C08", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "配送员嘲讽我，说话很不客气。",
+      "review_text": "虚构样机松果-X：配送员嘲讽我，说话很不客气。本文只描述送货时的经历。",
+      "expected_status": "not_supported", "expected_reason": "配送对象明确，不支持客服目标；不能因为同属服务而合并角色。"
+    },
+    {
+      "id": "C09", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "不是客服态度差……",
+      "review_text": "虚构样机松果-X：不是客服态度差……算了，我先不写了，等确认再说。",
+      "expected_status": "unknown", "expected_reason": "作者主动留下未完成表达，无法确定是否否认该评价或准备纠正、强调别的内容；保留否定范围未知，不补全省略号。"
+    },
+    {
+      "id": "C10", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "那位工作人员很不耐烦。",
+      "review_text": "虚构样机松果-X：那位工作人员很不耐烦。我记不清那次联系的是客服，还是安装预约人员。",
+      "expected_status": "unknown", "expected_reason": "负面体验明确，但目标角色无法可靠归属；不能猜成客服或确定认定不是客服。"
+    },
+    {
+      "id": "C11", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "客服没有批评我的态度。",
+      "review_text": "虚构样机松果-X：客服没有批评我的态度。这句话仅描述对方没有评价我，不评价对方的态度。",
+      "expected_status": "not_supported", "expected_reason": "否定作用于批评行为，我的态度也不是客服的态度；语义明确但无直接支持，不应只见否定就输出 unknown。"
+    },
+    {
+      "id": "C12", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "客服态度恶劣，反复打断我。",
+      "review_text": "虚构样机松果-X：客服态度恶劣，反复打断我。不过配送人员很耐心，外箱也完好。",
+      "expected_status": "supported", "expected_reason": "直接负面客服体验；不同对象的正面转折不构成否认或撤回。"
+    },
+    {
+      "id": "C13", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "客服态度恶劣，反复打断我。",
+      "review_text": "虚构样机松果-X：以下是朋友发给我的原话：\"客服态度恶劣，反复打断我。\"其中的我指朋友，我本人没有联系过客服。",
+      "expected_status": "not_supported", "expected_reason": "quote 虽含第一人称，但全文明确其说话者是朋友；转述没有撤回任何主张，不能标 refuted，也不能只凭 quote 标 supported。"
+    },
+    {
+      "id": "C14", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "客服态度恶劣，反复打断我。",
+      "review_text": "虚构样机松果-X：我假设一种尚未发生的情况：客服态度恶劣，反复打断我。真发生了我才会投诉；现在我还没联系过客服。",
+      "expected_status": "not_supported", "expected_reason": "假设限定在 quote 外但与该句明确相连；全文只能解释其非实际体验，不能把假设当撤回或含糊的 unknown。"
+    },
+    {
+      "id": "C15", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验该虚构商品客服态度差",
+      "quote": "昨天客服态度恶劣，反复打断我。",
+      "review_text": "虚构样机松果-X：昨天客服态度恶劣，反复打断我。今天换了一位客服，态度很好；昨天的经历确实发生过，我没有撤回。",
+      "expected_status": "supported", "expected_reason": "目标是曾报告的体验；后来改善不撤销此前事实。需区分时间变化和 C03/C04 对原主张的明确否认。"
+    }
+  ]
+}
