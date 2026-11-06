@@ -6,7 +6,7 @@ JSON Schemas stay independent; no imports from tests and no provider access here
 from dataclasses import asdict, dataclass
 from copy import deepcopy
 from hashlib import sha256
-from typing import Literal, Protocol
+from typing import Literal
 
 from pydantic import Field
 
@@ -98,9 +98,6 @@ class JudgeOutput(ContractModel):
     fact_judgments: tuple[FactJudgment, ...] = ()
     relation_judgments: tuple[RelationJudgment, ...] = ()
 
-
-class MockJudgePort(Protocol):
-    def judge(self, payload_json: str) -> str: ...
 
 
 class PrototypeError(ValueError):
@@ -278,18 +275,3 @@ def audit_output(request, raw):
         return ShadowOutcome('output_invalid', (str(exc) if isinstance(exc,PrototypeError) else 'invalid_output_schema_or_json',))
 
 
-def run_mock_shadow(request, judge: MockJudgePort):
-    """Mock timeout signal only: real deadline/cancellation belongs to P5-B2."""
-    if not request.candidates:
-        return ShadowOutcome('skipped_empty', ('no_candidates_not_population_absence',),
-            missing_required_fact_ids=tuple(f.id for f in request.contract.required_facts.items),
-            unestablished_fact_ids=tuple(f.id for f in request.contract.required_facts.items))
-    try:
-        raw = judge.judge(model_payload(request))
-    except TimeoutError:
-        return ShadowOutcome('model_failed', ('timeout',))
-    except PrototypeError as exc:
-        return ShadowOutcome('input_invalid', (str(exc),))
-    except Exception:
-        return ShadowOutcome('model_failed', ('adapter_error',))
-    return audit_output(request, raw)
