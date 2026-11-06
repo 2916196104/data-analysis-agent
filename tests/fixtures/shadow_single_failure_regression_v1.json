@@ -1,0 +1,14 @@
+{
+  "version": "shadow-single-failure-regression-v1",
+  "purpose": "Digest-pinned read-only replay of the saved real failure; no raw private text is checked in and no source trust is restored.",
+  "artifact_dir": "outputs/rag-semantic-retrieval/four-state-single-synthetic-v1",
+  "failure_file_sha256": "3293f5e4c1426d26f5273645ca72042c081d58e4b2cc6910014801e3b40ed282",
+  "raw_sha256": "1f17088c25bfe624dec196634c4bf82bfd7b866b579b205c25f27714990b9c08",
+  "raw_bytes": 2632,
+  "input_sha256": "600d1797517befb5cebb86ab3d67792c850d2fb614eff9cfe97a63a491d2fab9",
+  "observed_statuses": ["supported", "not_supported", "not_supported", "refuted", "unknown"],
+  "expected_statuses": ["supported", "not_supported", "refuted", "refuted", "unknown"],
+  "original_error": "citation_span_mismatch",
+  "original_veto_range": [25, 79],
+  "trusted_veto_range": [25, 62]
+}

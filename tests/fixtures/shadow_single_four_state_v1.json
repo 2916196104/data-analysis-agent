@@ -1,0 +1,57 @@
+{
+  "version": "shadow-single-four-state-v1",
+  "provenance": "Fictional development cases authored by the coding assistant before the tested-model call. Expectations are independent of the SiliconFlow model; not independently human-adjudicated gold or held-out generalization data.",
+  "cases": [
+    {
+      "id": "D71",
+      "question": "有无客服态度差的评论？",
+      "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验虚构样机星芒-Y7的客服态度差",
+      "quote": "我问退换流程时，客服不耐烦地打断我，还说别再问了。",
+      "review_text": "虚构样机星芒-Y7记录：我问退换流程时，客服不耐烦地打断我，还说别再问了。包装没有破损。",
+      "expected_status": "supported",
+      "expected_reason": "作者直接报告本人遭遇客服不耐烦和打断的体验；包装信息不撤回该评价。"
+    },
+    {
+      "id": "D72",
+      "question": "有无客服态度差的评论？",
+      "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验虚构样机星芒-Y7的客服态度差",
+      "quote": "客服耐心地把退换步骤讲清楚了，我对这次沟通很满意。",
+      "review_text": "虚构样机星芒-Y7记录：客服耐心地把退换步骤讲清楚了，我对这次沟通很满意。这是我第一次联系他们。",
+      "expected_status": "not_supported",
+      "expected_reason": "明确的正面体验不支持负面目标，也没有否认或撤回作者此前的差评；不能仅因方向相反标为refuted。"
+    },
+    {
+      "id": "D73",
+      "question": "有无客服态度差的评论？",
+      "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验虚构样机星芒-Y7的客服态度差",
+      "quote": "我昨天写的客服故意凶我是不实评价，我现在明确撤回这项差评。",
+      "review_text": "虚构样机星芒-Y7补记：我昨天写的客服故意凶我是不实评价，我现在明确撤回这项差评。",
+      "expected_status": "refuted",
+      "expected_reason": "quote内明确否认并撤回作者自己的同一客服差评；须引用否认和撤回内容，而非只引用差评几个字。"
+    },
+    {
+      "id": "D74",
+      "question": "有无客服态度差的评论？",
+      "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验虚构样机星芒-Y7的客服态度差",
+      "quote": "客服接电话时对我吼了几句。",
+      "review_text": "虚构样机星芒-Y7初记：客服接电话时对我吼了几句。补充核实：当时接听的是安装预约员，我把角色弄错了；上面关于客服的抱怨撤销。",
+      "veto_text": "补充核实：当时接听的是安装预约员，我把角色弄错了；上面关于客服的抱怨撤销。",
+      "expected_status": "refuted",
+      "expected_reason": "quote初步支持，但同评论全文明确纠正对象并撤销原客服主张；用context_veto_refs否决，不从全文补支持。"
+    },
+    {
+      "id": "D75",
+      "question": "有无客服态度差的评论？",
+      "fact_id": "service_bad",
+      "target_fact": "评论作者本人曾体验虚构样机星芒-Y7的客服态度差",
+      "quote": "那位接电话的人语气很冲。",
+      "review_text": "虚构样机星芒-Y7记录：那位接电话的人语气很冲。我无法确认他的身份，可能是客服，也可能是安排安装的人员，通话里没有说明。",
+      "expected_status": "unknown",
+      "expected_reason": "作者报告了负面语气，但全文仍不能可靠归属为客服或安装角色；不能猜测对象，也不能确定认定对象不符。"
+    }
+  ]
+}
