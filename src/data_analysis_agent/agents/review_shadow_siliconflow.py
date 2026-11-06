@@ -4,6 +4,7 @@ MockTransport exercises the actual SDK without opening a network connection. It 
 an injected test port, never a switch available through dotenv or factory config.
 """
 from decimal import Decimal
+from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 import ssl
@@ -128,14 +129,25 @@ class _BoundedTransport(httpx.BaseTransport):
 
 
 class SiliconFlowShadowJudge:
-    def __init__(self, config: SiliconFlowShadowConfig, *, transport=None, encoding=None):
-        # The public factory has no test/bypass flags. Until the blockers are
-        # resolved, it cannot construct a live HTTP client, even with a valid key.
-        synthetic = type(transport) is httpx.MockTransport
-        if not synthetic and compatibility_blockers():
+    input_limit = INPUT_LIMIT
+    output_limit = OUTPUT_LIMIT
+
+    def _check_readiness(self, transport, encoding):
+        if type(transport) is not httpx.MockTransport and compatibility_blockers():
             raise ShadowProviderError('siliconflow_compatibility_unverified')
         if encoding is None:
             raise ShadowProviderError('native_tokenizer_binding_unverified')
+
+    def _request_body(self, payload_json):
+        return request_body(payload_json)
+
+    def _input_estimate(self, body):
+        return len(self.encoding.encode(canonical_json(body)))+1024
+
+    def __init__(self, config: SiliconFlowShadowConfig, *, transport=None, encoding=None):
+        # The public factory has no test/bypass flags. Until the blockers are
+        # resolved, it cannot construct a live HTTP client, even with a valid key.
+        self._check_readiness(transport, encoding)
         values, _ = _settings(config.env_file, config.env_sha256)
         self.config, self.encoding = config, encoding
         self.used = False
@@ -158,16 +170,31 @@ class SiliconFlowShadowJudge:
         if self.used: raise ShadowProviderError('single_attempt_only')
         self.used = True; started = monotonic()
         try:
-            body = request_body(payload_json); incoming = strict_json_loads(payload_json)
+            body = self._request_body(payload_json); incoming = strict_json_loads(payload_json)
             self.metrics.update(request_id=incoming['request_id'],input_sha256=incoming['input_sha256'])
             # Test encoders are injected only with MockTransport. No o200k/byte
             # estimate is presented as this model's native tokenizer.
-            budget = len(self.encoding.encode(canonical_json(body)))+1024
+            budget = self._input_estimate(body)
             self.metrics['preflight_input_token_estimate'] = budget
-            if budget>INPUT_LIMIT: raise ShadowProviderError('input_token_budget_exceeded')
+            if budget>self.input_limit: raise ShadowProviderError('input_token_budget_exceeded')
             thinking = body.pop('enable_thinking')
-            self.metrics.update(state='request_started',model_calls=1)
+            self.metrics.update(state='request_started',model_calls=1,
+                request_started_at_utc=datetime.now(timezone.utc).isoformat())
             response = self.client.chat.completions.create(**body,extra_body={'enable_thinking':thinking})
+            # Safe diagnostics survive usage/format/non-thinking failures too.
+            import re
+            reported_model=response.model
+            self.metrics.update(http_status=200,
+                response_model=reported_model if isinstance(reported_model,str) and
+                re.fullmatch(r'[A-Za-z0-9_./:-]{1,120}',reported_model) else 'invalid_model_identity')
+            if len(response.choices)==1:
+                choice=response.choices[0];message=choice.message
+                reasoning_content=getattr(message,'reasoning_content',None)
+                self.metrics.update(finish_reason=choice.finish_reason if choice.finish_reason in (
+                    'stop','length','content_filter','tool_calls','function_call') else 'unknown',
+                    reasoning_content_field_present=hasattr(message,'reasoning_content'),
+                    reasoning_content_present=bool(reasoning_content),
+                    reasoning_content_bytes=len(reasoning_content.encode('utf-8')) if isinstance(reasoning_content,str) else None)
             usage = response.usage
             if usage is None: raise ShadowProviderError('usage_missing')
             pin,pout,total = usage.prompt_tokens,usage.completion_tokens,usage.total_tokens
@@ -187,7 +214,7 @@ class SiliconFlowShadowJudge:
             reasoning = getattr(getattr(usage,'completion_tokens_details',None),'reasoning_tokens',None)
             if reasoning is not None and (type(reasoning) is not int or not 0<=reasoning<=pout):
                 raise ShadowProviderError('usage_invalid')
-            self.metrics.update(usage_known=True,input_tokens=pin,output_tokens=pout,
+            self.metrics.update(usage_known=True,input_tokens=pin,output_tokens=pout,total_tokens=total,
                 cached_input_tokens=cached,reasoning_tokens=reasoning)
             # This is a conservative peak-rate estimate, NOT an exact bill or
             # a claim that cancellation/unknown reasoning cannot incur charges.
@@ -197,7 +224,7 @@ class SiliconFlowShadowJudge:
             if response.model not in (MODEL,'deepseek-ai/'+DOCUMENTED_VERSION):
                 raise ShadowProviderError('response_model_mismatch')
             self.metrics.update(response_model=response.model)
-            if pin>INPUT_LIMIT or pout>OUTPUT_LIMIT: raise ShadowProviderError('reported_token_budget_exceeded')
+            if pin>self.input_limit or pout>self.output_limit: raise ShadowProviderError('reported_token_budget_exceeded')
             if len(response.choices)!=1: raise ShadowProviderError('unexpected_choice_count')
             choice=response.choices[0]; message=choice.message
             if choice.finish_reason!='stop': raise ShadowProviderError('incomplete_completion')
@@ -213,9 +240,12 @@ class SiliconFlowShadowJudge:
             return content  # B1/B2 still perform the full source/fact/relation audit.
         except Exception as exc:
             self.metrics['state']=str(exc) if isinstance(exc,ShadowProviderError) else type(exc).__name__
+            status=getattr(exc,'status_code',None)
+            if type(status) is int and 100<=status<=599:self.metrics['http_status']=status
             raise ShadowProviderError('shadow_provider_failed') from None
         finally:
             self.metrics['provider_elapsed_ms']=(monotonic()-started)*1000
+            self.metrics['completed_at_utc']=datetime.now(timezone.utc).isoformat()
             if self.config.usage_file:
                 with Path(self.config.usage_file).open('x',encoding='utf-8') as out:
                     out.write(canonical_json(self.metrics))
