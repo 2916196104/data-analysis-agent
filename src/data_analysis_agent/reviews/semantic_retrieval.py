@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import math
 import re
+from time import perf_counter
 from typing import Literal, Protocol
 
 from pydantic import ConfigDict, Field
@@ -16,10 +17,9 @@ from pydantic import ConfigDict, Field
 from data_analysis_agent.core.database import PostgresConnection, is_postgres
 from data_analysis_agent.core.serialization import canonical_json, content_sha256, strict_json_loads
 from data_analysis_agent.core.validation import Input, Text
-from data_analysis_agent.reviews.analytics import get_evidence
 from data_analysis_agent.reviews.embedding import EmbeddingSpace
 from data_analysis_agent.reviews.embedding_store import (
-    SPACE, SPACE_ID, OpinionMatch, search_effective_opinions, validate_vector,
+    SPACE, SPACE_ID, OpinionMatch, _search_effective_opinions as search_effective_opinions, validate_vector,
 )
 from data_analysis_agent.reviews.opinions import Aspect, Sentiment
 from data_analysis_agent.reviews.parameters import AnalysisScope
@@ -243,11 +243,15 @@ class SemanticRetrievalService:
     def __init__(self, *, encoder: QueryEncoder, repository: RetrievalRepository, scope):
         self._scope = _scope(scope)
         self.encoder, self.repository = encoder, repository
+        self._prepared = None
+        self.timings = {}
 
     @property
     def scope(self): return self._scope
 
-    def search(self, request) -> SemanticResult:
+    def prepare(self, request):
+        self._prepared = None
+        started=perf_counter()
         query = _parse(request,SemanticQuery,'invalid_retrieval_request')
         scope = self.scope
         try: query.question.encode('utf-8')
@@ -265,19 +269,37 @@ class SemanticRetrievalService:
             _require(self.encoder.space.space_id == SPACE_ID, 'encoder_embedding_space_mismatch')
         except SemanticRetrievalError: raise
         except Exception: raise SemanticRetrievalError('invalid_query_vector') from None
+        self._prepared = (query, vector)
+        self.timings={'encoding_total_ms':(perf_counter()-started)*1000}
+        return query
+
+    def search(self, request) -> SemanticResult:
+        query = _parse(request,SemanticQuery,'invalid_retrieval_request')
+        scope = self.scope
+        if self._prepared is None:self.prepare(query)
+        prepared,self._prepared = self._prepared,None
+        _require(prepared[0]==query,'prepared_query_mismatch')
+        vector = prepared[1]
         # No model work under a database transaction. No normal result on a failure.
         try:
             with self.repository.snapshot(scope) as snapshot:
                 _snapshot_identity(snapshot,scope)
                 info = snapshot.info
+                started=perf_counter()
                 matches = tuple(snapshot.search(vector,top_k=query.top_k,aspect=query.aspect,sentiment=query.sentiment))
+                self.timings['search_including_corpus_ms']=(perf_counter()-started)*1000
                 _snapshot_identity(snapshot,scope,info)
                 _require(len(matches)<=query.top_k and all(isinstance(m,OpinionMatch) for m in matches), 'invalid_candidate_list')
                 keys = tuple(m.document.stable_versioned_opinion_key for m in matches)
                 _require(len(keys)==len(set(keys)), 'duplicate_candidate_key')
+                started=perf_counter()
                 sources = snapshot.load_sources(keys) if keys else ()
+                self.timings['source_hydration_ms']=(perf_counter()-started)*1000
                 _snapshot_identity(snapshot,scope,info)
+                started=perf_counter()
                 verified = _verified_sources(sources,keys,scope)
+                self.timings['source_verification_ms']=(perf_counter()-started)*1000
+                self.timings.update(getattr(snapshot,'timings',{}))
                 evidence = []
                 for rank,match in enumerate(matches,1):
                     doc,source = verified[match.document.stable_versioned_opinion_key]
@@ -294,37 +316,70 @@ class SemanticRetrievalService:
         except Exception: raise SemanticRetrievalError('repository_failed') from None
 
 
+def load_review_contexts(connection, scope, review_ids):
+    """One bounded raw-source query, independent of vector rows. Caller owns RR."""
+    if not review_ids:return []
+    placeholders=','.join('?' for _ in review_ids)
+    return [dict(row) for row in connection.execute('''SELECT r.id review_id,r.source,r.dataset_version,
+        r.product_id,r.content_sha256,r.published_at,r.import_run_id,r.line_number,r.text,i.file_sha256
+        FROM reviews r JOIN import_runs i ON i.id=r.import_run_id
+        WHERE r.source=? AND r.dataset_version=? AND r.product_id=?
+        AND r.published_at::timestamptz>=?::date AND r.published_at::timestamptz<(?::date+interval '1 day')
+        AND r.id IN ('''+placeholders+')',
+        (scope.source,scope.dataset_version,scope.product_ids[0],scope.date_from,scope.date_to,*review_ids)).fetchall()]
+
+
 class _PostgresSnapshot:
     embedding_space_id = SPACE_ID
     text_builder_version = TEXT_BUILDER_VERSION
 
     def __init__(self, connection, scope, info):
         self.connection,self.scope,self.info = connection,scope,info
+        self._corpus = None
+        self.active = True
+        self.timings = {}
 
-    def search(self, vector, *, top_k, aspect, sentiment):
-        return search_effective_opinions(self.connection,vector,options=self.scope.options(),
-            embedding_space_id=SPACE_ID,top_k=top_k,aspect=aspect,sentiment=sentiment)
-
-    def load_sources(self, keys):
-        # Sources are rebuilt from the DB, never from the search result's document.
-        corpus = read_effective_corpus(self.connection,**self.scope.options())
+    def corpus(self):
+        _require(self.active and self.connection.in_transaction,'expired_retrieval_snapshot')
+        row=self.connection.execute('SELECT txid_current_snapshot(), transaction_timestamp()').fetchone()
+        observed=row[1].isoformat() if isinstance(row[1],datetime) else str(row[1])
+        _require((str(row[0]),observed)==(self.info.transaction_snapshot,self.info.observed_at),
+                 'snapshot_identity_changed')
+        if self._corpus is None:
+            started=perf_counter()
+            self._corpus = read_effective_corpus(self.connection,**self.scope.options())
+            self.timings['effective_corpus_ms']=(perf_counter()-started)*1000
+        corpus = self._corpus
         _require(corpus.scope == analysis_scope(**self.scope.options())[3], 'repository_scope_mismatch')
         _require(corpus.label_profile_key == content_sha256([self.scope.model,self.scope.base_url,self.scope.prompt_version]),
                  'source_label_profile_mismatch')
+        return corpus
+
+    def search(self, vector, *, top_k, aspect, sentiment):
+        corpus=self.corpus()
+        started=perf_counter()
+        try:
+            return search_effective_opinions(self.connection,vector,options=self.scope.options(),
+                embedding_space_id=SPACE_ID,top_k=top_k,aspect=aspect,sentiment=sentiment,corpus=corpus)
+        finally:self.timings['pgvector_fetch_validate_ms']=(perf_counter()-started)*1000
+
+    def load_sources(self, keys):
+        # Sources are rebuilt from the DB, never from the search result's document.
+        corpus = self.corpus()
         by_key = {d.stable_versioned_opinion_key:d for d in corpus.documents}
         _require(len(by_key)==len(corpus.documents) and set(keys)<=set(by_key), 'missing_source')
         ids = {by_key[k].review_id for k in keys}; sources=[]
+        rows = load_review_contexts(self.connection,self.scope,sorted(ids))
+        _require(len(rows)==len(ids) and {r['review_id'] for r in rows}==ids,'missing_review_context')
+        contexts = {row['review_id']:row for row in rows}
         for state in corpus.reviews:
             if state.review_id not in ids: continue
             opinions = tuple(d for d in corpus.documents if d.review_id==state.review_id)
-            payload = get_evidence(self.connection,**self.scope.options(),review_id=state.review_id,
-                sentiment=None,aspect=None,page=1,page_size=1)
-            _require(payload['scope']==corpus.scope and len(payload['items'])==1, 'missing_review_context')
-            row = payload['items'][0]
+            row = contexts[state.review_id]
             for doc in opinions:
                 _require(all(row[k]==getattr(doc,k) for k in ('source','dataset_version','product_id','review_id',
-                    'annotation_id','published_at','file_sha256','line_number','opinion_source'))
-                    and row['content_sha256']==doc.review_content_sha256 and row['revision_id']==doc.human_revision_id,
+                    'published_at','file_sha256','line_number','import_run_id'))
+                    and row['content_sha256']==doc.review_content_sha256,
                     'review_context_version_mismatch')
             sources.append(ReviewSource(state,opinions,row['text']))
         _require(len(sources)==len(ids), 'missing_review_context')
@@ -350,7 +405,11 @@ class PostgresSemanticRepository:
             _require(readonly=='on' and isolation in ('repeatable read','serializable'), 'stable_readonly_transaction_required')
             row = connection.execute('SELECT txid_current_snapshot(), transaction_timestamp()').fetchone()
             observed = row[1].isoformat() if isinstance(row[1],datetime) else str(row[1])
-            yield _PostgresSnapshot(connection,scope,SnapshotInfo(str(row[0]),observed,isolation))
+            snapshot = _PostgresSnapshot(connection,scope,SnapshotInfo(str(row[0]),observed,isolation))
+            try:yield snapshot
+            finally:
+                snapshot.active=False
+                snapshot._corpus=None
         finally:
             if owned:
                 try: connection.rollback()

@@ -313,12 +313,16 @@ class PostgresAdapterTests(unittest.TestCase):
         corpus=RagCorpus(analysis_scope(**service.scope.options())[3],sources[0].opinions[0].label_profile_key,
             tuple(d for s in sources for d in s.opinions),tuple(s.state for s in sources))
         matches=(OpinionMatch(sources[1].opinions[0],0.1),OpinionMatch(sources[0].opinions[0],0.2))
-        def context(db,**options):
-            self.assertIs(db,conn);s=next(s for s in sources if s.state.review_id==options['review_id']);d=s.opinions[0]
-            self.assertIsNone(options['sentiment']);self.assertIsNone(options['aspect'])
-            row={k:getattr(d,k) for k in ('source','dataset_version','product_id','review_id','annotation_id','published_at','file_sha256','line_number','opinion_source')}
-            row.update(text=s.review_text,content_sha256=d.review_content_sha256,revision_id=d.human_revision_id)
-            return dict(scope=corpus.scope,items=[row])
+        def context(db,scope,ids):
+            self.assertIs(db,conn)
+            rows=[]
+            for s in sources:
+                if s.state.review_id not in ids:continue
+                d=s.opinions[0]
+                row={k:getattr(d,k) for k in ('source','dataset_version','product_id','review_id','published_at','file_sha256','line_number','import_run_id')}
+                row.update(text=s.review_text,content_sha256=d.review_content_sha256)
+                rows.append(row)
+            return rows
         return service,conn,corpus,matches,context,enc
 
     def test_production_adapter_reuses_search_and_source_functions_in_one_readonly_snapshot(self):
@@ -326,7 +330,7 @@ class PostgresAdapterTests(unittest.TestCase):
         with patch('data_analysis_agent.reviews.semantic_retrieval.connect_review_database',return_value=conn) as connect, \
              patch('data_analysis_agent.reviews.semantic_retrieval.search_effective_opinions',return_value=matches) as search, \
              patch('data_analysis_agent.reviews.semantic_retrieval.read_effective_corpus',return_value=corpus) as read_corpus, \
-             patch('data_analysis_agent.reviews.semantic_retrieval.get_evidence',side_effect=context):
+             patch('data_analysis_agent.reviews.semantic_retrieval.load_review_contexts',side_effect=context):
             result=service.search(dict(question='合成'))
         connect.assert_called_once_with('postgresql://synthetic.invalid/synthetic',readonly=True)
         self.assertEqual(conn.commands[0],'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
@@ -363,17 +367,17 @@ class PostgresAdapterTests(unittest.TestCase):
         with patch('data_analysis_agent.reviews.semantic_retrieval.connect_review_database',return_value=conn), \
              patch('data_analysis_agent.reviews.semantic_retrieval.search_effective_opinions',return_value=matches), \
              patch('data_analysis_agent.reviews.semantic_retrieval.read_effective_corpus',return_value=corpus), \
-             patch('data_analysis_agent.reviews.semantic_retrieval.get_evidence',side_effect=AssertionError('must not hydrate outside scope')):
+             patch('data_analysis_agent.reviews.semantic_retrieval.load_review_contexts',side_effect=AssertionError('must not hydrate outside scope')):
             with self.assertRaisesRegex(SemanticRetrievalError,'repository_scope_mismatch'):service.search(dict(question='合成'))
 
     def test_independent_context_version_conflict_fails_whole_result(self):
         service,conn,corpus,matches,context,_=self.setup_adapter()
-        def stale(db,**options):
-            value=context(db,**options);value['items'][0]['content_sha256']='0'*64;return value
+        def stale(db,scope,ids):
+            value=context(db,scope,ids);value[0]['content_sha256']='0'*64;return value
         with patch('data_analysis_agent.reviews.semantic_retrieval.connect_review_database',return_value=conn), \
              patch('data_analysis_agent.reviews.semantic_retrieval.search_effective_opinions',return_value=matches), \
              patch('data_analysis_agent.reviews.semantic_retrieval.read_effective_corpus',return_value=corpus), \
-             patch('data_analysis_agent.reviews.semantic_retrieval.get_evidence',side_effect=stale):
+             patch('data_analysis_agent.reviews.semantic_retrieval.load_review_contexts',side_effect=stale):
             with self.assertRaisesRegex(SemanticRetrievalError,'review_context_version_mismatch'):service.search(dict(question='合成'))
         self.assertEqual((conn.rollbacks,conn.closes),(1,1))
 

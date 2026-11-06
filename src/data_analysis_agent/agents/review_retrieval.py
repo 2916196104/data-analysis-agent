@@ -7,6 +7,7 @@ from dataclasses import asdict
 from hashlib import sha256
 import math
 import re
+from time import perf_counter
 
 from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.agents.review_reported_facts import POLICY, assess as assess_reported_facts
@@ -59,7 +60,11 @@ def create_semantic_service(connection, scope, settings):
     if not cache:
         raise SemanticRetrievalError('local_encoder_not_configured')
     try:
-        encoder = LocalBgeM3Embedder(cache, batch_size=1)
+        if getattr(settings,'rag_python',None):
+            from data_analysis_agent.reviews.embedding_process import shared_embedding_process
+            encoder = shared_embedding_process(settings.rag_python,cache,settings.rag_timeout_seconds)
+        else:
+            encoder = LocalBgeM3Embedder(cache, batch_size=1)
     except Exception:
         raise SemanticRetrievalError('local_encoder_unavailable') from None
     return SemanticRetrievalService(encoder=encoder, repository=PostgresSemanticRepository(connection), scope=scope)
@@ -146,8 +151,11 @@ def execute_retrieval(context, scope):
     if result.scope != expected or result.query != request:
         raise SemanticRetrievalError('result_scope_or_question_mismatch')
     payload = result.to_dict()
+    started=perf_counter()
+    assessment=assess_retrieval(context.question, payload['evidence'])
     data = {'scope': expected.model_dump(mode='json'), 'retrieval': payload,
-            'assessment': assess_retrieval(context.question, payload['evidence'])}
+            'assessment': assessment, 'timings':dict(service.timings,
+                permission_ms=(perf_counter()-started)*1000)}
     if not validate_retrieval(data, context.question):
         raise SemanticRetrievalError('semantic_result_validation_failed')
     return data

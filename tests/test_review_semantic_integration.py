@@ -380,5 +380,65 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
         data['assessment']['policy']='unapproved'
         self.assertFalse(validate_retrieval(data,QUESTION))
 
+    def test_p3b_default_factory_and_off_transaction_encoding(self):
+        connections=[]
+        def repository(connection):
+            self.assertFalse(connection.in_transaction)
+            connections.append(connection)
+            self.encoder.callback=lambda:self.assertFalse(connection.in_transaction)
+            return FakeRepository(self.events,FakeSnapshot(self.events,[source(self.scope()),
+                source(self.scope(),'制热很快。','制热很快',rid=2)]))
+        with patch('data_analysis_agent.reviews.embedding_process.shared_embedding_process',return_value=self.encoder) as shared, \
+             patch('data_analysis_agent.agents.review_retrieval.PostgresSemanticRepository',side_effect=repository):
+            result=run_review_agent(self.db,QUESTION,scope=self.scope(),
+                settings=replace(SETTINGS,rag_python='SYNTHETIC-PYTHON',rag_model_cache='SYNTHETIC-CACHE'))
+        self.assert_success(result)
+        shared.assert_called_once_with('SYNTHETIC-PYTHON','SYNTHETIC-CACHE',600)
+        self.assertEqual(self.encoder.calls,[[QUESTION]])
+        self.assertTrue(result['public_answer']['evidence_refs'])
+        self.assertIn('embedding_preparation_duration_ms',result['performance'])
+
+    def test_p3b_worker_executes_two_tasks_using_default_service_factory(self):
+        from data_analysis_agent.jobs.store import init_tasks,enqueue,worker_started,claim_task,get_task
+        from data_analysis_agent.jobs.worker import TaskWorker
+        from data_analysis_agent.jobs.submission import configured_agent_identity
+        from data_analysis_agent.reviews.embedding_process import PersistentEmbeddingProcess
+        import sys
+        env=self.root/'rag.env'
+        env.write_text('LLM_MODEL_ID=synthetic\nLLM_API_KEY=synthetic\nLLM_BASE_URL=https://offline.invalid/v1\n'
+                       f'RAG_PYTHON={sys.executable}\nRAG_MODEL_CACHE={self.root}\n',encoding='utf-8')
+        _,identity=configured_agent_identity(env)
+        tasks=self.root/'rag-tasks.sqlite3';init_tasks(tasks,self.db)
+        worker=TaskWorker(self.db,tasks,import_root=self.root,env_file=env)
+        worker_started(tasks,worker.worker_id)
+        client=PersistentEmbeddingProcess(sys.executable,self.root,timeout=10,
+            worker=Path(__file__).parent/'fixtures/synthetic_embedding_worker.py')
+        self.addCleanup(client.close)
+        def repository(connection):
+            self.assertFalse(connection.in_transaction)
+            return FakeRepository(self.events,FakeSnapshot(self.events,[source(self.scope()),
+                source(self.scope(),'制热很快。','制热很快',rid=2)]))
+        with patch('data_analysis_agent.reviews.embedding_process.shared_embedding_process',return_value=client), \
+             patch('data_analysis_agent.agents.review_retrieval.PostgresSemanticRepository',side_effect=repository):
+            results=[]
+            for _ in range(2):
+                task=enqueue(tasks,'analysis',self.scope()|dict(question=QUESTION,rules={},model_identity=identity))['task']
+                worker._execute(claim_task(tasks,worker.worker_id))
+                saved=get_task(tasks,task['task_id'])
+                self.assertEqual(saved['status'],'succeeded',saved.get('error'))
+                results.append(saved['result'])
+        self.assertEqual(results[0]['public_answer'],results[1]['public_answer'])
+        self.assertTrue(results[0]['embedding_runtime']['cold_start'])
+        self.assertFalse(results[1]['embedding_runtime']['cold_start'])
+        self.assertEqual(results[0]['embedding_runtime']['process_id'],results[1]['embedding_runtime']['process_id'])
+        self.assertEqual((self.root/'loads.txt').read_text(),'loaded\n')
+
+    def test_p3b_prepared_encoding_failure_cannot_publish_citations(self):
+        self.encoder.error=TimeoutError('synthetic timeout')
+        result=self.run_question()
+        self.assertEqual(result['status'],'error')
+        self.assertFalse(result['public_answer']['evidence_refs'])
+        self.assertNotIn('search',self.events)
+
 
 if __name__=='__main__':unittest.main()

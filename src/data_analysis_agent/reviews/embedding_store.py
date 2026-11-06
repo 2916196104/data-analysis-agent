@@ -237,6 +237,12 @@ class OpinionMatch:
 
 def search_effective_opinions(db, vector, *, options, embedding_space_id, top_k=5,
                               aspect=None, sentiment=None):
+    return _search_effective_opinions(db,vector,options=options,embedding_space_id=embedding_space_id,
+                                    top_k=top_k,aspect=aspect,sentiment=sentiment)
+
+
+def _search_effective_opinions(db, vector, *, options, embedding_space_id, top_k=5,
+                               aspect=None, sentiment=None, corpus=None):
     """同一个只读快照中回连有效语料，再由 PostgreSQL <=> 做精确排序。"""
     _scope(options)
     vector = validate_vector(vector)
@@ -250,7 +256,7 @@ def search_effective_opinions(db, vector, *, options, embedding_space_id, top_k=
         with _snapshot(db) as c:
             if not isinstance(c, PostgresConnection):
                 raise EmbeddingStoreError('postgres_required')
-            corpus = read_effective_corpus(c, **options)
+            corpus = read_effective_corpus(c, **options) if corpus is None else corpus
             eligible = _eligible(corpus)
             documents = {d.stable_versioned_opinion_key: d for d in corpus.documents}
             where, filters = _range(corpus, alias='r')

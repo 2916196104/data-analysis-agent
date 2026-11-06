@@ -197,6 +197,36 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             context = ReviewToolContext(connection, scope, Path(temporary), settings.max_tool_calls, report,
                                         sentiment_intent=sentiment_intent, query_plan=plan, settings=settings,
                                         question=question, semantic_service_factory=semantic_service_factory)
+            if plan.analysis_type == 'semantic_evidence':
+                from data_analysis_agent.agents.review_retrieval import create_semantic_service, retrieval_request
+                from data_analysis_agent.reviews.semantic_retrieval import SemanticRetrievalService, SemanticRetrievalError, _scope
+                bound=context.query_scope()
+                # Scope planning is finished; release its snapshot before loading/encoding.
+                connection.rollback()
+                encoding_started=perf_counter()
+                try:
+                    service=(semantic_service_factory(connection,bound) if semantic_service_factory
+                             else create_semantic_service(connection,bound,settings))
+                    if not isinstance(service,SemanticRetrievalService) or service.scope!=_scope(bound):
+                        raise SemanticRetrievalError('service_scope_mismatch')
+                    service.prepare(retrieval_request(question))
+                except SemanticRetrievalError as exc:
+                    raise ReviewDataError(exc.code) from None
+                finally:
+                    timings['embedding_preparation_duration_ms']=(perf_counter()-encoding_started)*1000
+                result['embedding_runtime']=dict(getattr(service.encoder,'last_metrics',{}))
+                context.semantic_service_factory=lambda connection,scope: service
+                # New RR snapshot: nothing from the planning transaction is evidence.
+                connection.execute('BEGIN')
+                if isinstance(connection,PostgresConnection):
+                    connection.execute("SELECT set_config('statement_timeout', "
+                        "LEAST(COALESCE(NULLIF(setting::int,0),30000),30000)::text,true) "
+                        "FROM pg_settings WHERE name='statement_timeout'")
+                current_ids={row[0] for row in connection.execute(
+                    'SELECT product_id FROM products WHERE source=? AND dataset_version=?',
+                    (bound['source'],bound['dataset_version'])).fetchall()}
+                if not set(bound['product_ids'])<=current_ids:
+                    raise ReviewDataError('product_scope_changed')
             registry = create_review_registry(context)
             overview = registry.execute_tool("get_analysis_context", "{}", automatic=True)
             if "overview" not in context.results:
