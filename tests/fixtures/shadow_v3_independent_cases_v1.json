@@ -1,0 +1,53 @@
+{
+  "version": "shadow-v3-independent-cases-v1",
+  "provenance": "New fictional cases authored by the coding assistant before the tested-model call. No SiliconFlow output generated the expectations. Independent of D71-D75, but not independently human-adjudicated gold or a statistical held-out benchmark.",
+  "reference_policy": "Exact same-key/source-identity Unicode code-point absolute [start,end) slices of the full review. Support/refutation stays inside quote. Full review only explains or vetoes. No coordinate repair. Semantically sufficient exact subspans may be reviewed; model rationale is not proof.",
+  "cases": [
+    {
+      "id": "E81", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "作者本人曾体验虚构设备青禾-Z3的客服态度差",
+      "quote": "我问售后政策时，客服讽刺我不懂还乱问。",
+      "review_text": "虚构设备青禾-Z3：我问售后政策时，客服讽刺我不懂还乱问。",
+      "expected_status": "supported",
+      "expected_reason": "作者直接报告客服讽刺自己的负面态度体验；没有撤回。",
+      "reference_standard": "需要quote内support_refs，直接支持本人客服负面体验，不借用quote外事实。"
+    },
+    {
+      "id": "E82", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "作者本人曾体验虚构设备青禾-Z3的客服态度差",
+      "quote": "客服接待耐心，回答问题一直很客气。",
+      "review_text": "虚构设备青禾-Z3：客服接待耐心，回答问题一直很客气。这是我第一次咨询。",
+      "expected_status": "not_supported",
+      "expected_reason": "仅有相反的正面体验，没有撤回本人既有主张，也不能反驳其他买家的投诉。",
+      "reference_standard": "不提供support_refs或refutation_refs；不能把正面评价当成明确撤回。"
+    },
+    {
+      "id": "E83", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "作者本人曾体验虚构设备青禾-Z3的客服态度差",
+      "quote": "我之前说客服骂人并不属实，现在撤销这条差评。",
+      "review_text": "虚构设备青禾-Z3更正：我之前说客服骂人并不属实，现在撤销这条差评。",
+      "expected_status": "refuted",
+      "expected_reason": "作者在quote内明确否认并撤回自己的先前客服差评，优先于一般不支持。",
+      "reference_standard": "需要quote内refutation_refs，引用实际否认/撤回依据，不能只引用客服骂人。"
+    },
+    {
+      "id": "E84", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "作者本人曾体验虚构设备青禾-Z3的客服态度差",
+      "quote": "客服当面嘲讽了我。",
+      "review_text": "虚构设备青禾-Z3：客服当面嘲讽了我。核实后更正：那人是配送员，原先针对客服的指责不实，我撤回。",
+      "veto_text": "核实后更正：那人是配送员，原先针对客服的指责不实，我撤回。",
+      "expected_status": "refuted",
+      "expected_reason": "quote初步支持，但同评论全文明确纠正对象并撤回对客服的指责。",
+      "reference_standard": "需要同评论context_veto_refs指向明确更正/撤回，不用全文补支持，不将quote外依据放入refutation_refs。"
+    },
+    {
+      "id": "E85", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "作者本人曾体验虚构设备青禾-Z3的客服态度差",
+      "quote": "那位工作人员说话很不客气。",
+      "review_text": "虚构设备青禾-Z3：那位工作人员说话很不客气。对方没说明身份，我不能确定是客服还是物流接线员。",
+      "expected_status": "unknown",
+      "expected_reason": "负面语气明确，但全文仍无法把工作人员可靠归属到客服；不强猜也不确定认定角色不符。",
+      "reference_standard": "无support_refs/refutation_refs；保留对象歧义，不虚构角色身份或撤回。"
+    }
+  ]
+}

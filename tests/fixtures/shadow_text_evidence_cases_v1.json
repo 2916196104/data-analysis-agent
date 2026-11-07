@@ -1,0 +1,53 @@
+{
+  "version": "p5-text-evidence-cases-v1",
+  "provenance": "New fictional development cases authored before the tested-model request; not independent human gold.",
+  "reference_policy": "Exact original text, unique in the allowed range, source-bound Unicode code-point spans computed by the program. Location never proves semantics.",
+  "cases": [
+    {
+      "id": "T601", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "作者本人体验虚构机松岚-Q6的客服态度差",
+      "quote": "我询问保修日期，客服嘲笑我连日历都不会看。",
+      "review_text": "🧩虚构机松岚-Q6：我询问保修日期，客服嘲笑我连日历都不会看。",
+      "expected_status": "supported", "expected_reference_type": "support_refs",
+      "expected_reason": "作者直接报告被客服嘲笑的负面体验，没有撤回。",
+      "reference_standard": "quote内支持引用须充分表达本人被客服嘲笑，不能只引设备名。"
+    },
+    {
+      "id": "T602", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "作者本人体验虚构机松岚-Q6的客服态度差",
+      "quote": "客服认真核对保修日期，回答始终很客气。",
+      "review_text": "虚构机松岚-Q6：客服认真核对保修日期，回答始终很客气。我没有其他沟通记录。",
+      "expected_status": "not_supported", "expected_reference_type": null,
+      "expected_reason": "只有相反的正面体验，不是明确撤回。",
+      "reference_standard": "不输出支持或反驳引用，不能反驳其他买家。"
+    },
+    {
+      "id": "T603", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "作者本人体验虚构机松岚-Q6的客服态度差",
+      "quote": "先前那句客服辱骂我的投诉是我捏造的，我现在明确撤回。",
+      "review_text": "虚构机松岚-Q6勘误：先前那句客服辱骂我的投诉是我捏造的，我现在明确撤回。",
+      "expected_status": "refuted", "expected_reference_type": "refutation_refs",
+      "expected_reason": "quote内承认原指控捏造并撤回，优先于一般不支持。",
+      "reference_standard": "quote内反驳须包含实际否认或撤回，不能只引客服辱骂我。"
+    },
+    {
+      "id": "T604", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "作者本人体验虚构机松岚-Q6的客服态度差",
+      "quote": "客服在窗口挖苦我。",
+      "review_text": "虚构机松岚-Q6初记：客服在窗口挖苦我。重新核对工牌：那是仓库收货员，先前对客服的指责失实，我撤销该项差评。",
+      "veto_text": "重新核对工牌：那是仓库收货员，先前对客服的指责失实，我撤销该项差评。",
+      "expected_status": "refuted", "expected_reference_type": "context_veto_refs",
+      "expected_reason": "同评论全文纠正对象并撤销客服差评，否决quote。",
+      "reference_standard": "全文否决须包含角色更正或撤回，不得放进quote内反驳或补支持。"
+    },
+    {
+      "id": "T605", "question": "有无客服态度差的评论？", "fact_id": "service_bad",
+      "target_fact": "作者本人体验虚构机松岚-Q6的客服态度差",
+      "quote": "接电话的那个人不停讥讽我。",
+      "review_text": "虚构机松岚-Q6：接电话的那个人不停讥讽我。对方未说岗位，我无法分辨是客服还是门店联络员。",
+      "expected_status": "unknown", "expected_reference_type": null,
+      "expected_reason": "负面体验明确但角色不确定，不能猜测客服身份。",
+      "reference_standard": "保留unknown，不构造支持、反驳或明确撤回依据。"
+    }
+  ]
+}

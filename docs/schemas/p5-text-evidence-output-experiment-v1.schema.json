@@ -1,0 +1,260 @@
+{
+  "$defs": {
+    "TextFactJudgment": {
+      "additionalProperties": false,
+      "properties": {
+        "context_veto_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TextReference"
+          },
+          "title": "Context Veto Refs",
+          "type": "array"
+        },
+        "fact_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Key",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "reason_code": {
+          "enum": [
+            "direct_report",
+            "explicit_refutation",
+            "context_veto",
+            "no_direct_support",
+            "semantics_unknown",
+            "conflicting_evidence"
+          ],
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "refutation_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TextReference"
+          },
+          "title": "Refutation Refs",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "supported",
+            "refuted",
+            "not_supported",
+            "unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "support_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TextReference"
+          },
+          "title": "Support Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "fact_id",
+        "key",
+        "status",
+        "reason_code",
+        "rationale"
+      ],
+      "title": "TextFactJudgment",
+      "type": "object"
+    },
+    "TextReference": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Key",
+          "type": "string"
+        },
+        "source_identity_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Identity Sha256",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "source_identity_sha256",
+        "text"
+      ],
+      "title": "TextReference",
+      "type": "object"
+    },
+    "TextRelationJudgment": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "reason_code": {
+          "enum": [
+            "relation_verified",
+            "relation_unknown",
+            "conflicting_evidence"
+          ],
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "refutation_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TextReference"
+          },
+          "title": "Refutation Refs",
+          "type": "array"
+        },
+        "relation_id": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Relation Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "supported",
+            "refuted",
+            "not_supported",
+            "unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "support_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TextReference"
+          },
+          "title": "Support Refs",
+          "type": "array"
+        },
+        "witnesses": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Witness"
+          },
+          "title": "Witnesses",
+          "type": "array"
+        }
+      },
+      "required": [
+        "relation_id",
+        "status",
+        "reason_code",
+        "rationale"
+      ],
+      "title": "TextRelationJudgment",
+      "type": "object"
+    },
+    "Witness": {
+      "additionalProperties": false,
+      "properties": {
+        "fact_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fact_id",
+        "key"
+      ],
+      "title": "Witness",
+      "type": "object"
+    }
+  },
+  "$id": "urn:data-analysis-agent:p5b:text-evidence-output:experiment-v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "execution_status": {
+      "enum": [
+        "completed",
+        "failed"
+      ],
+      "title": "Execution Status",
+      "type": "string"
+    },
+    "fact_judgments": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TextFactJudgment"
+      },
+      "title": "Fact Judgments",
+      "type": "array"
+    },
+    "input_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Sha256",
+      "type": "string"
+    },
+    "relation_judgments": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TextRelationJudgment"
+      },
+      "title": "Relation Judgments",
+      "type": "array"
+    },
+    "request_id": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "version": {
+      "const": "p5b-text-evidence-output-experiment-v1",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "version",
+    "request_id",
+    "input_sha256",
+    "execution_status"
+  ],
+  "title": "TextJudgeOutput",
+  "type": "object"
+}
