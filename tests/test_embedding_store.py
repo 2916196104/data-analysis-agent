@@ -98,7 +98,8 @@ class EmbeddingStoreTests(WorkbenchFixture, unittest.TestCase):
         return read_effective_corpus(self.db, **self.options(**changes))
 
     def sync(self, encoder=None, **kwargs):
-        return sync_effective_opinions(self.db, options=self.options(), encoder=encoder or FakeEncoder(), **kwargs)
+        return sync_effective_opinions(self.db, options=self.options(), encoder=encoder or FakeEncoder(),
+                                       execute=True, encoding_authorized=True, **kwargs)
 
     def query(self, **changes):
         options = changes.pop('options', self.options())

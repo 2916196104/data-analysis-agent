@@ -1,0 +1,52 @@
+{
+  "version": "rag-mvp-acceptance-v1",
+  "scope": {
+    "source": "reviews_csv",
+    "dataset_version": "reviews-csv",
+    "date_from": "2021-09-11",
+    "date_to": "2022-08-26",
+    "baseline_from": "2021-08-01",
+    "baseline_to": "2021-09-10"
+  },
+  "timezone": "UTC",
+  "main_product_id": "100013588053",
+  "isolation_product_id": "100013588055",
+  "annotation_model": "Pro/deepseek-ai/DeepSeek-V3.2",
+  "annotation_prompt_version": "review-opinions-v1-e61de599683cba6703c2f61e85125d0be4627c2763440486aa717e4bc884036e",
+  "annotation_profile_sha256": "1b58dc189d7d3ea6a55713a989f4555837eb83492690afdc020d808a268a5304",
+  "top_k": 5,
+  "external_llm_calls": 0,
+  "external_embedding_calls": 0,
+  "automatic_retries": 0,
+  "initial_max_agent_submissions": 13,
+  "initial_max_local_embedding_queries": 11,
+  "max_blocker_retest_rounds": 2,
+  "gate": {
+    "minimum_passed_cases": 8,
+    "require_real_postgres_pgvector": true,
+    "require_at_least_one_real_supported_answer": true,
+    "supported_answer_product_id": "100013588053",
+    "insufficiency_requires_no_sufficient_evidence_in_fixed_candidates": true,
+    "semantic_coverage_gap_with_sufficient_evidence_fails": true,
+    "fabricated_citations_allowed": 0,
+    "cross_product_citations_allowed": 0,
+    "p5_semantic_license_enabled": false
+  },
+  "cases": [
+    {"id": "M01", "scenario": "正向配送速度", "question": "有没有配送很快的反馈？", "route": "semantic_evidence", "contract_support": "supported", "fact_ids": ["delivery_fast"], "acceptance": "checked_quote_or_honest_insufficiency"},
+    {"id": "M02", "scenario": "配送延误", "question": "有没有配送很慢的反馈？", "route": "semantic_evidence", "contract_support": "supported", "fact_ids": ["delivery_slow"], "acceptance": "checked_quote_or_honest_insufficiency"},
+    {"id": "M03", "scenario": "客服态度反馈", "question": "有没有客服态度差的反馈？", "route": "semantic_evidence", "contract_support": "supported", "fact_ids": ["service_bad"], "acceptance": "checked_quote_or_honest_insufficiency"},
+    {"id": "M04", "scenario": "到货后安装等待", "question": "有没有到货后迟迟没人安装的反馈？", "route": "semantic_evidence", "contract_support": "retrieval_only", "fact_ids": [], "acceptance": "checked_quote_or_honest_insufficiency"},
+    {"id": "M05", "scenario": "制冷正向反馈", "question": "有没有制冷效果好的反馈？", "route": "semantic_evidence", "contract_support": "supported", "fact_ids": ["cooling_good"], "acceptance": "checked_quote_or_honest_insufficiency"},
+    {"id": "M06", "scenario": "较长运行仍不凉快", "question": "有没有开了很久还是不凉快的反馈？", "route": "semantic_evidence", "contract_support": "retrieval_only", "fact_ids": [], "acceptance": "checked_quote_or_honest_insufficiency"},
+    {"id": "M07", "scenario": "使用后早期故障", "question": "有没有使用不久就发生故障的反馈？", "route": "semantic_evidence", "contract_support": "retrieval_only", "fact_ids": [], "acceptance": "checked_quote_or_honest_insufficiency"},
+    {"id": "M08", "scenario": "同评论正负混合体验", "question": "有没有同一评论既说制冷效果好又抱怨噪音很大的反馈？", "route": "semantic_evidence", "contract_support": "supported", "fact_ids": ["cooling_good", "noise_high"], "acceptance": "same_review_checked_quotes_or_honest_insufficiency"},
+    {"id": "M09", "scenario": "无充分依据", "question": "有没有空调使用十年仍然耐用的反馈？", "route": "semantic_evidence", "contract_support": "retrieval_only", "fact_ids": [], "acceptance": "insufficient_current_semantic_coverage"},
+    {"id": "M10", "scenario": "商品切换和故障降级", "question": "有没有制冷效果好的反馈？", "route": "semantic_evidence", "contract_support": "supported", "fact_ids": ["cooling_good"], "acceptance": "all_four_fixed_steps_pass", "steps": [
+      {"id": "A", "product_ids": ["100013588055"], "fault": null, "expected": "ok_and_no_main_product_citation"},
+      {"id": "B", "product_ids": ["100013588053", "100013588055"], "fault": null, "expected": "unsupported_before_encoding_and_no_citation"},
+      {"id": "C", "product_ids": ["100013588055"], "fault": "service_factory_failure_before_encoding", "expected": "error_and_no_answer_or_citation"},
+      {"id": "D", "product_ids": ["100013588055"], "fault": null, "expected": "recovery_without_stale_citation"}
+    ]}
+  ]
+}

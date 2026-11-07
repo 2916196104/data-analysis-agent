@@ -98,8 +98,8 @@ def main():
                    product_ids=['P1'], date_from='2023-01-01', date_to='2023-01-06')
     encoder = LocalEmbeddingProcess(ROOT / '.cache/embedding-eval/venv/Scripts/python.exe',
                                     ROOT / '.cache/embedding-eval/hf/hub')
-    first = sync_effective_opinions(db, options=options, encoder=encoder, limit=200)
-    second = sync_effective_opinions(db, options=options, encoder=encoder, limit=200)
+    first = sync_effective_opinions(db, options=options, encoder=encoder, limit=200, execute=True, encoding_authorized=True)
+    second = sync_effective_opinions(db, options=options, encoder=encoder, limit=200, execute=True, encoding_authorized=True)
     # 第二轮仍会拒绝尚未索引的超限观点；已成功的 123 条全部复用。
     query_output = encoder.encode([q['text'] for q in QUERIES])
     results = []

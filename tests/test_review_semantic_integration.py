@@ -176,6 +176,23 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(self.encoder.calls,[])
         self.assertIn('service_scope_mismatch',result['error']['message'])
 
+    def test_unverified_service_result_cannot_publish_consistent_transport(self):
+        for mode in ('missing_proof', 'changed_snapshot'):
+            with self.subTest(mode=mode):
+                def unverified(connection, scope):
+                    service = self.factory(connection, scope)
+                    original_search = service.search
+                    def search(request):
+                        result = original_search(request)
+                        return (replace(result, _source_validation=None) if mode == 'missing_proof' else
+                                replace(result, snapshot=replace(result.snapshot, transaction_snapshot='SYNTHETIC-CHANGED')))
+                    service.search = search
+                    return service
+                result = self.run_question(semantic_service_factory=unverified)
+                self.assertEqual(result['status'], 'error')
+                self.assertEqual(result['public_answer']['evidence_refs'], [])
+                self.assertNotIn('answer', result)
+
     def test_version_tampered_candidate_fails(self):
         row=source(self.scope());self.matches=[OpinionMatch(replace(row.opinions[0],annotation_id=999),0.0)]
         result=self.run_question();self.assertEqual(result['status'],'error',result)

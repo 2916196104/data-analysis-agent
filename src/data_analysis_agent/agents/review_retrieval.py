@@ -16,6 +16,7 @@ from data_analysis_agent.reviews.embedding_store import SPACE_ID
 from data_analysis_agent.reviews.rag_corpus import _document, RagOpinionDocument, RagReviewState
 from data_analysis_agent.reviews.semantic_retrieval import (
     SemanticQuery, SemanticRetrievalService, PostgresSemanticRepository, SemanticRetrievalError, _scope, _in_scope,
+    require_source_validated_result,
 )
 
 TOOL = 'search_semantic_evidence'
@@ -151,6 +152,7 @@ def execute_retrieval(context, scope):
         raise SemanticRetrievalError('service_scope_mismatch')
     request = retrieval_request(context.question)
     result = service.search(request)
+    require_source_validated_result(result)
     if result.scope != expected or result.query != request:
         raise SemanticRetrievalError('result_scope_or_question_mismatch')
     payload = result.to_dict()

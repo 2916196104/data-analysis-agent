@@ -16,6 +16,7 @@ from data_analysis_agent.reviews.rag_corpus import RagOpinionDocument, TEXT_BUIL
 from data_analysis_agent.reviews.opinions import ASPECTS, SENTIMENTS
 from data_analysis_agent.reviews.scope import review_scope
 from data_analysis_agent.reviews.store import connect_review_database
+from data_analysis_agent.reviews.embedding_budget import Frozen053Budget
 
 SPACE = EmbeddingSpace(MODEL_NAME, MODEL_REVISION, 1024)
 SPACE_ID = SPACE.space_id
@@ -121,8 +122,19 @@ def _cached(db, documents):
     return {r[0]: validate_vector(json.loads(r[1])) for r in rows}
 
 
-def _publish(db, options, before, selected, vectors, run_id, metrics, started):
+def _complete_batch(selected, vectors):
+    keys = [d.stable_versioned_opinion_key for d in selected]
+    if len(keys) != len(set(keys)) or set(vectors) != set(keys):
+        raise EmbeddingStoreError('incomplete_vector_key_set')
+    for vector in vectors.values():
+        validate_vector(vector)
+
+
+def _publish(db, options, before, selected, vectors, run_id, metrics, started, budget=None):
     publish_started = perf_counter()
+    published_rows = []
+    if budget is not None:
+        _complete_batch(selected, vectors)
     with closing(_connect(db)) as c, c:
         # 锁定后才在 READ COMMITTED 读取最新快照；不沿用编码前的 MVCC 快照。
         c.execute('BEGIN ISOLATION LEVEL READ COMMITTED')
@@ -139,7 +151,13 @@ def _publish(db, options, before, selected, vectors, run_id, metrics, started):
             raise SyncRetryRequired('effective_corpus_changed')
         where, params = _range(current)
         valid_keys = [d.stable_versioned_opinion_key for d in current.documents]
-        metrics['invalidated_count'] = c.execute('''UPDATE review_opinion_embeddings c
+        if budget is not None:
+            budget.check_corpus(current, selected)
+            metrics['locked_budget'] = budget.check_database(c, current, selected, where, params)
+            # Frozen U=I=0: no vector UPDATE is allowed on this path.
+            metrics['invalidated_count'] = 0
+        else:
+            metrics['invalidated_count'] = c.execute('''UPDATE review_opinion_embeddings c
             SET invalidated_at=clock_timestamp() WHERE ''' + where + '''
             AND label_profile_key=? AND embedding_space_id=? AND invalidated_at IS NULL
             AND NOT (stable_versioned_opinion_key=ANY(?::text[])) RETURNING id''',
@@ -153,14 +171,21 @@ def _publish(db, options, before, selected, vectors, run_id, metrics, started):
             key = doc.stable_versioned_opinion_key
             if key not in vectors:
                 continue
-            c.execute('INSERT INTO review_opinion_embeddings (' + ','.join(fields) + ''',
+            conflict = ('''ON CONFLICT (stable_versioned_opinion_key,embedding_space_id,text_builder_version)
+                DO NOTHING RETURNING id''' if budget is not None else '''ON CONFLICT (stable_versioned_opinion_key,embedding_space_id,text_builder_version)
+                DO UPDATE SET embedding=EXCLUDED.embedding,effective_snapshot_sha256=EXCLUDED.effective_snapshot_sha256,
+                sync_run_id=EXCLUDED.sync_run_id,synced_at=clock_timestamp(),invalidated_at=NULL''')
+            cursor = c.execute('INSERT INTO review_opinion_embeddings (' + ','.join(fields) + ''',
                 effective_snapshot_sha256,embedding_space_id,embedding,sync_run_id)
                 VALUES (''' + ','.join('?' for _ in fields) + ''',?,?,?::vector(1024),?)
-                ON CONFLICT (stable_versioned_opinion_key,embedding_space_id,text_builder_version)
-                DO UPDATE SET embedding=EXCLUDED.embedding,effective_snapshot_sha256=EXCLUDED.effective_snapshot_sha256,
-                sync_run_id=EXCLUDED.sync_run_id,synced_at=clock_timestamp(),invalidated_at=NULL''',
+                '''+conflict,
                 (*[getattr(doc, f) for f in fields], snapshots[doc.review_id], SPACE_ID,
                  _json(validate_vector(vectors[key])), run_id))
+            if budget is not None:
+                inserted = cursor.fetchone()
+                if inserted is None:
+                    raise EmbeddingStoreError('controlled_insert_conflict')
+                published_rows.append(dict(id=inserted[0], key=key))
         metrics['published_count'] = len(vectors)
         # 与检索同一套快照匹配，不能将未失效但已陈旧的行计为当前有效。
         eligible = _eligible(current)
@@ -174,41 +199,72 @@ def _publish(db, options, before, selected, vectors, run_id, metrics, started):
         metrics['elapsed_ms'] = round((perf_counter() - started) * 1000, 2)
         c.execute('''UPDATE rag_embedding_sync_runs SET status=?,metrics=?::jsonb,finished_at=clock_timestamp()
                      WHERE id=?''', (status, _json(metrics), run_id))
+        if budget is not None:
+            budget.check_055(c)  # Still under the table locks, before COMMIT.
+    if budget is not None:
+        metrics['published_rows'] = published_rows
     return status
 
 
-def sync_effective_opinions(db, *, options, encoder, limit=200):
+def sync_effective_opinions(db, *, options, encoder=None, limit=200, budget=None, execute=False, encoding_authorized=False):
     """encoder.encode(texts) 返回同序 vectors（超限为 None）、space_id、metrics。
 
-    一次最多 300 观点；编码器只在关闭所有数据库连接后执行。来源变化整批重试。
+    默认dry-run。一次最多300观点；编码时无数据库事务，失败不自动重试。
     """
     options = _scope(options)
     if type(limit) is not int or not 1 <= limit <= 300:
         raise EmbeddingStoreError('limit_must_be_1_to_300')
+    if options['product_ids'][0] == '100013588053' and budget is None:
+        raise EmbeddingStoreError('controlled_053_budget_required')
+    if budget is not None:
+        if type(budget) is not Frozen053Budget:
+            raise EmbeddingStoreError('checked_budget_required')
+        budget.check_target(db)
+        budget.check_options(options, limit)
+    if execute is not True:
+        return dict(status='dry_run', write_authorized=False, encoding_authorized=False,
+                    live_budget_revalidated=False, budget=budget.plan()['budget'] if budget else None)
+    if encoding_authorized is not True or encoder is None:
+        raise EmbeddingStoreError('explicit_local_encoding_authorization_required')
     started = perf_counter()
     before = read_effective_corpus(db, **options)
     selected = _select(before.documents, limit)
+    if budget is not None:
+        budget.check_corpus(before, selected)
+        with closing(_connect(db, readonly=True)) as check:
+            try:
+                check.execute('BEGIN')
+                budget.check_database(check, before, selected, *_range(before))
+            finally:
+                check.rollback()
     metrics = dict(scope_opinion_count=len(before.documents), selected_opinion_count=len(selected),
                    attempted_count=0, successful_count=0, reused_count=0, overlength_count=0,
                    invalid_input_count=0, failed_count=0, published_count=0, invalidated_count=0)
     run_id = _run(db, before, metrics)
     try:
-        vectors = _cached(db, selected)
+        # The frozen batch has U=0/P=200. Do not load any cached vector values.
+        vectors = {} if budget is not None else _cached(db, selected)
         metrics['reused_count'] = len(vectors)
         pending = [d for d in selected if d.stable_versioned_opinion_key not in vectors]
         metrics['attempted_count'] = len(pending)
         if pending:
             output = encoder.encode([d.embedding_input for d in pending])
-            if output['space_id'] != SPACE_ID or len(output['vectors']) != len(pending):
+            if (not isinstance(output, dict) or 'error' in output or output.get('space_id') != SPACE_ID
+                    or not isinstance(output.get('vectors'), list) or len(output['vectors']) != len(pending)):
                 raise EmbeddingStoreError('encoder_contract_mismatch')
             for doc, vector in zip(pending, output['vectors']):
                 if vector is None:
                     metrics['overlength_count'] += 1
+                    if budget is not None:
+                        raise EmbeddingStoreError('incomplete_encoder_batch')
                 else:
                     vectors[doc.stable_versioned_opinion_key] = validate_vector(vector)
                     metrics['successful_count'] += 1
             metrics['encoder'] = output.get('metrics', {})
-        status = _publish(db, options, before, selected, vectors, run_id, metrics, started)
+        if budget is not None:
+            _complete_batch(selected, vectors)
+        status = (_publish(db, options, before, selected, vectors, run_id, metrics, started, budget=budget)
+                  if budget is not None else _publish(db, options, before, selected, vectors, run_id, metrics, started))
         return dict(run_id=run_id, status=status, metrics=metrics)
     except Exception as exc:
         # 底层 DB/模型异常可能携带原文，永远不向日志和调用方传播其消息。
@@ -219,7 +275,10 @@ def sync_effective_opinions(db, *, options, encoder, limit=200):
         metrics['successful_count'] = 0
         metrics['published_count'] = 0
         metrics['elapsed_ms'] = round((perf_counter() - started) * 1000, 2)
-        _finish(db, run_id, 'retry_required' if retry else 'failed', metrics, code)
+        try:
+            _finish(db, run_id, 'retry_required' if retry else 'failed', metrics, code)
+        except Exception:
+            raise EmbeddingStoreError(f'failure_status_unconfirmed:run={run_id}') from None
         error = SyncRetryRequired if retry else EmbeddingStoreError
         raise error(code + f':run={run_id}') from None
 
