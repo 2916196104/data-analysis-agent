@@ -1,4 +1,115 @@
-# 数据分析 Agent：销售分析与评论标注工作台
+# 观数 · 商品数据分析 Agent
+
+面向本机演示的商品评论工作台：React 页面、Python/FastAPI、持久任务、SQL 统计、观点标注与有限的原文证据问答。另保留销售 CSV/Excel 的独立分析 CLI。
+
+**当前交付边界：真实数据浏览、范围切换和已有 SQL 问答已验证；RAG 最终验收仍为 BLOCKED，研发已停止。** 不将有限的 055 引用成功表述为主商品 053 的全面 RAG 能力。完整交付记录见 [最终交付清单](docs/project-final-delivery.md)，RAG 历史结论见 [冻结验收报告第 10.15 节](docs/rag-mvp-final-acceptance.md)。
+
+## 本机启动
+
+要求 Python 3.12/3.13、Node.js 22.12+、npm，以及已配置且已初始化的业务数据库。当前本机使用 PostgreSQL；RAG 另依赖已有 pgvector 数据及本地 BGE-M3 解释器和模型缓存。启用 Redis 标注模式时，还需要对应 Redis 服务及既有队列表。
+
+在普通 Windows PowerShell、项目根目录运行：
+
+```powershell
+Set-Location E:\AllProject\data-analysis-agent
+# 仅新环境需要安装；保留已有 .venv 和 .env。
+if (!(Test-Path .venv\Scripts\python.exe)) { py -3.12 -m venv .venv }
+.\.venv\Scripts\python.exe -m pip install -e .
+npm --prefix frontend ci
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+在本地 `.env` 完成配置后启动：
+
+```powershell
+.\.venv\Scripts\python.exe -B run.py --no-browser
+```
+
+浏览器打开 `http://127.0.0.1:5173`，API 为 `http://127.0.0.1:8000/api/v1`。启动器检查依赖和端口、等待前后端就绪；按 **Ctrl+C** 一起关闭本次启动的子进程。端口冲突时使用：
+
+```powershell
+.\.venv\Scripts\python.exe -B run.py --api-port 8001 --web-port 5174 --no-browser
+```
+
+启动器同步 API 地址与允许的前端 Origin，无需另改前端配置。独立启动方式见 [前端说明](frontend/README.md) 与 [HTTP API](docs/review-http-api.md)。已有业务库不要为演示重复执行 init、迁移或标注。
+
+| 配置 | 含义 |
+| --- | --- |
+| `DATABASE_URL` | 后端业务库身份；凭据仅保存在本机 `.env` |
+| `LLM_MODEL_ID` / `LLM_BASE_URL` / `LLM_API_KEY` | 普通聊天、部分分析规划/解释和新标注使用的外部服务 |
+| `AGENT_SEMANTIC_PARSING` | 意图解析策略；`rules_only` 仅关闭意图补充调用，**不保证整个 Agent 零模型调用** |
+| `LABEL_EXECUTION_MODE` | `local` 或 `redis`；Redis 模式按 [队列说明](docs/review-label-queue.md) 配置身份和配额 |
+| `RAG_PYTHON` / `RAG_MODEL_CACHE` | 已有本地 BGE-M3 环境和缓存；不会自动下载模型 |
+| `VITE_API_BASE_URL` | 单独启动/构建前端时的公开 API 地址；不能放密钥 |
+
+`run.py` 在 Redis 模式会启动标注 Worker，并可能恢复待处理任务。`--no-redis-worker` 只跳过这个子进程，既不切换执行模式，也不禁止其他模型调用。演示前应检查任务和配置，不点击导入、开始标注或重试旧任务。数据库准备见 [PostgreSQL 配置](docs/postgresql.md)。
+
+本次零收费验证使用隔离本地任务库、业务只读连接和外部模型禁用保护；没有验证默认 Redis Worker 的全功能运行。已在本机保留的验证入口和复现命令见 [交付清单](docs/project-final-delivery.md)，它不是新增的正式运行模式。
+
+## 已有能力和口径
+
+- **数据浏览与范围**：数据集由 `source + dataset_version` 隔离；商品、UTC 日期、标注 profile 随查询冻结。切换数据集清除不适用商品；旧回答保留旧范围。
+- **SQL 分析**：评论趋势、商品对比、六维度正负向分布、覆盖率；固定工具查询，模型不能自由执行 SQL。页面图表直接读取已有统计接口。
+- **AI 助手**：本轮已验证“好评主要集中在哪些方面？”和“差评主要集中在哪些方面？”的真实 SQL 路径。复杂规划、内容主题总结、普通聊天可能依赖外部模型，本轮未验证其在线质量。
+- **标注与复核**：保留模型版本、观点、quote 位置、人工修订历史和任务恢复；本轮只查看已有记录，不重新标注或保存人工裁决。
+- **有限 RAG**：本地查询编码 → pgvector → 当前来源核验 → `reported_experience_v2` → 引用。候选相似度和位置合法都不能替代语义支持；未获许可时不发布确定结论。
+- **销售分析**：独立 CSV/Excel 导入、Decimal 统计、图表与 Markdown 报告，见下方保留的 CLI 说明。
+
+统计按去重评论计数。标注内负面占比的分母是成功标注评论；正向维度占比的分母是含正向观点的评论。维度可重叠，不能相加；空分母显示“—”。评论不能推导销量、营收、库存或全体买家比例，RAG Top-K 也不能充当 SQL 分母。细则见 [统计口径](docs/review-analytics.md)。
+
+## 架构与代码入口
+
+```mermaid
+flowchart TD
+  UI[React / TypeScript / Ant Design / ECharts] --> API[FastAPI /api/v1]
+  API --> Read[评论目录、原文、趋势只读接口]
+  Read --> PG[(PostgreSQL 业务库)]
+  API --> Queue[(持久任务 SQLite / PostgreSQL)]
+  Queue --> Worker[TaskWorker]
+  Worker --> Agent[现有 Review Agent / 范围与任务契约]
+  Agent --> SQL[固定 SQL 统计工具]
+  SQL --> PG
+  Agent --> RAG[本地 BGE-M3 + pgvector]
+  RAG --> PG
+  RAG --> Guard[P0 来源核验 + v2 语义许可]
+  Guard --> Answer[结果校验 / 引用 / 回答]
+  SQL --> Answer
+  Answer --> UI
+  Agent -.部分规划与解释.-> LLM[外部模型：独立配置与费用]
+  Worker -.标注任务.-> Label[现有本地/Redis 标注执行器]
+  Label -.显式运行标注.-> LLM
+```
+
+主要目录：`frontend/src/features/` 为业务页面；`api/` 为请求与生命周期；`jobs/` 为持久任务；`agents/` 为意图、计划、工具和回答；`reviews/` 为有效观点、统计、来源和向量。后端均位于 `src/data_analysis_agent/`。P5 实验位于隔离实验目录，没有接入正式 Agent。
+
+## 五分钟演示
+
+1. 打开评论分析，选择 `reviews-csv`、商品 `100013588053`，确认 UTC 时间与既有标注版本；当前完整数据窗口为 2020-08-25—2022-08-27。
+2. 查看评论数、已标注数、负面占比和按月趋势。打开“数据详情”查看原文、标注版本和来源位置。
+3. 点“AI 洞察”，进入**评论分析**模式。分别提问“好评主要集中在哪些方面？”、“差评主要集中在哪些方面？”，展示不同分母和本轮查询快照。
+4. 切换商品 `100013588055` 再提问，展示新范围与旧回答各自独立。切换 Amazon 数据集时展示日期与商品重置。
+5. 可选展示 055 的“有没有制冷效果好的反馈？”：展开原文与引用信息。明确说明它只是有限成功例，RAG 总验收失败。没有充分证据时展示保留判断，不据此声称全库没有事实。
+6. 查看任务记录和刷新恢复；使用空日期范围展示无数据与空分母。付费聊天、标注及复杂分析不作为本轮已通过能力演示。
+
+本轮界面验证包括 1440、1024、768 像素宽度，截图和真实任务保留在 Git 忽略的 `outputs/project-delivery-20261108/`。只对有权限的演示对象展示真实评论原文。
+
+## 验证和已知限制
+
+```powershell
+.\.venv\Scripts\python.exe -m pip check
+npm --prefix frontend test -- --maxWorkers=2
+npm --prefix frontend run build
+```
+
+本轮：前端 **223/223**，适用后端离线 **61/61**，构建通过。后端用例隔离真实数据库和模型；范围、统计分母、API、正向统计、商品绑定与启动器均有回归。实际页面及真实 SQL 证据另列在 [交付清单](docs/project-final-delivery.md)，没有用 Mock 冒充真实连通。
+
+明确限制：RAG **BLOCKED**（冻结 10 例为 5 PASS / 3 FAIL / 2 UNDETERMINED；053 没有通过主商品支持回答门槛），053 仅索引 200/3591 观点。新标注、导入、数据库迁移、外部模型及 Redis 消费恢复本轮未执行。Ant Design 5 / React 19 兼容提示和较大的构建分块尚存，已验证操作未被阻断。本机工作台不等同于已具备公网多租户部署能力。
+
+已有功能的详细入口：[评论导入](docs/review-import.md) · [标注](docs/review-labeling.md) · [人工复核](docs/review-workbench.md) · [Agent](docs/review-agent.md) · [监控回放](docs/review-monitoring.md) · [IDEA 运行配置](docs/idea-running.md)。
+
+<details>
+<summary>保留的销售 CLI、数据契约与早期功能说明（历史验证时间以原文为准）</summary>
+
 
 评论批量标注新增 [PostgreSQL + Redis Streams 持久流程](docs/review-label-queue.md)：分块持续消费、多 Worker 共享 RPM/TPM/并发、事务发件箱、超时接管、有界恢复和请求级统计。Windows 启动、数据库升级/回退及模拟验收命令均在文档中；先从总并发 2、每请求 4 条开始。
 
@@ -300,3 +411,5 @@ print(json.dumps(result, ensure_ascii=False, indent=2))
 真实数据放 `data/private/`，产物放 `outputs/`。`.gitignore` 忽略 `.env` 及其变体（保留 `.env.example`）、常见密钥文件、整个数据目录（只放行明确的模拟 CSV）、常见数据文件扩展名、运行产物、日志、缓存、虚拟环境和 IDE 配置。自定义产物目录也应放在 `outputs/` 下；提交前使用 `git status --short` 检查，不使用强制添加来绕过忽略规则。
 
 销售分析当前面向一份小型 CSV 或一个 Excel 数据工作表，不提供大数据流式销售统计、退款分析、多币种换算或成本指标。评论入口已支持 SQLite/PostgreSQL、流式导入、六维度增量标注、本机人工复核、范围查询、四类统计证据工具、运行快照、按月历史回放、规则告警、HTTP API 与单轮只读问答；定时运行和多轮会话尚未接入。
+
+</details>

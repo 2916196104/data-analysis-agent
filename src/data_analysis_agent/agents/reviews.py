@@ -299,8 +299,10 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                                 raise
                             prompt = "请只纠正最终 JSON 格式，不重复执行成功工具。只输出 status 和 result_ids，已有结果 ID：" + json.dumps(list(context.results))
             selected = [context.get_result(value) for value in ids]
-            if any(item['kind'] == 'aspect_drilldown' and item['data']['analysis_status'] == 'failed' for item in selected):
-                raise ReviewDataError('二级主题归并未完成；原始观点与失败原因已保留，未发布主题结论。')
+            for item in selected:
+                if item['kind'] == 'aspect_drilldown' and item['data']['analysis_status'] == 'failed':
+                    from data_analysis_agent.agents.review_topics import TopicAnalysisError
+                    raise TopicAnalysisError(item['data'])
             if status == "ok":
                 validation_started = perf_counter()
                 result["validation"] = validate_report(
@@ -361,6 +363,9 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
         if progress_error is not None:
             raise progress_error
         code, message = ("business_error", str(exc)) if isinstance(exc, ReviewDataError) else execution_failure(exc)
+        from data_analysis_agent.agents.review_topics import TopicAnalysisError
+        if isinstance(exc, TopicAnalysisError):
+            code = exc.code
         if result['intent_resolution'].get('error_code'):
             timed_out = result['intent_resolution']['error_code'] == 'timeout'
             code = 'intent_timeout' if timed_out else 'invalid_intent'

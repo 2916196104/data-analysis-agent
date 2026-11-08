@@ -26,10 +26,10 @@ const task: Task = { task_id: 'task', kind: 'analysis', status: 'succeeded', par
   result: result as unknown as Task['result'], error: null, parent_task_id: null, created_at: '', started_at: '', finished_at: '', updated_at: '',
   progress: { stage: 'agent_completed', completed: 1, total: 1, unit: 'tools' } };
 const turn: ChatTurn = { kind: 'analysis', id: 'turn', question: '好评', parameters: scope, requestKey: 'key', taskId: 'task' };
-function show(saved: Task = task) {
+function show(saved: Task = task, queryTurn: ChatTurn = turn) {
   const chat = { session: { activeId: 'turn' }, activeState: { ...emptyTaskState, id: 'task', task: saved },
     errors: {}, pending: false, retry: vi.fn() } as unknown as AgentChat;
-  return render(<ChatMessage turn={turn} chat={chat} onPrepare={vi.fn()} />);
+  return render(<ChatMessage turn={queryTurn} chat={chat} onPrepare={vi.fn()} />);
 }
 beforeEach(() => {
   vi.mocked(useTask).mockReturnValue({ ...emptyTaskState, refresh: vi.fn() });
@@ -93,6 +93,25 @@ it('回答默认显示精简范围，完整范围保持折叠', () => {
   expect(screen.getByText('商品：A')).toBeTruthy();
   expect((container.querySelector('.chat-turn-scope') as HTMLDetailsElement).open).toBe(false);
   expect((container.querySelector('.chat-developer-scope') as HTMLDetailsElement).open).toBe(false);
+});
+
+it('失败任务显示实际执行商品及历史主题超时原因，仍隐藏未发布内容', () => {
+  const failed = { ...task, status: 'failed', parameters: { ...scope, product_ids: [] },
+    error: { code: 'business_error', message: '二级主题归并未完成' }, result: { ...result, status: 'error',
+      scope: { ...scope, product_ids: ['100013588053'] },
+      results: { r1: { result_id: 'r1', kind: 'aspect_drilldown', parameters: {}, data: {
+        aspect: 'service', analysis_status: 'failed', failures: [{ batch: 1, code: 'timeout' }],
+        topics: [{ name: '不得发布的主题' }], items: [{ text: '不得发布的评论原文' }],
+      } } },
+    } } as unknown as Task;
+  show(failed, { ...turn, parameters: { ...scope, product_ids: [] } });
+  expect(screen.getByText('商品：100013588053')).toBeTruthy();
+  expect(screen.getByText('本轮实际执行范围')).toBeTruthy();
+  expect(screen.getByText('客服主题归属复核第 1 批请求超时。')).toBeTruthy();
+  expect(screen.queryByText('不得发布的主题')).toBeNull();
+  expect(screen.queryByText('不得发布的评论原文')).toBeNull();
+  expect(screen.queryByRole('region', { name: '分析回答' })).toBeNull();
+  expect(screen.queryByRole('button', { name: '导出分析报告' })).toBeNull();
 });
 
 it('证据详情只提供下一页入口，不自动展开更多原文', () => {

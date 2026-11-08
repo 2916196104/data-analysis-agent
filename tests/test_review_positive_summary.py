@@ -111,7 +111,8 @@ class PositiveSummaryTests(WorkbenchFixture, unittest.TestCase):
         self.assertIsNone(data['aspect'])
         self.assertTrue(validate_topic_result(data))
         self.assertEqual({row['aspect'] for row in data['topics']}, set(ASPECTS))
-        self.assertLessEqual(data['model_calls'], 2)
+        # 至多二十种表达，发现一次，十条一批复核至多两次。
+        self.assertLessEqual(data['model_calls'], 3)
         for topic in data['topics']:
             self.assertEqual(topic['review_denominator'], 3 if topic['aspect'] in ('service', 'logistics') else 2)
             self.assertIn(ASPECTS[topic['aspect']], result['public_answer']['summary'])

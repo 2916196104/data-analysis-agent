@@ -179,6 +179,7 @@ class ReviewTopicTests(semantics_fixture.AssistantSemanticsFixture, unittest.Tes
             rejected = analyze_aspect_topics(self.extracted(), settings=SETTINGS)
         self.assertEqual(rejected['analysis_status'], 'failed')
         self.assertFalse(rejected['topics'])
+        self.assertEqual(rejected['failures'][0]['code'], 'invalid_schema')
         for body in requests:
             self.assertNotIn('tools', body)
             self.assertLessEqual(len(body['messages'][-1]['content'].encode()), 16000)
@@ -244,3 +245,164 @@ class ReviewTopicTests(semantics_fixture.AssistantSemanticsFixture, unittest.Tes
                 support[0] = value
                 with self.assertRaisesRegex(ValueError, '片段'):
                     _call(SETTINGS, CLASSIFY_PROMPT, payload, TopicBatch, 10)
+
+    def test_missing_assignments_report_the_exact_validation_reason(self):
+        def missing(settings, prompt, payload, schema, timeout):
+            return semantic_response(settings, prompt, payload, schema, timeout) if schema is TopicCatalog else TopicBatch(assignments=[])
+        with topic_model(missing):
+            result = run_review_agent(self.db, '使用效果具体好在哪里？', scope=self.scope(), settings=SETTINGS)
+        self.assertEqual(result['error']['code'], 'topic_assignment_coverage_mismatch')
+        self.assertIn('归属结果遗漏、重复或编造观点', result['error']['message'])
+        self.assertEqual(result['scope']['product_ids'], ['TOPIC-TEST'])
+        self.assertNotIn('answer', result)
+
+    def test_positive_classification_splits_twenty_expressions_without_dropping_reviews(self):
+        extracted = self.extracted()
+        seed = extracted['items'][0]
+        extracted.update(aspect='service', total=20, total_opinions=20, items=[])
+        extracted['summary'].update(review_count=20, eligible_text_reviews=20, successful_reviews=20)
+        for index in range(20):
+            text = f'客服耐心解答第{index}次咨询'
+            extracted['items'].append({**deepcopy(seed), 'review_id': 1000 + index, 'text': text,
+                'opinions': [dict(aspect='service', sentiment='positive', quote=text,
+                                  quote_start=0, quote_end=len(text))]})
+        batches = []
+        def bounded_model(settings, prompt, payload, schema, timeout):
+            if schema is TopicCatalog:
+                return TopicCatalog(themes=[dict(key='t1', name='解答耐心', definition='客服耐心解答咨询',
+                    support_ids=[payload['opinions'][0]['opinion_id']])])
+            batches.append(len(payload['opinions']))
+            self.assertTrue(all('support_ids' not in theme for theme in payload['themes']))
+            if len(payload['opinions']) > 10:
+                raise TimeoutError('模拟过大的复核响应超过单次期限')
+            return TopicBatch(assignments=[dict(opinion_id=row['opinion_id'], state='assigned',
+                matches=[dict(key='t1', start=0, end=len(row['quote']))]) for row in payload['opinions']])
+        with topic_model(bounded_model):
+            data = analyze_aspect_topics(extracted, settings=SETTINGS)
+        self.assertEqual(data['analysis_status'], 'complete')
+        self.assertEqual(batches, [10, 10])
+        self.assertEqual(data['model_calls'], 3)
+        self.assertEqual(data['coverage']['evaluated_opinions'], 20)
+        self.assertEqual(data['topics'][0]['review_count'], 20)
+        self.assertTrue(validate_topic_result(data))
+
+    def test_classification_timeout_preserves_stage_deadline_and_safe_public_reason(self):
+        def timeout(settings, prompt, payload, schema, deadline):
+            if schema is TopicBatch:
+                raise TimeoutError('secret-provider-body-must-not-be-published')
+            return semantic_response(settings, prompt, payload, schema, deadline)
+        with topic_model(timeout):
+            result = run_review_agent(self.db, '使用效果具体好在哪里？', scope=self.scope(), settings=SETTINGS)
+        self.assertEqual(result['status'], 'error')
+        self.assertEqual(result['error']['code'], 'topic_timeout')
+        self.assertIn('主题归属复核第 1 批请求超时', result['error']['message'])
+        failure = result['results']['r1']['data']['failures'][0]
+        self.assertEqual(failure['stage'], 'topic_classification')
+        self.assertGreater(failure['timeout_seconds'], 0)
+        self.assertLessEqual(failure['timeout_seconds'], 30)
+        self.assertNotIn('secret-provider-body', json.dumps(result))
+        self.assertNotIn('answer', result)
+
+    def test_exhausted_total_budget_does_not_send_another_classification_request(self):
+        clock = [0]
+        def slow(settings, prompt, payload, schema, timeout):
+            if schema is TopicCatalog:
+                clock[0] = 10
+                return semantic_response(settings, prompt, payload, schema, timeout)
+            clock[0] = 70
+            raise TimeoutError('offline slow response')
+        with patch('data_analysis_agent.agents.review_topics.perf_counter', side_effect=lambda: clock[0]), \
+                patch('data_analysis_agent.agents.review_topics.POSITIVE_BATCH_SIZE', 2), topic_model(slow) as model:
+            data = analyze_aspect_topics(self.extracted(), settings=SETTINGS)
+        self.assertEqual(model.call_count, 2)
+        self.assertEqual(data['model_calls'], 2)
+        self.assertEqual(data['failures'][0]['code'], 'timeout')
+        self.assertEqual(data['failures'][1]['code'], 'budget_exhausted')
+        self.assertEqual(data['analysis_status'], 'failed')
+        self.assertFalse(data['topics'])
+
+    def test_provider_rate_limit_is_reported_without_its_response_body(self):
+        from openai import RateLimitError
+        request = httpx.Request('POST', 'https://offline.invalid/v1/chat/completions')
+        response = httpx.Response(429, request=request)
+        error = RateLimitError('secret-provider-body', response=response, body={'secret': 'must-not-publish'})
+        with topic_model(lambda *args: (_ for _ in ()).throw(error)):
+            result = run_review_agent(self.db, '使用效果具体好在哪里？', scope=self.scope(), settings=SETTINGS)
+        self.assertEqual(result['error']['code'], 'topic_http_error')
+        self.assertIn('主题发现模型服务限流（HTTP 429）', result['error']['message'])
+        self.assertNotIn('secret-provider-body', json.dumps(result))
+
+    def test_explicit_full_quote_reference_binds_exact_source_and_rejects_other_ids(self):
+        from data_analysis_agent.agents.review_topics import _call, CLASSIFY_PROMPT, TopicResponseError
+        support = [{'quote_id': 'u1'}]
+        quote = '😊客服耐心解答；客服耐心解答。'
+        def handle(request):
+            return completion({'role': 'assistant', 'content': json.dumps({'rows': [
+                {'i': 'u1', 's': 'a', 'm': [['t1', support[0]]]}]})})
+        def client(**kwargs):
+            return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handle)))
+        payload = {'opinions': [{'opinion_id': 'u1', 'quote': quote}]}
+        with patch('openai.OpenAI', side_effect=client):
+            result = _call(SETTINGS, CLASSIFY_PROMPT, payload, TopicBatch, 10)
+            match = result.assignments[0].matches[0]
+            self.assertEqual((match.start, match.end), (0, len(quote)))
+            self.assertEqual(quote[match.start:match.end], quote)
+            for value, code in [({'quote_id': 'u2'}, 'source_reference_mismatch'),
+                                ('模型改写的原文', 'support_text_mismatch')]:
+                support[0] = value
+                with self.assertRaises(TopicResponseError) as raised:
+                    _call(SETTINGS, CLASSIFY_PROMPT, payload, TopicBatch, 10)
+                self.assertEqual(raised.exception.code, code)
+
+    def test_four_supported_themes_keep_all_associations_and_original_denominator(self):
+        extracted = self.extracted()
+        seed = deepcopy(extracted['items'][0])
+        clauses = ['客服回应及时', '解答清楚', '态度热情', '售后负责']
+        text = '，'.join(clauses)
+        extracted.update(aspect='service', total=1, total_opinions=1,
+            items=[{**seed, 'text': text, 'opinions': [dict(aspect='service', sentiment='positive',
+                    quote=text, quote_start=0, quote_end=len(text))]}])
+        def response(settings, prompt, payload, schema, timeout):
+            if schema is TopicCatalog:
+                return TopicCatalog(themes=[dict(key=f't{index+1}', name=clause,
+                    definition=clause, support_ids=['u1']) for index, clause in enumerate(clauses)])
+            return TopicBatch(assignments=[dict(opinion_id='u1', state='assigned', matches=[
+                dict(key=f't{index+1}', start=text.index(clause), end=text.index(clause)+len(clause))
+                for index, clause in enumerate(clauses)])])
+        with topic_model(response):
+            data = analyze_aspect_topics(extracted, settings=SETTINGS)
+        self.assertTrue(validate_topic_result(data))
+        self.assertEqual(data['analysis_status'], 'complete')
+        self.assertEqual(len(data['assignments'][0]['matches']), 4)
+        self.assertEqual(len(data['topics']), 4)
+        self.assertTrue(all(row['review_count']==row['review_denominator']==1 for row in data['topics']))
+        self.assertEqual(data['coverage']['selected_reviews'], 1)
+        for replacement in ('t1', 't8'):
+            invalid = deepcopy(data)
+            invalid['assignments'][0]['matches'][-1]['key'] = replacement
+            self.assertFalse(validate_topic_result(invalid))
+
+    def test_topic_associations_remain_bounded_by_the_eight_candidate_limit(self):
+        from pydantic import ValidationError
+        from data_analysis_agent.agents.review_topics import TopicAssignment, TopicWireAssignment
+        matches = [dict(key=f't{index+1}', start=0, end=1) for index in range(8)]
+        wire = [[match['key'], {'quote_id':'u1'}] for match in matches]
+        self.assertEqual(len(TopicAssignment(opinion_id='u1', state='assigned', matches=matches).matches), 8)
+        self.assertEqual(len(TopicWireAssignment.model_validate_json(json.dumps(dict(i='u1', s='a', m=wire))).m), 8)
+        with self.assertRaises(ValidationError):
+            TopicAssignment(opinion_id='u1', state='assigned', matches=matches+[matches[0]])
+        with self.assertRaises(ValidationError):
+            TopicWireAssignment.model_validate_json(json.dumps(dict(i='u1', s='a', m=wire+[wire[0]])))
+
+    def test_wire_count_violation_reports_the_specific_limit_without_truncation(self):
+        from data_analysis_agent.agents.review_topics import _call, CLASSIFY_PROMPT, TopicResponseError
+        def handle(request):
+            return completion({'role':'assistant', 'content':json.dumps({'rows':[
+                {'i':'u1', 's':'a', 'm':[['t1', {'quote_id':'u1'}]]*9}]})})
+        def client(**kwargs):
+            return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handle)))
+        with patch('openai.OpenAI', side_effect=client):
+            with self.assertRaises(TopicResponseError) as raised:
+                _call(SETTINGS, CLASSIFY_PROMPT, {'opinions':[{'opinion_id':'u1', 'quote':'合成评论'}]}, TopicBatch, 10)
+        self.assertEqual(raised.exception.code, 'too_many_theme_associations')
+        self.assertIn('上限 8 个', str(raised.exception))

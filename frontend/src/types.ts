@@ -202,6 +202,7 @@ export interface AspectDrilldown {
   analysis_status: 'complete' | 'partial' | 'failed' | 'insufficient_data'; population_mode: 'full' | 'sample';
   total: number; total_opinions: number; topics: AspectTopic[]; items: AgentEvidence[];
   grouping_version: string; grouping_model: string;
+  failures?: { batch: number; code: string; stage?: string; timeout_seconds?: number; message?: string }[];
   coverage: { selected_reviews: number; selected_opinions: number; evaluated_opinions: number; classified_opinions: number; unclassified_opinions: number };
 }
 export interface SemanticEvidence {
