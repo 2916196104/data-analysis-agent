@@ -140,6 +140,8 @@ def adapt_result(item, bound_scope):
         data.get("sentiment") if kind in ("evidence", "opinion_breakdown", 'aspect_drilldown') else "negative" if kind not in ("ratings", "quality", "context") else None)
     result = StructuredAnalysisResult(result_id=item["result_id"], kind=kind, analysis_type=kind,
                                       sentiment=sentiment, scope=scope)
+    if kind in ('positive_aspects', 'issues'):
+        result.filters['aspect'] = item['parameters'].get('aspect')
     def group(name, row, actual_scope=None, aspects=False):
         return StatisticGroup(group_id=name, scope=deepcopy(actual_scope or scope), sample_size=sample_size(row),
                               metrics=summary_metrics(row, sentiment or "negative") if kind not in ("quality", "opinion_breakdown", 'aspect_drilldown') else [],

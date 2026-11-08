@@ -167,5 +167,31 @@ it('维度追问的统计详情只展示被选中的维度，完整审计数据�
   render(<AgentResults result={scoped} onDetail={vi.fn()} />);
   expect(screen.queryByRole('cell', { name: '包装' })).toBeNull();
   expect(screen.getByRole('cell', { name: '物流' })).toBeTruthy();
+  const body = buildAgentReport(scoped).split('## 完整结果与来源附录')[0];
+  expect(body).toContain('| 物流 | 1 | 25.0% |');
+  expect(body).not.toContain('| 包装 |');
+  expect(body).toContain('汇总 1 个维度');
   expect((scoped.results.issues as Extract<AgentToolResult, { kind: 'issues' }>).data.issues).toHaveLength(2);
+});
+
+it.each(['positive_aspects', 'issues'])('已有公开摘要的 %s 维度任务也从快照重建回答', async kind => {
+  const saved = { ...task, result: { ...result, results: { r1: { kind, parameters: { aspect: 'logistics' } } } } };
+  const corrected = { ...answer, summary: '本轮仅统计物流。', highlights: [] };
+  const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok', result: saved })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok', result: { public_answer: corrected } })));
+  vi.stubGlobal('fetch', fetcher);
+  const rebuilt = await taskApi.task('task');
+  expect(rebuilt.result?.public_answer).toEqual(corrected);
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(saved.result.public_answer).toEqual(answer);
+});
+
+it('维度任务公开视图读取失败时不复用旧摘要，保留原始统计详情', async () => {
+  const saved = { ...task, result: { ...result, results: { r1: { kind: 'positive_aspects', parameters: { aspect: 'logistics' } } } } };
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok', result: saved })))
+    .mockResolvedValueOnce(new Response('', { status: 503 })));
+  const rebuilt = await taskApi.task('task');
+  expect(rebuilt.result?.public_answer).toBeUndefined();
+  expect(rebuilt.result?.answer).toBeUndefined();
+  expect(rebuilt.result?.results).toEqual(saved.result.results);
 });

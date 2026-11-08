@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from data_analysis_agent.agents.review_plan import ASPECT_WORDS, TOOL_KINDS, ReviewQueryPlan
+from data_analysis_agent.agents.review_plan import TOOL_KINDS, ReviewQueryPlan
 from data_analysis_agent.agents.review_results import (
     AnalysisModel, EvidenceReference, StructuredAnalysisResult,
     TrendPoint, TrendSeries, adapt_result,
@@ -187,8 +187,8 @@ class AnalysisResultCompressor:
                     if result.kind == "positive_aspects" and not group.sample_size.positive_review_count:
                         codes.append("no_positive_mentions")
                     caveats.extend({"code": code, "scope_ref": group_scope_ref, "sample_ref": sample_ref} for code in codes)
-                requested = {value for word, value in ASPECT_WORDS.items() if word in question.replace("数据质量", "")}
-                candidates = [row for row in group.aspects if not requested or row.aspect in requested]
+                aspect = result.filters.get('aspect')
+                candidates = [row for row in group.aspects if not aspect or row.aspect == aspect]
                 mentioned = [row for row in candidates if row.metrics[0].value > 0]
                 rows = [{**row.model_dump(), "metrics": [_metric_payload(metric) for metric in row.metrics]}
                         for row in (mentioned or candidates)[:self.options.top_aspects]]
@@ -207,6 +207,7 @@ class AnalysisResultCompressor:
                 statistics.append({"source_result_id": result.result_id, "analysis_type": result.analysis_type,
                                    "sentiment": result.sentiment, "group_id": group.group_id,
                                    "scope_ref": group_scope_ref, "sample_ref": sample_ref,
+                                   "filters": deepcopy(result.filters),
                                    "metrics": [_metric_payload(metric) for metric in group.metrics], "aspects": rows, "trends": trends})
                 if mentioned:
                     findings.append({"source_result_id": result.result_id, "scope_ref": group_scope_ref, "type": "aspect_ranking",

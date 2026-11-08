@@ -1,5 +1,5 @@
 import type { AgentResult, AgentToolResult, Summary } from '../../types';
-import { sectionSummary } from '../../agent-report';
+import { aspectRows, sectionSummary } from '../../agent-report';
 import { publicAnswerText } from './public-answer';
 
 const clean = (value: unknown) => String(value ?? '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -19,7 +19,7 @@ function statistics(item: AgentToolResult): string {
     case 'aspect_drilldown': return `${item.data.population_mode === 'sample' ? '样本探索，占比不代表总体。' : '二级主题分析。'}模型归并候选未经人工确认。各主题以该维度纳入评论为分母。\n\n` + table(['维度', '候选主题', '具体内容', '去重评论数', '观点数', '占该维度纳入评论', '分母'], item.data.topics.map(row => [row.aspect, row.name, row.definition, row.review_count, row.opinion_count, percent(row.review_rate), row.review_denominator]));
     case 'opinion_breakdown': return `按原始观点文本和情感归组，同义表述未合并，非标准细分主题排名。匹配 ${item.data.total} 条评论、${item.data.total_opinions} 条观点。\n\n` + table(['观点原文', '情感', '评论数', '观点数', '占匹配评论', '评论依据'], item.data.groups.map(row => [row.quote, row.sentiment, row.review_count, row.opinion_count, percent(row.review_rate), row.review_id]));
     case 'positive_aspects': return table(['维度', '正面提及评论数', '正向观点评论（分母）', '正向提及占比', '成功标注（分母）', '占成功标注比例'],
-      item.data.aspects.map(row => [row.aspect_label, row.positive_review_count, row.positive_rate_denominator,
+      aspectRows(item, item.data.aspects).map(row => [row.aspect_label, row.positive_review_count, row.positive_rate_denominator,
         percent(row.positive_rate), row.positive_success_rate_denominator, percent(row.positive_success_rate)]));
     case 'context': return summaryTable([['查询范围', item.data.summary]]);
     case 'quality': return summaryTable([['查询范围', item.data.summary]]) + '\n\n' + table(['文件 SHA-256', '评论数'],
@@ -28,7 +28,7 @@ function statistics(item: AgentToolResult): string {
     case 'comparison': return summaryTable(item.data.products.map(row => [row.product_id, row]))
       + `\n\n无评论商品：${clean(item.data.no_reviews_product_ids?.join('、') || '无')}`;
     case 'issues': return table(['维度', '负面数', '当前占比', '基线占比', '变化（百分点）'],
-      item.data.issues.map(row => [row.aspect_label, row.negative_review_count, percent(row.negative_rate),
+      aspectRows(item, item.data.issues).map(row => [row.aspect_label, row.negative_review_count, percent(row.negative_rate),
         percent(row.baseline_negative_rate), row.negative_rate_change_pp]));
     case 'window_comparison': return summaryTable([['当前', item.data.current], ['基线', item.data.baseline]])
       + '\n\n' + table(['指标', '变化（占比为百分点）'], Object.entries(item.data.changes));
@@ -66,6 +66,7 @@ export function buildAgentReport(result: AgentResult, taskId?: string): string {
       + '正向维度提及占比以至少一个正向观点的评论数为分母；占成功标注比例另列，两者不可混用。'
       + '星级来自原始评分，以有效 1–5 整数星级评论为分母；缺失和其他评分不推断。空分母记为 —。'
       + '人工复核使用查询时最新快照；截止时间仅限制评论发布时间。子查询实际范围、定义及参数保存在附录。'
+      + '正文统计遵循本轮确认的维度条件；附录保留完整原始工具快照。'
       + '文件指纹来自数据质量或原文证据查询；未查询原文时不补造引文。',
   ];
   for (const id of result.result_ids || []) {

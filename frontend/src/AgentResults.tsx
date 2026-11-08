@@ -3,7 +3,7 @@ import { Alert, Button, Card, Input, Select, Space, Table, Tag, Tooltip } from '
 import { DownloadOutlined } from '@ant-design/icons';
 import { exportResult } from './local-history';
 import { rate } from './ResultCards';
-import { comparisonRows, sampleState, sectionSummary } from './agent-report';
+import { aspectRows, comparisonRows, sampleState, sectionSummary } from './agent-report';
 import type { AgentResult, AgentToolResult, Summary } from './types';
 import ExtendedResults from './features/agent/ExtendedResults';
 import { exportAgentReport } from './features/agent/report-export';
@@ -112,7 +112,7 @@ export default function AgentResults({ result, onDetail, onPrepare, onEvidenceNe
             <Button className="spaced" onClick={onEvidenceNext}>继续查看下一页</Button>}
         </> : item.kind === 'issues' ? <>
           <p className="muted">成功标注分母：当前 {item.data.current?.successful_reviews ?? '未知'} 条{item.data.baseline ? `，基线 ${item.data.baseline.successful_reviews} 条；任一窗口无成功标注时不计算占比变化。` : '；本轮未进行基线对比。'}</p>
-          <Table size="small" rowKey="aspect" dataSource={item.data.issues.filter(row => !item.parameters.aspect || row.aspect === item.parameters.aspect)} pagination={false} scroll={{ x: 560 }} columns={[
+          <Table size="small" rowKey="aspect" dataSource={aspectRows(item, item.data.issues)} pagination={false} scroll={{ x: 560 }} columns={[
             { title: '维度', dataIndex: 'aspect_label' }, { title: '负面数', dataIndex: 'negative_review_count' },
             { title: '负面占比', dataIndex: 'negative_rate', render: (value: number | null) => value === null ? '暂无成功标注' : rate(value) },
             ...(item.data.baseline ? [{ title: '较基线（百分点）', dataIndex: 'negative_rate_change_pp', render: (value: number | null) => value === null ? '样本不足' : `${value > 0 ? '+' : ''}${value.toFixed(1)}` }] : []),

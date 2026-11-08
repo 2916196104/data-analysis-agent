@@ -16,6 +16,7 @@ import test_review_compression as compression_fixture
 from test_review_workbench import WorkbenchFixture
 from data_analysis_agent.agents.review_compression import CompactAnalysisContext, build_analysis_artifacts
 from data_analysis_agent.agents.review_answer_facts import build_answer_facts
+from data_analysis_agent.agents.review_evidence import assess_evidence
 from data_analysis_agent.agents.review_answers import (
     AnswerAssembler, NaturalLanguageAnswerGenerator, model_messages, read_public_answer, template_draft,
 )
@@ -227,6 +228,45 @@ class AnswerTests(WorkbenchFixture, unittest.TestCase):
         draft.items[0].aspect_key = "packaging"
         with self.assertRaises(ValueError):
             AnswerAssembler().assemble(context, draft)
+
+    def test_confirmed_aspect_survives_product_only_followup_and_history(self):
+        for tool, direction in (("get_positive_aspects", "positive"), ("get_top_issues", "negative")):
+            with self.subTest(tool=tool):
+                question = '执行本轮已确认的只读查询\n' + json.dumps({
+                    'tool': tool, 'parameters': {'aspect': 'logistics'}, 'question': 'P2这个商品'})
+                full, plan = self.result(question)
+                full.update(analysis_question='P2这个商品', analysis_intent=plan.analysis_type,
+                            sentiment_intent=direction)
+                before = canonical_json(full)
+                artifacts = build_analysis_artifacts(full, plan)
+                stat = artifacts['compact_context']['statistics'][0]
+                self.assertEqual(stat['filters']['aspect'], 'logistics')
+                self.assertEqual([row['aspect'] for row in stat['aspects']], ['logistics'])
+                context = CompactAnalysisContext.model_validate(artifacts['compact_context'])
+                facts, _ = build_answer_facts(context)
+                answer = AnswerAssembler().assemble(context, template_draft(context, facts)).model_dump()
+                self.assertEqual(answer['status'], 'ok')
+                self.assertIn('物流', answer['summary'])
+                for label in ('包装', '客服', '使用效果'):
+                    self.assertNotIn(label, answer['summary'])
+                full['public_answer'] = {'status': 'ok', 'summary': '客服、使用效果排名靠前'}
+                with patch('openai.OpenAI', side_effect=AssertionError('history must not call model')):
+                    rebuilt = read_public_answer({'status': 'succeeded', 'result': full})
+                self.assertEqual(rebuilt['status'], 'ok')
+                self.assertEqual(rebuilt['summary'], answer['summary'])
+                full.pop('public_answer')
+                self.assertEqual(canonical_json(full), before)
+
+    def test_confirmed_aspect_overrides_conflicting_words_in_question(self):
+        question = '执行本轮已确认的只读查询\n' + json.dumps({
+            'tool': 'get_positive_aspects', 'parameters': {'aspect': 'logistics'}, 'question': '客服好评数量'})
+        full, plan = self.result(question)
+        full['analysis_question'] = '客服好评数量'
+        context = CompactAnalysisContext.model_validate(build_analysis_artifacts(full, plan)['compact_context'])
+        facts, _ = build_answer_facts(context)
+        self.assertEqual([fact.aspect_key for fact in facts], ['logistics'])
+        self.assertIn('物流', template_draft(context, facts).summary)
+        self.assertEqual(assess_evidence(context)['aspect'], 'logistics')
 
     def test_history_read_is_safe_and_does_not_call_model(self):
         full, _ = self.context("好评主要方面")

@@ -5,12 +5,15 @@ export const taskApi = {
   tasks: (page = 1) => request<Page<TaskSummary>>(`/tasks${query({ page, page_size: 15 })}`),
   task: async (id: string, signal?: AbortSignal) => {
     const task = await request<Task>(`/tasks/${encodeURIComponent(id)}`, { signal });
-    if (task.status === 'succeeded' && !task.error && task.result?.agent === true && !task.result.public_answer) {
+    const scopedRanking = task.result?.agent === true && Object.values(task.result.results ?? {}).some(item =>
+      ['positive_aspects', 'issues'].includes(item.kind) && Boolean(item.parameters.aspect));
+    if (task.status === 'succeeded' && !task.error && task.result?.agent === true && (!task.result.public_answer || scopedRanking)) {
       try {
         const view = await request<{ public_answer: PublicAnswer }>(`/public/tasks/${encodeURIComponent(id)}`, { signal });
         return { ...task, result: { ...task.result, public_answer: view.public_answer } };
       } catch {
         // 历史公开视图不可用时保留详情读取，聊天不回显旧技术正文。
+        if (scopedRanking) return { ...task, result: { ...task.result, public_answer: undefined, answer: undefined } };
       }
     }
     return task;

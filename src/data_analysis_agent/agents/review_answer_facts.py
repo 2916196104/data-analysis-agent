@@ -47,10 +47,14 @@ def selected_aspects(question):
             or (key == "effectiveness" and "效果" in question)}
 
 
+def confirmed_aspects(context):
+    return {row['filters']['aspect'] for row in context.statistics
+            if row.get('filters', {}).get('aspect') in ASPECTS}
+
+
 def build_answer_facts(context, *, detailed=False):
     scopes = {row["scope_ref"]: row for row in context.scope_summary}
     samples = {row["sample_ref"]: row for row in context.sample_summary}
-    requested = selected_aspects(context.question)
     facts = []
     comparison = any(row["analysis_type"] == "comparison" for row in context.statistics)
     advice = bool(re.search(r"建议|改进|改善|优化", context.question))
@@ -76,7 +80,7 @@ def build_answer_facts(context, *, detailed=False):
             positive = stat.get("sentiment") == "positive"
             sentiment_name = "正面" if positive else "负面"
             count_name = "positive_review_count" if positive else "negative_review_count"
-            rows = [row for row in stat["aspects"] if not requested or row["aspect"] in requested]
+            rows = stat['aspects']
             mentioned = [row for row in rows if metric_map(row["metrics"])[count_name]["value"] > 0]
             for row in mentioned[:(3 if detailed or not comparison else 1)]:
                 metrics = metric_map(row["metrics"])
@@ -278,7 +282,7 @@ def summary_options(context, facts):
             return [f'{selected}的已标注评论中，{focus}提到{quotes}。']
         return ['已检索当前范围的观点文本，以下列出出现较多的原文表述及情感。']
     if facts and all(fact.kind == "empty" for fact in facts):
-        requested = selected_aspects(context.question)
+        requested = confirmed_aspects(context)
         successful = any(row.get('successful_reviews', 0) for row in context.sample_summary)
         if requested and successful and context.sentiment in ('positive', 'negative'):
             labels = '、'.join(ASPECTS[aspect] for aspect in requested)
@@ -289,7 +293,7 @@ def summary_options(context, facts):
         return ["当前数据不足以给出可靠的分析结论。"]
     if content_detail and all(fact.kind in ('aspect', 'empty') for fact in facts):
         return ['当前只有维度数量与占比，尚未取得对应观点内容，不能判断具体问题或体验。']
-    if len(facts) == 1 and facts[0].kind == 'aspect' and selected_aspects(context.question):
+    if len(facts) == 1 and facts[0].kind == 'aspect' and confirmed_aspects(context):
         fact = facts[0]
         metric = next(row for row in fact.metrics if row['name'] == ('positive_rate' if fact.sentiment == 'positive' else 'negative_rate'))
         denominator = '含正向观点评论' if fact.sentiment == 'positive' else '成功标注评论'

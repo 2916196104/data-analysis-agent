@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import Field
 from pydantic import ValidationError
 
-from data_analysis_agent.agents.review_answer_facts import answer_caveats, build_answer_facts, percent, selected_aspects, summary_options
+from data_analysis_agent.agents.review_answer_facts import answer_caveats, build_answer_facts, confirmed_aspects, percent, summary_options
 from data_analysis_agent.agents.review_compression import CompactAnalysisContext
 from data_analysis_agent.agents.review_results import AnalysisModel, EvidenceReference
 from data_analysis_agent.core.serialization import canonical_json
@@ -159,7 +159,7 @@ class AnswerAssembler:
                     or re.search(r"建议|改进|改善|优化", context.question) else "") + fact.detail
             highlights.append(AnswerHighlight(finding_ref=fact.finding_ref, aspect_key=fact.aspect_key,
                 scope_ref=fact.scope_ref, source_result_ids=fact.source_result_ids, text=text))
-        if len(facts) == 1 and facts[0].kind == 'aspect' and selected_aspects(context.question):
+        if len(facts) == 1 and facts[0].kind == 'aspect' and confirmed_aspects(context):
             # 单维度的数量/分母已由摘要完整呈现，指标与详情保留，正文不再重复数字行。
             highlights = []
         notes = answer_caveats(context, facts)

@@ -77,6 +77,34 @@ it('正向维度展示两个独立分母，零分母显示无数据，Markdown �
   expect(screen.queryByText('0.0%')).toBeNull();
 });
 
+it('商品 ID 追问的正向表格与导出遵循确认维度，原始六维快照不变', () => {
+  const positive: AgentToolResult = { result_id: 'p', kind: 'positive_aspects', parameters: { aspect: 'logistics' }, data: {
+    analysis_type: 'positive_aspects', sentiment: 'positive', data_status: 'ok', scope,
+    summary: { ...summary, successful_reviews: 5, positive_review_count: 2 },
+    aspects: [
+      { rank: 1, aspect: 'service', aspect_label: '客服', positive_review_count: 2, positive_rate: 1, positive_success_rate: 0.4,
+        positive_rate_denominator: 2, positive_success_rate_denominator: 5 },
+      { rank: 2, aspect: 'logistics', aspect_label: '物流', positive_review_count: 1, positive_rate: 0.5, positive_success_rate: 0.2,
+        positive_rate_denominator: 2, positive_success_rate_denominator: 5 },
+    ],
+  } };
+  const saved = { ...result, question: 'P1这个商品', result_ids: ['p'], results: { p: positive } };
+  const before = JSON.stringify(saved);
+  const { rerender } = render(<ExtendedResults item={positive} />);
+  expect(screen.getByRole('cell', { name: '物流' })).toBeTruthy();
+  expect(screen.queryByRole('cell', { name: '客服' })).toBeNull();
+  const report = buildAgentReport(saved);
+  const body = report.split('## 完整结果与来源附录')[0];
+  expect(body).toContain('| 物流 | 1 | 2 | 50.0% | 5 | 20.0% |');
+  expect(body).not.toContain('| 客服 |');
+  expect(report).toContain('"aspect": "service"');
+  expect(JSON.stringify(saved)).toBe(before);
+  const unbound = { ...positive, parameters: {} };
+  rerender(<ExtendedResults item={unbound} />);
+  expect(screen.getByRole('cell', { name: '客服' })).toBeTruthy();
+  expect(buildAgentReport({ ...saved, results: { p: unbound } }).split('## 完整结果与来源附录')[0]).toContain('| 客服 |');
+});
+
 it('维度趋势呈现月份和分母，窗口表使用后端给出的百分点', () => {
   const trend: AgentToolResult = { result_id: 'a', kind: 'aspect_trend', parameters: {}, data: { scope, period: 'month',
     aspects: { packaging: '包装' }, summary: { ...summary, aspects: {} }, buckets: [{ ...summary, bucket: '2023-02',

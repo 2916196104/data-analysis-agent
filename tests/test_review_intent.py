@@ -56,6 +56,23 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
             self.worker._execute(claim_task(self.tasks, self.worker.worker_id))
         return get_task(self.tasks, task_id)
 
+    def test_product_only_followup_keeps_confirmed_logistics_in_answer(self):
+        self.queue()
+        first = self.run_sync('物流方面的好评主要是什么？')
+        self.assertEqual(first['status'], 'ok', first.get('error'))
+        self.assertEqual(first['results']['r1']['parameters']['aspect'], 'logistics')
+        parent = self.save(first['question'], first)
+        with patch('data_analysis_agent.agents.review_intent._llm_intent', return_value=ReviewIntent(
+                query_type='aspect_summary', product_mentions=['100013588053'], sentiment='positive', aspect='logistics')):
+            task = self.work('100013588053这个商品', parent=parent)
+        self.assertEqual(task['status'], 'succeeded', task.get('error'))
+        result = task['result']
+        self.assertEqual(result['results']['r1']['parameters']['aspect'], 'logistics')
+        self.assertEqual(result['scope']['product_ids'], ['100013588053'])
+        self.assertIn('物流', result['public_answer']['summary'])
+        self.assertNotIn('使用效果', result['public_answer']['summary'])
+        self.assertEqual(result['total_model_calls'], 0)
+
     def test_a_b_c_worker_inherits_positive_and_drills_into_effectiveness(self):
         self.queue()
         before = hashlib.sha256(self.db.read_bytes()).hexdigest()

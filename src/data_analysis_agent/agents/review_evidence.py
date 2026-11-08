@@ -3,7 +3,7 @@ import re
 from calendar import monthrange
 from datetime import date
 
-from data_analysis_agent.agents.review_answer_facts import selected_aspects
+from data_analysis_agent.agents.review_answer_facts import confirmed_aspects, selected_aspects
 from data_analysis_agent.agents.review_semantics import opinion_request
 from data_analysis_agent.agents.review_tools import (
     AspectDrilldownInput, OpinionBreakdownInput, EvidenceInput, ProductSelection,
@@ -19,7 +19,7 @@ def assess_evidence(context):
     root = max(scopes, key=lambda row:len(row.get('product_ids',[])), default={})
     products = list(dict.fromkeys(product for row in scopes for product in row.get('product_ids',[])))
     states = {stat.get('filters',{}).get('analysis_status') for stat in context.statistics}
-    aspects = selected_aspects(question)
+    aspects = confirmed_aspects(context) or selected_aspects(question)
     if not aspects:
         aspects = {stat.get('filters',{}).get('aspect') for stat in context.statistics} - {None}
     aspect = next(iter(aspects)) if len(aspects)==1 else None

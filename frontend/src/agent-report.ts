@@ -13,6 +13,10 @@ export function sampleState(row: Summary): { label: string; color?: string; reas
   return { label: '可分析', color: 'green', reason: '占比基于当前版本成功标注的评论' };
 }
 
+export function aspectRows<T extends { aspect: string }>(item: AgentToolResult, rows: T[]): T[] {
+  return rows.filter(row => !item.parameters.aspect || row.aspect === item.parameters.aspect);
+}
+
 export function sectionSummary(item: AgentToolResult): string {
   const data = item.data;
   switch (item.kind) {
@@ -33,7 +37,7 @@ export function sectionSummary(item: AgentToolResult): string {
       const missing = item.data.no_reviews_product_ids?.length ?? 0;
       return `对比 ${rows.length + missing} 款商品：${ready} 款可计算占比（其中 ${limited} 款样本有限），${rows.length - ready} 款暂无成功标注${missing ? `，${missing} 款在窗口内无评论` : ''}。`;
     }
-    case 'issues': return `汇总 ${item.data.issues.length} 个维度的负面问题；占比变化按当前窗口与基线各自的成功标注数计算。`;
+    case 'issues': return `汇总 ${aspectRows(item, item.data.issues).length} 个维度的负面问题；占比变化按当前窗口与基线各自的成功标注数计算。`;
     case 'evidence': return `找到 ${item.data.total} 条匹配证据，本页展示 ${item.data.items.length} 条；可展开查看完整原文及引用。`;
     default: return String(data);
   }
