@@ -48,11 +48,15 @@ class AnalysisParameters(BaselineScope):
     question: str | None = Field(default=None, min_length=1, max_length=4000, pattern=r"\S")
     conversation_id: Text | None = None
     context_task_id: Text | None = None
+    selection_scope: BaselineScope | None = None
 
     @model_validator(mode="after")
     def agent_scope_is_explicit(self):
         if self.question is not None and (not self.source or not self.dataset_version):
             raise ValueError("Agent 问答须明确选择数据来源和数据集版本。")
+        if self.selection_scope is not None and any(getattr(self, key) != getattr(self.selection_scope, key)
+                for key in ('source', 'dataset_version', 'model', 'base_url', 'prompt_version')):
+            raise ValueError('页面选择与执行范围的数据集及标注身份必须一致。')
         return self
 
 

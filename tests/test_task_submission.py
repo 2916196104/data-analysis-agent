@@ -81,6 +81,26 @@ class SubmissionTests(unittest.TestCase):
         self.assertTrue(repeated['reused'])
         self.assertEqual(repeated['task']['task_id'], first['task_id'])
 
+    def test_optional_selection_metadata_preserves_old_payload_and_checks_identity(self):
+        scope = dict(source='reviews_csv', dataset_version='simulated-v1', model='simulated-model',
+            base_url='https://simulated.invalid/v1', prompt_version='simulated-prompt', product_ids=['A'],
+            date_from='2023-02-01', date_to='2023-02-28', baseline_from='2023-01-01', baseline_to='2023-01-31')
+        identity = {key: scope[key] for key in ('model', 'base_url', 'prompt_version')}
+        with patch('data_analysis_agent.jobs.submission.configured_agent_identity', return_value=(None, identity)):
+            old = prepare_parameters('analysis', {**scope, 'question': '物流差评有多少条？'}, **self.options)
+            omitted = prepare_parameters('analysis', {**scope, 'question': '物流差评有多少条？',
+                'selection_scope': None}, **self.options)
+            self.assertEqual(old, omitted)
+            self.assertNotIn('selection_scope', old)
+            new = prepare_parameters('analysis', {**scope, 'question': '物流差评有多少条？',
+                'selection_scope': {**scope, 'product_ids': ['A', 'B']}}, **self.options)
+            self.assertEqual(new['selection_scope']['product_ids'], ['A', 'B'])
+        structured = prepare_parameters('analysis', {**scope, 'selection_scope': scope}, **self.options)
+        self.assertNotIn('selection_scope', structured)
+        with self.assertRaisesRegex(ValueError, '数据集及标注身份必须一致'):
+            prepare_parameters('analysis', {**scope, 'question': '物流差评有多少条？',
+                'selection_scope': {**scope, 'dataset_version': 'other-dataset'}}, **self.options)
+
     def test_catalog_rejects_invalid_pagination_before_opening_database(self):
         for name, values in (('page', (False, 0, -1, 1.5, 1000001)), ('page_size', (True, 0, 101))):
             for value in values:

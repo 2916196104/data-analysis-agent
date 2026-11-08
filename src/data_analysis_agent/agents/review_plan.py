@@ -47,7 +47,7 @@ class ReviewQueryPlan:
         else:data.pop('task_contract', None)
         return data
 
-    def check_call(self, name, parameters):
+    def check_call(self, name, parameters, *, default_products=None):
         if name == "get_analysis_context":
             return
         if self.unsupported_reason:
@@ -58,16 +58,28 @@ class ReviewQueryPlan:
         ):
             raise ReviewDataError('本轮未要求基线对比，不能自动附加基线统计。')
         if name not in self.optional_tools and not any(
-            all(parameters.get(k) == v for k, v in item["parameters"].items()) for item in candidates
+            self.parameters_match(name, parameters, item['parameters'], default_products=default_products) for item in candidates
         ):
             raise ReviewDataError("工具或参数不符合本轮查询计划，请使用计划中的工具和筛选条件。")
+
+    def parameters_match(self, name, actual, expected, *, default_products=None):
+        from data_analysis_agent.agents.review_tools import TOOL_INPUTS
+        def normalized(values):
+            values = TOOL_INPUTS[name].model_validate(values).model_dump()
+            if 'product_ids' in values:
+                values['product_ids'] = sorted(set(values['product_ids'] or self.scope['product_ids'] or default_products or []))
+            return values
+        try:
+            return normalized(actual) == normalized(expected)
+        except (KeyError, ValueError, TypeError):
+            return False
 
     def satisfied(self, results):
         if self.unsupported_reason or not self.requirements:
             return False
         for request in self.requirements:
-            if not any(item["kind"] == TOOL_KINDS[request["tool"]] and all(
-                item["parameters"].get(k) == v for k, v in request["parameters"].items()
+            if not any(item["kind"] == TOOL_KINDS[request["tool"]] and self.parameters_match(
+                request['tool'], item['parameters'], request['parameters'], default_products=item['data'].get('scope', {}).get('product_ids')
             ) and all(item['data'].get('scope',{}).get(k) == v for k,v in request.get('execution_scope',{}).items()
             ) and (request["tool"] not in ("get_trend", "get_aspect_trend") or (
                 isinstance(item["data"].get("buckets"), list)
@@ -146,7 +158,7 @@ def _build_query_plan(question, scope, *, product_groups=None):
             plan.max_evidence_pages = 1
             plan.max_evidence_items = plan.evidence_page_size
     else:
-        evidence = bool(re.search(r"原文|证据|[条则].*(?:差评|好评)|(?:看|给我).*\d+条", question))
+        evidence = bool(re.search(r"原文|证据|举例|例子|[条则].*(?:差评|好评)|(?:看|给我).*\d+条", question))
         trend = bool(re.search(r"趋势|变化|按[日月天]|按月份", question))
         ranking_pattern = r"主要.*(?:方面|维度|集中|问题|吐槽)|集中|排名|哪些方面|优点|缺点|最好|六.*维度|有什么问题|提及最多"
         ranking_text = "".join(part for part in re.split(r"[，。；、]", question) if re.search(ranking_pattern, part))
@@ -213,10 +225,13 @@ def _build_query_plan(question, scope, *, product_groups=None):
             else:
                 add("get_trend", period=period)
         if breakdown:
+            if semantic['theme_summary'] and (len(scope['product_ids']) != 1 or (not aspects and sentiment != 'positive')):
+                plan.unsupported_reason = '子主题归纳需要明确一款商品及一个评价维度；请指定 SKU 和维度。'
+                return plan
             if semantic['positive_summary'] and not aspects and len(scope['product_ids']) != 1:
                 plan.unsupported_reason = '具体好评总结需要明确一款商品，请指定商品 ID。'
                 return plan
-            if ((len(aspects) == 1 and sentiment in ('positive', 'negative') and not semantic['content_detail']) or semantic['positive_summary']) and not semantic['topic'] and len(scope['product_ids']) == 1:
+            if ((len(aspects) == 1 and sentiment in ('positive', 'negative') and not semantic['content_detail']) or semantic['positive_summary'] or semantic['theme_summary']) and not semantic['topic'] and len(scope['product_ids']) == 1:
                 add('get_aspect_drilldown', product_ids=scope['product_ids'], aspect=aspects[0] if len(aspects) == 1 else None, sentiment=sentiment)
             else:
                 add("get_opinion_breakdown", aspect=aspects[0] if len(aspects) == 1 else None,

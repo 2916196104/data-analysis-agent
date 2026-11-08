@@ -40,6 +40,7 @@ export interface AnalysisParameters extends AnalysisScope {
   question?: string;
   conversation_id?: string;
   context_task_id?: string;
+  selection_scope?: AnalysisScope & { baseline_from: string; baseline_to: string };
 }
 export interface AnnotationDefaults {
   dataset: string;
@@ -257,6 +258,8 @@ export interface AgentResult {
   sentiment_intent?: string | null;
   answer?: string;
   public_answer?: PublicAnswer;
+  task_acceptance?: { status: 'passed' | 'failed' | 'insufficient_evidence'; complete: boolean; message: string;
+    checks: { name: string; passed: boolean; detail: string }[] };
   answer_sections?: { result_id: string; kind: AgentToolResult['kind']; text: string }[];
   scope: AnalysisScope & Partial<Pick<AnalysisParameters, 'baseline_from' | 'baseline_to'>>;
   snapshot_at: string;

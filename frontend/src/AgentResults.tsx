@@ -122,6 +122,11 @@ export default function AgentResults({ result, onDetail, onPrepare, onEvidenceNe
     <details className="agent-audit">
       <summary>开发调试与结果校验</summary>
       <Card title="执行与校验" extra={<Button onClick={() => onDetail(result, 'Agent 完整结果')}>详情</Button>}>
+        {result.task_acceptance && <div>
+          <Tag color={result.task_acceptance.complete ? 'green' : 'orange'}>本轮任务验收：{result.task_acceptance.complete ? '通过' : '未完成'}</Tag>
+          <p>{result.task_acceptance.message}</p>
+          <ul>{result.task_acceptance.checks.map(check => <li key={check.name}>{check.name}：{check.passed ? '通过' : '未通过'} · {check.detail}</li>)}</ul>
+        </div>}
         {result.validation ? <>
           <Tag color={result.validation.status === 'passed' ? 'green' : 'red'}>{result.validation.status === 'passed' ? '结果校验通过' : '结果校验未通过'}</Tag>
           <ul>{result.validation.checks.map(check => <li key={check.name}>{check.name}：{check.passed ? '通过' : '未通过'} · {check.detail}</li>)}</ul>

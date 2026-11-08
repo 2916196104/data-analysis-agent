@@ -82,6 +82,14 @@ class EvidenceInput(ProductSelection):
     page_size: int = Field(default=3, ge=1, le=10, strict=True)
 
 
+TOOL_INPUTS = {'get_analysis_context': Input, 'get_trend': TrendInput, 'get_data_quality': WindowInput,
+    'get_positive_aspects': AspectSelection, 'get_aspect_trend': AspectTrendInput,
+    'get_rating_distribution': RatingInput, 'compare_time_windows': WindowComparisonInput,
+    'compare_products': ProductSelection, 'get_top_issues': IssueInput,
+    'get_opinion_breakdown': OpinionBreakdownInput, 'get_aspect_drilldown': AspectDrilldownInput,
+    'get_evidence': EvidenceInput, 'search_semantic_evidence': Input}
+
+
 class ReviewToolContext:
     def __init__(self, connection, scope, run_dir: Path, max_tool_calls, progress=None,
                  sentiment_intent: str | None = None, query_plan=None, settings=None,
@@ -152,7 +160,7 @@ class ReviewToolContext:
     def execute(self, name, parameters):
         self.last_cache_hit = False
         if self.query_plan:
-            self.query_plan.check_call(name, parameters)
+            self.query_plan.check_call(name, parameters, default_products=self.allowed_products)
         normalized = dict(parameters)
         if "product_ids" in normalized:
             normalized["product_ids"] = sorted(set(normalized["product_ids"] or self.scope["product_ids"] or self.allowed_products))

@@ -179,7 +179,7 @@ class QueryPlanTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(plan.required_tools, ['get_opinion_breakdown'])
         with patch("data_analysis_agent.agents.reviews.create_llm") as model:
             result = run_review_agent(self.db, "安装服务有哪些问题", scope=self.scope(), settings=SETTINGS)
-        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["status"], "unsupported")
         self.assertEqual(result['results']['r1']['data']['total'], 0)
         self.assertEqual(result["model_calls"], 0)
         model.assert_not_called()

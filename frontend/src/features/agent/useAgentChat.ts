@@ -5,7 +5,7 @@ import { useTask } from '../../useTask';
 import type { AgentResult, AnalysisParameters, Task } from '../../types';
 import { analysisSession, isAgentTask, type BasicChatTurn, type ChatTurn, type ConversationAnalysisContext } from './chat-state';
 import { newSession, useChatSessions } from './useChatSessions';
-import { historyReference, isFollowup, resolveQuery, sameScope, type QueryChoice, type QueryParent } from './followup';
+import { copyScope, historyReference, isFollowup, resolveQuery, sameScope, sameScopeIdentity, type QueryChoice, type QueryParent } from './followup';
 
 function contextFromResult(conversationId: string, taskId: string, parameters: AnalysisParameters, result: AgentResult): ConversationAnalysisContext {
   const selected = (result.result_ids || []).map(id => result.results[id]).filter(Boolean);
@@ -76,6 +76,7 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string, currentSco
     commit(current => {
       const turn: ChatTurn = existing ?? { kind: 'analysis', id: crypto.randomUUID(), taskId: task.task_id,
         requestKey: crypto.randomUUID(), question: String(task.parameters.question ?? task.result?.question ?? ''),
+        selection: copyScope((task.parameters.selection_scope || task.parameters) as unknown as AnalysisParameters),
         parameters: { ...task.parameters, product_ids: Array.isArray(task.parameters.product_ids) ? [...task.parameters.product_ids] : [] } as unknown as AnalysisParameters };
       return { ...current, turns: existing ? current.turns : [...current.turns, turn], activeId: turn.id };
     });
@@ -100,6 +101,7 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string, currentSco
       const result = retry && turn.taskId
         ? await api.retry(turn.taskId, turn.retry!.key)
         : await api.submit({ kind: 'analysis', parameters: { ...turn.parameters, question: turn.query?.effectiveQuestion ?? turn.question,
+          selection_scope: copyScope(turn.selection || turn.parameters),
           conversation_id: conversationId, context_task_id: turn.query?.parentTaskId } }, turn.requestKey);
       commit(current => ({ ...current, intent: { task_id: result.task.task_id, question: turn.question,
         product_ids: [...turn.parameters.product_ids], source: turn.parameters.source, dataset_version: turn.parameters.dataset_version },
@@ -138,7 +140,7 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string, currentSco
             const saved = task?.task_id === candidate.taskId ? task : await api.task(candidate.taskId!);
             if (epoch !== navigationEpoch.current) return false;
             if (saved?.parameters.conversation_id !== conversationId) continue;
-            if (!intentParent && saved && isAgentTask(saved) && sameScope(frozen, candidate.selection || candidate.parameters)) {
+            if (!intentParent && saved && isAgentTask(saved) && sameScopeIdentity(frozen, candidate.selection || candidate.parameters)) {
               intentParent = { id: candidate.id, taskId: candidate.taskId, question: candidate.question,
                 parameters: candidate.parameters, selection: candidate.selection };
             }
@@ -158,7 +160,7 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string, currentSco
       const turns = analysisSession(sessionRef.current).turns;
       const active = turns.find(turn => turn.id === sessionRef.current.activeId);
       const candidate = [active, ...[...turns].reverse()].find(turn => turn?.taskId
-        && !turn.clarification && sameScope(frozen, turn.selection || turn.parameters));
+        && !turn.clarification && sameScopeIdentity(frozen, turn.selection || turn.parameters));
       if (candidate) intentParent = { id: candidate.id, taskId: candidate.taskId, question: candidate.question,
         parameters: candidate.parameters, selection: candidate.selection };
     }
@@ -178,6 +180,10 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string, currentSco
       resolution.query = standalone.query;
       resolution.clarification = !reference && !standalone.clarification ? undefined
         : { message: '当前选择范围与历史分析不同，不能继承旧分析上下文。请按下方当前范围提出完整问题。', choices: [] };
+      if (!resolution.clarification && sameScopeIdentity(frozen, parent.parameters)) {
+        resolution.query.parentTurnId = parent.id;
+        resolution.query.parentTaskId = parent.taskId;
+      }
     }
     // 独立可解析的问题不依赖历史读取成功；只在必须承接上文时保留读取错误。
     if (readError && resolution.clarification) resolution.clarification = { message: readError, choices: [] };

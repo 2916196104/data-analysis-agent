@@ -91,7 +91,7 @@ def apply_evidence_relations(context,answer,catalog):
     answer.evidence_relations=relations
     if not relations:
         if re.search(r'具体|环节|问题类型|现象层次',context.question)and any(stat.get('filters',{}).get('groups')and stat.get('filters',{}).get('aspect')in('packaging','logistics')for stat in context.statistics):
-            answer.summary='本次已取得对应观点原文，但本地证据表示尚不能可靠区分所问的具体问题或环节。以下保留可核验的表述，不猜测现象关系或实际原因。'
+            answer.caveats.append('已取得对应观点原文，但尚不能可靠区分具体问题或环节；仅陈述已核验表述，不推断现象关系或实际原因。')
         return answer
     text=''.join(row['text']for row in relations)
     trends=[row for row in catalog if row['kind']=='trend']

@@ -115,7 +115,8 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
                 {'kind': 'evidence', 'parameters': {'product_ids': ['100013588053'], 'aspect': 'packaging', 'sentiment': 'negative', 'page_size': 3}},
                 {'kind': 'evidence', 'parameters': {'product_ids': ['XIAOMI-TEST'], 'aspect': 'logistics', 'sentiment': 'negative', 'page_size': 3}}]}}
         selected = run_review_agent(self.db, '那物流方面呢？', scope=scope, settings=SETTINGS, conversation_context=context)
-        self.assertEqual(selected['status'], 'ok', selected.get('error'))
+        self.assertEqual(selected['status'], 'unsupported', selected.get('error'))
+        self.assertEqual(selected['task_acceptance']['status'], 'insufficient_evidence')
         self.assertEqual(selected['scope']['product_ids'], ['XIAOMI-TEST'])
 
     def test_d_failed_task_recovers_explicit_objects_but_never_its_statistics(self):
@@ -199,7 +200,7 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
             'product_ids': ['100013588053'], 'aspect': 'packaging', 'sentiment': 'negative',
             'window': 'baseline', 'page': 1, 'page_size': 5}})
         first = run_review_agent(self.db, question, scope=self.scope(), settings=SETTINGS)
-        self.assertEqual(first['status'], 'ok', first.get('error'))
+        self.assertEqual(first['status'], 'unsupported', first.get('error'))
         parent = self.save(first['question'], first)
         task = self.work('那物流方面呢？', parent=parent)
         self.assertEqual(task['status'], 'succeeded', task.get('error'))
@@ -210,7 +211,8 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
         context = load_analysis_context(self.tasks, {**self.scope(), 'context_task_id': parent, 'conversation_id': 'conversation-A'})
         with self.semantic_model(ReviewIntent(query_type='evidence', sentiment='negative', aspect='logistics').model_dump()):
             oral = run_review_agent(self.db, '给咱瞅瞅物流那块的原话呗', scope=self.scope(), settings=SETTINGS, conversation_context=context)
-        self.assertEqual(oral['status'], 'ok', oral.get('error'))
+        self.assertEqual(oral['status'], 'unsupported', oral.get('error'))
+        self.assertEqual(oral['task_acceptance']['status'], 'insufficient_evidence')
         self.assertEqual(oral['results']['r1']['parameters']['window'], 'baseline')
         self.assertEqual(oral['results']['r1']['parameters']['page_size'], 5)
 

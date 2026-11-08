@@ -188,6 +188,10 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                           analysis_intent=plan.analysis_type, analysis_question=(plan.answer_question or question)
                           if question.startswith('执行本轮已确认的只读查询') else question)
             result['query_contract']=plan.task_contract.model_dump(mode='json')
+            from data_analysis_agent.agents.review_acceptance import build_task_goal
+            goal = build_task_goal(question, scope, plan, result['intent_resolution'].get('scope_resolution'))
+            if goal is not None:
+                result['task_goal'] = goal
             if plan.analysis_type == 'aspect_drilldown':
                 result['user_intent'].update(query_type='aspect_drilldown', sub_intent='drill_down')
             timings['planning_duration_ms'] = (perf_counter() - planning_started) * 1000
@@ -234,7 +238,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                 raise ReviewDataError("无法读取当前评论范围，请检查标注表和数据集。")
             status, ids = None, []
             simple_dimensions = len(plan.requirements) == 1 and plan.required_tools[0] in {'get_top_issues', 'get_positive_aspects'}
-            direct_query = semantic_direct or simple_dimensions or question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'opinion_breakdown', 'aspect_drilldown', 'pros_cons'}
+            direct_query = semantic_direct or simple_dimensions or question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'evidence', 'opinion_breakdown', 'aspect_drilldown', 'pros_cons'}
             if direct_query:
                 # 已确认追问或确定的文本归组计划直接执行；仍走同一注册表、预算与发布校验。
                 for request in plan.requirements:
@@ -344,6 +348,16 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             result['status'] = result['public_analysis']['status'] = 'partial'
             result['public_answer'] = unavailable_answer('partial')
             result['answer_generation'] = {'strategy': 'blocked', 'attempts': 0, 'generation_status': 'unavailable', 'error_code': 'analysis_not_complete'}
+        if result['status'] == 'ok' and result.get('task_goal') is not None:
+            from data_analysis_agent.agents.review_acceptance import validate_task_completion
+            acceptance = validate_task_completion(result['task_goal'], result['scope'], plan, selected)
+            result['task_acceptance'] = acceptance
+            if acceptance['status'] == 'failed':
+                raise ReviewDataError(acceptance['message'])
+            if acceptance['status'] == 'insufficient_evidence':
+                result.update(status='unsupported', answer=acceptance['message'], result_ids=[],
+                    public_analysis=empty_public('unsupported').model_dump(),
+                    public_answer=unavailable_answer('unsupported', acceptance['message']))
         if result["status"] == "ok":
             report({"stage": "answer_generating", "completed": 0, "total": 1, "unit": "answers"})
             answer_started = perf_counter()
@@ -395,5 +409,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                                         + result['intent_resolution'].get('model_calls', 0) + (context.topic_model_calls if context else 0),
                       elapsed_seconds=round(timings["total_duration_ms"] / 1000, 3))
     result.setdefault("public_analysis", empty_public(result["status"]).model_dump())
+    if result.get('task_goal') is not None and 'task_acceptance' not in result:
+        result['task_acceptance'] = {'status': 'failed', 'complete': False, 'checks': [],
+            'message': '任务未形成完整且通过校验的结果，业务目标尚未完成。'}
     result.setdefault("public_answer", unavailable_answer("unsupported" if result["status"] == "unsupported" else "failed", reason=result.get("answer")))
     return json.loads(safe_json(result, settings.api_key))

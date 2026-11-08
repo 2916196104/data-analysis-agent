@@ -145,6 +145,14 @@ it('报告正文优先公开回答，完整旧数据继续保存在审计附录'
   expect(report).toContain('[overview]');
 });
 
+it('数值校验通过时仍独立显示业务任务证据不足', () => {
+  render(<AgentResults result={{ ...result, task_acceptance: { status: 'insufficient_evidence', complete: false,
+    message: '当前没有足够的子主题证据。', checks: [{ name: '子主题及去重证据', passed: false, detail: '没有可支持主题。' }] } }} onDetail={vi.fn()} />);
+  expect(screen.getByText('本轮任务验收：未完成')).toBeTruthy();
+  expect(screen.getByText('结果校验通过')).toBeTruthy();
+  expect(screen.getByText('当前没有足够的子主题证据。')).toBeTruthy();
+});
+
 it('历史任务客户端从公开接口转换，既不重查统计也不重新提交模型任务', async () => {
   const oldResult = { ...result, public_answer: undefined };
   const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok', result: { ...task, result: oldResult } })))

@@ -109,11 +109,13 @@ def match_product_mentions(mentions, products, *, selected_ids=(), strict=False)
         if len(candidates) > 1 and not strict and within_selection:
             candidates = within_selection
         if len(candidates) > 1:
-            ambiguous.append(f'“{mention}”可匹配 ' + '、'.join(row['product_id'] for row in candidates[:5]))
+            ambiguous.append(f'“{mention}”可匹配 ' + '、'.join(row['product_id'] for row in candidates[:5])
+                             + f'（共 {len(candidates)} 款）')
         else:
             selected.append(candidates[0]['product_id'])
     if ambiguous:
-        raise QuestionScopeError('需要选择具体商品：' + '；'.join(ambiguous) + '。请分别指定商品 ID。')
+        raise QuestionScopeError('需要选择具体商品：' + '；'.join(ambiguous) + '。请分别指定商品 ID。'
+            '单商品子主题分析需要明确 SKU；如需整体统计，请先选择要合并的商品，再查询所选商品的整体统计。')
     return list(dict.fromkeys(selected))
 
 
@@ -217,10 +219,16 @@ def opinion_request(question):
         r'具体|体现|表现|好在(?:哪里|哪)|称赞|夸|总结|概括|归纳', text)) and not re.search(
         r'原文|证据|\d+\s*条|[条则].*好评|多少|占比|比例|数量|几条', text)
     # 一级维度内询问内容，与只问数量/占比不同；所有合法维度共用这一判据。
-    content_detail = positive_summary or bool(aspect and re.search(
+    metric_manifestation = re.search(r'(?:数量|占比|比例|评论数|观点数)(?:的|上|方面|具体|主要|整体|总体|近期)*(?:体现|表现)', text)
+    examples = bool(re.search(r'原文|证据|举例|例子|\d+\s*条', text))
+    theme_summary = bool(not positive_summary and not examples and not metric_manifestation and re.search(
+        r'体现|表现|归纳|总结|子主题|主题归类', text))
+    content_detail = positive_summary or theme_summary or bool(re.search(r'(?:说|讲|提到).*(?:什么|哪些)|具体内容|观点内容', text)) or bool(aspect and re.search(
         r'有什么问题|(?:投诉|抱怨|吐槽|不满意).*什么|具体差在哪|具体表现.*(?:方面|地方)|'
         r'反映.*(?:什么|哪些).*问题|负面评价.*有哪些|好评.*具体体现|称赞.*(?:哪些|什么).*体验', text))
     return {"text": text, "topic": topic, "aspect": aspect,
             "positive_summary": positive_summary,
+            "theme_summary": theme_summary,
+            "examples": examples,
             "content_detail": content_detail,
-            "breakdown": bool(topic or experience or (aspect and detail) or content_detail)}
+            "breakdown": not examples and bool(topic or experience or (aspect and detail) or content_detail)}

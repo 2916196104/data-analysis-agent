@@ -69,6 +69,9 @@ export function buildAgentReport(result: AgentResult, taskId?: string): string {
       + '正文统计遵循本轮确认的维度条件；附录保留完整原始工具快照。'
       + '文件指纹来自数据质量或原文证据查询；未查询原文时不补造引文。',
   ];
+  if (result.task_acceptance) sections.push('## 任务级验收\n\n' + clean(result.task_acceptance.message),
+    table(['检查', '结果', '说明'], result.task_acceptance.checks.map(check =>
+      [check.name, check.passed ? '通过' : '未通过', check.detail])));
   for (const id of result.result_ids || []) {
     const item = result.results[id];
     if (!item) continue;

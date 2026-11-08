@@ -238,6 +238,7 @@ class TaskWorker:
                     progress=report_progress,
                 )
             elif task["kind"] == "analysis":
+                selection_scope = parameters.pop('selection_scope', None)
                 question = parameters.pop("question", None)
                 if question is not None:
                     from data_analysis_agent.agents.reviews import run_review_agent
@@ -247,6 +248,8 @@ class TaskWorker:
                         raise ConfigurationError("Agent 模型配置与入队时不同，请重新提交问答任务。")
                     parameters.pop("rules")
                     query_context = {key: parameters.pop(key) for key in ('conversation_id', 'context_task_id') if key in parameters}
+                    if selection_scope is not None:
+                        query_context['selection_scope'] = selection_scope
                     from data_analysis_agent.jobs.analysis_context import load_analysis_context
                     conversation_context = load_analysis_context(self.task_db, {**parameters, **query_context})
                     result = run_review_agent(self.business_db, question, scope=parameters,

@@ -43,7 +43,7 @@ def prepare_parameters(kind, parameters, *, import_root, env_file):
     elif kind == "label":
         _, values["model_identity"] = configured_identity(env_file)
     elif kind == "analysis":
-        for key in ('conversation_id', 'context_task_id'):
+        for key in ('conversation_id', 'context_task_id', 'selection_scope'):
             if values.get(key) is None:
                 values.pop(key, None)
         if values["question"] is None:
@@ -51,6 +51,7 @@ def prepare_parameters(kind, parameters, *, import_root, env_file):
             values.pop("question")
             values.pop('conversation_id', None)
             values.pop('context_task_id', None)
+            values.pop('selection_scope', None)
         else:
             _, values["model_identity"] = configured_agent_identity(env_file)
     return values

@@ -243,9 +243,9 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
     def test_human_effective_opinions_and_empty_evidence_are_preserved(self):
         self.save(opinions=[], expected_revision_id=None)
         result, _ = self.run_script([tools(("get_evidence", {"aspect": "packaging"})), final("ok", "r1")], question="包装原文")
-        self.assertEqual(result["status"], "ok", result)
+        self.assertEqual(result["status"], "unsupported", result.get('error'))
         self.assertEqual(result["results"]["r1"]["data"]["total"], 0)
-        self.assertIn("找到 0 条匹配证据", result["answer"])
+        self.assertEqual(result['task_acceptance']['status'], 'insufficient_evidence')
         self.assertTrue(result["warnings"])
 
     def test_invalid_final_missing_results_and_exhausted_budget_do_not_claim_success(self):

@@ -21,7 +21,7 @@ const tools: Record<QueryIntent['kind'], string> = { semantic_evidence: 'search_
   comparison: 'compare_products', issues: 'get_top_issues', quality: 'get_data_quality', ratings: 'get_rating_distribution', window_comparison: 'compare_time_windows', positive_aspects: 'get_positive_aspects', opinion_breakdown: 'get_opinion_breakdown', aspect_drilldown: 'get_aspect_drilldown' };
 const scopeKeys = ['source', 'dataset_version', 'model', 'base_url', 'prompt_version', 'date_from', 'date_to', 'baseline_from', 'baseline_to', 'as_of'] as const;
 
-function copyScope(scope: AnalysisParameters): AnalysisParameters {
+export function copyScope(scope: AnalysisParameters): AnalysisParameters {
   // 历史任务还含服务端 model_identity 等字段，不能把它们重新作为客户端参数提交。
   return structuredClone(Object.fromEntries([...scopeKeys.filter(key => key in scope).map(key => [key, scope[key]]),
     ['product_ids', scope.product_ids]])) as unknown as AnalysisParameters;
@@ -42,7 +42,7 @@ function operation(text: string) {
   if (/^(?:换成|改成|改为)?按(月|日|天)(?:看|查看|统计)?$/.test(value)) return { type: 'period' as const, value: value.includes('月') ? 'month' : 'day' };
   if (/^(?:继续(?:查|查看)?(?:原文|证据|下一页)|(?:查|查看)(?:原文|证据)|(?:原文|证据)?下一页)$/.test(value)) return { type: 'evidence' as const, value: '' };
   // 完整分析请求交给后端语义与能力校验，代词不等于缺少分析意图。
-  if (/主要|集中|哪些方面|哪些地方|怎么样|如何|有什么问题|提及最多|吐槽|有什么不同|有什么变化|具体|细说|展开|啥|咋|夸/.test(value)) return { type: 'analysis' as const, value: '' };
+  if (/主要|集中|哪些方面|哪些地方|怎么样|如何|有什么问题|提及最多|吐槽|有什么不同|有什么变化|具体|体现|表现|细说|展开|啥|咋|夸/.test(value)) return { type: 'analysis' as const, value: '' };
   if (/^(继续|换成|改成|改为|只看|仅看|再看|再查)|这个|那个|这些|那些|它|上面|上述|同样|那.*呢[？?]?$/.test(value)) return { type: 'ambiguous' as const, value: '' };
   return undefined;
 }
@@ -60,6 +60,10 @@ export function sameScope(a: AnalysisParameters, b: AnalysisParameters) {
   return scopeKeys.every(key => (a[key] ?? null) === (b[key] ?? null))
     && JSON.stringify([...a.product_ids].sort()) === JSON.stringify([...b.product_ids].sort());
 }
+
+export const sameScopeIdentity = (a: AnalysisParameters, b: AnalysisParameters) =>
+  ['source', 'dataset_version', 'model', 'base_url', 'prompt_version'].every(key =>
+    a[key as keyof AnalysisParameters] === b[key as keyof AnalysisParameters]);
 
 function dateOnly(value: string) { return new Date(`${value}T00:00:00Z`); }
 function isoDate(value: Date) { return value.toISOString().slice(0, 10); }
@@ -181,7 +185,8 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
   candidates = candidates.filter((item, index) => candidates.findIndex(other => JSON.stringify(other) === JSON.stringify(item)) === index);
   if (!candidates.length) return clarify('上轮没有可转换的趋势或星级统计。请补充要按日/月查看的指标，例如“按月查看物流问题趋势”。');
   const scopes = [{ label: '', parameters: sameScope(parameters, parent.selection || inheritedParameters)
-    ? { ...inheritedParameters, product_ids: parameters.product_ids } : parameters }];
+    ? { ...inheritedParameters, product_ids: parameters.product_ids.length && inheritedParameters.product_ids.some(id => !parameters.product_ids.includes(id))
+      ? parameters.product_ids : inheritedParameters.product_ids } : parameters }];
   const choices: QueryChoice[] = scopes.flatMap(scope => candidates.map(intent => {
     const selected = structuredClone(intent);
     // 切换范围时使用新的商品范围，并重新开始证据分页。

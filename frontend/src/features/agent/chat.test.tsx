@@ -34,7 +34,7 @@ describe('AI 聊天提交与恢复', () => {
     mutable.dataset_version = 'other'; mutable.product_ids.push('B'); mutable.date_from = '2024-01-01';
     mutable.baseline_to = '2023-12-31'; mutable.model = 'new-model';
     expect(hook.result.current.session.turns[0].parameters).toEqual(frozen);
-    expect(submit.mock.calls[0][0]).toEqual({ kind: 'analysis', parameters: { ...frozen, question: '固定范围', conversation_id: expect.any(String) } });
+    expect(submit.mock.calls[0][0]).toEqual({ kind: 'analysis', parameters: { ...frozen, selection_scope: frozen, question: '固定范围', conversation_id: expect.any(String) } });
     hook.unmount();
     const restored = renderHook(() => useAgentChat());
     expect(restored.result.current.session.turns[0].parameters).toEqual(frozen);
@@ -71,7 +71,7 @@ describe('AI 聊天提交与恢复', () => {
     const hook = renderHook(() => useAgentChat());
     await act(async () => { await hook.result.current.send(parameters, '第一个问题'); });
     await act(async () => { await hook.result.current.send(parameters, '第二个问题'); });
-    expect(submit.mock.calls[1][0]).toEqual({ kind: 'analysis', parameters: { ...parameters, question: '第二个问题', conversation_id: expect.any(String), context_task_id: 'one' } });
+    expect(submit.mock.calls[1][0]).toEqual({ kind: 'analysis', parameters: { ...parameters, selection_scope: parameters, question: '第二个问题', conversation_id: expect.any(String), context_task_id: 'one' } });
     expect(hook.result.current.session.turns.map(turn => turn.question)).toEqual(['第一个问题', '第二个问题']);
     expect(JSON.parse(localStorage.getItem(CHAT_KEY)!).sessions[0].turns[0]).not.toHaveProperty('result');
     hook.unmount();
@@ -291,7 +291,7 @@ describe('基础问答与分析消息隔离', () => {
     expect(JSON.parse(stored).sessions[0].turns.map((turn: { kind: string }) => turn.kind)).toEqual(['analysis', 'basic', 'analysis']);
     expect(stored).toContain('仅在内存');
     expect(stored).toContain(basicId);
-    expect(submit.mock.calls[1][0]).toEqual({ kind: 'analysis', parameters: { ...parameters, question: '第二个分析', conversation_id: expect.any(String), context_task_id: 'one' } });
+    expect(submit.mock.calls[1][0]).toEqual({ kind: 'analysis', parameters: { ...parameters, selection_scope: parameters, question: '第二个分析', conversation_id: expect.any(String), context_task_id: 'one' } });
     hook.unmount();
     const restored = renderHook(() => useAgentChat());
     expect(restored.result.current.conversation.turns.map(turn => turn.kind)).toEqual(['analysis', 'basic', 'analysis']);

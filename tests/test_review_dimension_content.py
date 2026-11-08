@@ -16,6 +16,7 @@ from data_analysis_agent.agents.review_compression import CompactAnalysisContext
 from data_analysis_agent.agents.review_evidence import assess_evidence
 from data_analysis_agent.agents.review_answers import NaturalLanguageAnswerGenerator
 from data_analysis_agent.jobs.analysis_context import load_analysis_context
+from data_analysis_agent.jobs.store import claim_task, finish_task
 from data_analysis_agent.reviews.store import import_amazon_jsonl
 from data_analysis_agent.reviews.label_store import pending_reviews, save_annotation
 from data_analysis_agent.reviews.labeling import validate_opinions
@@ -32,7 +33,12 @@ CASES = [('客服方面有什么问题？', 'service', 'negative'),
          ('客服好评具体体现在哪些方面？', 'service', 'positive'),
          ('用户主要称赞使用效果的哪些体验？', 'effectiveness', 'positive'),
          ('客服主要被投诉什么', 'service', 'negative'),
-         ('客服主要在抱怨什么', 'service', 'negative')]
+         ('客服主要在抱怨什么', 'service', 'negative'),
+         ('物流差评主要体现在哪里？', 'logistics', 'negative'),
+         ('给出负面的物流观点的体现在哪里', 'logistics', 'negative'),
+         ('物流负面评价主要表现在哪些方面？', 'logistics', 'negative'),
+         ('包装差评体现在哪些地方？', 'packaging', 'negative'),
+         ('商品质量差评主要表现在哪些方面？', 'quality', 'negative')]
 
 
 class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
@@ -82,7 +88,10 @@ class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
             with self.subTest(question=question):
                 result = self.run_local(question)
                 self.assertEqual(result['status'], 'ok', result.get('error'))
-                expected = 'aspect_drilldown' if sentiment == 'positive' and '制冷' not in question else 'opinion_breakdown'
+                themes = {'物流差评主要体现在哪里？', '给出负面的物流观点的体现在哪里',
+                          '物流负面评价主要表现在哪些方面？', '包装差评体现在哪些地方？',
+                          '商品质量差评主要表现在哪些方面？'}
+                expected = 'aspect_drilldown' if question in themes or (sentiment == 'positive' and '制冷' not in question) else 'opinion_breakdown'
                 self.assertEqual(result['query_plan']['required_tools'], ['get_' + expected])
                 self.assertEqual(result['user_intent']['query_type'], expected)
                 data = result['results']['r1']['data']
@@ -114,6 +123,51 @@ class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(positive['result']['results']['r1']['data']['sentiment'], 'positive')
         self.assertIn('客服解答清楚', positive['result']['public_answer']['summary'])
         self.assertNotIn('客服回复慢', json.dumps(positive['result']['public_answer'], ensure_ascii=False))
+
+    def test_content_followup_keeps_resolved_product_and_explicit_all_is_respected(self):
+        self.queue()
+        selection = self.scope(product_ids=['DIM-A', 'DIM-B'])
+        question = 'DIM-A物流差评有多少条？'
+        first = self.run_local(question, scope=selection)
+        self.assertEqual(first['scope']['product_ids'], ['DIM-A'])
+        parent = self.enqueue(question, product_ids=selection['product_ids'])
+        claim_task(self.tasks, self.worker.worker_id)
+        finish_task(self.tasks, parent, self.worker.worker_id, status='succeeded', result=first)
+        context = load_analysis_context(self.tasks, {**selection, 'context_task_id': parent,
+                                                    'conversation_id': 'conversation-A'})
+        self.assertEqual(context['validated']['scope']['product_ids'], ['DIM-A'])
+        before = hashlib.sha256(self.db.read_bytes()).hexdigest()
+        for question in ('给出负面的物流观点的体现在哪里', '具体体现在哪里？', '主要表现在哪些方面？'):
+            with self.subTest(question=question):
+                result = self.run_local(question, scope=selection, context=context)
+                self.assertEqual(result['status'], 'ok', result.get('error'))
+                self.assertEqual(result['scope']['product_ids'], ['DIM-A'])
+                query = result['results']['r1']
+                self.assertEqual((query['kind'], query['data']['aspect'], query['data']['sentiment']),
+                                 ('aspect_drilldown', 'logistics', 'negative'))
+                self.assertTrue(all(row['product_id'] == 'DIM-A' for row in query['data']['items']))
+                self.assertIn('送货迟到', result['public_answer']['summary'])
+                self.assertNotIn('送货准时', result['public_answer']['summary'])
+                self.assertEqual(result['topic_model_calls'], 2)
+                self.assertTrue(result['task_acceptance']['complete'])
+        overall = self.run_local('所有商品的物流差评都在说什么？', scope=selection, context=context)
+        self.assertEqual(overall['status'], 'ok', overall.get('error'))
+        self.assertEqual(set(overall['scope']['product_ids']), {'DIM-A', 'DIM-B'})
+        self.assertEqual(overall['results']['r1']['data']['total'], 4)
+        self.assertEqual(hashlib.sha256(self.db.read_bytes()).hexdigest(), before)
+
+    def test_content_goal_cannot_finish_with_only_counts(self):
+        question = '执行本轮已确认的只读查询\n' + json.dumps({'tool': 'get_top_issues',
+            'parameters': {'aspect': 'logistics'}, 'question': '物流差评主要体现在哪里？'})
+        result = self.run_local(question)
+        self.assertEqual(result['status'], 'error')
+        self.assertEqual(result['evidence_completion']['status'], 'completed')
+        self.assertFalse(result['task_acceptance']['complete'])
+        self.assertNotEqual(result['public_answer']['status'], 'ok')
+        with patch.object(analytics, 'get_opinion_breakdown', side_effect=TimeoutError('offline failure')):
+            failed = self.run_local(question)
+        self.assertEqual(failed['status'], 'error')
+        self.assertNotEqual(failed['public_answer']['status'], 'ok')
 
     def test_d_changed_product_or_conversation_cannot_inherit_parent(self):
         self.queue()
@@ -157,8 +211,9 @@ class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
         self.assertNotEqual(limited['public_answer']['status'], 'ok')
 
     def test_counts_stay_summary_and_existing_topics_still_work(self):
-        for question in ('客服差评有多少条？', '客服负面占比是多少？'):
+        for question in ('客服差评有多少条？', '客服负面占比是多少？', '物流差评占比表现如何？'):
             self.assertEqual(build_query_plan(question, self.scope()).required_tools, ['get_top_issues'])
+        self.assertEqual(build_query_plan('物流好评数量表现如何？', self.scope()).required_tools, ['get_positive_aspects'])
         # 明确的二级主题能力仍保留，不能因新内容规则退化成一级统计。
         self.assertEqual(build_query_plan('使用效果具体好在哪里？', self.scope()).required_tools, ['get_aspect_drilldown'])
 

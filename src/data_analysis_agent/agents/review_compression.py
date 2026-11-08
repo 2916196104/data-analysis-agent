@@ -268,8 +268,8 @@ def build_analysis_artifacts(result, plan, options=None):
         raise ValueError("只有已校验成功的完整结果可以压缩。")
     selected = [result["results"][key] for key in result["result_ids"] if key != "overview"]
     relevant = [item for item in selected if any(
-        item["kind"] == TOOL_KINDS[request["tool"]] and all(item["parameters"].get(key) == value
-        for key, value in request["parameters"].items()) for request in plan.requirements
+        item["kind"] == TOOL_KINDS[request["tool"]] and plan.parameters_match(request['tool'],
+            item['parameters'], request['parameters'], default_products=item['data'].get('scope', {}).get('product_ids')) for request in plan.requirements
     ) or item["kind"] in {TOOL_KINDS[name] for name in plan.optional_tools}]
     if not plan.satisfied(relevant):
         raise ValueError("完整结果未满足查询计划。")

@@ -1,10 +1,10 @@
-import { act, cleanup, render, renderHook, screen, fireEvent } from '@testing-library/react';
+import { act, cleanup, render, renderHook, screen, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../api';
 import { useTask } from '../../useTask';
 import { emptyTaskState } from '../../task-state';
 import type { AgentResult, AgentToolResult, AnalysisParameters, Task } from '../../types';
-import { historyReference, resolveQuery, type QueryParent } from './followup';
+import { historyReference, isFollowup, resolveQuery, type QueryParent } from './followup';
 import { useAgentChat } from './useAgentChat';
 import { CHAT_KEY, readChatSession } from './chat-state';
 import ChatMessage from './ChatMessage';
@@ -33,6 +33,25 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('追问解析使用真实查询参数', () => {
+  it('API 补齐的空截止时间不影响短追问继承单商品范围', () => {
+    const current = { ...scope, product_ids: ['A', 'B'] };
+    const previous = { ...parent(trend('logistics')), selection: { ...current, as_of: null },
+      parameters: { ...scope, as_of: null } };
+    const next = resolveQuery('那物流方面呢', current, previous);
+    expect(next.clarification).toBeUndefined();
+    expect(next.parameters?.product_ids).toEqual(['A']);
+    expect(next.query.parentTaskId).toBe('task-1');
+  });
+  it.each(['给出负面的物流观点的体现在哪里', '具体体现在哪里？', '主要表现在哪些方面？'])(
+    '内容追问保留父任务，原始问题交给后端查询观点：%s', text => {
+      const previous = parent(trend('logistics'));
+      expect(isFollowup(text)).toBe(true);
+      const next = resolveQuery(text, scope, previous);
+      expect(next.query.parentTaskId).toBe('task-1');
+      expect(next.query.effectiveQuestion).toBe(text);
+      expect(next.query.queries).toBeUndefined();
+      expect(next.clarification).toBeUndefined();
+    });
   it('上轮明确比较扩大过商品范围，普通新问题仍使用页面所选商品', () => {
     const expanded = { ...parent(trend()), selection: scope, parameters: { ...scope, product_ids: ['A', 'B'] } };
     const next = resolveQuery('好评主要集中在哪些方面？', scope, expanded);
@@ -207,6 +226,26 @@ describe('追问解析使用真实查询参数', () => {
 });
 
 describe('追问提交、澄清和快照恢复', () => {
+  it.each([false, true])('任务链接恢复后保留页面选择和单商品任务引用（已有消息=%s）', async hasTurn => {
+    const selection = { ...scope, product_ids: ['A', 'B'] };
+    const owner = 'restore-conversation';
+    const saved = { ...task('restored', result(trend('logistics'))),
+      parameters: { ...selection, question: 'A物流差评有多少条？', conversation_id: owner } };
+    localStorage.setItem(CHAT_KEY, JSON.stringify({ version: 2, activeSessionId: owner, sessions: [{
+      id: owner, title: '恢复', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      turns: hasTurn ? [{ kind: 'analysis', id: 'old', taskId: 'restored', question: 'A物流差评有多少条？',
+        parameters: scope, selection, requestKey: 'old-key' }] : [], ...(hasTurn ? { activeId: 'old' } : {}),
+    }] }));
+    vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id === 'restored' ? saved : null, refresh: vi.fn() }));
+    const submit = vi.spyOn(api, 'submit').mockResolvedValue({ task: { ...saved, task_id: 'next' }, reused: false });
+    const hook = renderHook(() => useAgentChat('restored', 'selection', selection));
+    await waitFor(() => expect(hook.result.current.activeTurn?.parameters.product_ids).toEqual(['A']));
+    expect(hook.result.current.activeTurn?.selection?.product_ids).toEqual(['A', 'B']);
+    await act(async () => { await hook.result.current.send(selection, '给出负面的物流观点的体现在哪里'); });
+    expect(submit.mock.calls[0][0]).toMatchObject({ parameters: { context_task_id: 'restored',
+      selection_scope: { product_ids: ['A', 'B'] } } });
+  });
+
   it('含代词的口语下钻携带父任务，不被前端泛化澄清截断', async () => {
     const first = task('focused', result(trend('effectiveness')));
     vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id === 'focused' ? first : id ? task(id, result(trend())) : null, refresh: vi.fn() }));

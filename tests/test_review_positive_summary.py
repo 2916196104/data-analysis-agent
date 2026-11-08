@@ -158,9 +158,10 @@ class PositiveSummaryTests(WorkbenchFixture, unittest.TestCase):
 
     def test_empty_failure_and_explicit_examples(self):
         empty = self.run_summary('物流的好评体现在哪里？', scope=self.scope(date_from='2023-02-20'))
-        self.assertEqual(empty['status'], 'ok')
+        self.assertEqual(empty['status'], 'unsupported')
         self.assertEqual(empty['topic_model_calls'], 0)
-        self.assertEqual(empty['public_answer']['highlights'][0]['text'], '当前没有获得真实观点及归属复核共同支持的二级主题；不据此编造主题排名。')
+        self.assertEqual(empty['task_acceptance']['status'], 'insufficient_evidence')
+        self.assertFalse(empty['public_answer']['highlights'])
         failed = self.run_summary('总结100013588053的好评', response=lambda *args: (_ for _ in ()).throw(TimeoutError('fixture')))
         self.assertEqual(failed['status'], 'error')
         self.assertNotEqual(failed['public_answer']['status'], 'ok')
