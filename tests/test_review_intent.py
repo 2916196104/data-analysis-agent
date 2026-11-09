@@ -119,6 +119,28 @@ class ReviewIntentTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
         self.assertEqual(selected['task_acceptance']['status'], 'insufficient_evidence')
         self.assertEqual(selected['scope']['product_ids'], ['XIAOMI-TEST'])
 
+    def test_overall_negative_ranking_keeps_exact_sku_when_dimension_is_missing(self):
+        self.queue()
+        selection = self.scope(product_ids=['100013588053', 'XIAOMI-TEST', 'OTHER'])
+        question = '100013588053的差评主要集中在那方面？'
+        with patch('openai.OpenAI', side_effect=AssertionError('offline only')):
+            first = run_review_agent(self.db, question, scope=selection, settings=SETTINGS)
+            self.assertEqual(first['status'], 'ok', first.get('error'))
+            parent = self.enqueue(question, product_ids=selection['product_ids'], selection_scope=selection)
+            claim_task(self.tasks, self.worker.worker_id)
+            finish_task(self.tasks, parent, self.worker.worker_id, status='succeeded', result=first)
+            context = load_analysis_context(self.tasks, {**selection, 'selection_scope': selection,
+                'context_task_id': parent, 'conversation_id': 'conversation-A'})
+            result = run_review_agent(self.db, '具体体现在哪里？', scope=selection,
+                settings=SETTINGS, conversation_context=context)
+        self.assertEqual(result['status'], 'unsupported')
+        self.assertEqual(result['scope']['product_ids'], ['100013588053'])
+        self.assertIn('100013588053', result['answer'])
+        self.assertIn('已保留差评条件', result['answer'])
+        self.assertIn('请选择', result['answer'])
+        self.assertEqual(result['query_executions'], 0)
+        self.assertEqual(result['total_model_calls'], 0)
+
     def test_d_failed_task_recovers_explicit_objects_but_never_its_statistics(self):
         self.queue()
         failed = {'agent': True, 'status': 'error', 'results': {'untrusted': {'data': {'review_count': 999999}}},

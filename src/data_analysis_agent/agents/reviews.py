@@ -178,6 +178,10 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             result['scope'] = scope
             timings['scope_resolution_duration_ms'] = (perf_counter() - scope_started) * 1000
             planning_started = perf_counter()
+            from dataclasses import asdict
+            from data_analysis_agent.agents.review_acceptance import build_request_goal, build_task_goal, validate_goal_plan
+            request_goal = build_request_goal(question, conversation_context)
+            result['request_goal'] = asdict(request_goal) if request_goal is not None else None
             scope, plan, semantic_direct = resolve_review_request(question, scope, products, settings=settings,
                 context=conversation_context, diagnostics=result['intent_resolution'], intent_state=result['user_intent'])
             timings['intent_resolution_duration_ms'] = (perf_counter() - planning_started) * 1000
@@ -188,10 +192,10 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                           analysis_intent=plan.analysis_type, analysis_question=(plan.answer_question or question)
                           if question.startswith('执行本轮已确认的只读查询') else question)
             result['query_contract']=plan.task_contract.model_dump(mode='json')
-            from data_analysis_agent.agents.review_acceptance import build_task_goal
-            goal = build_task_goal(question, scope, plan, result['intent_resolution'].get('scope_resolution'))
+            goal = build_task_goal(question, scope, plan, result['intent_resolution'].get('scope_resolution'), request_goal=request_goal)
             if goal is not None:
                 result['task_goal'] = goal
+                result['task_plan_check'] = validate_goal_plan(goal, plan)
             if plan.analysis_type == 'aspect_drilldown':
                 result['user_intent'].update(query_type='aspect_drilldown', sub_intent='drill_down')
             timings['planning_duration_ms'] = (perf_counter() - planning_started) * 1000
@@ -348,11 +352,11 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             result['status'] = result['public_analysis']['status'] = 'partial'
             result['public_answer'] = unavailable_answer('partial')
             result['answer_generation'] = {'strategy': 'blocked', 'attempts': 0, 'generation_status': 'unavailable', 'error_code': 'analysis_not_complete'}
-        if result['status'] == 'ok' and result.get('task_goal') is not None:
+        if result['status'] in ('ok', 'partial') and result.get('task_goal') is not None:
             from data_analysis_agent.agents.review_acceptance import validate_task_completion
             acceptance = validate_task_completion(result['task_goal'], result['scope'], plan, selected)
             result['task_acceptance'] = acceptance
-            if acceptance['status'] == 'failed':
+            if acceptance['status'] == 'failed' and result['status'] != 'partial':
                 raise ReviewDataError(acceptance['message'])
             if acceptance['status'] == 'insufficient_evidence':
                 result.update(status='unsupported', answer=acceptance['message'], result_ids=[],
@@ -390,6 +394,12 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
         result.pop("public_answer", None)
         result['public_analysis']=empty_public('failed').model_dump()
     finally:
+        # 解析后要求澄清也应展示已绑定范围，不能退回提交时的全部商品。
+        resolved = result['intent_resolution'].get('scope_resolution', {}).get('effective_scope')
+        if context is None and resolved:
+            result['scope'] = resolved
+            result['user_intent'].update(resolved_product_ids=list(resolved['product_ids']),
+                effective_time_range={key: resolved[key] for key in ('date_from', 'date_to')})
         result.setdefault('evidence_completion',{'status':'not_started','cycles':0,'automatic':False,'requests':[],'additional_tool_calls':0})
         timings["query_duration_ms"] = round(context.query_duration_ms if context else 0, 3)
         timings["planning_duration_ms"] = round(timings["planning_duration_ms"], 3)
@@ -409,8 +419,12 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                                         + result['intent_resolution'].get('model_calls', 0) + (context.topic_model_calls if context else 0),
                       elapsed_seconds=round(timings["total_duration_ms"] / 1000, 3))
     result.setdefault("public_analysis", empty_public(result["status"]).model_dump())
+    from data_analysis_agent.jobs.analysis_state import analysis_state_for_scope
+    result['analysis_state'] = analysis_state_for_scope(conversation_context, result.get('scope', {}))
     if result.get('task_goal') is not None and 'task_acceptance' not in result:
         result['task_acceptance'] = {'status': 'failed', 'complete': False, 'checks': [],
+            'plan_check': result.get('task_plan_check', {'passed': False, 'checks': []}),
+            'evidence_status': 'execution_failed' if result['status'] == 'error' else 'not_completed',
             'message': '任务未形成完整且通过校验的结果，业务目标尚未完成。'}
     result.setdefault("public_answer", unavailable_answer("unsupported" if result["status"] == "unsupported" else "failed", reason=result.get("answer")))
     return json.loads(safe_json(result, settings.api_key))

@@ -279,15 +279,28 @@ def update_progress(path, task_id, worker_id, progress):
             raise TaskConflict("任务执行权已失效。")
 
 
+def analysis_result_integrity(task_id, status, parameters, result):
+    """服务端完成时的摘要；同时绑定任务、终态、会话/范围参数及原始结果。"""
+    version = 'analysis-task-integrity-v1'
+    return {'version': version, 'sha256': content_sha256([version, task_id, status, parameters, result])}
+
+
 def finish_task(path, task_id, worker_id, *, status, result=None, error=None):
     if status not in ("succeeded", "partial", "failed"):
         raise ValueError("Invalid terminal task status")
     now = utc_now()
     with closing(connect_task_database(path)) as connection, connection:
-        changed = connection.execute("UPDATE tasks SET status=?,result_json=?,error_json=?,finished_at=?,updated_at=? "
+        try:
+            row = _read(connection, task_id)
+        except TaskNotFound:
+            raise TaskConflict("任务执行权已失效，结果没有覆盖原记录。") from None
+        progress = json.loads(row['progress_json'])
+        if row['kind'] == 'analysis' and isinstance(result, dict):
+            progress['analysis_integrity'] = analysis_result_integrity(task_id, status, json.loads(row['parameters_json']), result)
+        changed = connection.execute("UPDATE tasks SET status=?,result_json=?,error_json=?,finished_at=?,updated_at=?,progress_json=? "
                                      "WHERE task_id=? AND status='running' AND worker_id=?",
                                      (status, canonical_json(result) if result is not None else None,
-                                      canonical_json(error) if error else None, now, now, task_id, worker_id)).rowcount
+                                      canonical_json(error) if error else None, now, now, canonical_json(progress), task_id, worker_id)).rowcount
         if not changed:
             raise TaskConflict("任务执行权已失效，结果没有覆盖原记录。")
 

@@ -221,8 +221,13 @@ def opinion_request(question):
     # 一级维度内询问内容，与只问数量/占比不同；所有合法维度共用这一判据。
     metric_manifestation = re.search(r'(?:数量|占比|比例|评论数|观点数)(?:的|上|方面|具体|主要|整体|总体|近期)*(?:体现|表现)', text)
     examples = bool(re.search(r'原文|证据|举例|例子|\d+\s*条', text))
-    theme_summary = bool(not positive_summary and not examples and not metric_manifestation and re.search(
-        r'体现|表现|归纳|总结|子主题|主题归类', text))
+    # 枚举具体抱怨是二级主题；“哪些维度”及原始观点文本分组仍沿用原能力。
+    theme_enumeration = not re.search(r'维度|原始观点|观点文本|逐条观点', text) and bool(re.search(
+        r'(?:抱怨|吐槽|投诉)(?:的|了|些|的是|的主要是|主要是|主要在|主要是在)*(?:哪些|什么|些什么)(?:事情|问题|内容)|'
+        r'(?:抱怨|吐槽|投诉)些什么|有哪些不满意的(?:地方|方面)', text) or (aspect and re.search(
+        r'(?:具体(?:涉及|有)?|主要有)哪些问题|主要问题集中在(?:哪些|什么)环节', text)))
+    theme_summary = bool(not positive_summary and not examples and not metric_manifestation and (
+        theme_enumeration or re.search(r'体现|表现|归纳|总结|子主题|主题归类', text)))
     content_detail = positive_summary or theme_summary or bool(re.search(r'(?:说|讲|提到).*(?:什么|哪些)|具体内容|观点内容', text)) or bool(aspect and re.search(
         r'有什么问题|(?:投诉|抱怨|吐槽|不满意).*什么|具体差在哪|具体表现.*(?:方面|地方)|'
         r'反映.*(?:什么|哪些).*问题|负面评价.*有哪些|好评.*具体体现|称赞.*(?:哪些|什么).*体验', text))

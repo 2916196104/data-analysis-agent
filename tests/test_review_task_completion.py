@@ -134,6 +134,48 @@ class ReviewTaskCompletionTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual((changed['scope']['product_ids'], changed['scope']['date_from'], changed['scope']['date_to']),
                          ([A], '2023-02-09', '2023-02-12'))
 
+    def test_ranking_content_clarification_keeps_product_and_negative_direction(self):
+        selection, context, _ = self.saved_context(A + '的差评主要集中在那方面？')
+        for question in ('具体体现在哪里？', '差评具体体现在哪里？'):
+            with self.subTest(question=question):
+                result = self.run_agent(question, scope=selection, context=context)
+                self.assertEqual(result['status'], 'unsupported', result.get('error'))
+                self.assertEqual(result['scope']['product_ids'], [A])
+                self.assertEqual(result['user_intent']['sentiment'], 'negative')
+                self.assertIn(A, result['answer'])
+                self.assertIn('请选择', result['answer'])
+                self.assertIn('客服', result['answer'])
+                self.assertTrue(result['user_intent']['needs_clarification'])
+                self.assertEqual(result['query_executions'], 0)
+                self.assertEqual(result['total_model_calls'], 0)
+
+    def test_dimension_reply_after_repeated_clarifications_continues_theme_goal(self):
+        selection, context, parameters = self.saved_context(A + '的差评主要集中在那方面？')
+        for question in ('具体体现在哪里？', '差评具体体现在哪里？'):
+            result = self.run_agent(question, scope=selection, context=context)
+            task_id = self.enqueue(question, product_ids=PRODUCTS, selection_scope=selection,
+                parent=parameters['context_task_id'])
+            claim_task(self.tasks, self.worker.worker_id)
+            finish_task(self.tasks, task_id, self.worker.worker_id, status='succeeded', result=result)
+            parameters['context_task_id'] = task_id
+            context = load_analysis_context(self.tasks, parameters)
+        result = self.run_agent('物流方面呢？', scope=selection, context=context)
+        self.assertEqual(result['status'], 'ok', result.get('error'))
+        self.assertEqual(result['scope']['product_ids'], [A])
+        self.assertEqual(result['results']['r1']['kind'], 'aspect_drilldown')
+        self.assertEqual(result['results']['r1']['parameters']['sentiment'], 'negative')
+        self.assertTrue(result['task_acceptance']['complete'])
+        # 明确改变目标时，不能被未完成的主题请求强制覆盖。
+        counts = self.run_agent('物流差评有多少条？', scope=selection, context=context)
+        self.assertEqual(counts['results']['r1']['kind'], 'issues')
+        examples = self.run_agent('给出2条物流差评原文', scope=selection, context=context)
+        self.assertEqual(examples['results']['r1']['kind'], 'evidence')
+        service = self.run_agent('客服方面呢？', scope=selection, context=context)
+        self.assertEqual(service['results']['r1']['kind'], 'aspect_drilldown')
+        self.assertEqual(service['results']['r1']['parameters']['aspect'], 'service')
+        # 此合成商品没有客服观点，正确读取后应明确证据不足。
+        self.assertEqual(service['task_acceptance']['status'], 'insufficient_evidence')
+
     def test_brand_multiple_skus_clarify_without_queries(self):
         result = self.run_agent('小米空调的物流差评主要体现在哪里？', scope=self.scope(product_ids=PRODUCTS))
         self.assertEqual(result['status'], 'unsupported')

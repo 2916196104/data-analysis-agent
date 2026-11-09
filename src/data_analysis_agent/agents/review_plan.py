@@ -171,6 +171,12 @@ def _build_query_plan(question, scope, *, product_groups=None):
             products = True
         aspects = list(dict.fromkeys(value for word, value in ASPECT_WORDS.items() if word in question))
         semantic = opinion_request(question)
+        # “每个问题涉及多少评论”由主题结果的去重计数回答，不是数据质量查询。
+        if semantic['theme_summary'] and not re.search(r'覆盖率|数据质量|失败标注|缺失正文|待标注', question):
+            quality = False
+        if semantic['theme_summary'] and (trend or windows or products or quality or rating):
+            plan.unsupported_reason = '本阶段不支持子主题归纳与趋势、对比或数据质量的混合分析，请分别查询。'
+            return plan
         if sum(word in question for word in ('制冷', '静音', '安装')) > 1:
             plan.unsupported_reason = '当前没有独立细分标签，多个细分主题请分别查询观点原文，不能用上级维度数量代替。'
             return plan
@@ -197,6 +203,9 @@ def _build_query_plan(question, scope, *, product_groups=None):
         breakdown = semantic["breakdown"] and not (trend or windows or products or quality or rating)
         if semantic["aspect"] and not aspects:
             aspects = [semantic["aspect"]]
+        if semantic['topic'] == '静音' and aspects == ['effectiveness'] and '使用效果' not in question:
+            # “静音效果”中的效果是修饰语，静音观点属于 quality，不能查 effectiveness。
+            aspects = ['quality']
         if sentiment == "positive" and (trend or windows or products) and not rating:
             plan.unsupported_reason = "当前支持正向维度汇总和正向原文，尚不支持正向趋势或正向对比；请改问好评主要方面。"
         elif balanced or (sentiment is None and re.search(r"好评|差评|优点|缺点|满意|喜欢|值得购买", question)):
@@ -225,6 +234,12 @@ def _build_query_plan(question, scope, *, product_groups=None):
             else:
                 add("get_trend", period=period)
         if breakdown:
+            if semantic['theme_summary'] and len(aspects) > 1:
+                plan.unsupported_reason = '本阶段子主题归纳仅支持一个评价维度，请分别查询各维度的具体问题。'
+                return plan
+            if semantic['theme_summary'] and sentiment not in ('positive', 'negative'):
+                plan.unsupported_reason = '子主题归纳需要明确正向或负向情感，请说明要分析好评还是差评。'
+                return plan
             if semantic['theme_summary'] and (len(scope['product_ids']) != 1 or (not aspects and sentiment != 'positive')):
                 plan.unsupported_reason = '子主题归纳需要明确一款商品及一个评价维度；请指定 SKU 和维度。'
                 return plan

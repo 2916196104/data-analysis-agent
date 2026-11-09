@@ -128,9 +128,15 @@ class AssistantSemanticsTests(AssistantSemanticsFixture, unittest.TestCase):
 
     def test_empty_topic_and_empty_baseline_report_data_limits(self):
         result = run_review_agent(self.db, '它的静音效果怎么样？', scope=self.scope(), settings=SETTINGS)
-        self.assertEqual(result['status'], 'ok', result.get('error'))
+        # 正确查询但无匹配观点是证据不足，不能发布有内容的成功回答。
+        self.assertEqual(result['status'], 'unsupported', result.get('error'))
+        self.assertEqual(result['query_plan']['requirements'][0]['parameters']['aspect'], 'quality')
+        self.assertEqual(result['validation']['status'], 'passed')
+        self.assertTrue(result['task_acceptance']['plan_check']['passed'])
+        self.assertEqual(result['task_acceptance']['status'], 'insufficient_evidence')
+        self.assertFalse(result['task_acceptance']['complete'])
         self.assertEqual(result['results']['r1']['data']['total'], 0)
-        self.assertTrue(result['public_answer']['highlights'])
+        self.assertFalse(result['public_answer']['highlights'])
         result = self.run_sync(QUESTIONS[7])
         self.assertEqual(result['status'], 'ok')
         self.assertEqual(result['results']['r1']['data']['baseline']['review_count'], 1)

@@ -114,6 +114,17 @@ it('失败任务显示实际执行商品及历史主题超时原因，仍隐藏�
   expect(screen.queryByRole('button', { name: '导出分析报告' })).toBeNull();
 });
 
+it('未执行查询的澄清显示已解析单商品范围，不标为实际执行', () => {
+  const summary = '当前商品为 A，已保留差评条件。请选择要展开的维度。';
+  show({ ...task, parameters: { ...scope, product_ids: [] }, result: { ...result,
+    status: 'unsupported', query_executions: 0, public_answer: { ...answer, status: 'unsupported', summary, highlights: [] },
+  } as unknown as Task['result'] }, { ...turn, parameters: { ...scope, product_ids: [] } });
+  expect(screen.getByText('商品：A')).toBeTruthy();
+  expect(screen.getByText('本轮解析范围（未执行查询）')).toBeTruthy();
+  expect(screen.queryByText('本轮实际执行范围')).toBeNull();
+  expect(screen.getByText(summary)).toBeTruthy();
+});
+
 it('证据详情只提供下一页入口，不自动展开更多原文', () => {
   const next = vi.fn();
   const evidenceResult = { ...result, public_answer: answer, result_ids: ['e1'], results: {

@@ -2,15 +2,19 @@
 
 from data_analysis_agent.agents.review_validation import validate_report, expected_result_scopes
 from data_analysis_agent.jobs.store import TaskNotFound, get_task
+from data_analysis_agent.jobs.analysis_state import (
+    empty_analysis_state, has_saved_integrity, restore_ranking, restore_pending_goal, analysis_state_for_scope,
+)
 from data_analysis_agent.reviews.parameters import BaselineScope
 
 
 def load_analysis_context(task_db, parameters, *, max_turns=4):
     task_id = parameters.get('context_task_id')
     conversation_id = parameters.get('conversation_id')
+    selection = parameters.get('selection_scope')
     if not task_id or not isinstance(conversation_id, str) or not conversation_id.strip():
         return None
-    context = {'user': None, 'users': [], 'validated': None, 'turns_read': 0}
+    context = {'user': None, 'users': [], 'validated': None, 'turns_read': 0, 'analysis_state': empty_analysis_state()}
     visited = set()
     keys = ('source', 'dataset_version', 'model', 'base_url', 'prompt_version', 'date_from',
             'date_to', 'baseline_from', 'baseline_to', 'as_of')
@@ -23,18 +27,21 @@ def load_analysis_context(task_db, parameters, *, max_turns=4):
         visited.add(task_id)
         try:
             task = get_task(task_db, task_id)
-        except TaskNotFound:
+        except (TaskNotFound, ValueError, TypeError):
             break
         previous = task['parameters']
-        if task['kind'] != 'analysis' or not isinstance(previous.get('question'), str):
+        if (not isinstance(previous, dict) or not isinstance(task.get('progress'), dict)
+                or task['kind'] != 'analysis' or not isinstance(previous.get('question'), str)):
             break
         # 无会话归属的旧任务只能查看，不能作为任意新会话的上下文入口。
         if previous.get('conversation_id') != conversation_id:
             break
+        if task.get('progress', {}).get('analysis_integrity') is not None and not has_saved_integrity(task):
+            break
         result = task.get('result') or {}
         valid = (isinstance(result, dict) and task['status'] == 'succeeded' and not task.get('error')
-                 and result.get('status') == 'ok' and result.get('validation', {}).get('status') == 'passed')
-        selection = parameters.get('selection_scope')
+                 and result.get('status') == 'ok' and isinstance(result.get('validation'), dict)
+                 and result['validation'].get('status') == 'passed')
         if selection is not None:
             if any(parameters.get(key) != previous.get(key) for key in keys[:5]):
                 break
@@ -44,6 +51,8 @@ def load_analysis_context(task_db, parameters, *, max_turns=4):
         if context['user'] is None:
             context['user'] = {'task_id': task_id, 'question': previous['question'][:4000]}
         context['users'].append({'task_id': task_id, 'question': previous['question'][:4000]})
+        if context['analysis_state']['pending_goal'] is None:
+            context['analysis_state']['pending_goal'] = restore_pending_goal(task)
         if valid:
             try:
                 scope = BaselineScope.model_validate(result['scope']).model_dump()
@@ -67,8 +76,12 @@ def load_analysis_context(task_db, parameters, *, max_turns=4):
                         'queries': [{'kind': result['results'][key]['kind'], 'parameters': result['results'][key]['parameters']}
                                     for key in result['result_ids'] if key != 'overview'],
                         'result_refs': list(result['result_ids'])}
+                    context['analysis_state']['ranking_basis'] = restore_ranking(task)
                     break
             except (ValueError, KeyError, TypeError, ArithmeticError, AttributeError, IndexError):
                 pass
         task_id = previous.get('context_task_id')
+    effective = ((context.get('selection_scope') or selection) if context.get('selection_changes')
+                 else (context.get('validated') or {}).get('scope')) or selection or parameters
+    context['analysis_state'] = analysis_state_for_scope(context, effective)
     return context if context['user'] else None

@@ -75,7 +75,8 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
         </div>
         <details className="chat-turn-scope" aria-label="本次问题的固定范围"><summary>查看完整查询范围</summary>
           <dl className="assistant-scope-values">
-            <div><dt>范围依据</dt><dd>{savedResult?.scope ? '本轮实际执行范围' : '提交范围，执行后以实际范围为准'}</dd></div>
+            <div><dt>范围依据</dt><dd>{savedResult?.scope ? savedResult.query_executions === 0
+              ? '本轮解析范围（未执行查询）' : '本轮实际执行范围' : '提交范围，执行后以实际范围为准'}</dd></div>
             <div><dt>数据集</dt><dd>{scope.source} / {scope.dataset_version}</dd></div>
             <div><dt>标注版本</dt><dd>{scope.model} · {scope.prompt_version}</dd></div>
             <div><dt>商品</dt><dd>{scope.product_ids.length ? scope.product_ids.join('、') : '全部商品'}</dd></div>

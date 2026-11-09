@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from data_analysis_agent.agents.review_plan import TOOL_KINDS, build_query_plan
+from data_analysis_agent.agents.review_plan import ASPECT_WORDS, TOOL_KINDS, build_query_plan
 from data_analysis_agent.agents.review_prompts import detect_sentiment_intent
 from data_analysis_agent.agents.review_semantics import (
     QuestionScopeError, bind_product_ids, match_product_mentions, opinion_request, product_mentions, resolve_question_scope,
@@ -122,10 +122,14 @@ def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False
     if (kind == 'opinion_breakdown' and intent.sentiment in ('positive', 'negative') and not intent.topic and (
             (intent.aspect and not local_content) or (intent.sentiment == 'positive' and local_content))
             and len(scope['product_ids']) == 1) or intent.query_type == 'aspect_drilldown':
-        if intent.sentiment not in ('positive', 'negative') or (not intent.aspect and intent.sentiment != 'positive'):
+        if intent.sentiment not in ('positive', 'negative'):
             raise QuestionScopeError('二级主题分析需要一个明确维度及正向或负向情感。')
         if len(scope['product_ids']) != 1:
             raise QuestionScopeError('二级主题分析首版仅支持一款商品，请指定具体商品 ID。')
+        if not intent.aspect and intent.sentiment == 'negative':
+            raise QuestionScopeError(f"当前商品为 {scope['product_ids'][0]}，已保留差评条件。"
+                '尚未指定要展开的维度，请选择客服、使用效果、物流、商品质量、价格或包装；'
+                '例如回复“客服方面呢”或“物流差评具体体现在哪里”。')
         if (previous_parameters or {}).get('window') == 'baseline':
             raise QuestionScopeError('本轮要继续基线原文，还是对当前窗口做二级主题分析？')
         confirmed = '执行本轮已确认的只读查询\n' + json.dumps({'tool': 'get_aspect_drilldown', 'parameters': {
@@ -212,7 +216,10 @@ def _followup_intent(question, conditions):
     whole_summary = semantic['positive_summary'] and bool(re.search(r'整体|总体|全部|所有|(?:商品|产品)的?好评', question))
     if short_period and last['kind'] == 'ratings':
         last_params['group_by'] = 'month'
-    intent = ReviewIntent(query_type='aspect_summary' if count_ref else 'aspect_drilldown' if semantic['theme_summary'] else 'opinion_breakdown' if semantic['breakdown'] or detail_ref else KIND_TYPES.get(last['kind']),
+    # 唯一的待完成主题承接维度/情感短追问；明确计数或完整新请求仍按本轮语义编译。
+    pending_theme_ref = (short_aspect or short_sentiment) and conditions.get('pending_query_type') == 'aspect_drilldown'
+    theme_ref = semantic['theme_summary'] or pending_theme_ref
+    intent = ReviewIntent(query_type='aspect_summary' if count_ref else 'aspect_drilldown' if theme_ref else 'opinion_breakdown' if semantic['breakdown'] or detail_ref else KIND_TYPES.get(last['kind']),
         sentiment=detect_sentiment_intent(question) or conditions.get('sentiment') or last_params.get('sentiment'),
         aspect=None if whole_summary else semantic['aspect'] or last_params.get('aspect'),
         sub_intent='drill_down' if not count_ref and (semantic['breakdown'] or detail_ref or last['kind'] in ('opinion_breakdown', 'aspect_drilldown')) else 'overview',
@@ -224,18 +231,25 @@ def _followup_intent(question, conditions):
 def _user_conditions(context, scope, products):
     """按时间合并有限用户请求；失败轮次只改变意图槽位，不读取它的结果。"""
     conditions = (context or {}).get('validated') or {}
-    users = (context or {}).get('users') or [(context or {}).get('user') or {}]
+    from data_analysis_agent.jobs.analysis_state import pending_context
+    pending, users = pending_context(context)
+    if pending:
+        conditions = {**conditions, 'pending_query_type': 'aspect_drilldown', 'sentiment': pending['sentiment']}
     for user in reversed(users[:4]):
         if not user.get('question') or user.get('task_id') == conditions.get('task_id'):
             continue
         question = user['question']
         try:
             followup = _followup_intent(question, conditions) if not product_mentions(question, products) else None
+            if followup and followup[0].query_type == 'aspect_drilldown' and not followup[0].aspect and followup[0].sentiment == 'negative':
+                # 缺维度的用户请求仍保留内容目标，不把它当成已执行查询或统计。
+                conditions = {**conditions, 'pending_query_type': 'aspect_drilldown', 'sentiment': 'negative'}
+                continue
             plan = _intent_plan(followup[0], scope, previous_parameters=followup[1], local_content=opinion_request(question)['content_detail']) if followup else build_query_plan(question, scope)
         except QuestionScopeError:
             continue
         if not plan.unsupported_reason:
-            conditions = {**conditions, 'scope': scope, 'analysis_type': plan.analysis_type, 'sentiment': plan.sentiment,
+            conditions = {**conditions, 'pending_query_type': None, 'scope': scope, 'analysis_type': plan.analysis_type, 'sentiment': plan.sentiment,
                 'queries': [{'kind': TOOL_KINDS[row['tool']], 'parameters': row['parameters']} for row in plan.requirements]}
     return conditions
 
@@ -266,7 +280,7 @@ def _inherit_scope(question, scope, products, context, prior_mentions):
             resolved.update({key: source.get(key) for key in fields})
             origins[name] = 'selection' if source is reference else 'inherited'
     origins['product_ids'] = 'explicit' if mentions or explicit_all else origins.get('product_ids', 'selection')
-    return resolved, {'origins': origins, 'inherited_scope': previous.get('scope'),
+    return resolved, {'origins': origins, 'effective_scope': dict(resolved), 'inherited_scope': previous.get('scope'),
                       'selection_changes': sorted(changes), 'selection_scope': reference}
 
 
@@ -347,17 +361,23 @@ def _resolve_review_request(question, scope, products, *, settings, context=None
         intent_state.update(intent.model_dump())
         # 一级维度仍由既有比较后的证据补查读取原问题；细分主题不能降为整体比较。
         intent_state['aspect'] = semantic['aspect']
+        diagnostics['scope_resolution']['effective_scope'] = dict(scope)
         return scope, _intent_plan(intent, scope), True
 
     groups = []
     scope = resolve_question_scope(question, scope, products, product_groups=groups)
+    diagnostics['scope_resolution']['effective_scope'] = dict(scope)
     if len(mentions) > 1 and re.search(r'比较|对比', question) and not groups and not re.search(r'基线|窗口|时间段', question):
         intent.query_type = 'comparison'
         intent_state.update(intent.model_dump())
         return scope, _intent_plan(intent, scope), True
     conditions = _user_conditions(context, scope, products)
     queries = conditions.get('queries', [])
-    followup = _followup_intent(question, conditions) if not mentions else None
+    # 完整的多能力/多维度主题请求须由 Planner 拒绝，不能被历史单维度槽位吞掉。
+    mixed_themes = semantic['theme_summary'] and (
+        len({value for word, value in ASPECT_WORDS.items() if word in question}) > 1
+        or re.search(r'趋势|变化|按[日月天]|按月份|基线|比较|对比|覆盖率|数据质量|失败标注|缺失正文|待标注|星级|评分.*分布', question))
+    followup = _followup_intent(question, conditions) if not mentions and not mixed_themes else None
     if followup:
         intent, last_params = followup
         user_changed = ((context or {}).get('user') or {}).get('task_id') != previous.get('task_id')
@@ -369,10 +389,18 @@ def _resolve_review_request(question, scope, products, *, settings, context=None
             scope = bind_product_ids(within_selection or scope['product_ids'] or inherited, scope)
         if previous and scope['product_ids'] != previous['scope']['product_ids']:
             diagnostics['scope_resolution']['origins']['product_ids'] = 'target_selection'
+        diagnostics['scope_resolution']['effective_scope'] = dict(scope)
         intent_state.update(intent.model_dump())
         return scope, _intent_plan(intent, scope, previous_parameters=last_params, local_content=semantic['content_detail']), True
     plan = build_query_plan(question, scope, product_groups=groups)
     if not plan.unsupported_reason:
+        # 合法统计计划也可能与明确的内容目标冲突，不能凭工具参数合法就提前返回。
+        if semantic['content_detail'] and plan.required_tools and set(plan.required_tools) <= {'get_top_issues', 'get_positive_aspects'}:
+            intent.query_type = 'aspect_drilldown' if semantic['theme_summary'] or semantic['positive_summary'] else 'opinion_breakdown'
+            intent.sub_intent = 'drill_down'
+            intent.topic = semantic['topic']
+            intent_state.update(intent.model_dump())
+            return scope, _intent_plan(intent, scope, local_content=True), True
         intent_state.update(query_type=KIND_TYPES.get(plan.analysis_type, 'pros_cons' if plan.analysis_type == 'pros_cons' else None),
                             sentiment=plan.sentiment, sub_intent='drill_down' if plan.analysis_type == 'opinion_breakdown' else 'overview')
         return scope, plan, False

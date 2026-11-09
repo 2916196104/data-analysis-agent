@@ -9,7 +9,7 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 
 const root = path.resolve(import.meta.dirname, '../..');
-const out = path.join(root, 'output/playwright/review-context-repair-20261108');
+const out = path.resolve(root, process.env.REVIEW_CONTEXT_OUTPUT || 'output/playwright/review-context-repair-20261108');
 await mkdir(out, { recursive: true });
 const children = [], logs = [], errors = [], submitted = [];
 const report = { source: 'isolated SQLite + real API/Worker/Vite/Chromium + in-process synthetic classifier',
@@ -125,6 +125,37 @@ try {
   await (await download).saveAs(path.join(out, 'candidate-report.md'));
   const text = await readFile(path.join(out, 'candidate-report.md'), 'utf8');
   assert.ok(text.includes('模拟配送迟延') && text.includes('## 任务级验收'));
+  const ranked = await context(), rankedPage = ranked.page;
+  await rankedPage.goto(web + '/assistant');
+  await rankedPage.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
+  let previous = await ask(rankedPage, '100010219881的差评主要集中在那方面？');
+  assert.equal(previous.result.results.r1.kind, 'issues');
+  for (const question of ['具体体现在哪里？', '差评具体体现在哪里？']) {
+    const clarification = await ask(rankedPage, question);
+    assert.deepEqual(clarification.result.scope.product_ids, ['100010219881']);
+    assert.equal(clarification.result.query_executions, 0);
+    assert.equal(clarification.result.total_model_calls, 0);
+    assert.ok(clarification.result.answer.includes('请选择'));
+    assert.equal(submitted.at(-1).parameters.context_task_id, previous.task_id);
+    const current = rankedPage.locator('.chat-turn').last();
+    assert.ok((await current.getByLabel('本次问题的简要范围').innerText()).includes('100010219881'));
+    await current.getByText('查看完整查询范围', { exact: true }).click();
+    assert.ok(await current.getByText('本轮解析范围（未执行查询）', { exact: true }).isVisible());
+    if (question === '具体体现在哪里？') for (const width of [1440, 1024, 768]) {
+      await rankedPage.setViewportSize({ width, height: 1000 });
+      await current.scrollIntoViewIfNeeded();
+      await rankedPage.screenshot({ path: path.join(out, `clarification-${width}.png`), animations: 'disabled' });
+      const size = await rankedPage.evaluate(() => ({ width: innerWidth, documentWidth: document.documentElement.scrollWidth }));
+      assert.ok(size.documentWidth <= width + 1, JSON.stringify(size));
+      report.measurements.push({ stage: 'ranking clarification', ...size });
+    }
+    previous = clarification;
+  }
+  const chosen = await ask(rankedPage, '物流方面呢？');
+  assert.deepEqual(chosen.result.scope.product_ids, ['100010219881']);
+  assert.equal(chosen.result.results.r1.kind, 'aspect_drilldown');
+  assert.equal(chosen.result.task_acceptance.status, 'passed');
+  assert.equal(submitted.at(-1).parameters.context_task_id, previous.task_id);
   report.metrics = await (await fetch(`http://127.0.0.1:${apiPort}/offline-metrics`)).json();
   assert.equal(report.metrics.sdk_attempts, 0); assert.equal(report.metrics.embedding_attempts, 0);
   assert.deepEqual(errors, []); report.status = 'passed';
