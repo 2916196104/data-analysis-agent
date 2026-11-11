@@ -407,7 +407,7 @@ def semantic_answer(context):
         raise ValueError('语义回答状态与证据不一致。')
     from data_analysis_agent.agents.review_task_contract import evidence_question
     fact_question=filters.get('assessment_question',context.question)
-    if fact_question not in (context.question,evidence_question(context.question)):
+    if fact_question not in (context.question,evidence_question(context.question, scope)):
         raise ValueError('事实目标与原问题不一致。')
     if assessment['policy'] == POLICY and not validate_answer_bindings(fact_question,assessment,context.evidence):
         raise ValueError('语义回答事实、关系或引用绑定不一致。')

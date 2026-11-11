@@ -1,0 +1,11 @@
+{
+  "adapter_negative_checks": {
+    "wrong_parent": "REJECTED",
+    "extra_source": "REJECTED",
+    "wrong_source_digest": "REJECTED"
+  },
+  "old_v5_snapshot_not_upgraded": {
+    "status": "failed",
+    "evidence_refs": []
+  }
+}

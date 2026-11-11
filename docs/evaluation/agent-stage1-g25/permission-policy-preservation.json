@@ -1,0 +1,22 @@
+{
+  "review_task_contract.py:build_task_contract": {
+    "unchanged_except_bound_scope_argument": true
+  },
+  "review_task_contract.py:task_matches": {
+    "unchanged_except_bound_scope_argument": true
+  },
+  "RuntimeQueryContract_schema_identical": true,
+  "review_retrieval.py:execute_retrieval": {
+    "unchanged_except_bound_scope_argument": true
+  },
+  "review_retrieval.py:validate_retrieval": {
+    "unchanged_except_bound_scope_argument": true
+  },
+  "review_answers.py:semantic_answer": {
+    "unchanged_except_bound_scope_argument": true
+  },
+  "review_structured_evidence.py:prepare_input": {
+    "unchanged_except_bound_scope_argument": true
+  },
+  "reported_experience_entire_file_unchanged": true
+}

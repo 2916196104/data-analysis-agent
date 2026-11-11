@@ -1,0 +1,33 @@
+{
+  "audited_at": "2026-11-11T14:40:37.113753+08:00",
+  "tests_rerun": 0,
+  "agent_runs": 0,
+  "verified_v6_sources": 88,
+  "verified_g25_manifest_entries": 39,
+  "all_source_and_artifact_digests_match": true,
+  "source_revision_sha256": "3e4ff014bb6b2f81e40cf8196093c16e2a7cf9e173485eec2a24f82135410fd1",
+  "oracle_v2_sha256": "81306475371fd769b61f8132cf97dbc8dcdc82975a67a0982018575c08bed198",
+  "oracle_result": {
+    "PASS": 62,
+    "FAIL": 0,
+    "PENDING": 0
+  },
+  "rag_test_result": {
+    "tests": 143,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0
+  },
+  "backend_test_result": {
+    "tests": 762,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0
+  },
+  "counts_source": "Previously frozen results only, not new execution.",
+  "production_source_unchanged": true,
+  "real_postgresql_connections": 0,
+  "model_calls": 0,
+  "embedding_calls": 0,
+  "P6_E1B": "BLOCKED"
+}

@@ -1,0 +1,277 @@
+--- before/tests/test_p1a_f01.py
++++ aligned/tests/test_p1a_f01.py
+@@ -7,6 +7,7 @@
+ import test_p1a_independent_validation as independent
+ from data_analysis_agent.agents.review_plan import ReviewQueryPlan, TOOL_KINDS, build_query_plan
+ from data_analysis_agent.agents.review_tools import ReviewToolContext
++from data_analysis_agent.jobs.analysis_state import has_saved_integrity, restore_pending_goal
+ from data_analysis_agent.jobs.store import enqueue, claim_task, get_task
+ 
+ 
+@@ -15,6 +16,15 @@
+     if schema is TopicCatalog:
+         return TopicCatalog(themes=[dict(key='t1', name='客服响应慢', definition='买家明确反映客服回复缓慢',
+                                         support_ids=[row['opinion_id'] for row in payload['opinions']])])
++    return TopicBatch(assignments=[dict(opinion_id=row['opinion_id'], state='assigned',
++        matches=[dict(key='t1', start=0, end=len(row['quote']))]) for row in payload['opinions']])
++
++
++def fixed_positive_topics(settings, prompt, payload, schema, timeout):
++    from data_analysis_agent.agents.review_topics import TopicCatalog, TopicBatch
++    if schema is TopicCatalog:
++        return TopicCatalog(themes=[dict(key='t1', name='客服响应及时', definition='买家明确反映客服回复及时',
++            support_ids=[row['opinion_id'] for row in payload['opinions']])])
+     return TopicBatch(assignments=[dict(opinion_id=row['opinion_id'], state='assigned',
+         matches=[dict(key='t1', start=0, end=len(row['quote']))]) for row in payload['opinions']])
+ 
+@@ -67,19 +77,47 @@
+             tool = next(name for name, kind in TOOL_KINDS.items() if kind == row['kind'])
+             plan.check_call(tool, row['parameters'], default_products=result['scope']['product_ids'])
+ 
++    def assert_positive_clarification(self, result, *, task=None, structured=True):
++        # 正式人工 A / Oracle v2：统计与未完成主题竞争时，证据有无都不能替用户选层次。
++        self.assertIsNone(result['request_goal'])
++        self.assertTrue(result['user_intent']['needs_clarification'])
++        self.assertEqual(result['user_intent']['sentiment'], 'positive')
++        self.assertIsNone(result['user_intent']['query_type'])
++        self.assertFalse((result.get('query_plan') or {}).get('requirements'))
++        self.assertEqual((result.get('query_plan') or {}).get('required_tools', []), [])
++        self.assertEqual(result['status'], 'unsupported')
++        self.assertFalse((result.get('task_acceptance') or {}).get('complete'))
++        for key in ('query_executions', 'tool_calls', 'topic_model_calls', 'total_model_calls'):
++            self.assertEqual(result[key], 0, key)
++        self.assertEqual(result['results'], {}); self.assertEqual(result['result_ids'], [])
++        self.assertEqual(result['scope']['product_ids'], [independent.A])
++        self.assertIn('好评统计', result['answer']); self.assertIn('主题具体表现', result['answer'])
++        expected = restore_pending_goal(self.pending)
++        self.assertIsNotNone(expected); self.assertTrue(has_saved_integrity(self.pending))
++        self.assertEqual(expected['goal'], self.pending['result']['request_goal'])
++        self.assertEqual(expected['scope'], self.pending['result']['scope'])
++        self.assertEqual(expected['scope_sha256'], independent.independent_digest(expected['scope']))
++        self.assertEqual(expected['source']['task_sha256'], self.pending['progress']['analysis_integrity']['sha256'])
++        self.assertEqual((expected['goal']['levels'], expected['goal']['sentiment']), (['themes'], 'negative'))
++        self.assertFalse(expected['completed'])
++        if structured:
++            self.assertEqual(result['analysis_state']['pending_goal'], expected)
++        else:
++            # 旧调用未提供结构化来源，不能从文字捏造可信状态；原任务库中的待办不变。
++            self.assertIsNone(result['analysis_state']['pending_goal'])
++            self.assertIsNone(result['analysis_state']['ranking_basis'])
++        if task is not None:
++            self.assertEqual(task['status'], 'succeeded', task.get('error'))
++            self.assertEqual(self.fixture.load(task)['analysis_state']['pending_goal'], expected)
++        self.assertEqual(self.fixture.load(self.pending)['analysis_state']['pending_goal'], expected)
++        self.authorized(task or {'result': result})
++
+     def test_a_short_sentiment_keeps_themes_with_correct_empty_positive_result(self):
+-        task = self.fixture.work('那好评呢？', self.pending['task_id'])
+-        self.assertEqual(task['status'], 'succeeded', task.get('error'))
+-        result = task['result']
+-        self.assertEqual(result['request_goal']['levels'], ['themes'])
+-        self.assertEqual(result['request_goal']['sentiment'], 'positive')
+-        self.assertEqual(result['user_intent']['query_type'], 'aspect_drilldown')
+-        self.assertEqual(result['query_plan']['required_tools'], ['get_aspect_drilldown'])
+-        self.assertEqual(result['status'], 'unsupported')
+-        self.assertEqual(result['task_acceptance']['status'], 'insufficient_evidence')
+-        self.assertFalse(result['task_acceptance']['complete'])
+-        self.assertEqual(result['total_model_calls'], 0)
+-        self.authorized(task)
++        # 保留历史测试 ID；旧“短句直接承接主题”已由正式人工 A 取代，先澄清。
++        with patch('data_analysis_agent.agents.review_topics._call', side_effect=AssertionError('clarify first')) as model:
++            task = self.fixture.work('那好评呢？', self.pending['task_id'])
++        model.assert_not_called()
++        self.assert_positive_clarification(task['result'], task=task)
+ 
+     def test_b_explicit_dimension_continues_pending_negative_theme(self):
+         with patch('data_analysis_agent.agents.review_topics._call', side_effect=fixed_topics):
+@@ -218,17 +256,16 @@
+         from data_analysis_agent.agents.reviews import run_review_agent
+         context = self.fixture.load(self.pending)
+         context.pop('analysis_state')
+-        result = run_review_agent(self.fixture.db, '那好评呢？',
+-            scope=self.fixture.first['result']['scope'], settings=independent.SETTINGS,
+-            conversation_context=context)
+-        self.assertEqual(result['status'], 'unsupported')
+-        self.assertEqual((result['request_goal']['levels'], result['request_goal']['sentiment']),
+-                         (['themes'], 'positive'))
+-        self.assertEqual(result['query_plan']['required_tools'], ['get_aspect_drilldown'])
+-        self.assertEqual(result['task_acceptance']['status'], 'insufficient_evidence')
+-        self.authorized({'result': result})
+-
+-    def test_positive_theme_with_matching_evidence_completes_without_paid_model(self):
++        # 正式人工 A 同样约束旧用户条件入口；缺少结构化状态不代表可以消除层次歧义。
++        with patch('data_analysis_agent.agents.review_topics._call', side_effect=AssertionError('clarify first')) as model:
++            result = run_review_agent(self.fixture.db, '那好评呢？',
++                scope=self.fixture.first['result']['scope'], settings=independent.SETTINGS,
++                conversation_context=context)
++        model.assert_not_called()
++        self.assert_positive_clarification(result, structured=False)
++        self.assertNotIn('analysis_state', context)
++
++    def add_positive_evidence(self):
+         # 仅向隔离业务夹具补充正向证据，历史负面排名仍是原保存快照。
+         path = self.fixture.root / 'positive.jsonl'
+         path.write_text(json.dumps({'parent_asin': independent.A, 'user_id': 'positive',
+@@ -240,25 +277,79 @@
+             opinions=independent.validate_opinions(json.dumps({'opinions': [dict(aspect='service',
+                 sentiment='positive', quote='客服回复及时')]}), review['text']))
+ 
+-        def positive_topics(settings, prompt, payload, schema, timeout):
+-            from data_analysis_agent.agents.review_topics import TopicCatalog, TopicBatch
+-            if schema is TopicCatalog:
+-                return TopicCatalog(themes=[dict(key='t1', name='客服响应及时', definition='买家明确反映客服回复及时',
+-                    support_ids=[row['opinion_id'] for row in payload['opinions']])])
+-            return TopicBatch(assignments=[dict(opinion_id=row['opinion_id'], state='assigned',
+-                matches=[dict(key='t1', start=0, end=len(row['quote']))]) for row in payload['opinions']])
+-
+-        with patch('data_analysis_agent.agents.review_topics._call', side_effect=positive_topics):
++    def assert_positive_theme(self, task, model, *, aspect=None):
++        from data_analysis_agent.agents.review_topics import TopicCatalog, TopicBatch, validate_topic_result
++        result = task['result']
++        self.assertEqual(task['status'], 'succeeded', task.get('error'))
++        self.assertEqual(result['status'], 'ok')
++        self.assertEqual((result['request_goal']['levels'], result['request_goal']['sentiment']), (['themes'], 'positive'))
++        self.assertEqual(result['request_goal']['aspect'], aspect)
++        self.assertTrue(result['task_plan_check']['passed'])
++        self.assertTrue(result['task_acceptance']['complete'])
++        self.assertEqual(result['validation']['status'], 'passed')
++        self.assertEqual(result['query_plan']['required_tools'], ['get_aspect_drilldown'])
++        self.assertEqual(model.call_count, 2)
++        self.assertEqual([call.args[3] for call in model.call_args_list], [TopicCatalog, TopicBatch])
++        self.assertEqual(result['topic_model_calls'], 2)
++        data = next(row['data'] for row in result['results'].values() if row['kind'] == 'aspect_drilldown')
++        self.assertTrue(validate_topic_result(data)); self.assertEqual(data['sentiment'], 'positive')
++        self.assertEqual(data['scope']['product_ids'], [independent.A])
++        self.assertEqual(len(data['topics']), 1)
++        topic = data['topics'][0]
++        self.assertEqual((topic['aspect'], topic['review_count'], topic['review_denominator']), ('service', 1, 1))
++        self.assertEqual(topic['semantic_status'], 'model_reviewed_not_human_confirmed')
++        self.assertEqual(topic['review_ids'], sorted({row['review_id'] for row in data['opinions']}))
++        self.assertTrue(topic['evidence_opinion_ids'])
++        for item in data['items']:
++            self.assertEqual(item['product_id'], independent.A)
++            for opinion in item['opinions']:
++                self.assertEqual((opinion['aspect'], opinion['sentiment'], opinion['quote']), ('service', 'positive', '客服回复及时'))
++                self.assertEqual(item['text'][opinion['quote_start']:opinion['quote_end']], opinion['quote'])
++        self.authorized(task)
++
++    def test_positive_theme_with_matching_evidence_completes_without_paid_model(self):
++        self.add_positive_evidence()
++        # 保留历史 ID 的有证据边界；正式 A 先澄清，正向完成能力由下方明确主题用例保留。
++        with patch('data_analysis_agent.agents.review_topics._call', side_effect=fixed_positive_topics) as model:
+             task = self.fixture.work('那好评呢？', self.pending['task_id'])
+-        self.assertEqual(task['status'], 'succeeded', task.get('error'))
+-        result = task['result']
+-        self.assertEqual(result['status'], 'ok')
+-        self.assertEqual((result['request_goal']['levels'], result['request_goal']['sentiment']),
+-                         (['themes'], 'positive'))
+-        self.assertTrue(result['task_acceptance']['complete'])
+-        self.assertEqual(result['query_plan']['required_tools'], ['get_aspect_drilldown'])
+-        self.assertTrue(all(row['data']['sentiment'] == 'positive' for row in result['results'].values()
+-                            if row['kind'] == 'aspect_drilldown'))
++        model.assert_not_called(); self.assert_positive_clarification(task['result'], task=task)
++
++    def test_explicit_positive_theme_with_matching_evidence_completes_without_paid_model(self):
++        self.add_positive_evidence()
++        with patch('data_analysis_agent.agents.review_topics._call', side_effect=fixed_positive_topics) as model:
++            task = self.fixture.work('那好评具体体现在哪里？', self.pending['task_id'])
++        self.assert_positive_theme(task, model)
++
++    def test_explicit_positive_theme_without_evidence_is_insufficient_not_clarification(self):
++        task = self.fixture.work('那好评具体体现在哪里？', self.pending['task_id'])
++        result = task['result']
++        self.assertEqual(task['status'], 'succeeded'); self.assertEqual(result['status'], 'unsupported')
++        self.assertFalse(result['user_intent'].get('needs_clarification'))
++        self.assertEqual((result['request_goal']['levels'], result['request_goal']['sentiment']), (['themes'], 'positive'))
++        self.assertEqual(result['task_acceptance']['status'], 'insufficient_evidence')
++        self.assertFalse(result['task_acceptance']['complete'])
++        self.assertGreater(result['query_executions'], 0); self.assertEqual(result['topic_model_calls'], 0)
++        self.authorized(task)
++
++    def test_unique_single_theme_context_allows_short_positive_switch(self):
++        self.add_positive_evidence()
++        with patch('data_analysis_agent.agents.review_topics._call', side_effect=fixed_topics):
++            negative = self.fixture.work('客服差评具体体现在哪里？', self.pending['task_id'])
++        self.assertTrue(negative['result']['task_acceptance']['complete']); self.authorized(negative)
++        with patch('data_analysis_agent.agents.review_topics._call', side_effect=fixed_positive_topics) as model:
++            task = self.fixture.work('那好评呢？', negative['task_id'])
++        self.assert_positive_theme(task, model, aspect='service')
++
++    def test_short_positive_after_only_statistics_uses_positive_counts(self):
++        self.add_positive_evidence()
++        with patch('data_analysis_agent.agents.review_topics._call', side_effect=AssertionError('statistics is not classification')) as model:
++            task = self.fixture.work('那好评呢？', self.fixture.first['task_id'])
++        model.assert_not_called()
++        result = task['result']; self.assertTrue(result['task_acceptance']['complete'])
++        self.assertEqual((result['request_goal']['levels'], result['request_goal']['sentiment']), (['statistics'], 'positive'))
++        self.assertEqual(result['query_plan']['required_tools'], ['get_positive_aspects'])
++        data = next(row['data'] for row in result['results'].values() if row['kind'] == 'positive_aspects')
++        self.assertEqual(data['summary']['positive_review_count'], 1)
+         self.authorized(task)
+ 
+ 
+--- before/tests/test_p6b_planner_snapshot.py
++++ aligned/tests/test_p6b_planner_snapshot.py
+@@ -263,7 +263,10 @@
+         prepared = self.work()
+         # 新准备轮后核对真实 Router 与独立目标；不执行旧正向主题分类函数。
+         from data_analysis_agent.agents.review_intent import resolve_review_request
+-        from data_analysis_agent.agents.review_acceptance import build_request_goal, build_task_goal, validate_goal_plan
++        from data_analysis_agent.agents.review_acceptance import build_request_goal
++        from data_analysis_agent.agents.review_semantics import QuestionScopeError
++        from data_analysis_agent.jobs.analysis_state import has_saved_integrity
++        from data_analysis_agent.jobs.store import get_task
+         context = self.fixture.load(prepared)
+         scope = prepared['result']['scope']
+         settings = SimpleNamespace(**{**asdict(independent.SETTINGS), 'p6_preparation_enabled':True})
+@@ -271,11 +274,45 @@
+         _, trend, _ = resolve_review_request('按月查看差评变化', scope, products,
+             settings=settings, context=self.fixture.load())
+         self.assertEqual(trend.required_tools, ['get_trend'])
+-        _, plan, _ = resolve_review_request('那好评呢？', scope,
+-            products, settings=settings, context=context)
+-        request = build_request_goal('那好评呢？', context)
+-        self.assertEqual((request.levels,request.sentiment), (('themes',),'positive'))
+-        self.assertTrue(validate_goal_plan(build_task_goal('那好评呢？',scope,plan,{},request_goal=request),plan)['passed'])
++        # 正式人工 A / Oracle v2 取代旧短句直入主题；保留上方合法统计、趋势覆盖。
++        self.assertIsNone(build_request_goal('那好评呢？', context))
++        intent = {}
++        with self.assertRaises(QuestionScopeError):
++            resolve_review_request('那好评呢？', scope, products, settings=settings, context=context, intent_state=intent)
++        self.assertEqual(intent['sentiment'], 'positive')
++        self.assertIsNone(intent['query_type'])
++        task = self.fixture.work('那好评呢？', prepared['task_id'])
++        result = task['result']
++        self.assertEqual((task['status'], result['status']), ('succeeded', 'unsupported'))
++        self.assertIsNone(result['request_goal']); self.assertTrue(result['user_intent']['needs_clarification'])
++        self.assertEqual(result['user_intent']['sentiment'], 'positive')
++        self.assertFalse((result.get('query_plan') or {}).get('requirements'))
++        self.assertEqual((result.get('query_plan') or {}).get('required_tools', []), [])
++        self.assertFalse((result.get('task_acceptance') or {}).get('complete'))
++        self.assertEqual(result['query_executions'], 0); self.assertEqual(result['total_model_calls'], 0)
++        self.assertEqual(result['results'], {}); self.assertEqual(result['result_ids'], [])
++        self.assertNotIn('p6_preparation', result); self.assertNotIn('p6_execution', result)
++        self.assertIn('好评统计', result['answer']); self.assertIn('主题具体表现', result['answer'])
++        # 准备任务本身已冻结三维目标；不能将它伪造成 awaiting_aspect 或已完成任务。
++        saved = get_task(self.fixture.tasks, prepared['task_id'])
++        self.assertTrue(has_saved_integrity(saved)); self.assertEqual(saved, prepared)
++        self.assertEqual(saved['result']['request_goal']['required_aspects'], ['service', 'effectiveness', 'logistics'])
++
++    def test_explicit_positive_theme_keeps_ordinary_plan_after_p6_preparation(self):
++        from data_analysis_agent.agents.review_intent import resolve_review_request
++        from data_analysis_agent.agents.review_acceptance import build_request_goal, build_task_goal, validate_goal_plan
++        prepared = self.work(); context = self.fixture.load(prepared); scope = prepared['result']['scope']
++        settings = SimpleNamespace(**{**asdict(independent.SETTINGS), 'p6_preparation_enabled': True})
++        products = [{'product_id': independent.A, 'title': None, 'brand': None}]
++        question = '那好评具体体现在哪里？'
++        _, plan, _ = resolve_review_request(question, scope, products, settings=settings, context=context)
++        request = build_request_goal(question, context)
++        self.assertEqual((request.levels, request.sentiment), (('themes',), 'positive'))
++        self.assertEqual(plan.required_tools, ['get_aspect_drilldown'])
++        self.assertTrue(validate_goal_plan(build_task_goal(question, scope, plan, {}, request_goal=request), plan)['passed'])
++        decision = freeze_p6_goal(question, scope=scope, conversation_id='independent-session',
++            agent_identity=self.fixture.agent_identity, ranking_task=self.fixture.first, context=context)
++        self.assertEqual(decision.route, 'existing'); self.assertIsNone(decision.goal)
+ 
+     def test_worker_rejects_cross_session_and_tampered_source_without_reads(self):
+         from data_analysis_agent.jobs.store import enqueue, claim_task, get_task, connect_task_database

@@ -1,0 +1,21 @@
+{
+  "docs/evaluation/agent-stage1-legacy-alignment/aligned-four-results.json": "803eb11b07ae98190c3e9e7bf41cc55f6f91b6e3ca98f878e67593a30c875578",
+  "docs/evaluation/agent-stage1-legacy-alignment/before-four-results.json": "1c796263c1ccee693c4ee921da50c200bc27c074baadf6ead318d3b298f7ec57",
+  "docs/evaluation/agent-stage1-legacy-alignment/compatibility-results.json": "92ef8127e0868b3424ab42817d43bac559a0059f12646c5a800f6f3bfba31573",
+  "docs/evaluation/agent-stage1-legacy-alignment/focused-results.json": "2822199326adc549b33bd15784ea58b7cc50642a4e7fa43d7ae6590ec4be643e",
+  "docs/evaluation/agent-stage1-legacy-alignment/old-and-aligned-assertions.json": "4eb9674ec30f61005ce60b8f0dd676e84135ffa6c43f09a00ab3ad453be3800a",
+  "docs/evaluation/agent-stage1-legacy-alignment/oracle-v2-assessment.json": "47714e76098a871cb7fea3c1c6b7a90e975a144669bb51caa7b2cb584b436fde",
+  "docs/evaluation/agent-stage1-legacy-alignment/oracle-v2-turns.jsonl": "d85628ecddedd3a1c62db8e425c2058d9cb7bc2e2b34aa56c000fce86969d464",
+  "docs/evaluation/agent-stage1-legacy-alignment/summary.json": "393b5bd84dcfd2e43a5de86c47be6ccc41684ed72895bbe21fe110582da13841",
+  "docs/evaluation/agent-stage1-legacy-alignment/test-alignment.v1.json": "305bbe505cbca00407524fb9c40eca73077f8d278e4886b0f06a6aed9be61cae",
+  "docs/evaluation/agent-stage1-legacy-alignment/test-contract-changes.diff": "01c826c4b6c2124b1da5ca10c5684877d87d67cc3182fded5fdf305478da3611",
+  ".cache/agent-stage1-legacy-alignment/before-test_p1a_f01.py": "a718b0f8544a9cd601e5cc20ce81694ebccda0997e966a6ade028cc3b643cfcb",
+  ".cache/agent-stage1-legacy-alignment/before-test_p6b_planner_snapshot.py": "c04930f58694f3db6740b46aad1801a71dfbc723b61e0996155a5b01f1dd3df5",
+  ".cache/agent-stage1-legacy-alignment/before-four/tests.txt": "717691e8c864d5d23e3b0c6114f8d2766bbaf1b197d3c6417fdbcc30507821f4",
+  ".cache/agent-stage1-legacy-alignment/final-four/tests.txt": "a7777c88fda158f04b5399c1c6e2ba3d9385cee85fcadc53e549e148b449aaff",
+  ".cache/agent-stage1-legacy-alignment/final-focused/tests.txt": "e93d7a5d11776bc83e2bcf556e95a913195fd077c7280aee06e7fd5535bcb240",
+  ".cache/agent-stage1-legacy-alignment/final-full/tests.txt": "3a8856085fcfc01e013332d60ed76fc8c6d6fa0b58838f300498c7e9d947d0af",
+  ".cache/agent-stage1-legacy-alignment/oracle/run-02.json": "b42b887463075458e01d247faac8d3b10e9063d8b6432aa6cb6c9604cde08c0d",
+  "tests/test_p1a_f01.py": "0630337fa4db1e90e8880eab89b2b3ae510e2e5504ab9ce6221895fc0849b0d1",
+  "tests/test_p6b_planner_snapshot.py": "efd050ef4e804ffb296e7af30bad37d31e9ebe48d0818d88fa801eb0b5d73f8a"
+}

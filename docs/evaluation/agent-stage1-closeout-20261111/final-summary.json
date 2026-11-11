@@ -1,0 +1,31 @@
+{
+  "verified_at": "2026-11-11T14:42:47.673839+08:00",
+  "timezone": "Asia/Taipei",
+  "task": "stage1 closeout and stage2 preparation only",
+  "existing_reports_preserved_before_update": ".cache/agent-stage1-closeout-20261111T063853Z",
+  "protected_existing_files": 618,
+  "changed_existing_files": [
+    "docs/agent-stage1-final-delivery.md",
+    "docs/agent-stage2-real-business-evaluation-readiness.md"
+  ],
+  "candidate_draft_unchanged": true,
+  "candidate_file_sha256": "b064b4518ba4ab80d2cfa79790608b8cf1f5a108d3eddc888a6043f10f8872b5",
+  "original_code_oracle_human_decisions_failures_unchanged": true,
+  "links_checked": 35,
+  "missing_links": [],
+  "stage1": "PASS for frozen offline contract: 62/62, RAG143/143, compatibility762/762; historical results not rerun",
+  "stage2_materials": "REAL_LOCAL_SOURCE_AVAILABLE_FOR_MANUAL_REVIEW",
+  "stage2_cases": 16,
+  "new_human_confirmations": 0,
+  "stage2_execution": "NOT READY / NOT EXECUTED",
+  "additional_current_blocker": "B2 private release directory read access denied; no retry or ACL change",
+  "test_suite_runs": 0,
+  "agent_runs": 0,
+  "database_connections": 0,
+  "model_calls": 0,
+  "embedding_calls": 0,
+  "new_vector_indexes": 0,
+  "P6_E1B": "BLOCKED / deferred",
+  "PG01_PG08": "NOT EXECUTED",
+  "automatic_follow_on_work": false
+}

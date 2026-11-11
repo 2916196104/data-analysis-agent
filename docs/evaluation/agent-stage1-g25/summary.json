@@ -1,0 +1,97 @@
+{
+  "generated_at": "2026-11-11T13:48:00.411874+08:00",
+  "source_revision": "docs/evaluation/agent-stage1-g25/source-revision.v6.json",
+  "source_revision_sha256": "3e4ff014bb6b2f81e40cf8196093c16e2a7cf9e173485eec2a24f82135410fd1",
+  "protected_files": 918,
+  "authorized_changed_existing_files": [
+    "src/data_analysis_agent/agents/review_answers.py",
+    "src/data_analysis_agent/agents/review_retrieval.py",
+    "src/data_analysis_agent/agents/review_structured_evidence.py",
+    "src/data_analysis_agent/agents/review_task_contract.py",
+    "tests/test_agent_stage1_remaining_p1.py",
+    "tests/test_agent_stage1_v2_fixes.py"
+  ],
+  "reported_experience_unchanged": true,
+  "g25_before": "FAIL",
+  "g25_after": "PASS",
+  "permitted_reviews": [
+    101
+  ],
+  "candidate_count": 4,
+  "permitted_candidate_count": 1,
+  "oracle": {
+    "groups": 30,
+    "turns": 62,
+    "PASS": 62,
+    "FAIL": 0,
+    "original_61_PASS_retained": true,
+    "metrics": {
+      "state_context": {
+        "passed": 60,
+        "total": 60,
+        "percent": 100.0
+      },
+      "intent_router": {
+        "passed": 60,
+        "total": 60,
+        "percent": 100.0
+      },
+      "request_goal": {
+        "passed": 60,
+        "total": 60,
+        "percent": 100.0
+      },
+      "planner": {
+        "passed": 60,
+        "total": 60,
+        "percent": 100.0
+      },
+      "tools_stage_and_target": {
+        "passed": 60,
+        "total": 60,
+        "percent": 100.0
+      },
+      "validator_injected_error_interception": {
+        "passed": 2,
+        "total": 2,
+        "percent": 100.0
+      },
+      "pre_tool_block": {
+        "passed": 10,
+        "total": 10,
+        "percent": 100.0
+      },
+      "strict_business_completion": {
+        "passed": 43,
+        "total": 43,
+        "percent": 100.0
+      },
+      "turn_end_to_end": {
+        "passed": 62,
+        "total": 62,
+        "percent": 100.0
+      },
+      "conversation_end_to_end": {
+        "passed": 30,
+        "total": 30,
+        "percent": 100.0
+      }
+    }
+  },
+  "rag_tests": 143,
+  "full_tests": 762,
+  "original_743_compatibility_IDs_retained": true,
+  "full_failure_count": 0,
+  "full_error_count": 0,
+  "skipped": 0,
+  "synthetic_sqlite_connections": 13960,
+  "external_attempts": [],
+  "real_postgresql_connections": 0,
+  "paid_model_calls": 0,
+  "real_embedding_calls": 0,
+  "memory_connections": 64,
+  "closed_memory_connections": 64,
+  "P6_E1B": "BLOCKED",
+  "PG01_PG08": "NOT EXECUTED",
+  "real_model_or_database_quality": "NOT VERIFIED"
+}

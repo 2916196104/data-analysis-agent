@@ -1,0 +1,21 @@
+{
+  "verified_at": "2026-11-11T13:57:00.214379+08:00",
+  "protected_old_files": 918,
+  "authorized_source_files_changed": 4,
+  "test_only_adaptations": 2,
+  "reported_experience_policy_entire_file": "UNCHANGED",
+  "RuntimeQueryContract_schema": "UNCHANGED",
+  "oracle_v1_v2_human_decisions_scorer_and_corpus": "UNCHANGED",
+  "source_v5_binding": "PRESERVED",
+  "source_v6_binding": "PASS",
+  "business_oracle": "62/62 PASS",
+  "rag_regression": "143/143 PASS",
+  "applicable_backend_regression": "762/762 PASS, 0 skip",
+  "original_61_PASS_retained": true,
+  "candidate_source_identity_unchanged": true,
+  "permitted_candidates": "1 of 4; review 101 only",
+  "real_postgresql_paid_model_embedding_calls": 0,
+  "P6_E1B": "BLOCKED",
+  "PG01_PG08": "NOT EXECUTED",
+  "production_deployed": false
+}

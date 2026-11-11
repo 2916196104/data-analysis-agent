@@ -124,7 +124,7 @@ def prepare_input(contract, result: SemanticResult, *, trusted_contract_sha256, 
     contract = parse(contract.model_dump(mode='json'), RuntimeQueryContract)
     require(content_sha256(contract.model_dump(mode='json')) == trusted_contract_sha256, 'target_binding_mismatch')
     require(contract.scope_sha256 == content_sha256(contract.scope.model_dump(mode='json')), 'scope_digest_mismatch')
-    require(contract.evidence_question == evidence_question(contract.original_question), 'target_text_mismatch')
+    require(contract.evidence_question == evidence_question(contract.original_question, contract.scope.model_dump(mode='json')), 'target_text_mismatch')
     require(evidence_scope_matches(contract.original_question, contract.scope.model_dump()), 'date_binding_mismatch')
     require(contract.operation == 'fact_search' and contract.task_type == 'evidence'
             and contract.support_status == 'supported' and not contract.unsupported_reason

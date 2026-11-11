@@ -15,10 +15,22 @@ DATE_PREFIX = re.compile(r'^\s*(?:(?:请问|在|从)\s*)?(\d{4}-\d{2}-\d{2})\s*(
                          r'(\d{4}-\d{2}-\d{2})\s*(?:期间|之间|内)?\s*[，,:：]?\s*(.+)$', re.S)
 
 
-def evidence_question(question):
-    """Separate a leading explicit scope from the proposition, not from the embedding input."""
+def evidence_question(question, scope=None):
+    """Separate redundant prefixes using an independently catalog-bound server scope, never text-inferred IDs."""
     match = DATE_PREFIX.fullmatch(question)
-    return match[3] if match else question
+    text = match[3] if match else question
+    if scope is not None:
+        try:
+            ids = scope['product_ids']
+            if (isinstance(ids, (list, tuple)) and len(ids) == 1 and isinstance(ids[0], str) and ids[0]
+                    and evidence_scope_matches(question, scope) and text.startswith(ids[0])):
+                remainder = text[len(ids[0]):]
+                # Only the existing complete proposition grammar qualifies; no numeric/clause deletion.
+                if target(remainder) is not None:
+                    return remainder
+        except (KeyError, TypeError, AttributeError):
+            pass
+    return text
 
 
 def evidence_scope_matches(question, scope):
@@ -114,7 +126,7 @@ METRICS = {
 
 def build_task_contract(question, scope, plan):
     bound = RuntimeScope.model_validate_json(canonical_json(scope))
-    q = evidence_question(question)
+    q = evidence_question(question, scope)
     request = target(q) if plan.analysis_type == 'semantic_evidence' else None
     facts = RequiredFacts()
     entity = subtopic = 'unknown'

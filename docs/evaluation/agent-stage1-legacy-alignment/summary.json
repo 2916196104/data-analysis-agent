@@ -1,0 +1,116 @@
+{
+  "created_at": "2026-11-11T13:12:16.086227+08:00",
+  "protected_old_files": 891,
+  "changed_old_files": [
+    "tests/test_p1a_f01.py",
+    "tests/test_p6b_planner_snapshot.py"
+  ],
+  "production_v5_files_checked": 88,
+  "production_unchanged": true,
+  "original_test_IDs_removed": [],
+  "new_test_IDs": [
+    "test_p1a_f01.F01WorkerTests.test_explicit_positive_theme_with_matching_evidence_completes_without_paid_model",
+    "test_p1a_f01.F01WorkerTests.test_explicit_positive_theme_without_evidence_is_insufficient_not_clarification",
+    "test_p1a_f01.F01WorkerTests.test_short_positive_after_only_statistics_uses_positive_counts",
+    "test_p1a_f01.F01WorkerTests.test_unique_single_theme_context_allows_short_positive_switch",
+    "test_p6b_planner_snapshot.P6BPlannerSnapshotTests.test_explicit_positive_theme_keeps_ordinary_plan_after_p6_preparation"
+  ],
+  "original_compatibility_IDs_retained": 738,
+  "full_compatibility": {
+    "tests": 743,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0
+  },
+  "before_four": {
+    "tests": 4,
+    "failures": 1,
+    "errors": 3
+  },
+  "after_four": {
+    "tests": 4,
+    "failures": 0,
+    "errors": 0
+  },
+  "focused": {
+    "tests": 54,
+    "per_module": {
+      "test_p1a_f01": 17,
+      "test_p6b_planner_snapshot": 20,
+      "test_agent_stage1_v2_fixes": 17
+    },
+    "failures": 0,
+    "errors": 0
+  },
+  "oracle_v2": {
+    "PASS": 61,
+    "FAIL": 1,
+    "PENDING": 0,
+    "remaining_FAIL": "G25-T1",
+    "original_PASS_retained": 59,
+    "all_v5_61_PASS_retained": true,
+    "metrics": {
+      "state_context": {
+        "passed": 60,
+        "total": 60,
+        "percent": 100.0
+      },
+      "intent_router": {
+        "passed": 60,
+        "total": 60,
+        "percent": 100.0
+      },
+      "request_goal": {
+        "passed": 60,
+        "total": 60,
+        "percent": 100.0
+      },
+      "planner": {
+        "passed": 60,
+        "total": 60,
+        "percent": 100.0
+      },
+      "tools_stage_and_target": {
+        "passed": 59,
+        "total": 60,
+        "percent": 98.33
+      },
+      "validator_injected_error_interception": {
+        "passed": 2,
+        "total": 2,
+        "percent": 100.0
+      },
+      "pre_tool_block": {
+        "passed": 10,
+        "total": 10,
+        "percent": 100.0
+      },
+      "strict_business_completion": {
+        "passed": 42,
+        "total": 43,
+        "percent": 97.67
+      },
+      "turn_end_to_end": {
+        "passed": 61,
+        "total": 62,
+        "percent": 98.39
+      },
+      "conversation_end_to_end": {
+        "passed": 29,
+        "total": 30,
+        "percent": 96.67
+      }
+    }
+  },
+  "external_attempts": [],
+  "sqlite_connections_synthetic_only": 13960,
+  "real_postgresql_connections": 0,
+  "paid_model_requests": 0,
+  "real_embedding_calls": 0,
+  "connection_doubles": 64,
+  "closed_connection_doubles": 64,
+  "P6_E1B": "BLOCKED",
+  "PG01_PG08": "NOT EXECUTED",
+  "legacy_contract_alignment": "PASS",
+  "business_stage1": "NOT FULLY PASS: G25-T1 remains FAIL"
+}

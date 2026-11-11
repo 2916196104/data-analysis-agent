@@ -157,7 +157,7 @@ def execute_retrieval(context, scope):
         raise SemanticRetrievalError('result_scope_or_question_mismatch')
     payload = result.to_dict()
     started=perf_counter()
-    fact_question=evidence_question(context.question)
+    fact_question=evidence_question(context.question, scope)
     assessment=assess_retrieval(fact_question, payload['evidence'])
     data = {'scope': expected.model_dump(mode='json'), 'retrieval': payload,
             'assessment_question':fact_question,
@@ -202,7 +202,7 @@ def validate_retrieval(data, question):
         fact_question=question
         if 'assessment_question' in data:
             from data_analysis_agent.agents.review_task_contract import evidence_question, evidence_scope_matches
-            fact_question=evidence_question(question)
+            fact_question=evidence_question(question, data['scope'])
             if data['assessment_question']!=fact_question or not evidence_scope_matches(question,data['scope']):return False
         return data['assessment'] == assess_retrieval(fact_question,evidence,policy=data['assessment']['policy'])
     except (KeyError,ValueError,TypeError,AttributeError,UnicodeError,SemanticRetrievalError):

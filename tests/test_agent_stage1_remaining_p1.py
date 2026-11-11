@@ -154,10 +154,20 @@ class RemainingP1Tests(unittest.TestCase):
             with self.subTest(q=q),self.assertRaises(QuestionScopeError):self.resolve(q,self.context('semantic_evidence',None,None))
 
     def test_g25_t1_permission_failure_remains_no_published_claim(self):
+        # 保留历史 ID；它曾固定记录已知缺陷，正式 Oracle v2 始终要求正确的有限命题许可。
+        from data_analysis_agent.agents.review_retrieval import validate_retrieval
         r=self.result('G25-T1')
         data=next(v['data'] for v in r['results'].values() if v['kind']=='semantic_evidence')
-        self.assertTrue(data['retrieval']['evidence']);self.assertEqual(data['assessment']['permitted_keys'],[])
-        self.assertEqual(data['assessment']['reason'],'query_semantics_uncovered')
+        self.assertEqual(data['retrieval']['query']['question'],r['question'])
+        self.assertEqual(data['assessment_question'],'有没有物流很慢的反馈？')
+        self.assertEqual(data['assessment']['required_fact_ids'],['delivery_slow'])
+        self.assertTrue(validate_retrieval(data,r['question']))
+        keys=data['assessment']['permitted_keys'];self.assertEqual(len(keys),1)
+        allowed=[row for row in data['retrieval']['evidence'] if row['key'] in keys]
+        self.assertEqual([row['review_id'] for row in allowed],[101])
+        self.assertEqual(allowed[0]['review_text'][allowed[0]['quote_start']:allowed[0]['quote_end']],'物流很慢')
+        self.assertEqual(len(r['public_answer']['evidence_refs']),1)
+        self.assertEqual(r['public_answer']['evidence_refs'][0]['review_id'],101)
 
     def test_g26_goal_inherits_unique_target_but_not_evidence_level(self):
         goal=build_request_goal('有多少条？',self.context('evidence'))

@@ -1,0 +1,2492 @@
+{
+  "before": {
+    "original_question": "100013588055有没有物流很慢的反馈？",
+    "scope": {
+      "model": "stage1-labels",
+      "base_url": "https://labels.stage1.invalid/v1",
+      "prompt_version": "stage1-labels-v1",
+      "product_ids": [
+        "100013588055"
+      ],
+      "date_from": "2023-02-01",
+      "date_to": "2023-02-28",
+      "as_of": null,
+      "source": "reviews_csv",
+      "dataset_version": "stage1-synthetic-v1",
+      "baseline_from": "2023-01-01",
+      "baseline_to": "2023-01-31"
+    },
+    "resolved_product_ids": [
+      "100013588055"
+    ],
+    "request_goal": null,
+    "user_intent": {
+      "query_type": "evidence",
+      "sub_intent": "evidence",
+      "sentiment": null,
+      "topic": null,
+      "aspect": null,
+      "resolved_product_ids": [
+        "100013588055"
+      ],
+      "effective_time_range": {
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28"
+      }
+    },
+    "analysis_intent": "semantic_evidence",
+    "query_plan": {
+      "analysis_type": "semantic_evidence",
+      "sentiment": null,
+      "scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588055"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31"
+      },
+      "requirements": [
+        {
+          "tool": "search_semantic_evidence",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": true,
+      "max_evidence_pages": 1,
+      "max_evidence_items": 5,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": "100013588055有没有物流很慢的反馈？",
+      "product_groups": [],
+      "task_contract": {
+        "version": "review-runtime-contract-v1",
+        "original_question": "100013588055有没有物流很慢的反馈？",
+        "evidence_question": "100013588055有没有物流很慢的反馈？",
+        "scope": {
+          "model": "stage1-labels",
+          "base_url": "https://labels.stage1.invalid/v1",
+          "prompt_version": "stage1-labels-v1",
+          "product_ids": [
+            "100013588055"
+          ],
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "as_of": null,
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31",
+          "timezone": "UTC"
+        },
+        "scope_sha256": "516bf9321f00b692eb91879c092305106824a998cdb62d588c08286aedde63b1",
+        "task_type": "evidence",
+        "operation": "fact_search",
+        "target_entity": "unknown",
+        "subtopic": "unknown",
+        "sentiment_intent": "unknown",
+        "required_facts": {
+          "operator": "all_of",
+          "items": [],
+          "relations": []
+        },
+        "statistics": [],
+        "support_status": "retrieval_only",
+        "unsupported_reason": null,
+        "uncertainty": [
+          "目标语义未被当前规则覆盖；仅允许检索和明确说明不足，不能许可确定结论。"
+        ]
+      },
+      "required_tools": [
+        "search_semantic_evidence"
+      ]
+    },
+    "semantic_query": {
+      "question": "100013588055有没有物流很慢的反馈？",
+      "top_k": 5,
+      "aspect": "logistics",
+      "sentiment": null
+    },
+    "runtime_query_contract": {
+      "version": "review-runtime-contract-v1",
+      "original_question": "100013588055有没有物流很慢的反馈？",
+      "evidence_question": "100013588055有没有物流很慢的反馈？",
+      "scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588055"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31",
+        "timezone": "UTC"
+      },
+      "scope_sha256": "516bf9321f00b692eb91879c092305106824a998cdb62d588c08286aedde63b1",
+      "task_type": "evidence",
+      "operation": "fact_search",
+      "target_entity": "unknown",
+      "subtopic": "unknown",
+      "sentiment_intent": "unknown",
+      "required_facts": {
+        "operator": "all_of",
+        "items": [],
+        "relations": []
+      },
+      "statistics": [],
+      "support_status": "retrieval_only",
+      "unsupported_reason": null,
+      "uncertainty": [
+        "目标语义未被当前规则覆盖；仅允许检索和明确说明不足，不能许可确定结论。"
+      ]
+    },
+    "evidence_question": "100013588055有没有物流很慢的反馈？",
+    "target_parse": null,
+    "candidates": [
+      {
+        "rank": 1,
+        "key": "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c",
+        "cosine_distance": 0.1,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "product_id": "100013588055",
+        "review_id": 101,
+        "annotation_id": 1101,
+        "requested_model": "stage1-labels",
+        "prompt_version": "stage1-labels-v1",
+        "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+        "opinion_source": "model",
+        "model_opinion_id": 1011,
+        "human_opinion_id": null,
+        "human_revision_id": null,
+        "aspect": "logistics",
+        "sentiment": "negative",
+        "quote": "物流很慢",
+        "quote_start": 10,
+        "quote_end": 14,
+        "review_content_sha256": "a2c8b435bb564a87ee5d7f82ae7b9c060e790491a090c99aa7cb255453e75061",
+        "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "published_at": "2023-02-10T00:00:00+00:00",
+        "import_run_id": 1,
+        "line_number": 101,
+        "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=101",
+        "text_builder_version": "quote-utf8-v1",
+        "effective_snapshot_sha256": "7aa77c6ab0fd03d283abe57f3b2feb5bd784bc125287c34ff6b1ef878ae76c6f",
+        "review_state": {
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "product_id": "100013588055",
+          "review_id": 101,
+          "review_content_sha256": "a2c8b435bb564a87ee5d7f82ae7b9c060e790491a090c99aa7cb255453e75061",
+          "published_at": "2023-02-10T00:00:00+00:00",
+          "annotation_id": 1101,
+          "human_revision_id": null,
+          "processing_status": "success",
+          "human_status": "unreviewed",
+          "opinion_source": "model",
+          "error_code": null,
+          "opinion_count": 6,
+          "effective_snapshot_sha256": "7aa77c6ab0fd03d283abe57f3b2feb5bd784bc125287c34ff6b1ef878ae76c6f"
+        },
+        "review_text": "合成评论：包装破了；物流很慢；客服回复缓慢；外壳开裂；降温速度慢；价格太高",
+        "review_text_sha256": "a2c8b435bb564a87ee5d7f82ae7b9c060e790491a090c99aa7cb255453e75061"
+      },
+      {
+        "rank": 2,
+        "key": "rag-opinion-v1:195abf586c573952490c33eefd0c110751de7ace0a1f8265ba7493d1f4ff49f5",
+        "cosine_distance": 0.1,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "product_id": "100013588055",
+        "review_id": 102,
+        "annotation_id": 1102,
+        "requested_model": "stage1-labels",
+        "prompt_version": "stage1-labels-v1",
+        "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+        "opinion_source": "model",
+        "model_opinion_id": 1020,
+        "human_opinion_id": null,
+        "human_revision_id": null,
+        "aspect": "logistics",
+        "sentiment": "negative",
+        "quote": "物流很慢",
+        "quote_start": 5,
+        "quote_end": 9,
+        "review_content_sha256": "d75b5cdd33c14278048f86d7090e9c411ec05c6587ee4a1290b33b0f8c50da70",
+        "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "published_at": "2023-02-13T00:00:00+00:00",
+        "import_run_id": 1,
+        "line_number": 102,
+        "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=102",
+        "text_builder_version": "quote-utf8-v1",
+        "effective_snapshot_sha256": "cb6113925cf7784bb2ff8ddcb256ffc616db198bcfd4bdeaefd1c66943081b63",
+        "review_state": {
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "product_id": "100013588055",
+          "review_id": 102,
+          "review_content_sha256": "d75b5cdd33c14278048f86d7090e9c411ec05c6587ee4a1290b33b0f8c50da70",
+          "published_at": "2023-02-13T00:00:00+00:00",
+          "annotation_id": 1102,
+          "human_revision_id": null,
+          "processing_status": "success",
+          "human_status": "unreviewed",
+          "opinion_source": "model",
+          "error_code": null,
+          "opinion_count": 3,
+          "effective_snapshot_sha256": "cb6113925cf7784bb2ff8ddcb256ffc616db198bcfd4bdeaefd1c66943081b63"
+        },
+        "review_text": "合成评论：物流很慢；客服回复缓慢；外壳开裂",
+        "review_text_sha256": "d75b5cdd33c14278048f86d7090e9c411ec05c6587ee4a1290b33b0f8c50da70"
+      },
+      {
+        "rank": 3,
+        "key": "rag-opinion-v1:7ec0be6c6b8ee74699b60bb12b3c5703a7ff959be1ec61005353d9d2addc5c98",
+        "cosine_distance": 0.1,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "product_id": "100013588055",
+        "review_id": 103,
+        "annotation_id": 1103,
+        "requested_model": "stage1-labels",
+        "prompt_version": "stage1-labels-v1",
+        "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+        "opinion_source": "model",
+        "model_opinion_id": 1030,
+        "human_opinion_id": null,
+        "human_revision_id": null,
+        "aspect": "logistics",
+        "sentiment": "negative",
+        "quote": "物流很慢",
+        "quote_start": 5,
+        "quote_end": 9,
+        "review_content_sha256": "5b5309ce74f992f84f99f3611a2468410c48ba22d293c0a1d4cab181357832ca",
+        "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "published_at": "2023-02-16T00:00:00+00:00",
+        "import_run_id": 1,
+        "line_number": 103,
+        "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=103",
+        "text_builder_version": "quote-utf8-v1",
+        "effective_snapshot_sha256": "de7c5fc4169e1430c62047fdd30b8c6afd698ecda612a259eaff485a6f014cf9",
+        "review_state": {
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "product_id": "100013588055",
+          "review_id": 103,
+          "review_content_sha256": "5b5309ce74f992f84f99f3611a2468410c48ba22d293c0a1d4cab181357832ca",
+          "published_at": "2023-02-16T00:00:00+00:00",
+          "annotation_id": 1103,
+          "human_revision_id": null,
+          "processing_status": "success",
+          "human_status": "unreviewed",
+          "opinion_source": "model",
+          "error_code": null,
+          "opinion_count": 2,
+          "effective_snapshot_sha256": "de7c5fc4169e1430c62047fdd30b8c6afd698ecda612a259eaff485a6f014cf9"
+        },
+        "review_text": "合成评论：物流很慢；外壳开裂",
+        "review_text_sha256": "5b5309ce74f992f84f99f3611a2468410c48ba22d293c0a1d4cab181357832ca"
+      },
+      {
+        "rank": 4,
+        "key": "rag-opinion-v1:46739202b687e4a33e15ed0cf7257c55c0c1228fd670df52f7eb116ed80839a6",
+        "cosine_distance": 0.1,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "product_id": "100013588055",
+        "review_id": 104,
+        "annotation_id": 1104,
+        "requested_model": "stage1-labels",
+        "prompt_version": "stage1-labels-v1",
+        "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+        "opinion_source": "model",
+        "model_opinion_id": 1040,
+        "human_opinion_id": null,
+        "human_revision_id": null,
+        "aspect": "logistics",
+        "sentiment": "negative",
+        "quote": "物流很慢",
+        "quote_start": 5,
+        "quote_end": 9,
+        "review_content_sha256": "9a74fa3660d951ec71812b28c8a23d85ed0d154dcf8c6474ae56d8498f541746",
+        "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "published_at": "2023-02-19T00:00:00+00:00",
+        "import_run_id": 1,
+        "line_number": 104,
+        "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=104",
+        "text_builder_version": "quote-utf8-v1",
+        "effective_snapshot_sha256": "102d5281c8241229a754a11a7e7b5e7de19f5177ed1f1aa8363d1d5a48b22a7c",
+        "review_state": {
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "product_id": "100013588055",
+          "review_id": 104,
+          "review_content_sha256": "9a74fa3660d951ec71812b28c8a23d85ed0d154dcf8c6474ae56d8498f541746",
+          "published_at": "2023-02-19T00:00:00+00:00",
+          "annotation_id": 1104,
+          "human_revision_id": null,
+          "processing_status": "success",
+          "human_status": "unreviewed",
+          "opinion_source": "model",
+          "error_code": null,
+          "opinion_count": 1,
+          "effective_snapshot_sha256": "102d5281c8241229a754a11a7e7b5e7de19f5177ed1f1aa8363d1d5a48b22a7c"
+        },
+        "review_text": "合成评论：物流很慢",
+        "review_text_sha256": "9a74fa3660d951ec71812b28c8a23d85ed0d154dcf8c6474ae56d8498f541746"
+      }
+    ],
+    "assessment": {
+      "policy": "reported_experience_v2",
+      "status": "insufficient",
+      "target": null,
+      "required_fact_ids": [],
+      "supported_target_fact_ids": [],
+      "missing_required_fact_ids": [
+        "unresolved_query"
+      ],
+      "permitted_keys": [],
+      "fact_bindings": [],
+      "candidate_judgments": [
+        {
+          "key": "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c",
+          "support": "unknown",
+          "reason": "semantic_not_verified",
+          "explicit_fact_ids": [
+            "delivery_slow"
+          ],
+          "supported_fact_ids": []
+        },
+        {
+          "key": "rag-opinion-v1:195abf586c573952490c33eefd0c110751de7ace0a1f8265ba7493d1f4ff49f5",
+          "support": "unknown",
+          "reason": "semantic_not_verified",
+          "explicit_fact_ids": [
+            "delivery_slow"
+          ],
+          "supported_fact_ids": []
+        },
+        {
+          "key": "rag-opinion-v1:7ec0be6c6b8ee74699b60bb12b3c5703a7ff959be1ec61005353d9d2addc5c98",
+          "support": "unknown",
+          "reason": "semantic_not_verified",
+          "explicit_fact_ids": [
+            "delivery_slow"
+          ],
+          "supported_fact_ids": []
+        },
+        {
+          "key": "rag-opinion-v1:46739202b687e4a33e15ed0cf7257c55c0c1228fd670df52f7eb116ed80839a6",
+          "support": "unknown",
+          "reason": "semantic_not_verified",
+          "explicit_fact_ids": [
+            "delivery_slow"
+          ],
+          "supported_fact_ids": []
+        }
+      ],
+      "relation": null,
+      "reason": "query_semantics_uncovered",
+      "scope_of_claim": "retrieved_buyer_report_only",
+      "general_entailment": false
+    },
+    "validate_retrieval_under_current_code": false,
+    "validation_at_execution": {
+      "status": "passed",
+      "checks": [
+        {
+          "name": "数字与分母",
+          "passed": true,
+          "detail": "复核 1 行统计的计数及占比；0 行无成功标注，保留空占比"
+        },
+        {
+          "name": "覆盖率",
+          "passed": true,
+          "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母"
+        },
+        {
+          "name": "原文引用",
+          "passed": true,
+          "detail": "核对 4 处引文的原文位置及文件引用"
+        },
+        {
+          "name": "扩展统计",
+          "passed": true,
+          "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值"
+        },
+        {
+          "name": "正向统计",
+          "passed": true,
+          "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态"
+        },
+        {
+          "name": "范围身份",
+          "passed": true,
+          "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致"
+        },
+        {
+          "name": "情感语义",
+          "passed": true,
+          "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果"
+        },
+        {
+          "name": "查询结果完整性",
+          "passed": true,
+          "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证"
+        },
+        {
+          "name": "查询目标匹配",
+          "passed": true,
+          "detail": "核对本轮任务目标、指标口径、事实与绑定范围；工具成功不替代任务完成"
+        }
+      ]
+    },
+    "task_acceptance": null,
+    "agent_status": "ok",
+    "worker_status": "succeeded",
+    "answer": "已检索到候选观点，但当前本地校验不能确认其直接支持所问结论；暂不作确定判断。",
+    "public_answer": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "已检索到候选观点，但当前本地校验不能确认其直接支持所问结论；暂不作确定判断。",
+      "highlights": [],
+      "metrics": [],
+      "sample_note": "语义Top-K候选不作为统计样本或总体分母。",
+      "evidence_refs": [],
+      "caveats": [
+        "仅描述本次检索且可明确核验的买家自述，不代表客观性能、总体比例或全部评论。",
+        "完整评论仅作上下文否决；相似度不代表事实支持。未识别表达属于语义覆盖不足。"
+      ],
+      "generation_status": "template",
+      "source_result_ids": [
+        "r1"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:7b08dc5ebe2a0578",
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "product_ids": [
+            "100013588055"
+          ],
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:c2b5338b331d5489"
+        }
+      ],
+      "details_available": true,
+      "insights": [],
+      "evidence_relations": []
+    },
+    "events": [
+      {
+        "node": "state_load",
+        "context": null
+      },
+      {
+        "node": "connection_double",
+        "sql": "BEGIN",
+        "parameters": null
+      },
+      {
+        "node": "connection_double",
+        "sql": "SELECT set_config('statement_timeout', LEAST(COALESCE(NULLIF(setting::int,0),30000),30000)::text,true) FROM pg_settings WHERE name='statement_timeout'",
+        "parameters": null
+      },
+      {
+        "node": "connection_double",
+        "sql": "SELECT product_id,title,brand FROM products WHERE source=? AND dataset_version=?",
+        "parameters": [
+          "reviews_csv",
+          "stage1-synthetic-v1"
+        ]
+      },
+      {
+        "node": "build_request_goal",
+        "result": null
+      },
+      {
+        "node": "router_planner",
+        "scope": {
+          "model": "stage1-labels",
+          "base_url": "https://labels.stage1.invalid/v1",
+          "prompt_version": "stage1-labels-v1",
+          "product_ids": [
+            "100013588055"
+          ],
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "as_of": null,
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31"
+        },
+        "plan": {
+          "analysis_type": "semantic_evidence",
+          "sentiment": null,
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588055"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "requirements": [
+            {
+              "tool": "search_semantic_evidence",
+              "parameters": {}
+            }
+          ],
+          "optional_tools": [],
+          "requires_evidence": true,
+          "max_evidence_pages": 1,
+          "max_evidence_items": 5,
+          "evidence_start_page": 1,
+          "evidence_page_size": 3,
+          "unsupported_reason": null,
+          "answer_question": "100013588055有没有物流很慢的反馈？",
+          "product_groups": [],
+          "task_contract": {
+            "version": "review-runtime-contract-v1",
+            "original_question": "100013588055有没有物流很慢的反馈？",
+            "evidence_question": "100013588055有没有物流很慢的反馈？",
+            "scope": {
+              "model": "stage1-labels",
+              "base_url": "https://labels.stage1.invalid/v1",
+              "prompt_version": "stage1-labels-v1",
+              "product_ids": [
+                "100013588055"
+              ],
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "as_of": null,
+              "source": "reviews_csv",
+              "dataset_version": "stage1-synthetic-v1",
+              "baseline_from": "2023-01-01",
+              "baseline_to": "2023-01-31",
+              "timezone": "UTC"
+            },
+            "scope_sha256": "516bf9321f00b692eb91879c092305106824a998cdb62d588c08286aedde63b1",
+            "task_type": "evidence",
+            "operation": "fact_search",
+            "target_entity": "unknown",
+            "subtopic": "unknown",
+            "sentiment_intent": "unknown",
+            "required_facts": {
+              "operator": "all_of",
+              "items": [],
+              "relations": []
+            },
+            "statistics": [],
+            "support_status": "retrieval_only",
+            "unsupported_reason": null,
+            "uncertainty": [
+              "目标语义未被当前规则覆盖；仅允许检索和明确说明不足，不能许可确定结论。"
+            ]
+          },
+          "required_tools": [
+            "search_semantic_evidence"
+          ]
+        },
+        "intent": {
+          "query_type": "evidence",
+          "sub_intent": "evidence",
+          "sentiment": null,
+          "topic": null,
+          "aspect": null
+        }
+      },
+      {
+        "node": "build_request_goal",
+        "result": null
+      },
+      {
+        "node": "connection_double",
+        "sql": "SELECT product_id,title FROM products WHERE source=? AND dataset_version=? AND product_id IN (?) ORDER BY product_id LIMIT 101",
+        "parameters": [
+          "reviews_csv",
+          "stage1-synthetic-v1",
+          "100013588055"
+        ]
+      },
+      {
+        "node": "rag_double",
+        "coverage_gap_053": false,
+        "real_embedding_calls": 0
+      },
+      {
+        "node": "connection_double",
+        "sql": "BEGIN",
+        "parameters": null
+      },
+      {
+        "node": "connection_double",
+        "sql": "SELECT set_config('statement_timeout', LEAST(COALESCE(NULLIF(setting::int,0),30000),30000)::text,true) FROM pg_settings WHERE name='statement_timeout'",
+        "parameters": null
+      },
+      {
+        "node": "connection_double",
+        "sql": "SELECT product_id FROM products WHERE source=? AND dataset_version=?",
+        "parameters": [
+          "reviews_csv",
+          "stage1-synthetic-v1"
+        ]
+      },
+      {
+        "node": "tool_start",
+        "name": "get_analysis_context",
+        "parameters": {},
+        "plan_authorized": true
+      },
+      {
+        "node": "data_double",
+        "function": "get_trend",
+        "parameters": {
+          "model": "stage1-labels",
+          "base_url": "https://labels.stage1.invalid/v1",
+          "prompt_version": "stage1-labels-v1",
+          "product_ids": [
+            "100013588055"
+          ],
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "as_of": null,
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1"
+        }
+      },
+      {
+        "node": "tool_end",
+        "name": "get_analysis_context",
+        "result": {
+          "result_id": "overview",
+          "kind": "context",
+          "parameters": {},
+          "data": {
+            "scope": {
+              "model": "stage1-labels",
+              "base_url": "https://labels.stage1.invalid/v1",
+              "prompt_version": "stage1-labels-v1",
+              "product_ids": [
+                "100013588055"
+              ],
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "as_of": null,
+              "source": "reviews_csv",
+              "dataset_version": "stage1-synthetic-v1",
+              "baseline_from": "2023-01-01",
+              "baseline_to": "2023-01-31"
+            },
+            "products": [
+              {
+                "product_id": "100013588053",
+                "title": "虚构合成商品 100013588053",
+                "brand": "合成品牌"
+              },
+              {
+                "product_id": "100013588055",
+                "title": "虚构合成商品 100013588055",
+                "brand": "合成品牌"
+              }
+            ],
+            "summary": {
+              "review_count": 8,
+              "eligible_text_reviews": 8,
+              "successful_reviews": 8,
+              "failed_reviews": 0,
+              "unprocessed_reviews": 0,
+              "empty_text_reviews": 0,
+              "reviewed_reviews": 0,
+              "negative_review_count": 4,
+              "labeling_coverage": 1.0,
+              "negative_rate": 0.5,
+              "aspects": {
+                "quality": {
+                  "negative_review_count": 3,
+                  "negative_rate": 0.375
+                },
+                "effectiveness": {
+                  "negative_review_count": 1,
+                  "negative_rate": 0.125
+                },
+                "price": {
+                  "negative_review_count": 1,
+                  "negative_rate": 0.125
+                },
+                "packaging": {
+                  "negative_review_count": 1,
+                  "negative_rate": 0.125
+                },
+                "logistics": {
+                  "negative_review_count": 4,
+                  "negative_rate": 0.5
+                },
+                "service": {
+                  "negative_review_count": 2,
+                  "negative_rate": 0.25
+                }
+              }
+            },
+            "aspects": {
+              "quality": "商品质量",
+              "effectiveness": "使用效果",
+              "price": "价格",
+              "packaging": "包装",
+              "logistics": "物流",
+              "service": "客服"
+            },
+            "sentiments": {
+              "positive": "正向",
+              "negative": "负向",
+              "neutral": "中性",
+              "unknown": "未知"
+            }
+          }
+        }
+      },
+      {
+        "node": "tool_start",
+        "name": "search_semantic_evidence",
+        "parameters": {},
+        "plan_authorized": true
+      },
+      {
+        "node": "tool_end",
+        "name": "search_semantic_evidence",
+        "result": {
+          "result_id": "r1",
+          "kind": "semantic_evidence",
+          "parameters": {},
+          "data": {
+            "scope": {
+              "model": "stage1-labels",
+              "base_url": "https://labels.stage1.invalid/v1",
+              "prompt_version": "stage1-labels-v1",
+              "product_ids": [
+                "100013588055"
+              ],
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "as_of": null,
+              "source": "reviews_csv",
+              "dataset_version": "stage1-synthetic-v1",
+              "timezone": "UTC"
+            },
+            "retrieval": {
+              "version": "semantic-retrieval-v1",
+              "query": {
+                "question": "100013588055有没有物流很慢的反馈？",
+                "top_k": 5,
+                "aspect": "logistics",
+                "sentiment": null
+              },
+              "scope": {
+                "model": "stage1-labels",
+                "prompt_version": "stage1-labels-v1",
+                "product_ids": [
+                  "100013588055"
+                ],
+                "date_from": "2023-02-01",
+                "date_to": "2023-02-28",
+                "as_of": null,
+                "source": "reviews_csv",
+                "dataset_version": "stage1-synthetic-v1",
+                "timezone": "UTC"
+              },
+              "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+              "snapshot": {
+                "transaction_snapshot": "SYNTHETIC-TRANSACTION",
+                "observed_at": "2031-02-01T00:00:00+00:00",
+                "isolation_level": "repeatable read",
+                "read_only": true
+              },
+              "embedding_space_id": "embedding-space-v1:11e6754662dbd13fc56c6e624bc9416c1c2766f962787267fd4a57b1fa8d622e",
+              "text_builder_version": "quote-utf8-v1",
+              "source_policy": "current_effective_readonly_v1",
+              "context_policy": "quote_full_review_veto",
+              "context_version": "1",
+              "evidence": [
+                {
+                  "rank": 1,
+                  "key": "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c",
+                  "cosine_distance": 0.1,
+                  "source": "reviews_csv",
+                  "dataset_version": "stage1-synthetic-v1",
+                  "product_id": "100013588055",
+                  "review_id": 101,
+                  "annotation_id": 1101,
+                  "requested_model": "stage1-labels",
+                  "prompt_version": "stage1-labels-v1",
+                  "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+                  "opinion_source": "model",
+                  "model_opinion_id": 1011,
+                  "human_opinion_id": null,
+                  "human_revision_id": null,
+                  "aspect": "logistics",
+                  "sentiment": "negative",
+                  "quote": "物流很慢",
+                  "quote_start": 10,
+                  "quote_end": 14,
+                  "review_content_sha256": "a2c8b435bb564a87ee5d7f82ae7b9c060e790491a090c99aa7cb255453e75061",
+                  "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "published_at": "2023-02-10T00:00:00+00:00",
+                  "import_run_id": 1,
+                  "line_number": 101,
+                  "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=101",
+                  "text_builder_version": "quote-utf8-v1",
+                  "effective_snapshot_sha256": "7aa77c6ab0fd03d283abe57f3b2feb5bd784bc125287c34ff6b1ef878ae76c6f",
+                  "review_state": {
+                    "source": "reviews_csv",
+                    "dataset_version": "stage1-synthetic-v1",
+                    "product_id": "100013588055",
+                    "review_id": 101,
+                    "review_content_sha256": "a2c8b435bb564a87ee5d7f82ae7b9c060e790491a090c99aa7cb255453e75061",
+                    "published_at": "2023-02-10T00:00:00+00:00",
+                    "annotation_id": 1101,
+                    "human_revision_id": null,
+                    "processing_status": "success",
+                    "human_status": "unreviewed",
+                    "opinion_source": "model",
+                    "error_code": null,
+                    "opinion_count": 6,
+                    "effective_snapshot_sha256": "7aa77c6ab0fd03d283abe57f3b2feb5bd784bc125287c34ff6b1ef878ae76c6f"
+                  },
+                  "review_text": "合成评论：包装破了；物流很慢；客服回复缓慢；外壳开裂；降温速度慢；价格太高",
+                  "review_text_sha256": "a2c8b435bb564a87ee5d7f82ae7b9c060e790491a090c99aa7cb255453e75061"
+                },
+                {
+                  "rank": 2,
+                  "key": "rag-opinion-v1:195abf586c573952490c33eefd0c110751de7ace0a1f8265ba7493d1f4ff49f5",
+                  "cosine_distance": 0.1,
+                  "source": "reviews_csv",
+                  "dataset_version": "stage1-synthetic-v1",
+                  "product_id": "100013588055",
+                  "review_id": 102,
+                  "annotation_id": 1102,
+                  "requested_model": "stage1-labels",
+                  "prompt_version": "stage1-labels-v1",
+                  "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+                  "opinion_source": "model",
+                  "model_opinion_id": 1020,
+                  "human_opinion_id": null,
+                  "human_revision_id": null,
+                  "aspect": "logistics",
+                  "sentiment": "negative",
+                  "quote": "物流很慢",
+                  "quote_start": 5,
+                  "quote_end": 9,
+                  "review_content_sha256": "d75b5cdd33c14278048f86d7090e9c411ec05c6587ee4a1290b33b0f8c50da70",
+                  "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "published_at": "2023-02-13T00:00:00+00:00",
+                  "import_run_id": 1,
+                  "line_number": 102,
+                  "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=102",
+                  "text_builder_version": "quote-utf8-v1",
+                  "effective_snapshot_sha256": "cb6113925cf7784bb2ff8ddcb256ffc616db198bcfd4bdeaefd1c66943081b63",
+                  "review_state": {
+                    "source": "reviews_csv",
+                    "dataset_version": "stage1-synthetic-v1",
+                    "product_id": "100013588055",
+                    "review_id": 102,
+                    "review_content_sha256": "d75b5cdd33c14278048f86d7090e9c411ec05c6587ee4a1290b33b0f8c50da70",
+                    "published_at": "2023-02-13T00:00:00+00:00",
+                    "annotation_id": 1102,
+                    "human_revision_id": null,
+                    "processing_status": "success",
+                    "human_status": "unreviewed",
+                    "opinion_source": "model",
+                    "error_code": null,
+                    "opinion_count": 3,
+                    "effective_snapshot_sha256": "cb6113925cf7784bb2ff8ddcb256ffc616db198bcfd4bdeaefd1c66943081b63"
+                  },
+                  "review_text": "合成评论：物流很慢；客服回复缓慢；外壳开裂",
+                  "review_text_sha256": "d75b5cdd33c14278048f86d7090e9c411ec05c6587ee4a1290b33b0f8c50da70"
+                },
+                {
+                  "rank": 3,
+                  "key": "rag-opinion-v1:7ec0be6c6b8ee74699b60bb12b3c5703a7ff959be1ec61005353d9d2addc5c98",
+                  "cosine_distance": 0.1,
+                  "source": "reviews_csv",
+                  "dataset_version": "stage1-synthetic-v1",
+                  "product_id": "100013588055",
+                  "review_id": 103,
+                  "annotation_id": 1103,
+                  "requested_model": "stage1-labels",
+                  "prompt_version": "stage1-labels-v1",
+                  "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+                  "opinion_source": "model",
+                  "model_opinion_id": 1030,
+                  "human_opinion_id": null,
+                  "human_revision_id": null,
+                  "aspect": "logistics",
+                  "sentiment": "negative",
+                  "quote": "物流很慢",
+                  "quote_start": 5,
+                  "quote_end": 9,
+                  "review_content_sha256": "5b5309ce74f992f84f99f3611a2468410c48ba22d293c0a1d4cab181357832ca",
+                  "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "published_at": "2023-02-16T00:00:00+00:00",
+                  "import_run_id": 1,
+                  "line_number": 103,
+                  "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=103",
+                  "text_builder_version": "quote-utf8-v1",
+                  "effective_snapshot_sha256": "de7c5fc4169e1430c62047fdd30b8c6afd698ecda612a259eaff485a6f014cf9",
+                  "review_state": {
+                    "source": "reviews_csv",
+                    "dataset_version": "stage1-synthetic-v1",
+                    "product_id": "100013588055",
+                    "review_id": 103,
+                    "review_content_sha256": "5b5309ce74f992f84f99f3611a2468410c48ba22d293c0a1d4cab181357832ca",
+                    "published_at": "2023-02-16T00:00:00+00:00",
+                    "annotation_id": 1103,
+                    "human_revision_id": null,
+                    "processing_status": "success",
+                    "human_status": "unreviewed",
+                    "opinion_source": "model",
+                    "error_code": null,
+                    "opinion_count": 2,
+                    "effective_snapshot_sha256": "de7c5fc4169e1430c62047fdd30b8c6afd698ecda612a259eaff485a6f014cf9"
+                  },
+                  "review_text": "合成评论：物流很慢；外壳开裂",
+                  "review_text_sha256": "5b5309ce74f992f84f99f3611a2468410c48ba22d293c0a1d4cab181357832ca"
+                },
+                {
+                  "rank": 4,
+                  "key": "rag-opinion-v1:46739202b687e4a33e15ed0cf7257c55c0c1228fd670df52f7eb116ed80839a6",
+                  "cosine_distance": 0.1,
+                  "source": "reviews_csv",
+                  "dataset_version": "stage1-synthetic-v1",
+                  "product_id": "100013588055",
+                  "review_id": 104,
+                  "annotation_id": 1104,
+                  "requested_model": "stage1-labels",
+                  "prompt_version": "stage1-labels-v1",
+                  "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+                  "opinion_source": "model",
+                  "model_opinion_id": 1040,
+                  "human_opinion_id": null,
+                  "human_revision_id": null,
+                  "aspect": "logistics",
+                  "sentiment": "negative",
+                  "quote": "物流很慢",
+                  "quote_start": 5,
+                  "quote_end": 9,
+                  "review_content_sha256": "9a74fa3660d951ec71812b28c8a23d85ed0d154dcf8c6474ae56d8498f541746",
+                  "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "published_at": "2023-02-19T00:00:00+00:00",
+                  "import_run_id": 1,
+                  "line_number": 104,
+                  "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=104",
+                  "text_builder_version": "quote-utf8-v1",
+                  "effective_snapshot_sha256": "102d5281c8241229a754a11a7e7b5e7de19f5177ed1f1aa8363d1d5a48b22a7c",
+                  "review_state": {
+                    "source": "reviews_csv",
+                    "dataset_version": "stage1-synthetic-v1",
+                    "product_id": "100013588055",
+                    "review_id": 104,
+                    "review_content_sha256": "9a74fa3660d951ec71812b28c8a23d85ed0d154dcf8c6474ae56d8498f541746",
+                    "published_at": "2023-02-19T00:00:00+00:00",
+                    "annotation_id": 1104,
+                    "human_revision_id": null,
+                    "processing_status": "success",
+                    "human_status": "unreviewed",
+                    "opinion_source": "model",
+                    "error_code": null,
+                    "opinion_count": 1,
+                    "effective_snapshot_sha256": "102d5281c8241229a754a11a7e7b5e7de19f5177ed1f1aa8363d1d5a48b22a7c"
+                  },
+                  "review_text": "合成评论：物流很慢",
+                  "review_text_sha256": "9a74fa3660d951ec71812b28c8a23d85ed0d154dcf8c6474ae56d8498f541746"
+                }
+              ]
+            },
+            "assessment_question": "100013588055有没有物流很慢的反馈？",
+            "assessment": {
+              "policy": "reported_experience_v2",
+              "status": "insufficient",
+              "target": null,
+              "required_fact_ids": [],
+              "supported_target_fact_ids": [],
+              "missing_required_fact_ids": [
+                "unresolved_query"
+              ],
+              "permitted_keys": [],
+              "fact_bindings": [],
+              "candidate_judgments": [
+                {
+                  "key": "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c",
+                  "support": "unknown",
+                  "reason": "semantic_not_verified",
+                  "explicit_fact_ids": [
+                    "delivery_slow"
+                  ],
+                  "supported_fact_ids": []
+                },
+                {
+                  "key": "rag-opinion-v1:195abf586c573952490c33eefd0c110751de7ace0a1f8265ba7493d1f4ff49f5",
+                  "support": "unknown",
+                  "reason": "semantic_not_verified",
+                  "explicit_fact_ids": [
+                    "delivery_slow"
+                  ],
+                  "supported_fact_ids": []
+                },
+                {
+                  "key": "rag-opinion-v1:7ec0be6c6b8ee74699b60bb12b3c5703a7ff959be1ec61005353d9d2addc5c98",
+                  "support": "unknown",
+                  "reason": "semantic_not_verified",
+                  "explicit_fact_ids": [
+                    "delivery_slow"
+                  ],
+                  "supported_fact_ids": []
+                },
+                {
+                  "key": "rag-opinion-v1:46739202b687e4a33e15ed0cf7257c55c0c1228fd670df52f7eb116ed80839a6",
+                  "support": "unknown",
+                  "reason": "semantic_not_verified",
+                  "explicit_fact_ids": [
+                    "delivery_slow"
+                  ],
+                  "supported_fact_ids": []
+                }
+              ],
+              "relation": null,
+              "reason": "query_semantics_uncovered",
+              "scope_of_claim": "retrieved_buyer_report_only",
+              "general_entailment": false
+            },
+            "timings": {
+              "encoding_total_ms": 0.4590999997162726,
+              "search_including_corpus_ms": 0.011000000085914508,
+              "source_hydration_ms": 0.019099999917671084,
+              "source_verification_ms": 1.2140000008002971,
+              "permission_ms": 3.209200000128476
+            }
+          }
+        }
+      },
+      {
+        "node": "worker_finish",
+        "status": "succeeded",
+        "error": null
+      },
+      {
+        "node": "state_load",
+        "context": {
+          "user": {
+            "task_id": "G25-T1",
+            "question": "100013588055有没有物流很慢的反馈？"
+          },
+          "users": [
+            {
+              "task_id": "G25-T1",
+              "question": "100013588055有没有物流很慢的反馈？"
+            }
+          ],
+          "validated": {
+            "task_id": "G25-T1",
+            "scope": {
+              "model": "stage1-labels",
+              "base_url": "https://labels.stage1.invalid/v1",
+              "prompt_version": "stage1-labels-v1",
+              "product_ids": [
+                "100013588055"
+              ],
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "as_of": null,
+              "source": "reviews_csv",
+              "dataset_version": "stage1-synthetic-v1",
+              "baseline_from": "2023-01-01",
+              "baseline_to": "2023-01-31"
+            },
+            "sentiment": null,
+            "analysis_type": "semantic_evidence",
+            "queries": [
+              {
+                "kind": "semantic_evidence",
+                "parameters": {}
+              }
+            ],
+            "result_refs": [
+              "r1"
+            ]
+          },
+          "turns_read": 1,
+          "analysis_state": {
+            "version": "review-analysis-state-v1",
+            "ranking_basis": null,
+            "pending_goal": null
+          },
+          "selection_scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053",
+              "100013588055"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "previous_selection_scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053",
+              "100013588055"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "selection_changes": []
+        }
+      }
+    ]
+  },
+  "after": {
+    "original_question": "100013588055有没有物流很慢的反馈？",
+    "scope": {
+      "model": "stage1-labels",
+      "base_url": "https://labels.stage1.invalid/v1",
+      "prompt_version": "stage1-labels-v1",
+      "product_ids": [
+        "100013588055"
+      ],
+      "date_from": "2023-02-01",
+      "date_to": "2023-02-28",
+      "as_of": null,
+      "source": "reviews_csv",
+      "dataset_version": "stage1-synthetic-v1",
+      "baseline_from": "2023-01-01",
+      "baseline_to": "2023-01-31"
+    },
+    "resolved_product_ids": [
+      "100013588055"
+    ],
+    "request_goal": null,
+    "user_intent": {
+      "query_type": "evidence",
+      "sub_intent": "evidence",
+      "sentiment": null,
+      "topic": null,
+      "aspect": null,
+      "resolved_product_ids": [
+        "100013588055"
+      ],
+      "effective_time_range": {
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28"
+      }
+    },
+    "analysis_intent": "semantic_evidence",
+    "query_plan": {
+      "analysis_type": "semantic_evidence",
+      "sentiment": null,
+      "scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588055"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31"
+      },
+      "requirements": [
+        {
+          "tool": "search_semantic_evidence",
+          "parameters": {}
+        }
+      ],
+      "optional_tools": [],
+      "requires_evidence": true,
+      "max_evidence_pages": 1,
+      "max_evidence_items": 5,
+      "evidence_start_page": 1,
+      "evidence_page_size": 3,
+      "unsupported_reason": null,
+      "answer_question": "100013588055有没有物流很慢的反馈？",
+      "product_groups": [],
+      "task_contract": {
+        "version": "review-runtime-contract-v1",
+        "original_question": "100013588055有没有物流很慢的反馈？",
+        "evidence_question": "有没有物流很慢的反馈？",
+        "scope": {
+          "model": "stage1-labels",
+          "base_url": "https://labels.stage1.invalid/v1",
+          "prompt_version": "stage1-labels-v1",
+          "product_ids": [
+            "100013588055"
+          ],
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "as_of": null,
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31",
+          "timezone": "UTC"
+        },
+        "scope_sha256": "516bf9321f00b692eb91879c092305106824a998cdb62d588c08286aedde63b1",
+        "task_type": "evidence",
+        "operation": "fact_search",
+        "target_entity": "delivery",
+        "subtopic": "delivery",
+        "sentiment_intent": "negative",
+        "required_facts": {
+          "operator": "all_of",
+          "items": [
+            {
+              "id": "delivery_slow",
+              "description": "买家自述该商品的体验：物流很慢",
+              "sentiment": null
+            }
+          ],
+          "relations": []
+        },
+        "statistics": [],
+        "support_status": "supported",
+        "unsupported_reason": null,
+        "uncertainty": []
+      },
+      "required_tools": [
+        "search_semantic_evidence"
+      ]
+    },
+    "semantic_query": {
+      "question": "100013588055有没有物流很慢的反馈？",
+      "top_k": 5,
+      "aspect": "logistics",
+      "sentiment": null
+    },
+    "runtime_query_contract": {
+      "version": "review-runtime-contract-v1",
+      "original_question": "100013588055有没有物流很慢的反馈？",
+      "evidence_question": "有没有物流很慢的反馈？",
+      "scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588055"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31",
+        "timezone": "UTC"
+      },
+      "scope_sha256": "516bf9321f00b692eb91879c092305106824a998cdb62d588c08286aedde63b1",
+      "task_type": "evidence",
+      "operation": "fact_search",
+      "target_entity": "delivery",
+      "subtopic": "delivery",
+      "sentiment_intent": "negative",
+      "required_facts": {
+        "operator": "all_of",
+        "items": [
+          {
+            "id": "delivery_slow",
+            "description": "买家自述该商品的体验：物流很慢",
+            "sentiment": null
+          }
+        ],
+        "relations": []
+      },
+      "statistics": [],
+      "support_status": "supported",
+      "unsupported_reason": null,
+      "uncertainty": []
+    },
+    "evidence_question": "有没有物流很慢的反馈？",
+    "target_parse": {
+      "facts": [
+        "delivery_slow"
+      ],
+      "relation": null,
+      "text": "物流很慢"
+    },
+    "candidates": [
+      {
+        "rank": 1,
+        "key": "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c",
+        "cosine_distance": 0.1,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "product_id": "100013588055",
+        "review_id": 101,
+        "annotation_id": 1101,
+        "requested_model": "stage1-labels",
+        "prompt_version": "stage1-labels-v1",
+        "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+        "opinion_source": "model",
+        "model_opinion_id": 1011,
+        "human_opinion_id": null,
+        "human_revision_id": null,
+        "aspect": "logistics",
+        "sentiment": "negative",
+        "quote": "物流很慢",
+        "quote_start": 10,
+        "quote_end": 14,
+        "review_content_sha256": "a2c8b435bb564a87ee5d7f82ae7b9c060e790491a090c99aa7cb255453e75061",
+        "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "published_at": "2023-02-10T00:00:00+00:00",
+        "import_run_id": 1,
+        "line_number": 101,
+        "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=101",
+        "text_builder_version": "quote-utf8-v1",
+        "effective_snapshot_sha256": "7aa77c6ab0fd03d283abe57f3b2feb5bd784bc125287c34ff6b1ef878ae76c6f",
+        "review_state": {
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "product_id": "100013588055",
+          "review_id": 101,
+          "review_content_sha256": "a2c8b435bb564a87ee5d7f82ae7b9c060e790491a090c99aa7cb255453e75061",
+          "published_at": "2023-02-10T00:00:00+00:00",
+          "annotation_id": 1101,
+          "human_revision_id": null,
+          "processing_status": "success",
+          "human_status": "unreviewed",
+          "opinion_source": "model",
+          "error_code": null,
+          "opinion_count": 6,
+          "effective_snapshot_sha256": "7aa77c6ab0fd03d283abe57f3b2feb5bd784bc125287c34ff6b1ef878ae76c6f"
+        },
+        "review_text": "合成评论：包装破了；物流很慢；客服回复缓慢；外壳开裂；降温速度慢；价格太高",
+        "review_text_sha256": "a2c8b435bb564a87ee5d7f82ae7b9c060e790491a090c99aa7cb255453e75061"
+      },
+      {
+        "rank": 2,
+        "key": "rag-opinion-v1:195abf586c573952490c33eefd0c110751de7ace0a1f8265ba7493d1f4ff49f5",
+        "cosine_distance": 0.1,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "product_id": "100013588055",
+        "review_id": 102,
+        "annotation_id": 1102,
+        "requested_model": "stage1-labels",
+        "prompt_version": "stage1-labels-v1",
+        "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+        "opinion_source": "model",
+        "model_opinion_id": 1020,
+        "human_opinion_id": null,
+        "human_revision_id": null,
+        "aspect": "logistics",
+        "sentiment": "negative",
+        "quote": "物流很慢",
+        "quote_start": 5,
+        "quote_end": 9,
+        "review_content_sha256": "d75b5cdd33c14278048f86d7090e9c411ec05c6587ee4a1290b33b0f8c50da70",
+        "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "published_at": "2023-02-13T00:00:00+00:00",
+        "import_run_id": 1,
+        "line_number": 102,
+        "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=102",
+        "text_builder_version": "quote-utf8-v1",
+        "effective_snapshot_sha256": "cb6113925cf7784bb2ff8ddcb256ffc616db198bcfd4bdeaefd1c66943081b63",
+        "review_state": {
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "product_id": "100013588055",
+          "review_id": 102,
+          "review_content_sha256": "d75b5cdd33c14278048f86d7090e9c411ec05c6587ee4a1290b33b0f8c50da70",
+          "published_at": "2023-02-13T00:00:00+00:00",
+          "annotation_id": 1102,
+          "human_revision_id": null,
+          "processing_status": "success",
+          "human_status": "unreviewed",
+          "opinion_source": "model",
+          "error_code": null,
+          "opinion_count": 3,
+          "effective_snapshot_sha256": "cb6113925cf7784bb2ff8ddcb256ffc616db198bcfd4bdeaefd1c66943081b63"
+        },
+        "review_text": "合成评论：物流很慢；客服回复缓慢；外壳开裂",
+        "review_text_sha256": "d75b5cdd33c14278048f86d7090e9c411ec05c6587ee4a1290b33b0f8c50da70"
+      },
+      {
+        "rank": 3,
+        "key": "rag-opinion-v1:7ec0be6c6b8ee74699b60bb12b3c5703a7ff959be1ec61005353d9d2addc5c98",
+        "cosine_distance": 0.1,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "product_id": "100013588055",
+        "review_id": 103,
+        "annotation_id": 1103,
+        "requested_model": "stage1-labels",
+        "prompt_version": "stage1-labels-v1",
+        "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+        "opinion_source": "model",
+        "model_opinion_id": 1030,
+        "human_opinion_id": null,
+        "human_revision_id": null,
+        "aspect": "logistics",
+        "sentiment": "negative",
+        "quote": "物流很慢",
+        "quote_start": 5,
+        "quote_end": 9,
+        "review_content_sha256": "5b5309ce74f992f84f99f3611a2468410c48ba22d293c0a1d4cab181357832ca",
+        "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "published_at": "2023-02-16T00:00:00+00:00",
+        "import_run_id": 1,
+        "line_number": 103,
+        "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=103",
+        "text_builder_version": "quote-utf8-v1",
+        "effective_snapshot_sha256": "de7c5fc4169e1430c62047fdd30b8c6afd698ecda612a259eaff485a6f014cf9",
+        "review_state": {
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "product_id": "100013588055",
+          "review_id": 103,
+          "review_content_sha256": "5b5309ce74f992f84f99f3611a2468410c48ba22d293c0a1d4cab181357832ca",
+          "published_at": "2023-02-16T00:00:00+00:00",
+          "annotation_id": 1103,
+          "human_revision_id": null,
+          "processing_status": "success",
+          "human_status": "unreviewed",
+          "opinion_source": "model",
+          "error_code": null,
+          "opinion_count": 2,
+          "effective_snapshot_sha256": "de7c5fc4169e1430c62047fdd30b8c6afd698ecda612a259eaff485a6f014cf9"
+        },
+        "review_text": "合成评论：物流很慢；外壳开裂",
+        "review_text_sha256": "5b5309ce74f992f84f99f3611a2468410c48ba22d293c0a1d4cab181357832ca"
+      },
+      {
+        "rank": 4,
+        "key": "rag-opinion-v1:46739202b687e4a33e15ed0cf7257c55c0c1228fd670df52f7eb116ed80839a6",
+        "cosine_distance": 0.1,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "product_id": "100013588055",
+        "review_id": 104,
+        "annotation_id": 1104,
+        "requested_model": "stage1-labels",
+        "prompt_version": "stage1-labels-v1",
+        "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+        "opinion_source": "model",
+        "model_opinion_id": 1040,
+        "human_opinion_id": null,
+        "human_revision_id": null,
+        "aspect": "logistics",
+        "sentiment": "negative",
+        "quote": "物流很慢",
+        "quote_start": 5,
+        "quote_end": 9,
+        "review_content_sha256": "9a74fa3660d951ec71812b28c8a23d85ed0d154dcf8c6474ae56d8498f541746",
+        "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+        "published_at": "2023-02-19T00:00:00+00:00",
+        "import_run_id": 1,
+        "line_number": 104,
+        "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=104",
+        "text_builder_version": "quote-utf8-v1",
+        "effective_snapshot_sha256": "102d5281c8241229a754a11a7e7b5e7de19f5177ed1f1aa8363d1d5a48b22a7c",
+        "review_state": {
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "product_id": "100013588055",
+          "review_id": 104,
+          "review_content_sha256": "9a74fa3660d951ec71812b28c8a23d85ed0d154dcf8c6474ae56d8498f541746",
+          "published_at": "2023-02-19T00:00:00+00:00",
+          "annotation_id": 1104,
+          "human_revision_id": null,
+          "processing_status": "success",
+          "human_status": "unreviewed",
+          "opinion_source": "model",
+          "error_code": null,
+          "opinion_count": 1,
+          "effective_snapshot_sha256": "102d5281c8241229a754a11a7e7b5e7de19f5177ed1f1aa8363d1d5a48b22a7c"
+        },
+        "review_text": "合成评论：物流很慢",
+        "review_text_sha256": "9a74fa3660d951ec71812b28c8a23d85ed0d154dcf8c6474ae56d8498f541746"
+      }
+    ],
+    "assessment": {
+      "policy": "reported_experience_v2",
+      "status": "sufficient",
+      "target": "物流很慢",
+      "required_fact_ids": [
+        "delivery_slow"
+      ],
+      "supported_target_fact_ids": [
+        "delivery_slow"
+      ],
+      "missing_required_fact_ids": [],
+      "permitted_keys": [
+        "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c"
+      ],
+      "fact_bindings": [
+        {
+          "key": "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c",
+          "review_id": 101,
+          "quote_start": 10,
+          "quote_end": 14,
+          "quote_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+          "fact_ids": [
+            "delivery_slow"
+          ]
+        }
+      ],
+      "candidate_judgments": [
+        {
+          "key": "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c",
+          "support": "direct_report",
+          "reason": "explicit_entailment",
+          "explicit_fact_ids": [
+            "delivery_slow"
+          ],
+          "supported_fact_ids": [
+            "delivery_slow"
+          ]
+        },
+        {
+          "key": "rag-opinion-v1:195abf586c573952490c33eefd0c110751de7ace0a1f8265ba7493d1f4ff49f5",
+          "support": "unknown",
+          "reason": "context_unresolved",
+          "explicit_fact_ids": [
+            "delivery_slow"
+          ],
+          "supported_fact_ids": []
+        },
+        {
+          "key": "rag-opinion-v1:7ec0be6c6b8ee74699b60bb12b3c5703a7ff959be1ec61005353d9d2addc5c98",
+          "support": "unknown",
+          "reason": "context_unresolved",
+          "explicit_fact_ids": [
+            "delivery_slow"
+          ],
+          "supported_fact_ids": []
+        },
+        {
+          "key": "rag-opinion-v1:46739202b687e4a33e15ed0cf7257c55c0c1228fd670df52f7eb116ed80839a6",
+          "support": "unknown",
+          "reason": "context_unresolved",
+          "explicit_fact_ids": [
+            "delivery_slow"
+          ],
+          "supported_fact_ids": []
+        }
+      ],
+      "relation": null,
+      "reason": "explicit_report_only",
+      "scope_of_claim": "retrieved_buyer_report_only",
+      "general_entailment": false
+    },
+    "validate_retrieval_under_current_code": true,
+    "validation_at_execution": {
+      "status": "passed",
+      "checks": [
+        {
+          "name": "数字与分母",
+          "passed": true,
+          "detail": "复核 1 行统计的计数及占比；0 行无成功标注，保留空占比"
+        },
+        {
+          "name": "覆盖率",
+          "passed": true,
+          "detail": "按成功标注数 / 有效正文数复核，不以评论总数代替分母"
+        },
+        {
+          "name": "原文引用",
+          "passed": true,
+          "detail": "核对 4 处引文的原文位置及文件引用"
+        },
+        {
+          "name": "扩展统计",
+          "passed": true,
+          "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值"
+        },
+        {
+          "name": "正向统计",
+          "passed": true,
+          "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态"
+        },
+        {
+          "name": "范围身份",
+          "passed": true,
+          "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致"
+        },
+        {
+          "name": "情感语义",
+          "passed": true,
+          "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果"
+        },
+        {
+          "name": "查询结果完整性",
+          "passed": true,
+          "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证"
+        },
+        {
+          "name": "查询目标匹配",
+          "passed": true,
+          "detail": "核对本轮任务目标、指标口径、事实与绑定范围；工具成功不替代任务完成"
+        }
+      ]
+    },
+    "task_acceptance": null,
+    "agent_status": "ok",
+    "worker_status": "succeeded",
+    "answer": "在本次检索到的评论中，有买家明确报告了以下情况。\n\n评论 #101（2023-02-10）写道：“物流很慢” [r1]",
+    "public_answer": {
+      "schema_version": "1.0",
+      "status": "ok",
+      "summary": "在本次检索到的评论中，有买家明确报告了以下情况。",
+      "highlights": [
+        {
+          "finding_ref": "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c",
+          "aspect_key": "logistics",
+          "scope_ref": "scope:7b08dc5ebe2a0578",
+          "source_result_ids": [
+            "r1"
+          ],
+          "text": "评论 #101（2023-02-10）写道：“物流很慢” [r1]"
+        }
+      ],
+      "metrics": [],
+      "sample_note": "语义Top-K候选不作为统计样本或总体分母。",
+      "evidence_refs": [
+        {
+          "source_result_id": "r1",
+          "review_id": 101,
+          "product_id": "100013588055",
+          "published_at": "2023-02-10T00:00:00+00:00",
+          "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=101",
+          "opinion_source": "model",
+          "opinions": [
+            {
+              "aspect": "logistics",
+              "sentiment": "negative",
+              "quote": "物流很慢",
+              "quote_start": 10,
+              "quote_end": 14,
+              "truncated": false,
+              "opinion_key": "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c",
+              "annotation_id": 1101,
+              "effective_snapshot_sha256": "7aa77c6ab0fd03d283abe57f3b2feb5bd784bc125287c34ff6b1ef878ae76c6f"
+            }
+          ]
+        }
+      ],
+      "caveats": [
+        "仅描述本次检索且可明确核验的买家自述，不代表客观性能、总体比例或全部评论。",
+        "完整评论仅作上下文否决；相似度不代表事实支持。未识别表达属于语义覆盖不足。"
+      ],
+      "generation_status": "template",
+      "source_result_ids": [
+        "r1"
+      ],
+      "scope_summary": [
+        {
+          "scope_ref": "scope:7b08dc5ebe2a0578",
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "product_ids": [
+            "100013588055"
+          ],
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "as_of": null,
+          "timezone": "UTC",
+          "annotation_profile_ref": "profile:c2b5338b331d5489"
+        }
+      ],
+      "details_available": true,
+      "insights": [],
+      "evidence_relations": []
+    },
+    "events": [
+      {
+        "node": "state_load",
+        "context": null
+      },
+      {
+        "node": "connection_double",
+        "sql": "BEGIN",
+        "parameters": null
+      },
+      {
+        "node": "connection_double",
+        "sql": "SELECT set_config('statement_timeout', LEAST(COALESCE(NULLIF(setting::int,0),30000),30000)::text,true) FROM pg_settings WHERE name='statement_timeout'",
+        "parameters": null
+      },
+      {
+        "node": "connection_double",
+        "sql": "SELECT product_id,title,brand FROM products WHERE source=? AND dataset_version=?",
+        "parameters": [
+          "reviews_csv",
+          "stage1-synthetic-v1"
+        ]
+      },
+      {
+        "node": "build_request_goal",
+        "result": null
+      },
+      {
+        "node": "router_planner",
+        "scope": {
+          "model": "stage1-labels",
+          "base_url": "https://labels.stage1.invalid/v1",
+          "prompt_version": "stage1-labels-v1",
+          "product_ids": [
+            "100013588055"
+          ],
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "as_of": null,
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31"
+        },
+        "plan": {
+          "analysis_type": "semantic_evidence",
+          "sentiment": null,
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588055"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "requirements": [
+            {
+              "tool": "search_semantic_evidence",
+              "parameters": {}
+            }
+          ],
+          "optional_tools": [],
+          "requires_evidence": true,
+          "max_evidence_pages": 1,
+          "max_evidence_items": 5,
+          "evidence_start_page": 1,
+          "evidence_page_size": 3,
+          "unsupported_reason": null,
+          "answer_question": "100013588055有没有物流很慢的反馈？",
+          "product_groups": [],
+          "task_contract": {
+            "version": "review-runtime-contract-v1",
+            "original_question": "100013588055有没有物流很慢的反馈？",
+            "evidence_question": "有没有物流很慢的反馈？",
+            "scope": {
+              "model": "stage1-labels",
+              "base_url": "https://labels.stage1.invalid/v1",
+              "prompt_version": "stage1-labels-v1",
+              "product_ids": [
+                "100013588055"
+              ],
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "as_of": null,
+              "source": "reviews_csv",
+              "dataset_version": "stage1-synthetic-v1",
+              "baseline_from": "2023-01-01",
+              "baseline_to": "2023-01-31",
+              "timezone": "UTC"
+            },
+            "scope_sha256": "516bf9321f00b692eb91879c092305106824a998cdb62d588c08286aedde63b1",
+            "task_type": "evidence",
+            "operation": "fact_search",
+            "target_entity": "delivery",
+            "subtopic": "delivery",
+            "sentiment_intent": "negative",
+            "required_facts": {
+              "operator": "all_of",
+              "items": [
+                {
+                  "id": "delivery_slow",
+                  "description": "买家自述该商品的体验：物流很慢",
+                  "sentiment": null
+                }
+              ],
+              "relations": []
+            },
+            "statistics": [],
+            "support_status": "supported",
+            "unsupported_reason": null,
+            "uncertainty": []
+          },
+          "required_tools": [
+            "search_semantic_evidence"
+          ]
+        },
+        "intent": {
+          "query_type": "evidence",
+          "sub_intent": "evidence",
+          "sentiment": null,
+          "topic": null,
+          "aspect": null
+        }
+      },
+      {
+        "node": "build_request_goal",
+        "result": null
+      },
+      {
+        "node": "connection_double",
+        "sql": "SELECT product_id,title FROM products WHERE source=? AND dataset_version=? AND product_id IN (?) ORDER BY product_id LIMIT 101",
+        "parameters": [
+          "reviews_csv",
+          "stage1-synthetic-v1",
+          "100013588055"
+        ]
+      },
+      {
+        "node": "rag_double",
+        "coverage_gap_053": false,
+        "real_embedding_calls": 0
+      },
+      {
+        "node": "connection_double",
+        "sql": "BEGIN",
+        "parameters": null
+      },
+      {
+        "node": "connection_double",
+        "sql": "SELECT set_config('statement_timeout', LEAST(COALESCE(NULLIF(setting::int,0),30000),30000)::text,true) FROM pg_settings WHERE name='statement_timeout'",
+        "parameters": null
+      },
+      {
+        "node": "connection_double",
+        "sql": "SELECT product_id FROM products WHERE source=? AND dataset_version=?",
+        "parameters": [
+          "reviews_csv",
+          "stage1-synthetic-v1"
+        ]
+      },
+      {
+        "node": "tool_start",
+        "name": "get_analysis_context",
+        "parameters": {},
+        "plan_authorized": true
+      },
+      {
+        "node": "data_double",
+        "function": "get_trend",
+        "parameters": {
+          "model": "stage1-labels",
+          "base_url": "https://labels.stage1.invalid/v1",
+          "prompt_version": "stage1-labels-v1",
+          "product_ids": [
+            "100013588055"
+          ],
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "as_of": null,
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1"
+        }
+      },
+      {
+        "node": "tool_end",
+        "name": "get_analysis_context",
+        "result": {
+          "result_id": "overview",
+          "kind": "context",
+          "parameters": {},
+          "data": {
+            "scope": {
+              "model": "stage1-labels",
+              "base_url": "https://labels.stage1.invalid/v1",
+              "prompt_version": "stage1-labels-v1",
+              "product_ids": [
+                "100013588055"
+              ],
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "as_of": null,
+              "source": "reviews_csv",
+              "dataset_version": "stage1-synthetic-v1",
+              "baseline_from": "2023-01-01",
+              "baseline_to": "2023-01-31"
+            },
+            "products": [
+              {
+                "product_id": "100013588053",
+                "title": "虚构合成商品 100013588053",
+                "brand": "合成品牌"
+              },
+              {
+                "product_id": "100013588055",
+                "title": "虚构合成商品 100013588055",
+                "brand": "合成品牌"
+              }
+            ],
+            "summary": {
+              "review_count": 8,
+              "eligible_text_reviews": 8,
+              "successful_reviews": 8,
+              "failed_reviews": 0,
+              "unprocessed_reviews": 0,
+              "empty_text_reviews": 0,
+              "reviewed_reviews": 0,
+              "negative_review_count": 4,
+              "labeling_coverage": 1.0,
+              "negative_rate": 0.5,
+              "aspects": {
+                "quality": {
+                  "negative_review_count": 3,
+                  "negative_rate": 0.375
+                },
+                "effectiveness": {
+                  "negative_review_count": 1,
+                  "negative_rate": 0.125
+                },
+                "price": {
+                  "negative_review_count": 1,
+                  "negative_rate": 0.125
+                },
+                "packaging": {
+                  "negative_review_count": 1,
+                  "negative_rate": 0.125
+                },
+                "logistics": {
+                  "negative_review_count": 4,
+                  "negative_rate": 0.5
+                },
+                "service": {
+                  "negative_review_count": 2,
+                  "negative_rate": 0.25
+                }
+              }
+            },
+            "aspects": {
+              "quality": "商品质量",
+              "effectiveness": "使用效果",
+              "price": "价格",
+              "packaging": "包装",
+              "logistics": "物流",
+              "service": "客服"
+            },
+            "sentiments": {
+              "positive": "正向",
+              "negative": "负向",
+              "neutral": "中性",
+              "unknown": "未知"
+            }
+          }
+        }
+      },
+      {
+        "node": "tool_start",
+        "name": "search_semantic_evidence",
+        "parameters": {},
+        "plan_authorized": true
+      },
+      {
+        "node": "tool_end",
+        "name": "search_semantic_evidence",
+        "result": {
+          "result_id": "r1",
+          "kind": "semantic_evidence",
+          "parameters": {},
+          "data": {
+            "scope": {
+              "model": "stage1-labels",
+              "base_url": "https://labels.stage1.invalid/v1",
+              "prompt_version": "stage1-labels-v1",
+              "product_ids": [
+                "100013588055"
+              ],
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "as_of": null,
+              "source": "reviews_csv",
+              "dataset_version": "stage1-synthetic-v1",
+              "timezone": "UTC"
+            },
+            "retrieval": {
+              "version": "semantic-retrieval-v1",
+              "query": {
+                "question": "100013588055有没有物流很慢的反馈？",
+                "top_k": 5,
+                "aspect": "logistics",
+                "sentiment": null
+              },
+              "scope": {
+                "model": "stage1-labels",
+                "prompt_version": "stage1-labels-v1",
+                "product_ids": [
+                  "100013588055"
+                ],
+                "date_from": "2023-02-01",
+                "date_to": "2023-02-28",
+                "as_of": null,
+                "source": "reviews_csv",
+                "dataset_version": "stage1-synthetic-v1",
+                "timezone": "UTC"
+              },
+              "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+              "snapshot": {
+                "transaction_snapshot": "SYNTHETIC-TRANSACTION",
+                "observed_at": "2031-02-01T00:00:00+00:00",
+                "isolation_level": "repeatable read",
+                "read_only": true
+              },
+              "embedding_space_id": "embedding-space-v1:11e6754662dbd13fc56c6e624bc9416c1c2766f962787267fd4a57b1fa8d622e",
+              "text_builder_version": "quote-utf8-v1",
+              "source_policy": "current_effective_readonly_v1",
+              "context_policy": "quote_full_review_veto",
+              "context_version": "1",
+              "evidence": [
+                {
+                  "rank": 1,
+                  "key": "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c",
+                  "cosine_distance": 0.1,
+                  "source": "reviews_csv",
+                  "dataset_version": "stage1-synthetic-v1",
+                  "product_id": "100013588055",
+                  "review_id": 101,
+                  "annotation_id": 1101,
+                  "requested_model": "stage1-labels",
+                  "prompt_version": "stage1-labels-v1",
+                  "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+                  "opinion_source": "model",
+                  "model_opinion_id": 1011,
+                  "human_opinion_id": null,
+                  "human_revision_id": null,
+                  "aspect": "logistics",
+                  "sentiment": "negative",
+                  "quote": "物流很慢",
+                  "quote_start": 10,
+                  "quote_end": 14,
+                  "review_content_sha256": "a2c8b435bb564a87ee5d7f82ae7b9c060e790491a090c99aa7cb255453e75061",
+                  "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "published_at": "2023-02-10T00:00:00+00:00",
+                  "import_run_id": 1,
+                  "line_number": 101,
+                  "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=101",
+                  "text_builder_version": "quote-utf8-v1",
+                  "effective_snapshot_sha256": "7aa77c6ab0fd03d283abe57f3b2feb5bd784bc125287c34ff6b1ef878ae76c6f",
+                  "review_state": {
+                    "source": "reviews_csv",
+                    "dataset_version": "stage1-synthetic-v1",
+                    "product_id": "100013588055",
+                    "review_id": 101,
+                    "review_content_sha256": "a2c8b435bb564a87ee5d7f82ae7b9c060e790491a090c99aa7cb255453e75061",
+                    "published_at": "2023-02-10T00:00:00+00:00",
+                    "annotation_id": 1101,
+                    "human_revision_id": null,
+                    "processing_status": "success",
+                    "human_status": "unreviewed",
+                    "opinion_source": "model",
+                    "error_code": null,
+                    "opinion_count": 6,
+                    "effective_snapshot_sha256": "7aa77c6ab0fd03d283abe57f3b2feb5bd784bc125287c34ff6b1ef878ae76c6f"
+                  },
+                  "review_text": "合成评论：包装破了；物流很慢；客服回复缓慢；外壳开裂；降温速度慢；价格太高",
+                  "review_text_sha256": "a2c8b435bb564a87ee5d7f82ae7b9c060e790491a090c99aa7cb255453e75061"
+                },
+                {
+                  "rank": 2,
+                  "key": "rag-opinion-v1:195abf586c573952490c33eefd0c110751de7ace0a1f8265ba7493d1f4ff49f5",
+                  "cosine_distance": 0.1,
+                  "source": "reviews_csv",
+                  "dataset_version": "stage1-synthetic-v1",
+                  "product_id": "100013588055",
+                  "review_id": 102,
+                  "annotation_id": 1102,
+                  "requested_model": "stage1-labels",
+                  "prompt_version": "stage1-labels-v1",
+                  "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+                  "opinion_source": "model",
+                  "model_opinion_id": 1020,
+                  "human_opinion_id": null,
+                  "human_revision_id": null,
+                  "aspect": "logistics",
+                  "sentiment": "negative",
+                  "quote": "物流很慢",
+                  "quote_start": 5,
+                  "quote_end": 9,
+                  "review_content_sha256": "d75b5cdd33c14278048f86d7090e9c411ec05c6587ee4a1290b33b0f8c50da70",
+                  "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "published_at": "2023-02-13T00:00:00+00:00",
+                  "import_run_id": 1,
+                  "line_number": 102,
+                  "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=102",
+                  "text_builder_version": "quote-utf8-v1",
+                  "effective_snapshot_sha256": "cb6113925cf7784bb2ff8ddcb256ffc616db198bcfd4bdeaefd1c66943081b63",
+                  "review_state": {
+                    "source": "reviews_csv",
+                    "dataset_version": "stage1-synthetic-v1",
+                    "product_id": "100013588055",
+                    "review_id": 102,
+                    "review_content_sha256": "d75b5cdd33c14278048f86d7090e9c411ec05c6587ee4a1290b33b0f8c50da70",
+                    "published_at": "2023-02-13T00:00:00+00:00",
+                    "annotation_id": 1102,
+                    "human_revision_id": null,
+                    "processing_status": "success",
+                    "human_status": "unreviewed",
+                    "opinion_source": "model",
+                    "error_code": null,
+                    "opinion_count": 3,
+                    "effective_snapshot_sha256": "cb6113925cf7784bb2ff8ddcb256ffc616db198bcfd4bdeaefd1c66943081b63"
+                  },
+                  "review_text": "合成评论：物流很慢；客服回复缓慢；外壳开裂",
+                  "review_text_sha256": "d75b5cdd33c14278048f86d7090e9c411ec05c6587ee4a1290b33b0f8c50da70"
+                },
+                {
+                  "rank": 3,
+                  "key": "rag-opinion-v1:7ec0be6c6b8ee74699b60bb12b3c5703a7ff959be1ec61005353d9d2addc5c98",
+                  "cosine_distance": 0.1,
+                  "source": "reviews_csv",
+                  "dataset_version": "stage1-synthetic-v1",
+                  "product_id": "100013588055",
+                  "review_id": 103,
+                  "annotation_id": 1103,
+                  "requested_model": "stage1-labels",
+                  "prompt_version": "stage1-labels-v1",
+                  "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+                  "opinion_source": "model",
+                  "model_opinion_id": 1030,
+                  "human_opinion_id": null,
+                  "human_revision_id": null,
+                  "aspect": "logistics",
+                  "sentiment": "negative",
+                  "quote": "物流很慢",
+                  "quote_start": 5,
+                  "quote_end": 9,
+                  "review_content_sha256": "5b5309ce74f992f84f99f3611a2468410c48ba22d293c0a1d4cab181357832ca",
+                  "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "published_at": "2023-02-16T00:00:00+00:00",
+                  "import_run_id": 1,
+                  "line_number": 103,
+                  "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=103",
+                  "text_builder_version": "quote-utf8-v1",
+                  "effective_snapshot_sha256": "de7c5fc4169e1430c62047fdd30b8c6afd698ecda612a259eaff485a6f014cf9",
+                  "review_state": {
+                    "source": "reviews_csv",
+                    "dataset_version": "stage1-synthetic-v1",
+                    "product_id": "100013588055",
+                    "review_id": 103,
+                    "review_content_sha256": "5b5309ce74f992f84f99f3611a2468410c48ba22d293c0a1d4cab181357832ca",
+                    "published_at": "2023-02-16T00:00:00+00:00",
+                    "annotation_id": 1103,
+                    "human_revision_id": null,
+                    "processing_status": "success",
+                    "human_status": "unreviewed",
+                    "opinion_source": "model",
+                    "error_code": null,
+                    "opinion_count": 2,
+                    "effective_snapshot_sha256": "de7c5fc4169e1430c62047fdd30b8c6afd698ecda612a259eaff485a6f014cf9"
+                  },
+                  "review_text": "合成评论：物流很慢；外壳开裂",
+                  "review_text_sha256": "5b5309ce74f992f84f99f3611a2468410c48ba22d293c0a1d4cab181357832ca"
+                },
+                {
+                  "rank": 4,
+                  "key": "rag-opinion-v1:46739202b687e4a33e15ed0cf7257c55c0c1228fd670df52f7eb116ed80839a6",
+                  "cosine_distance": 0.1,
+                  "source": "reviews_csv",
+                  "dataset_version": "stage1-synthetic-v1",
+                  "product_id": "100013588055",
+                  "review_id": 104,
+                  "annotation_id": 1104,
+                  "requested_model": "stage1-labels",
+                  "prompt_version": "stage1-labels-v1",
+                  "label_profile_key": "c2b5338b331d5489b54b5f03907b65bf2f72b2858733386ac423cf8ac9d97e73",
+                  "opinion_source": "model",
+                  "model_opinion_id": 1040,
+                  "human_opinion_id": null,
+                  "human_revision_id": null,
+                  "aspect": "logistics",
+                  "sentiment": "negative",
+                  "quote": "物流很慢",
+                  "quote_start": 5,
+                  "quote_end": 9,
+                  "review_content_sha256": "9a74fa3660d951ec71812b28c8a23d85ed0d154dcf8c6474ae56d8498f541746",
+                  "opinion_text_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "embedding_input_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "published_at": "2023-02-19T00:00:00+00:00",
+                  "import_run_id": 1,
+                  "line_number": 104,
+                  "file_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "evidence_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111#line=104",
+                  "text_builder_version": "quote-utf8-v1",
+                  "effective_snapshot_sha256": "102d5281c8241229a754a11a7e7b5e7de19f5177ed1f1aa8363d1d5a48b22a7c",
+                  "review_state": {
+                    "source": "reviews_csv",
+                    "dataset_version": "stage1-synthetic-v1",
+                    "product_id": "100013588055",
+                    "review_id": 104,
+                    "review_content_sha256": "9a74fa3660d951ec71812b28c8a23d85ed0d154dcf8c6474ae56d8498f541746",
+                    "published_at": "2023-02-19T00:00:00+00:00",
+                    "annotation_id": 1104,
+                    "human_revision_id": null,
+                    "processing_status": "success",
+                    "human_status": "unreviewed",
+                    "opinion_source": "model",
+                    "error_code": null,
+                    "opinion_count": 1,
+                    "effective_snapshot_sha256": "102d5281c8241229a754a11a7e7b5e7de19f5177ed1f1aa8363d1d5a48b22a7c"
+                  },
+                  "review_text": "合成评论：物流很慢",
+                  "review_text_sha256": "9a74fa3660d951ec71812b28c8a23d85ed0d154dcf8c6474ae56d8498f541746"
+                }
+              ]
+            },
+            "assessment_question": "有没有物流很慢的反馈？",
+            "assessment": {
+              "policy": "reported_experience_v2",
+              "status": "sufficient",
+              "target": "物流很慢",
+              "required_fact_ids": [
+                "delivery_slow"
+              ],
+              "supported_target_fact_ids": [
+                "delivery_slow"
+              ],
+              "missing_required_fact_ids": [],
+              "permitted_keys": [
+                "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c"
+              ],
+              "fact_bindings": [
+                {
+                  "key": "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c",
+                  "review_id": 101,
+                  "quote_start": 10,
+                  "quote_end": 14,
+                  "quote_sha256": "fb9fe20e801d31a3fa3a06ea91118320e422f804034eaa984f7e723380615216",
+                  "fact_ids": [
+                    "delivery_slow"
+                  ]
+                }
+              ],
+              "candidate_judgments": [
+                {
+                  "key": "rag-opinion-v1:0beaa95e402eeb91e098869d1764063cec7b11c170c991774a23efc9ad0b404c",
+                  "support": "direct_report",
+                  "reason": "explicit_entailment",
+                  "explicit_fact_ids": [
+                    "delivery_slow"
+                  ],
+                  "supported_fact_ids": [
+                    "delivery_slow"
+                  ]
+                },
+                {
+                  "key": "rag-opinion-v1:195abf586c573952490c33eefd0c110751de7ace0a1f8265ba7493d1f4ff49f5",
+                  "support": "unknown",
+                  "reason": "context_unresolved",
+                  "explicit_fact_ids": [
+                    "delivery_slow"
+                  ],
+                  "supported_fact_ids": []
+                },
+                {
+                  "key": "rag-opinion-v1:7ec0be6c6b8ee74699b60bb12b3c5703a7ff959be1ec61005353d9d2addc5c98",
+                  "support": "unknown",
+                  "reason": "context_unresolved",
+                  "explicit_fact_ids": [
+                    "delivery_slow"
+                  ],
+                  "supported_fact_ids": []
+                },
+                {
+                  "key": "rag-opinion-v1:46739202b687e4a33e15ed0cf7257c55c0c1228fd670df52f7eb116ed80839a6",
+                  "support": "unknown",
+                  "reason": "context_unresolved",
+                  "explicit_fact_ids": [
+                    "delivery_slow"
+                  ],
+                  "supported_fact_ids": []
+                }
+              ],
+              "relation": null,
+              "reason": "explicit_report_only",
+              "scope_of_claim": "retrieved_buyer_report_only",
+              "general_entailment": false
+            },
+            "timings": {
+              "encoding_total_ms": 0.20760000006703194,
+              "search_including_corpus_ms": 0.004999999873689376,
+              "source_hydration_ms": 0.010399999155197293,
+              "source_verification_ms": 0.5817000001115957,
+              "permission_ms": 1.5478999994229525
+            }
+          }
+        }
+      },
+      {
+        "node": "worker_finish",
+        "status": "succeeded",
+        "error": null
+      },
+      {
+        "node": "state_load",
+        "context": {
+          "user": {
+            "task_id": "G25-T1",
+            "question": "100013588055有没有物流很慢的反馈？"
+          },
+          "users": [
+            {
+              "task_id": "G25-T1",
+              "question": "100013588055有没有物流很慢的反馈？"
+            }
+          ],
+          "validated": {
+            "task_id": "G25-T1",
+            "scope": {
+              "model": "stage1-labels",
+              "base_url": "https://labels.stage1.invalid/v1",
+              "prompt_version": "stage1-labels-v1",
+              "product_ids": [
+                "100013588055"
+              ],
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "as_of": null,
+              "source": "reviews_csv",
+              "dataset_version": "stage1-synthetic-v1",
+              "baseline_from": "2023-01-01",
+              "baseline_to": "2023-01-31"
+            },
+            "sentiment": null,
+            "analysis_type": "semantic_evidence",
+            "queries": [
+              {
+                "kind": "semantic_evidence",
+                "parameters": {}
+              }
+            ],
+            "result_refs": [
+              "r1"
+            ]
+          },
+          "turns_read": 1,
+          "analysis_state": {
+            "version": "review-analysis-state-v1",
+            "ranking_basis": null,
+            "pending_goal": null
+          },
+          "selection_scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053",
+              "100013588055"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "previous_selection_scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053",
+              "100013588055"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "selection_changes": []
+        }
+      }
+    ]
+  },
+  "audit": {
+    "same_candidates_and_source_identity": true,
+    "semantic_query_byte_content_unchanged": true,
+    "same_bound_scope": true,
+    "initial_scorer_deviation": "tool_target",
+    "root_before_tools": "RuntimeQueryContract evidence_question retains redundant SKU, so finite target parser returns None.",
+    "old_v5_validation_result_at_execution": true,
+    "old_payload_replay_not_silently_upgraded": true,
+    "old_payload_revalidation_current_code": false
+  }
+}

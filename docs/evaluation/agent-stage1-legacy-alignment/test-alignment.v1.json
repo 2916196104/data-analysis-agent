@@ -1,0 +1,115 @@
+{
+  "version": "agent-stage1-legacy-test-alignment-v1",
+  "bound_at": "2026-11-11T13:06:52.654649+08:00",
+  "timezone": "Asia/Taipei",
+  "authority": "Current user request explicitly authorizes aligning the four legacy test contracts to the already frozen human A decisions; no production or oracle changes.",
+  "source_revision": {
+    "path": "docs/evaluation/agent-stage1-v2-fix/final/source-revision.v5.json",
+    "sha256": "1a257a154f8db17e66b7d207ccd02ead75de68419064f176e7dd13c735c746d5"
+  },
+  "frozen_semantics": {
+    "docs/evaluation/agent-stage1-human-adjudication.v1.json": "97b38e01d204adfa2b3d2177a4bc1f7ee6d6026b9523242d6fe98ae825b12643",
+    "tests/fixtures/agent_stage1/oracle.v2.json": "81306475371fd769b61f8132cf97dbc8dcdc82975a67a0982018575c08bed198",
+    "tests/fixtures/agent_stage1/freeze-manifest.v2.1.json": "dc9310c681c2054a2db1db75eb9355f087d1a04e83f7172b49443fcfa055af4d",
+    "tests/fixtures/agent_stage1/scoring-contract.v2.1.json": "4b38505dbfd2b4e1750631f928eb13c020c9b510a488a4e510cd187dcd460711"
+  },
+  "tests": {
+    "test_p1a_f01.py": {
+      "old_test_ids": [
+        "F01WorkerTests.test_a_short_sentiment_keeps_themes_with_correct_empty_positive_result",
+        "F01WorkerTests.test_ambiguous_history_clarifies_before_any_tool_execution",
+        "F01WorkerTests.test_b_explicit_dimension_continues_pending_negative_theme",
+        "F01WorkerTests.test_c_explicit_positive_manifestation_keeps_theme_level",
+        "F01WorkerTests.test_d_explicit_positive_dimension_statistics_replace_pending_themes",
+        "F01WorkerTests.test_e_explicit_count_replaces_pending_themes",
+        "F01WorkerTests.test_explicit_replacement_is_used_by_the_next_short_reference",
+        "F01WorkerTests.test_explicit_scope_in_question_invalidates_pending_goal",
+        "F01WorkerTests.test_f_scope_changes_do_not_reanimate_pending_from_old_prose",
+        "F01WorkerTests.test_g_cross_session_does_not_inherit_pending_theme",
+        "F01WorkerTests.test_h_injected_statistics_plan_still_fails_independent_theme_goal",
+        "F01WorkerTests.test_legacy_user_conditions_without_structured_state_keep_theme_goal",
+        "F01WorkerTests.test_positive_theme_with_matching_evidence_completes_without_paid_model"
+      ],
+      "retained_test_ids": [
+        "F01WorkerTests.test_a_short_sentiment_keeps_themes_with_correct_empty_positive_result",
+        "F01WorkerTests.test_ambiguous_history_clarifies_before_any_tool_execution",
+        "F01WorkerTests.test_b_explicit_dimension_continues_pending_negative_theme",
+        "F01WorkerTests.test_c_explicit_positive_manifestation_keeps_theme_level",
+        "F01WorkerTests.test_d_explicit_positive_dimension_statistics_replace_pending_themes",
+        "F01WorkerTests.test_e_explicit_count_replaces_pending_themes",
+        "F01WorkerTests.test_explicit_replacement_is_used_by_the_next_short_reference",
+        "F01WorkerTests.test_explicit_scope_in_question_invalidates_pending_goal",
+        "F01WorkerTests.test_f_scope_changes_do_not_reanimate_pending_from_old_prose",
+        "F01WorkerTests.test_g_cross_session_does_not_inherit_pending_theme",
+        "F01WorkerTests.test_h_injected_statistics_plan_still_fails_independent_theme_goal",
+        "F01WorkerTests.test_legacy_user_conditions_without_structured_state_keep_theme_goal",
+        "F01WorkerTests.test_positive_theme_with_matching_evidence_completes_without_paid_model"
+      ],
+      "new_test_ids": [
+        "F01WorkerTests.test_explicit_positive_theme_with_matching_evidence_completes_without_paid_model",
+        "F01WorkerTests.test_explicit_positive_theme_without_evidence_is_insufficient_not_clarification",
+        "F01WorkerTests.test_short_positive_after_only_statistics_uses_positive_counts",
+        "F01WorkerTests.test_unique_single_theme_context_allows_short_positive_switch"
+      ],
+      "changed_old_test_ids": [
+        "F01WorkerTests.test_a_short_sentiment_keeps_themes_with_correct_empty_positive_result",
+        "F01WorkerTests.test_legacy_user_conditions_without_structured_state_keep_theme_goal",
+        "F01WorkerTests.test_positive_theme_with_matching_evidence_completes_without_paid_model"
+      ],
+      "old_file_sha256": "a718b0f8544a9cd601e5cc20ce81694ebccda0997e966a6ade028cc3b643cfcb",
+      "new_file_sha256": "0630337fa4db1e90e8880eab89b2b3ae510e2e5504ab9ce6221895fc0849b0d1"
+    },
+    "test_p6b_planner_snapshot.py": {
+      "old_test_ids": [
+        "P6BPlannerSnapshotTests.test_actual_worker_prepares_exact_plan_without_classifying_or_completing",
+        "P6BPlannerSnapshotTests.test_closed_runtime_artifact_rejects_recomputed_input_hash_and_missing_dimensions",
+        "P6BPlannerSnapshotTests.test_concurrent_committed_insert_does_not_mix_statistics_and_inputs",
+        "P6BPlannerSnapshotTests.test_concurrent_opinion_edit_is_not_visible_mid_prefetch",
+        "P6BPlannerSnapshotTests.test_cross_session_and_explicit_scope_changes_do_not_reuse_ranking",
+        "P6BPlannerSnapshotTests.test_data_changed_since_ranking_blocks_without_reselection",
+        "P6BPlannerSnapshotTests.test_explicit_other_requests_and_f01_short_sentiment_do_not_trigger_p6",
+        "P6BPlannerSnapshotTests.test_frontend_cannot_supply_p6_state_or_enable_server_preparation",
+        "P6BPlannerSnapshotTests.test_frozen_input_survives_later_changes_and_detects_corruption_without_reads",
+        "P6BPlannerSnapshotTests.test_missing_trusted_ranking_clarifies_without_queries",
+        "P6BPlannerSnapshotTests.test_p6_tool_dispatch_blocks_before_cache_or_database_fallback",
+        "P6BPlannerSnapshotTests.test_precise_plan_faults_are_rejected_before_statistics_or_opinion_reads",
+        "P6BPlannerSnapshotTests.test_prefetch_failure_or_malformed_evidence_never_yields_complete_artifact",
+        "P6BPlannerSnapshotTests.test_single_aspect_and_count_stay_on_original_routes",
+        "P6BPlannerSnapshotTests.test_transaction_is_required_and_postgres_protocol_requires_repeatable_read_only",
+        "P6BPlannerSnapshotTests.test_truncation_is_explicit_and_candidate_ids_are_stable",
+        "P6BPlannerSnapshotTests.test_unselected_count_missing_dimension_and_definition_faults_block",
+        "P6BPlannerSnapshotTests.test_worker_rejects_cross_session_and_tampered_source_without_reads",
+        "P6BPlannerSnapshotTests.test_zero_one_two_three_and_more_nonzero_ranks_compile_via_worker"
+      ],
+      "retained_test_ids": [
+        "P6BPlannerSnapshotTests.test_actual_worker_prepares_exact_plan_without_classifying_or_completing",
+        "P6BPlannerSnapshotTests.test_closed_runtime_artifact_rejects_recomputed_input_hash_and_missing_dimensions",
+        "P6BPlannerSnapshotTests.test_concurrent_committed_insert_does_not_mix_statistics_and_inputs",
+        "P6BPlannerSnapshotTests.test_concurrent_opinion_edit_is_not_visible_mid_prefetch",
+        "P6BPlannerSnapshotTests.test_cross_session_and_explicit_scope_changes_do_not_reuse_ranking",
+        "P6BPlannerSnapshotTests.test_data_changed_since_ranking_blocks_without_reselection",
+        "P6BPlannerSnapshotTests.test_explicit_other_requests_and_f01_short_sentiment_do_not_trigger_p6",
+        "P6BPlannerSnapshotTests.test_frontend_cannot_supply_p6_state_or_enable_server_preparation",
+        "P6BPlannerSnapshotTests.test_frozen_input_survives_later_changes_and_detects_corruption_without_reads",
+        "P6BPlannerSnapshotTests.test_missing_trusted_ranking_clarifies_without_queries",
+        "P6BPlannerSnapshotTests.test_p6_tool_dispatch_blocks_before_cache_or_database_fallback",
+        "P6BPlannerSnapshotTests.test_precise_plan_faults_are_rejected_before_statistics_or_opinion_reads",
+        "P6BPlannerSnapshotTests.test_prefetch_failure_or_malformed_evidence_never_yields_complete_artifact",
+        "P6BPlannerSnapshotTests.test_single_aspect_and_count_stay_on_original_routes",
+        "P6BPlannerSnapshotTests.test_transaction_is_required_and_postgres_protocol_requires_repeatable_read_only",
+        "P6BPlannerSnapshotTests.test_truncation_is_explicit_and_candidate_ids_are_stable",
+        "P6BPlannerSnapshotTests.test_unselected_count_missing_dimension_and_definition_faults_block",
+        "P6BPlannerSnapshotTests.test_worker_rejects_cross_session_and_tampered_source_without_reads",
+        "P6BPlannerSnapshotTests.test_zero_one_two_three_and_more_nonzero_ranks_compile_via_worker"
+      ],
+      "new_test_ids": [
+        "P6BPlannerSnapshotTests.test_explicit_positive_theme_keeps_ordinary_plan_after_p6_preparation"
+      ],
+      "changed_old_test_ids": [
+        "P6BPlannerSnapshotTests.test_explicit_other_requests_and_f01_short_sentiment_do_not_trigger_p6"
+      ],
+      "old_file_sha256": "c04930f58694f3db6740b46aad1801a71dfbc723b61e0996155a5b01f1dd3df5",
+      "new_file_sha256": "efd050ef4e804ffb296e7af30bad37d31e9ebe48d0818d88fa801eb0b5d73f8a"
+    }
+  }
+}

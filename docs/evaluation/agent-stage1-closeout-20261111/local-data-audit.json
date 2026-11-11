@@ -1,0 +1,93 @@
+{
+  "audited_at": "2026-11-11T14:40:37.110011+08:00",
+  "method": "File bytes, parsed CSV physical lines and JSON joins only; no application imports/execution.",
+  "original_csv_sha256": "90d5061b67a724ee7584ea01e78d6115865294470f7a7ae29597c3a7a94acccf",
+  "original_csv_records": 9584,
+  "raw_product_records": {
+    "100013588055": 511,
+    "100013588053": 1702
+  },
+  "observed_review_rows": 57,
+  "observed_annotation_rows": 57,
+  "opinion_records_verified": 93,
+  "raw_line_product_fulltext_stored_date_matches": 57,
+  "opinion_identity_and_exact_span_matches": 93,
+  "historical_query_mode_lists": 48,
+  "historical_rank_entries": 222,
+  "unique_ranked_keys": 93,
+  "candidate_question_count": 16,
+  "candidate_real_review_units": 18,
+  "all_new_cases_pending": true,
+  "new_human_references": 0,
+  "prediction_count": 0,
+  "candidate_file_unchanged": true,
+  "candidate_file_sha256": "b064b4518ba4ab80d2cfa79790608b8cf1f5a108d3eddc888a6043f10f8872b5",
+  "source_asset_checks": [
+    {
+      "path": "data/private/.uploads/846743acd4524af3bfc9ccd80bac48a2.csv",
+      "status": "MATCH",
+      "sha256": "90d5061b67a724ee7584ea01e78d6115865294470f7a7ae29597c3a7a94acccf"
+    },
+    {
+      "path": "outputs/rag-retrieval-quality/step4b-phase2c0-20261104/attempt2-current-source-observation.json",
+      "status": "MATCH",
+      "sha256": "373ee19353dd3aa89c0aa55d0c7d20031af4e1e5e9a03e89eed1dc44bcf11295"
+    },
+    {
+      "path": "outputs/rag-retrieval-quality/step4b-phase2c1-exploratory-v1-20261104/prepared-v1/observed-sources.json",
+      "status": "MATCH",
+      "sha256": "c6331fffd3c1ead27e763f84e5c3359ae62d67fd06215ce21acbb3df5e47c1fa"
+    },
+    {
+      "path": "outputs/rag-retrieval-quality/e1a-b2-publication-20261105/release-v1/reference-release.json",
+      "status": "BLOCKED_PERMISSION_DENIED_NOT_RETRIED",
+      "expected_sha256": "3119110db89e0c9afc88f90865e73b907f6529b4045be359001ce682f2586d26"
+    },
+    {
+      "path": "outputs/rag-retrieval-quality/e1a-b2-publication-20261105/publication-manifest.json",
+      "status": "MATCH",
+      "sha256": "4da5f61566ecfe4c15de33a6297acb139f093e3d68dcfef92be13a99de18a456"
+    },
+    {
+      "path": "outputs/rag-retrieval-quality/step4b-phase2c0-20261104/attempt2-collection-receipt.json",
+      "status": "MATCH",
+      "sha256": "eee8bd39899fff0a0d374ad709f95ae71535ff0ecfe7d727decf9bc3fd73a973"
+    },
+    {
+      "path": "outputs/rag-retrieval-quality/step4b-phase2c0c-execution-20261104/metadata-observation.json",
+      "status": "MATCH",
+      "sha256": "6f6806c5d458192bfc38f8101e6196e86bf94989f6e1828701b6c85bd1e080a5"
+    },
+    {
+      "path": "outputs/rag-retrieval-quality/step4b-phase2c0c-execution-20261104/snapshot-results.json",
+      "status": "MATCH",
+      "sha256": "f7a1f7af30bd6cde687c9ead6ea26bb8cf0deca4920960fa7aa3d068f30700b7"
+    },
+    {
+      "path": "outputs/rag-retrieval-quality/step4b-phase2c0c-execution-20261104/verification-summary.final.json",
+      "status": "MATCH",
+      "sha256": "c88edf6440cf0814f805418706e0926f1d43d92ee52cb985b5acffc247f75f93"
+    },
+    {
+      "path": "outputs/rag-retrieval-quality/step4b-phase2c1-exploratory-v1-20261104/prepared-v1/inputs.json",
+      "status": "MATCH",
+      "sha256": "f79b811e79590d01c417bda2881dec601e4c8f308be135b986168e7e18e2585c"
+    },
+    {
+      "path": "outputs/rag-pgvector/business-sync.json",
+      "status": "MATCH",
+      "sha256": "4f1227d36fecee11113af3a31747d22b9f869fd3ee0f05a5c088725f17271b14"
+    },
+    {
+      "path": "outputs/rag-pgvector/business-acceptance.json",
+      "status": "MATCH",
+      "sha256": "c40944cf5139560e5608040bf1941f8aa37cf774e579e613acfe7bea7b2c50cd"
+    }
+  ],
+  "reference_release_current_access": "BLOCKED_PERMISSION_DENIED; reported prior release status is not freshly reverified",
+  "historical_source_policy": "history_unproven; local identity/content correspondence only, not present-day P0 certification",
+  "aggregate_ranking_ground_truth_available": false,
+  "product_053_annotated_retrieval_baseline_available": false,
+  "allowed_next_step": "Human review of existing pending candidates only; no evaluation execution.",
+  "full_real_agent_evaluation": "NOT READY / NOT EXECUTED"
+}

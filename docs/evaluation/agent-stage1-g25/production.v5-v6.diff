@@ -1,0 +1,79 @@
+--- v5/review_task_contract.py
++++ v6/review_task_contract.py
+@@ -15,10 +15,22 @@
+                          r'(\d{4}-\d{2}-\d{2})\s*(?:期间|之间|内)?\s*[，,:：]?\s*(.+)$', re.S)
+ 
+ 
+-def evidence_question(question):
+-    """Separate a leading explicit scope from the proposition, not from the embedding input."""
++def evidence_question(question, scope=None):
++    """Separate redundant prefixes using an independently catalog-bound server scope, never text-inferred IDs."""
+     match = DATE_PREFIX.fullmatch(question)
+-    return match[3] if match else question
++    text = match[3] if match else question
++    if scope is not None:
++        try:
++            ids = scope['product_ids']
++            if (isinstance(ids, (list, tuple)) and len(ids) == 1 and isinstance(ids[0], str) and ids[0]
++                    and evidence_scope_matches(question, scope) and text.startswith(ids[0])):
++                remainder = text[len(ids[0]):]
++                # Only the existing complete proposition grammar qualifies; no numeric/clause deletion.
++                if target(remainder) is not None:
++                    return remainder
++        except (KeyError, TypeError, AttributeError):
++            pass
++    return text
+ 
+ 
+ def evidence_scope_matches(question, scope):
+@@ -114,7 +126,7 @@
+ 
+ def build_task_contract(question, scope, plan):
+     bound = RuntimeScope.model_validate_json(canonical_json(scope))
+-    q = evidence_question(question)
++    q = evidence_question(question, scope)
+     request = target(q) if plan.analysis_type == 'semantic_evidence' else None
+     facts = RequiredFacts()
+     entity = subtopic = 'unknown'
+--- v5/review_retrieval.py
++++ v6/review_retrieval.py
+@@ -157,7 +157,7 @@
+         raise SemanticRetrievalError('result_scope_or_question_mismatch')
+     payload = result.to_dict()
+     started=perf_counter()
+-    fact_question=evidence_question(context.question)
++    fact_question=evidence_question(context.question, scope)
+     assessment=assess_retrieval(fact_question, payload['evidence'])
+     data = {'scope': expected.model_dump(mode='json'), 'retrieval': payload,
+             'assessment_question':fact_question,
+@@ -202,7 +202,7 @@
+         fact_question=question
+         if 'assessment_question' in data:
+             from data_analysis_agent.agents.review_task_contract import evidence_question, evidence_scope_matches
+-            fact_question=evidence_question(question)
++            fact_question=evidence_question(question, data['scope'])
+             if data['assessment_question']!=fact_question or not evidence_scope_matches(question,data['scope']):return False
+         return data['assessment'] == assess_retrieval(fact_question,evidence,policy=data['assessment']['policy'])
+     except (KeyError,ValueError,TypeError,AttributeError,UnicodeError,SemanticRetrievalError):
+--- v5/review_answers.py
++++ v6/review_answers.py
+@@ -407,7 +407,7 @@
+         raise ValueError('语义回答状态与证据不一致。')
+     from data_analysis_agent.agents.review_task_contract import evidence_question
+     fact_question=filters.get('assessment_question',context.question)
+-    if fact_question not in (context.question,evidence_question(context.question)):
++    if fact_question not in (context.question,evidence_question(context.question, scope)):
+         raise ValueError('事实目标与原问题不一致。')
+     if assessment['policy'] == POLICY and not validate_answer_bindings(fact_question,assessment,context.evidence):
+         raise ValueError('语义回答事实、关系或引用绑定不一致。')
+--- v5/review_structured_evidence.py
++++ v6/review_structured_evidence.py
+@@ -124,7 +124,7 @@
+     contract = parse(contract.model_dump(mode='json'), RuntimeQueryContract)
+     require(content_sha256(contract.model_dump(mode='json')) == trusted_contract_sha256, 'target_binding_mismatch')
+     require(contract.scope_sha256 == content_sha256(contract.scope.model_dump(mode='json')), 'scope_digest_mismatch')
+-    require(contract.evidence_question == evidence_question(contract.original_question), 'target_text_mismatch')
++    require(contract.evidence_question == evidence_question(contract.original_question, contract.scope.model_dump(mode='json')), 'target_text_mismatch')
+     require(evidence_scope_matches(contract.original_question, contract.scope.model_dump()), 'date_binding_mismatch')
+     require(contract.operation == 'fact_search' and contract.task_type == 'evidence'
+             and contract.support_status == 'supported' and not contract.unsupported_reason

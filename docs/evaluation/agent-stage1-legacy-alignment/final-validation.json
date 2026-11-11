@@ -1,0 +1,21 @@
+{
+  "verified_at": "2026-11-11T13:15:20.896386+08:00",
+  "protected_files": 891,
+  "changed_only_authorized_test_files": [
+    "tests/test_p1a_f01.py",
+    "tests/test_p6b_planner_snapshot.py"
+  ],
+  "production_source_v5": "UNCHANGED",
+  "all_original_738_compatibility_IDs_retained": true,
+  "new_test_IDs": 5,
+  "four_aligned_tests": "4/4 PASS",
+  "focused": "54/54 PASS",
+  "full": "743/743 PASS, 0 skips",
+  "oracle_v2": "61 PASS / 1 FAIL (G25-T1)",
+  "original_59_PASS_retained": true,
+  "all_v5_61_PASS_retained": true,
+  "paid_model_embedding_production_database_calls": 0,
+  "P6_E1B": "BLOCKED",
+  "PG01_PG08": "NOT EXECUTED",
+  "automatic_G25_fix_started": false
+}

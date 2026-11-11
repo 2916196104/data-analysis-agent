@@ -24,7 +24,9 @@ PRODUCTS = [{'product_id':p,'title':'合成商品'+p,'brand':'合成'} for p in 
 class OracleV2BusinessFixTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        use_source_revision(ROOT/'docs/evaluation/agent-stage1-v2-fix/final/source-revision.v5.json')
+        from agent_stage1_multiturn_evaluation import SOURCE_REVISION
+        if SOURCE_REVISION is None:
+            use_source_revision(ROOT/'docs/evaluation/agent-stage1-v2-fix/final/source-revision.v5.json')
         cls.h = Harness()
         cls.h.oracle = json.loads((ROOT/'tests/fixtures/agent_stage1/oracle.v2.json').read_text(encoding='utf-8'))
         cls.h.oracle['groups'] = [g for g in cls.h.oracle['groups'] if g['id'] in ('G02','G24','G30')]
