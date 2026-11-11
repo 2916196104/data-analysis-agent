@@ -1,0 +1,282 @@
+{
+  "created_at": "2026-11-11T12:24:24.114593+08:00",
+  "timezone": "Asia/Taipei",
+  "groups": 30,
+  "turns": 62,
+  "inputs_and_execution_metadata_unchanged": true,
+  "original_group_metadata_unchanged": true,
+  "all_original_non_pending_turns_exact_object_equality": [
+    "G01-T1",
+    "G01-T2",
+    "G02-T1",
+    "G02-T2",
+    "G03-T1",
+    "G03-T2",
+    "G04-T1",
+    "G04-T2",
+    "G05-T1",
+    "G05-T2",
+    "G06-T1",
+    "G06-T2",
+    "G07-T1",
+    "G07-T2",
+    "G08-T1",
+    "G08-T2",
+    "G09-T1",
+    "G09-T2",
+    "G10-T1",
+    "G11-T1",
+    "G13-T1",
+    "G13-T2",
+    "G14-T1",
+    "G14-T2",
+    "G15-T1",
+    "G15-T2",
+    "G16-T1",
+    "G16-T2",
+    "G17-T1",
+    "G17-T3",
+    "G18-T1",
+    "G19-T1",
+    "G20-T1",
+    "G21-T1",
+    "G21-T2",
+    "G22-T1",
+    "G22-T2",
+    "G23-T1",
+    "G23-T2",
+    "G24-T1",
+    "G25-T1",
+    "G25-T2",
+    "G26-T1",
+    "G26-T2",
+    "G27-T1",
+    "G27-T2",
+    "G28-T1",
+    "G28-T2",
+    "G29-T1",
+    "G29-T2",
+    "G30-T1",
+    "G30-T2"
+  ],
+  "changed_only_human_selected_turns": [
+    "G10-T2",
+    "G11-T2",
+    "G12-T1",
+    "G12-T2",
+    "G17-T2",
+    "G18-T2",
+    "G19-T2",
+    "G20-T2",
+    "G24-T2",
+    "G30-T3"
+  ],
+  "selected_A_expectations_exactly_preserved": true,
+  "retained_original_passes": [
+    "G01-T1",
+    "G01-T2",
+    "G02-T1",
+    "G02-T2",
+    "G03-T1",
+    "G03-T2",
+    "G04-T1",
+    "G04-T2",
+    "G05-T1",
+    "G05-T2",
+    "G06-T1",
+    "G06-T2",
+    "G07-T1",
+    "G07-T2",
+    "G08-T1",
+    "G08-T2",
+    "G09-T1",
+    "G09-T2",
+    "G10-T1",
+    "G11-T1",
+    "G13-T1",
+    "G13-T2",
+    "G14-T1",
+    "G14-T2",
+    "G15-T1",
+    "G15-T2",
+    "G16-T1",
+    "G16-T2",
+    "G17-T1",
+    "G17-T3",
+    "G18-T1",
+    "G19-T1",
+    "G20-T1",
+    "G21-T1",
+    "G21-T2",
+    "G22-T1",
+    "G22-T2",
+    "G23-T1",
+    "G23-T2",
+    "G24-T1",
+    "G25-T2",
+    "G26-T1",
+    "G26-T2",
+    "G27-T1",
+    "G27-T2",
+    "G28-T1",
+    "G28-T2",
+    "G29-T1",
+    "G29-T2",
+    "G30-T1",
+    "G30-T2"
+  ],
+  "regressions_of_original_passes": [],
+  "original_FAIL": {
+    "id": "G25-T1",
+    "v1": "FAIL",
+    "v2": "FAIL",
+    "gold_unchanged": true
+  },
+  "adjudicated_results": {
+    "G10-T2": "PASS",
+    "G11-T2": "PASS",
+    "G12-T1": "PASS",
+    "G12-T2": "PASS",
+    "G17-T2": "PASS",
+    "G18-T2": "PASS",
+    "G19-T2": "PASS",
+    "G20-T2": "PASS",
+    "G24-T2": "FAIL",
+    "G30-T3": "FAIL"
+  },
+  "v1_metrics_historical_v4": {
+    "state_context_inheritance": {
+      "passed": 50,
+      "total": 50,
+      "percent": 100.0
+    },
+    "intent_router": {
+      "passed": 50,
+      "total": 50,
+      "percent": 100.0
+    },
+    "request_goal": {
+      "passed": 50,
+      "total": 50,
+      "percent": 100.0
+    },
+    "planner": {
+      "passed": 50,
+      "total": 50,
+      "percent": 100.0
+    },
+    "tool_target_match": {
+      "passed": 48,
+      "total": 48,
+      "percent": 100.0
+    },
+    "validator_injected_error_interception": {
+      "passed": 2,
+      "total": 2,
+      "percent": 100.0
+    },
+    "turn_end_to_end_contract": {
+      "passed": 51,
+      "total": 52,
+      "percent": 98.08
+    },
+    "turn_strict_business_completion": {
+      "passed": 42,
+      "total": 43,
+      "percent": 97.67
+    },
+    "conversation_end_to_end_contract": {
+      "passed": 20,
+      "total": 21,
+      "percent": 95.24
+    }
+  },
+  "v2_metrics_new_v4": {
+    "state_context": {
+      "passed": 59,
+      "total": 60,
+      "percent": 98.33
+    },
+    "intent_router": {
+      "passed": 59,
+      "total": 60,
+      "percent": 98.33
+    },
+    "request_goal": {
+      "passed": 58,
+      "total": 60,
+      "percent": 96.67
+    },
+    "planner": {
+      "passed": 59,
+      "total": 60,
+      "percent": 98.33
+    },
+    "tools_stage_and_target": {
+      "passed": 58,
+      "total": 60,
+      "percent": 96.67
+    },
+    "validator_injected_error_interception": {
+      "passed": 2,
+      "total": 2,
+      "percent": 100.0
+    },
+    "pre_tool_block": {
+      "passed": 9,
+      "total": 10,
+      "percent": 90.0
+    },
+    "strict_business_completion": {
+      "passed": 42,
+      "total": 43,
+      "percent": 97.67
+    },
+    "turn_end_to_end": {
+      "passed": 59,
+      "total": 62,
+      "percent": 95.16
+    },
+    "conversation_end_to_end": {
+      "passed": 27,
+      "total": 30,
+      "percent": 90.0
+    }
+  },
+  "protected_files_checked": 462,
+  "protected_files_changed": [],
+  "v4_production_source_files_checked": 88,
+  "v4_production_source_unchanged": true,
+  "first_matcher_execution": {
+    "run": ".cache/agent-stage1-oracle-v2/run-01.json",
+    "assessment": ".cache/agent-stage1-oracle-v2/assessment-01.json",
+    "pass": 58,
+    "fail": 4,
+    "implementation_defect": "Partial Goal known sentiment was incorrectly required again in Intent; generic v1.1 fallback implements the already frozen representation contract.",
+    "raw_evidence_preserved": true
+  },
+  "official_execution": {
+    "run": ".cache/agent-stage1-oracle-v2/run-02.json",
+    "started_at": "2026-11-11T12:20:54.261684+08:00",
+    "finished_at": "2026-11-11T12:20:56.315119+08:00",
+    "pass": 59,
+    "fail": 3,
+    "pending": 0,
+    "matcher": "agent-stage1-v2-matcher-v1.1"
+  },
+  "timing": {
+    "oracle_frozen_at": "2026-11-11T12:15:40.889627+08:00",
+    "original_matcher_frozen_at": "2026-11-11T12:15:40.889627+08:00",
+    "corrected_matcher_frozen_at": "2026-11-11T12:20:47.199316+08:00",
+    "corrected_agent_run_started_at": "2026-11-11T12:20:54.261684+08:00"
+  },
+  "zero_real_operations": {
+    "database_connections": 0,
+    "paid_model_calls": 0,
+    "embedding_calls": 0,
+    "forbidden_attempts": []
+  },
+  "connection_doubles": 64,
+  "closed_connection_doubles": 64,
+  "source_boundary": "Unmodified real Worker/State/Goal/Router/Planner/Tools/Validator; memory task store, protocol connection, synthetic analytics, fake retrieval sources/encoder, fixed topic responses and synthetic budget; not real PostgreSQL or model quality."
+}

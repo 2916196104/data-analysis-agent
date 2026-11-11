@@ -1,0 +1,112 @@
+--- before/src/data_analysis_agent/jobs/analysis_context.py
++++ after/src/data_analysis_agent/jobs/analysis_context.py
+@@ -89,7 +89,13 @@
+             except (ValueError, KeyError, TypeError, ArithmeticError, AttributeError, IndexError):
+                 pass
+         task_id = previous.get('context_task_id')
+-    effective = ((context.get('selection_scope') or selection) if context.get('selection_changes')
+-                 else (context.get('validated') or {}).get('scope')) or selection or parameters
++    pending = context['analysis_state'].get('pending_goal') or {}
++    effective = dict(pending.get('scope') or (context.get('validated') or {}).get('scope') or selection or parameters)
++    current = context.get('selection_scope') or selection
++    if current:
++        for name, fields in {'product_ids': ('product_ids',), 'current_window': ('date_from', 'date_to'),
++                             'baseline_window': ('baseline_from', 'baseline_to'), 'as_of': ('as_of',)}.items():
++            if name in context.get('selection_changes', []):
++                effective.update({key: current[key] for key in fields})
+     context['analysis_state'] = analysis_state_for_scope(context, effective)
+     return context if context['user'] else None
+--- before/src/data_analysis_agent/agents/review_semantics.py
++++ after/src/data_analysis_agent/agents/review_semantics.py
+@@ -197,12 +197,18 @@
+     return resolved
+ 
+ 
++ASPECT_SWITCH = re.compile(r'(?:改看|换看|改为)(?:商品)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面)?[？?。]*')
++
++
+ def active_request(question):
+     """仅提取明确否定旧产物后提出的新请求；原问题由调用者原样保留。"""
+     match = re.fullmatch(r'\s*(?:我)?(?:不是(?:要|在)?问|不要|不用|无需|不需要)([^，,。；;]{1,40})[，,。；;]\s*'
+                          r'((?:我想知道|我想看|我要看|要看|只统计|只告诉我|请统计|改为统计|改为分析).+)', question, re.S)
+     if match and re.search(r'数量|统计|主题|原文|原话|观点内容|观点分组', match[1]):
+         return match[2]
++    switch = re.fullmatch(r'\s*(?:不要|不用)(?:分析|看)(?:商品)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)了?[，,。；;]\s*(.+)', question)
++    if switch and ASPECT_SWITCH.fullmatch(switch[1]):
++        return switch[1]
+     return question
+ 
+ 
+--- before/src/data_analysis_agent/agents/review_acceptance.py
++++ after/src/data_analysis_agent/agents/review_acceptance.py
+@@ -40,7 +40,7 @@
+ 
+ def build_request_goal(question, context=None):
+     """在编译前冻结请求产物；不调用 opinion_request、Router、Planner 或模型。"""
+-    from data_analysis_agent.agents.review_semantics import active_request
++    from data_analysis_agent.agents.review_semantics import active_request, ASPECT_SWITCH
+     text = active_request(question)
+     if question.startswith('执行本轮已确认的只读查询'):
+         try:
+@@ -132,11 +132,17 @@
+                     inherited_topic = prior.topic or inherited_topic
+                     if not REFERENCE.fullmatch(user['question'].strip()):
+                         prior_level = prior.levels[0]
+-        reference = bool(REFERENCE.fullmatch(text.strip()) or re.search(r'^那再往里挖', text))
++        switch = bool(ASPECT_SWITCH.fullmatch(text.strip()) and len(queries) == 1)
++        count_reference = bool(re.fullmatch(r'(?:那|那么)?(?:有多少条|多少条|几条|数量呢)[？?。]*', text.strip()))
++        reference = bool(REFERENCE.fullmatch(text.strip()) or re.search(r'^那再往里挖', text) or switch)
+         if reference:
+             goal = replace(goal, levels=(prior_level,), statistic_families=())
++        if count_reference:
++            goal = replace(goal, levels=('statistics',), statistic_families=('summary',))
+         whole = bool(re.search(r'整体|总体|全部|所有|商品的?好评|评论中具体的好评', text))
+-        inherit_aspect = not whole and (reference or bool(re.search(r'具体|体现|表现|抱怨|吐槽|往里挖', text)))
++        count_target = count_reference and bool(last and params.get('aspect') and
++            (params.get('sentiment') or previous.get('sentiment')) in ('positive', 'negative'))
++        inherit_aspect = not whole and (reference or count_target or bool(re.search(r'具体|体现|表现|抱怨|吐槽|往里挖', text)))
+         inherit_topic = reference or bool(re.search(r'往里挖|^(?:这些|那些|上述)', text))
+         goal = replace(goal, aspect=aspect or (inherited_aspect if inherit_aspect else None),
+                        sentiment=sentiment or inherited_sentiment,
+--- before/src/data_analysis_agent/agents/review_intent.py
++++ after/src/data_analysis_agent/agents/review_intent.py
+@@ -10,6 +10,7 @@
+ from data_analysis_agent.agents.review_prompts import detect_sentiment_intent
+ from data_analysis_agent.agents.review_semantics import (
+     QuestionScopeError, bind_product_ids, match_product_mentions, opinion_request, product_mentions, resolve_question_scope,
++    active_request, ASPECT_SWITCH,
+ )
+ from data_analysis_agent.core.validation import Input
+ from data_analysis_agent.reviews.opinions import Aspect
+@@ -181,15 +182,20 @@
+ 
+ def _followup_intent(question, conditions):
+     """只转换唯一的查询条件；此处不读取统计、原文或分页结果。"""
++    question = active_request(question)
+     if re.search(r'(?:所有|全部)(?:的)?(?:商品|产品|空调)|(?:整个|所有|全部)数据集', question):
+         return None
+     semantic = opinion_request(question)
+-    short_aspect = bool(re.fullmatch(r'(?:那|那么|再|也|只看|仅看)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面|问题)?(?:呢|怎么样)?[？?。]*', question.strip()))
++    short_aspect = bool(ASPECT_SWITCH.fullmatch(question.strip()) or re.fullmatch(r'(?:那|那么|再|也|只看|仅看)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面|问题)?(?:呢|怎么样)?[？?。]*', question.strip()))
+     short_sentiment = bool(re.fullmatch(r'(?:那|那么|然后)?(?:好评|差评|正面|负面|优点|缺点|投诉)(?:呢|吧)?[？?。]*', question.strip()))
+     short_period = re.fullmatch(r'(?:换成|改成|改为)?按(月|日|天)(?:看|查看|统计)?[？?。]*', question.strip())
+     summary_ref = bool(re.fullmatch(r'(?:那|那么)?(?:主要)?集中在(?:哪些|什么)(?:地方|方面)(?:呢)?[？?。]*', question.strip()))
+     detail_ref = bool(re.fullmatch(r'(?:这些|那些|上述)(?:好评|差评|评价|观点)(?:具体)?(?:反映|说明|表达)(?:了)?什么[？?。]*', question.strip()))
+     count_ref = bool(re.search(r'数量|占比|比例|多少条|有多少|几条', question) and not semantic['examples'] and not semantic['theme_summary'])
++    # 完整的新统计请求不受旧 RAG 追问约束；省略请求仍需唯一承接。
++    if count_ref and semantic['aspect'] and detect_sentiment_intent(question) in ('negative', 'positive'):
++        if conditions and any(row['kind'] == 'semantic_evidence' for row in conditions.get('queries', [])):
++            return None
+     if not conditions or not ((semantic['aspect'] and (short_aspect or semantic['breakdown'])) or semantic['content_detail'] or count_ref or short_sentiment or short_period or summary_ref or detail_ref):
+         return None
+     queries = conditions.get('queries', [])
+@@ -209,6 +215,9 @@
+     if short_sentiment and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown', 'evidence', 'trend', 'aspect_trend'}:
+         raise QuestionScopeError('上轮没有可切换的评价情感目标，这次要看好差评汇总还是原文？')
+     last_params = dict(last['parameters'])
++    if count_ref and last['kind'] == 'evidence' and (not last_params.get('aspect') or
++            (conditions.get('sentiment') or last_params.get('sentiment')) not in ('negative', 'positive')):
++        raise QuestionScopeError('数量追问需要唯一明确的评价维度和情感，请补充统计目标。')
+     if count_ref and last['kind'] not in ('positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown', 'evidence'):
+         return None
+     if count_ref and last_params.get('window') == 'baseline':

@@ -1,0 +1,28 @@
+{
+  "version": "agent-stage1-freeze-v2",
+  "frozen_at": "2026-11-11T12:15:40.889627+08:00",
+  "timezone": "Asia/Taipei",
+  "oracle": "tests/fixtures/agent_stage1/oracle.v2.json",
+  "oracle_sha256": "81306475371fd769b61f8132cf97dbc8dcdc82975a67a0982018575c08bed198",
+  "adjudication_sha256": "97b38e01d204adfa2b3d2177a4bc1f7ee6d6026b9523242d6fe98ae825b12643",
+  "scoring_contract_sha256": "56fa304bfc39d33a59a7c639e82a31ea5081a744e844d32253acee939dfd635e",
+  "v1_oracle_sha256": "08b9af5a94f8d86ba44d355f7d72d1482885c357d7d1429564850375af441e42",
+  "pending_oracle_sha256": "cef672935eeea692c6a887eb395668484ffc18d420122dfa11203ff3a4ff3613",
+  "v1_manifest_sha256": "34d84f0be984ec86db93ffe3e644e20daafb37fe4621c3930b6c248c939fa356",
+  "corpus_sha256": "ffc3b996e855417cc259cfa148e49c903f7e82398e7065656282a491bc2b3775",
+  "source_revision_path": "docs/evaluation/agent-stage1-remaining-p1/source-revision.v4.json",
+  "source_revision_sha256": "0a5912158d9d643844338e80e809eac91fc5a35ad409d3be2a1efb519fc6add0",
+  "evaluation_code_sha256": {
+    "scripts/agent_stage1_v2_scoring.py": "39a08727ff4eed79826d7c3aaf42e3c9acbed6fa130966901b07cdfaa1e8756a",
+    "scripts/run_agent_stage1_oracle_v2.py": "13187a6eba8cd22641d4149ba73cdb771828c729f030307612eedb9d32c21491",
+    "scripts/freeze_agent_stage1_oracle_v2.py": "0e318f9ae368d725c471f137b9c4eeb1b680a680bf27551c8e66397627612d3a",
+    "tests/test_agent_stage1_v2_scoring.py": "349cc1fa0ce156faf66a0d4e817b379bf72fe0e6283432358c6baf8c9c90921f"
+  },
+  "existing_harness_sha256": "938025f44ef1e68cb7071ce3cbba74f0db5b259eaa03b1c8702f89a57a3780a4",
+  "v1_scorer_sha256": "7dbcad36c865a677b0d1edbe8eceb112456f066ce12c49bae78285f116a8e4ae",
+  "groups": 30,
+  "turns": 62,
+  "adjudicated_turns": 10,
+  "unchanged_turns": 52,
+  "frozen_before_execution": true
+}

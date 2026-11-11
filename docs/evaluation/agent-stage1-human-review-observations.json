@@ -1,0 +1,3921 @@
+{
+  "purpose": "Existing synthetic offline outputs for review only, NEVER gold labels. No execution this phase.",
+  "source": ".cache/agent-stage1-remaining-p1/run-02.json",
+  "source_sha256": "75f8fdb053924a7d8d664cf694437f67e8f5d046e5304461a3de173bac8deb29",
+  "turns": {
+    "G10-T2": {
+      "task_id": "G10-T2",
+      "observed_scope": {
+        "model": "changed-label-profile",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588053",
+          "100013588055"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31"
+      },
+      "observed_request_goal": {
+        "original_question": "具体体现在哪里？",
+        "levels": [
+          "themes"
+        ],
+        "aspect": null,
+        "sentiment": null,
+        "topic": null,
+        "statistic_families": [],
+        "source": "user_request"
+      },
+      "observed_user_intent": {
+        "needs_clarification": true,
+        "clarification_question": "当前没有同会话、同身份且范围一致的可信负面排名，请先刷新统计。",
+        "resolved_product_ids": [
+          "100013588053",
+          "100013588055"
+        ],
+        "effective_time_range": {
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28"
+        }
+      },
+      "raw_analysis_intent": "aspect_drilldown",
+      "raw_sentiment_intent": "negative",
+      "observed_query_plan": null,
+      "observed_task_acceptance": null,
+      "observed_status": "unsupported",
+      "observed_worker_status": "succeeded",
+      "observed_answer": "当前没有同会话、同身份且范围一致的可信负面排名，请先刷新统计。",
+      "observed_input_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": null,
+        "pending_goal": null
+      },
+      "observed_post_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": null,
+        "pending_goal": null
+      },
+      "observed_input_users": null,
+      "observed_query_executions": 0,
+      "observed_preparation": {
+        "status": "blocked",
+        "reason": "missing_trusted_ranking",
+        "query_executions": 0,
+        "database_statement_count": 0,
+        "topic_model_calls": 0
+      },
+      "observed_tools": [],
+      "observed_model_attempts": [],
+      "observed_per_aspect": [],
+      "observed_publishable_aspects": null,
+      "task_sha256": "2751d4495155f3d73a56d627b7414188562ad077757dcf7ef9804dbf808da08b"
+    },
+    "G11-T2": {
+      "task_id": "G11-T2",
+      "observed_scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588053",
+          "100013588055"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31"
+      },
+      "observed_request_goal": {
+        "original_question": "具体体现在哪里？",
+        "levels": [
+          "themes"
+        ],
+        "aspect": null,
+        "sentiment": null,
+        "topic": null,
+        "statistic_families": [],
+        "source": "user_request"
+      },
+      "observed_user_intent": {
+        "needs_clarification": true,
+        "clarification_question": "当前没有同会话、同身份且范围一致的可信负面排名，请先刷新统计。",
+        "resolved_product_ids": [
+          "100013588053",
+          "100013588055"
+        ],
+        "effective_time_range": {
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28"
+        }
+      },
+      "raw_analysis_intent": "aspect_drilldown",
+      "raw_sentiment_intent": "negative",
+      "observed_query_plan": null,
+      "observed_task_acceptance": null,
+      "observed_status": "unsupported",
+      "observed_worker_status": "succeeded",
+      "observed_answer": "当前没有同会话、同身份且范围一致的可信负面排名，请先刷新统计。",
+      "observed_input_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": null,
+        "pending_goal": null
+      },
+      "observed_post_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": null,
+        "pending_goal": null
+      },
+      "observed_input_users": null,
+      "observed_query_executions": 0,
+      "observed_preparation": {
+        "status": "blocked",
+        "reason": "missing_trusted_ranking",
+        "query_executions": 0,
+        "database_statement_count": 0,
+        "topic_model_calls": 0
+      },
+      "observed_tools": [],
+      "observed_model_attempts": [],
+      "observed_per_aspect": [],
+      "observed_publishable_aspects": null,
+      "task_sha256": "d73f998a699ad1eb100f3d585a0e1d3d9cd475bc1db4993bd16b550b6fd7c5d4"
+    },
+    "G12-T1": {
+      "task_id": "G12-T1",
+      "observed_scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588053"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31"
+      },
+      "observed_request_goal": {
+        "original_question": "100013588053具体体现在哪里？",
+        "levels": [
+          "themes"
+        ],
+        "aspect": null,
+        "sentiment": null,
+        "topic": null,
+        "statistic_families": [],
+        "source": "user_request"
+      },
+      "observed_user_intent": {
+        "needs_clarification": true,
+        "clarification_question": "当前没有同会话、同身份且范围一致的可信负面排名，请先刷新统计。",
+        "resolved_product_ids": [
+          "100013588053"
+        ],
+        "effective_time_range": {
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28"
+        }
+      },
+      "raw_analysis_intent": "aspect_drilldown",
+      "raw_sentiment_intent": "negative",
+      "observed_query_plan": null,
+      "observed_task_acceptance": null,
+      "observed_status": "unsupported",
+      "observed_worker_status": "succeeded",
+      "observed_answer": "当前没有同会话、同身份且范围一致的可信负面排名，请先刷新统计。",
+      "observed_input_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": null,
+        "pending_goal": null
+      },
+      "observed_post_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": null,
+        "pending_goal": null
+      },
+      "observed_input_users": null,
+      "observed_query_executions": 0,
+      "observed_preparation": {
+        "status": "blocked",
+        "reason": "missing_trusted_ranking",
+        "query_executions": 0,
+        "database_statement_count": 0,
+        "topic_model_calls": 0
+      },
+      "observed_tools": [],
+      "observed_model_attempts": [],
+      "observed_per_aspect": [],
+      "observed_publishable_aspects": null,
+      "task_sha256": "24c786be39e8f0bf77384622ffd3056a4e416c9927c168e930bb8f579f0ae278"
+    },
+    "G12-T2": {
+      "task_id": "G12-T2",
+      "observed_scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588053"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31"
+      },
+      "observed_request_goal": {
+        "original_question": "具体体现在哪里？",
+        "levels": [
+          "themes"
+        ],
+        "aspect": null,
+        "sentiment": null,
+        "topic": null,
+        "statistic_families": [],
+        "source": "user_request"
+      },
+      "observed_user_intent": {
+        "needs_clarification": true,
+        "clarification_question": "当前没有同会话、同身份且范围一致的可信负面排名，请先刷新统计。",
+        "resolved_product_ids": [
+          "100013588053"
+        ],
+        "effective_time_range": {
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28"
+        }
+      },
+      "raw_analysis_intent": "aspect_drilldown",
+      "raw_sentiment_intent": "negative",
+      "observed_query_plan": null,
+      "observed_task_acceptance": null,
+      "observed_status": "unsupported",
+      "observed_worker_status": "succeeded",
+      "observed_answer": "当前没有同会话、同身份且范围一致的可信负面排名，请先刷新统计。",
+      "observed_input_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": null,
+        "pending_goal": null
+      },
+      "observed_post_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": null,
+        "pending_goal": null
+      },
+      "observed_input_users": [
+        {
+          "task_id": "G12-T1",
+          "question": "100013588053具体体现在哪里？"
+        }
+      ],
+      "observed_query_executions": 0,
+      "observed_preparation": {
+        "status": "blocked",
+        "reason": "missing_trusted_ranking",
+        "query_executions": 0,
+        "database_statement_count": 0,
+        "topic_model_calls": 0
+      },
+      "observed_tools": [],
+      "observed_model_attempts": [],
+      "observed_per_aspect": [],
+      "observed_publishable_aspects": null,
+      "task_sha256": "0c16c0c87faa6f0ead5ea4ea190c2f663138542ce4f212ea430e7cfaf2e4afd2"
+    },
+    "G17-T2": {
+      "task_id": "G17-T2",
+      "observed_scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588053"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31"
+      },
+      "observed_request_goal": {
+        "original_question": "具体体现在哪里？",
+        "levels": [
+          "themes"
+        ],
+        "aspect": null,
+        "sentiment": "negative",
+        "topic": null,
+        "statistic_families": [],
+        "source": "user_request",
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "selection_basis_sha256": "7399009fa43c92f6b3631efec9935072d6a78fcacafbb432f9048e16729cd014",
+        "version": "review-request-goal-p6-v1",
+        "analysis_mode": "multi_aspect_negative_drilldown",
+        "per_aspect_level": "themes",
+        "ranking_source": {
+          "finished_at": "2026-11-10T16:26:52.017550+00:00",
+          "integrity_version": "analysis-task-integrity-v1",
+          "result_id": "r1",
+          "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+          "snapshot_at": "2026-11-10T16:26:52.006+00:00",
+          "task_id": "G17-T1",
+          "task_sha256": "4f46facbbed1a238608355d49840963b47d4d6f186b695053f256dc19b112217",
+          "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d",
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881"
+        },
+        "expected_scope": {
+          "as_of": null,
+          "base_url": "https://labels.stage1.invalid/v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31",
+          "dataset_version": "stage1-synthetic-v1",
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "model": "stage1-labels",
+          "product_ids": [
+            "100013588053"
+          ],
+          "prompt_version": "stage1-labels-v1",
+          "source": "reviews_csv"
+        },
+        "selection_basis": {
+          "ranking_basis": {
+            "denominator": {
+              "field": "successful_reviews",
+              "value": 8
+            },
+            "ranking": [
+              {
+                "aspect": "service",
+                "denominator": 8,
+                "negative_rate": 0.625,
+                "negative_review_count": 5,
+                "rank": 1
+              },
+              {
+                "aspect": "effectiveness",
+                "denominator": 8,
+                "negative_rate": 0.5,
+                "negative_review_count": 4,
+                "rank": 2
+              },
+              {
+                "aspect": "logistics",
+                "denominator": 8,
+                "negative_rate": 0.375,
+                "negative_review_count": 3,
+                "rank": 3
+              },
+              {
+                "aspect": "quality",
+                "denominator": 8,
+                "negative_rate": 0.25,
+                "negative_review_count": 2,
+                "rank": 4
+              },
+              {
+                "aspect": "price",
+                "denominator": 8,
+                "negative_rate": 0.125,
+                "negative_review_count": 1,
+                "rank": 5
+              },
+              {
+                "aspect": "packaging",
+                "denominator": 8,
+                "negative_rate": 0.0,
+                "negative_review_count": 0,
+                "rank": 6
+              }
+            ],
+            "scope": {
+              "as_of": null,
+              "base_url": "https://labels.stage1.invalid/v1",
+              "baseline_from": "2023-01-01",
+              "baseline_to": "2023-01-31",
+              "dataset_version": "stage1-synthetic-v1",
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "model": "stage1-labels",
+              "product_ids": [
+                "100013588053"
+              ],
+              "prompt_version": "stage1-labels-v1",
+              "source": "reviews_csv"
+            },
+            "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+            "sentiment": "negative",
+            "source": {
+              "finished_at": "2026-11-10T16:26:52.017550+00:00",
+              "integrity_version": "analysis-task-integrity-v1",
+              "result_id": "r1",
+              "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+              "snapshot_at": "2026-11-10T16:26:52.006+00:00",
+              "task_id": "G17-T1",
+              "task_sha256": "4f46facbbed1a238608355d49840963b47d4d6f186b695053f256dc19b112217",
+              "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+            }
+          },
+          "required_aspects": [
+            "service",
+            "effectiveness",
+            "logistics"
+          ],
+          "selection_rule_version": "negative-count-desc-aspect-asc-top3-v1"
+        }
+      },
+      "observed_user_intent": {
+        "query_type": "aspect_drilldown",
+        "sentiment": "negative",
+        "aspect": null,
+        "sub_intent": "drill_down",
+        "needs_clarification": false,
+        "resolved_product_ids": [
+          "100013588053"
+        ],
+        "effective_time_range": {
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28"
+        }
+      },
+      "raw_analysis_intent": "aspect_drilldown",
+      "raw_sentiment_intent": "negative",
+      "observed_query_plan": {
+        "analysis_type": "aspect_drilldown",
+        "sentiment": "negative",
+        "scope": {
+          "as_of": null,
+          "base_url": "https://labels.stage1.invalid/v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31",
+          "dataset_version": "stage1-synthetic-v1",
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "model": "stage1-labels",
+          "product_ids": [
+            "100013588053"
+          ],
+          "prompt_version": "stage1-labels-v1",
+          "source": "reviews_csv"
+        },
+        "requirements": [
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": "service",
+              "sentiment": "negative"
+            }
+          },
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": "effectiveness",
+              "sentiment": "negative"
+            }
+          },
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": "logistics",
+              "sentiment": "negative"
+            }
+          }
+        ],
+        "optional_tools": [],
+        "requires_evidence": true,
+        "max_evidence_pages": 0,
+        "max_evidence_items": 0,
+        "evidence_start_page": 1,
+        "evidence_page_size": 3,
+        "unsupported_reason": null,
+        "answer_question": null,
+        "product_groups": [],
+        "task_contract": {
+          "version": "review-runtime-contract-v1",
+          "original_question": "具体体现在哪里？",
+          "evidence_question": "具体体现在哪里？",
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31",
+            "timezone": "UTC"
+          },
+          "scope_sha256": "e92ad4c86320fb3cf7ae7a855953c78fc18ba01144184bdc5da32bcab69e0bf0",
+          "task_type": "evidence",
+          "operation": "opinion_summary",
+          "target_entity": "review_opinion",
+          "subtopic": "multiple",
+          "sentiment_intent": "negative",
+          "required_facts": {
+            "operator": "all_of",
+            "items": [],
+            "relations": []
+          },
+          "statistics": [
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            },
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            },
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            }
+          ],
+          "support_status": "supported",
+          "unsupported_reason": null,
+          "uncertainty": []
+        },
+        "analysis_mode": "multi_aspect_negative_drilldown",
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "required_tools": [
+          "get_aspect_drilldown"
+        ]
+      },
+      "observed_task_acceptance": {
+        "agent_status": "partial",
+        "complete": false,
+        "current_ranking_matches": true,
+        "outcome_coverage": true,
+        "per_aspect": [
+          {
+            "acceptance": {
+              "checks": [
+                {
+                  "detail": "计划能力须满足编译前的原始请求，不能以计划类型降低目标。",
+                  "name": "请求目标与计划能力",
+                  "passed": true
+                },
+                {
+                  "detail": "当前范围须与执行前确认的任务范围一致。",
+                  "name": "本轮有效范围",
+                  "passed": true
+                },
+                {
+                  "detail": "未明确修改的继承字段须保持一致，显式选择优先。",
+                  "name": "继承范围",
+                  "passed": true
+                },
+                {
+                  "detail": "计划中的查询及完整筛选条件须已执行。",
+                  "name": "所需查询",
+                  "passed": true
+                },
+                {
+                  "detail": "实际结果须包含用户要求的产物类型。",
+                  "name": "实际产物:themes",
+                  "passed": true
+                },
+                {
+                  "detail": "复用原 Validator 的数字、分母、范围、主题来源及精确引用校验。",
+                  "name": "统计与引用校验",
+                  "passed": true
+                },
+                {
+                  "detail": "查询快照须使用确认的商品、数据集、日期和标注身份。",
+                  "name": "实际查询范围",
+                  "passed": true
+                },
+                {
+                  "detail": "具体表现归纳须读取候选子主题，维度计数不能替代。",
+                  "name": "子主题查询",
+                  "passed": true
+                },
+                {
+                  "detail": "超时、失败或部分复核不能作为完整主题分析。",
+                  "name": "分类批次完整",
+                  "passed": true
+                },
+                {
+                  "detail": "候选主题须有来源观点与去重计数，不得编造全量频次。",
+                  "name": "子主题及去重证据",
+                  "passed": true
+                },
+                {
+                  "detail": "内容任务须执行观点、主题或原文查询。",
+                  "name": "观点查询",
+                  "passed": true
+                },
+                {
+                  "detail": "观点查询须保留本轮维度和情感。",
+                  "name": "观点筛选",
+                  "passed": true
+                },
+                {
+                  "detail": "须存在带原始评论来源的观点，RAG 候选或计数不替代引用。",
+                  "name": "原文引用",
+                  "passed": true
+                }
+              ],
+              "classification_status": "model_candidates_unreviewed",
+              "complete": true,
+              "evidence_status": "available",
+              "message": "本轮任务目标、范围与证据验收通过。",
+              "plan_check": {
+                "checks": [
+                  {
+                    "name": "themes",
+                    "passed": true
+                  }
+                ],
+                "passed": true
+              },
+              "status": "passed"
+            },
+            "aspect": "service",
+            "status": "complete"
+          },
+          {
+            "acceptance": null,
+            "aspect": "effectiveness",
+            "status": "failed"
+          },
+          {
+            "acceptance": {
+              "checks": [
+                {
+                  "detail": "计划能力须满足编译前的原始请求，不能以计划类型降低目标。",
+                  "name": "请求目标与计划能力",
+                  "passed": true
+                },
+                {
+                  "detail": "当前范围须与执行前确认的任务范围一致。",
+                  "name": "本轮有效范围",
+                  "passed": true
+                },
+                {
+                  "detail": "未明确修改的继承字段须保持一致，显式选择优先。",
+                  "name": "继承范围",
+                  "passed": true
+                },
+                {
+                  "detail": "计划中的查询及完整筛选条件须已执行。",
+                  "name": "所需查询",
+                  "passed": true
+                },
+                {
+                  "detail": "实际结果须包含用户要求的产物类型。",
+                  "name": "实际产物:themes",
+                  "passed": true
+                },
+                {
+                  "detail": "复用原 Validator 的数字、分母、范围、主题来源及精确引用校验。",
+                  "name": "统计与引用校验",
+                  "passed": true
+                },
+                {
+                  "detail": "查询快照须使用确认的商品、数据集、日期和标注身份。",
+                  "name": "实际查询范围",
+                  "passed": true
+                },
+                {
+                  "detail": "具体表现归纳须读取候选子主题，维度计数不能替代。",
+                  "name": "子主题查询",
+                  "passed": true
+                },
+                {
+                  "detail": "超时、失败或部分复核不能作为完整主题分析。",
+                  "name": "分类批次完整",
+                  "passed": true
+                },
+                {
+                  "detail": "候选主题须有来源观点与去重计数，不得编造全量频次。",
+                  "name": "子主题及去重证据",
+                  "passed": true
+                },
+                {
+                  "detail": "内容任务须执行观点、主题或原文查询。",
+                  "name": "观点查询",
+                  "passed": true
+                },
+                {
+                  "detail": "观点查询须保留本轮维度和情感。",
+                  "name": "观点筛选",
+                  "passed": true
+                },
+                {
+                  "detail": "须存在带原始评论来源的观点，RAG 候选或计数不替代引用。",
+                  "name": "原文引用",
+                  "passed": true
+                }
+              ],
+              "classification_status": "model_candidates_unreviewed",
+              "complete": true,
+              "evidence_status": "available",
+              "message": "本轮任务目标、范围与证据验收通过。",
+              "plan_check": {
+                "checks": [
+                  {
+                    "name": "themes",
+                    "passed": true
+                  }
+                ],
+                "passed": true
+              },
+              "status": "passed"
+            },
+            "aspect": "logistics",
+            "status": "complete"
+          }
+        ],
+        "plan_check": {
+          "checks": [
+            {
+              "name": "independent_goal",
+              "passed": true
+            },
+            {
+              "name": "scope_and_mode",
+              "passed": true
+            },
+            {
+              "name": "p6_metadata",
+              "passed": true
+            },
+            {
+              "name": "exact_required_aspects",
+              "passed": true
+            },
+            {
+              "name": "per_aspect_capability",
+              "passed": true
+            }
+          ],
+          "passed": true
+        },
+        "publishable_aspects": [
+          "service",
+          "logistics"
+        ],
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "status": "partial",
+        "task_status": "partial",
+        "version": "review-p6-acceptance-v1",
+        "parent_status": "partial",
+        "message": "部分完成",
+        "checks": [
+          {
+            "name": "p6_publication_integrity",
+            "passed": true,
+            "detail": "完整冻结目标、全部子维度、来源、原文与重算计数已重新验收；仅发布允许的维度。"
+          }
+        ]
+      },
+      "observed_status": "partial",
+      "observed_worker_status": "partial",
+      "observed_answer": "# 多维度负面主题分析\n\n状态：部分完成；完整任务完成：否。\n\n商品：100013588053；数据集：reviews\\_csv / stage1-synthetic-v1。\n\n当前窗口（UTC）：2023-02-01 — 2023-02-28；评论截止：未限定。\n\n标注版本：stage1-labels / stage1-labels-v1；成功标注评论数 D=8。\n\n必做维度（冻结排名顺序）：客服、使用效果、物流。\n\n## 1. 客服 · 已完成\n\n全量负面去重评论 M=5；维度负面率 M/D=5/8（62.5%）。\n\n实际分类样本 S=5；冻结候选评论=5；样本覆盖 S/M=100.0%。\n\n观点归属覆盖：5/5（100.0%）；未归属观点仍保留在样本分母中。\n\n### 客服回复缓慢\n\n客服回复缓慢\n\n样本内去重评论 N=5；样本内主题比例 N/S=5/5（100.0%）。\n\n支持引用：客服回复缓慢\n\n评论 5；原文位置 [5, 11)（Unicode 字符）；观点 opinion:ada6ea4e71eec5399445e813。\n\n来源：sha256:1111111111111111111111111111111111111111111111111111111111111111#line=5；标注 1005；人工修订 无；观点来源 model。\n\n原文：合成评论：客服回复缓慢\n\n## 2. 使用效果 · 执行失败\n\n全量负面去重评论 M=4；维度负面率 M/D=4/8（50.0%）。\n\n实际分类样本 S=4；冻结候选评论=4；样本覆盖 S/M=100.0%。\n\n观点归属覆盖：0/4（0.0%）；未归属观点仍保留在样本分母中。\n\n未完成原因：主题模型请求超时，结果未被验收（timeout）。未发布该维度主题。\n\n## 3. 物流 · 已完成\n\n全量负面去重评论 M=3；维度负面率 M/D=3/8（37.5%）。\n\n实际分类样本 S=3；冻结候选评论=3；样本覆盖 S/M=100.0%。\n\n观点归属覆盖：3/3（100.0%）；未归属观点仍保留在样本分母中。\n\n### 物流很慢\n\n物流很慢\n\n样本内去重评论 N=3；样本内主题比例 N/S=3/3（100.0%）。\n\n支持引用：物流很慢\n\n评论 3；原文位置 [5, 9)（Unicode 字符）；观点 opinion:61bf8090660fda26affd7ae5。\n\n来源：sha256:1111111111111111111111111111111111111111111111111111111111111111#line=3；标注 1003；人工修订 无；观点来源 model。\n\n原文：合成评论：物流很慢；客服回复缓慢；降温速度慢\n\n## 口径与限制\n\n主题为模型发现并复核的候选，未经人工确认。\n\n主题比例 N/S 仅描述已分析样本，不是全量投诉率；维度负面率为 M/D。\n\n各维度及主题可引用同一评论，计数不可相加作为独立评论数或用户数。\n\n有限候选采用最近评论及观点顺序的有界非随机抽样；未覆盖评论不能推断为无问题。\n",
+      "observed_input_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": {
+          "source": {
+            "task_id": "G17-T1",
+            "task_sha256": "4f46facbbed1a238608355d49840963b47d4d6f186b695053f256dc19b112217",
+            "integrity_version": "analysis-task-integrity-v1",
+            "finished_at": "2026-11-10T16:26:52.017550+00:00",
+            "result_id": "r1",
+            "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+            "snapshot_at": "2026-11-10T16:26:52.006+00:00",
+            "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+          },
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+          "sentiment": "negative",
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 8
+          },
+          "ranking": [
+            {
+              "rank": 1,
+              "aspect": "service",
+              "negative_review_count": 5,
+              "negative_rate": 0.625,
+              "denominator": 8
+            },
+            {
+              "rank": 2,
+              "aspect": "effectiveness",
+              "negative_review_count": 4,
+              "negative_rate": 0.5,
+              "denominator": 8
+            },
+            {
+              "rank": 3,
+              "aspect": "logistics",
+              "negative_review_count": 3,
+              "negative_rate": 0.375,
+              "denominator": 8
+            },
+            {
+              "rank": 4,
+              "aspect": "quality",
+              "negative_review_count": 2,
+              "negative_rate": 0.25,
+              "denominator": 8
+            },
+            {
+              "rank": 5,
+              "aspect": "price",
+              "negative_review_count": 1,
+              "negative_rate": 0.125,
+              "denominator": 8
+            },
+            {
+              "rank": 6,
+              "aspect": "packaging",
+              "negative_review_count": 0,
+              "negative_rate": 0.0,
+              "denominator": 8
+            }
+          ]
+        },
+        "pending_goal": null
+      },
+      "observed_post_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": {
+          "source": {
+            "task_id": "G17-T1",
+            "task_sha256": "4f46facbbed1a238608355d49840963b47d4d6f186b695053f256dc19b112217",
+            "integrity_version": "analysis-task-integrity-v1",
+            "finished_at": "2026-11-10T16:26:52.017550+00:00",
+            "result_id": "r1",
+            "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+            "snapshot_at": "2026-11-10T16:26:52.006+00:00",
+            "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+          },
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+          "sentiment": "negative",
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 8
+          },
+          "ranking": [
+            {
+              "rank": 1,
+              "aspect": "service",
+              "negative_review_count": 5,
+              "negative_rate": 0.625,
+              "denominator": 8
+            },
+            {
+              "rank": 2,
+              "aspect": "effectiveness",
+              "negative_review_count": 4,
+              "negative_rate": 0.5,
+              "denominator": 8
+            },
+            {
+              "rank": 3,
+              "aspect": "logistics",
+              "negative_review_count": 3,
+              "negative_rate": 0.375,
+              "denominator": 8
+            },
+            {
+              "rank": 4,
+              "aspect": "quality",
+              "negative_review_count": 2,
+              "negative_rate": 0.25,
+              "denominator": 8
+            },
+            {
+              "rank": 5,
+              "aspect": "price",
+              "negative_review_count": 1,
+              "negative_rate": 0.125,
+              "denominator": 8
+            },
+            {
+              "rank": 6,
+              "aspect": "packaging",
+              "negative_review_count": 0,
+              "negative_rate": 0.0,
+              "denominator": 8
+            }
+          ]
+        },
+        "pending_goal": null
+      },
+      "observed_input_users": [
+        {
+          "task_id": "G17-T1",
+          "question": "100013588053的差评主要集中在哪些方面？"
+        }
+      ],
+      "observed_query_executions": 4,
+      "observed_preparation": {
+        "version": "review-p6-prepared-v1",
+        "status": "ready",
+        "current_snapshot": {
+          "definitions": {
+            "as_of_field": "published_at",
+            "count_unit": "distinct_reviews",
+            "human_policy": "latest_snapshot",
+            "labeling_coverage_denominator": "eligible_text_reviews",
+            "negative_rate_denominator": "successful_reviews",
+            "positive_aspect_rate_denominator": "positive_review_count",
+            "positive_success_rate_denominator": "successful_reviews",
+            "rate_unit": "fraction_0_to_1"
+          },
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 8
+          },
+          "negative_review_counts": {
+            "effectiveness": 4,
+            "logistics": 3,
+            "packaging": 0,
+            "price": 1,
+            "quality": 2,
+            "service": 5
+          },
+          "scope": {
+            "as_of": null,
+            "base_url": "https://labels.stage1.invalid/v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31",
+            "dataset_version": "stage1-synthetic-v1",
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "model": "stage1-labels",
+            "product_ids": [
+              "100013588053"
+            ],
+            "prompt_version": "stage1-labels-v1",
+            "source": "reviews_csv"
+          }
+        },
+        "snapshot_audit": {
+          "backend": "postgresql",
+          "isolation": "repeatable read",
+          "logical_transaction_id": "6192c106a32941fbad46ae5945bc6874",
+          "read_finished_at": "2026-11-10T16:26:52.041+00:00",
+          "read_started_at": "2026-11-10T16:26:52.038+00:00",
+          "readonly": true
+        },
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "current_ranking_matches": true,
+        "query_executions": 4,
+        "database_statement_count": 0,
+        "topic_model_calls": 0,
+        "reason": "classification_not_enabled",
+        "input_sha256": "417811af53c886b8fed1df24b042f0be24d4eb1379a415636548aa5bd62b000f",
+        "inputs": [
+          {
+            "aspect": "service",
+            "total": 5,
+            "total_opinions": 5,
+            "coverage": {
+              "opinion_coverage": 1.0,
+              "review_coverage": 1.0,
+              "selected_opinions": 5,
+              "selected_reviews": 5,
+              "truncated": false,
+              "unique_expressions": 1
+            },
+            "input_sha256": "72c6c2837ebbc3d8654668b2e3eeedb0a6c2bf9fb5829c960e1ae6ab84240e41"
+          },
+          {
+            "aspect": "effectiveness",
+            "total": 4,
+            "total_opinions": 4,
+            "coverage": {
+              "opinion_coverage": 1.0,
+              "review_coverage": 1.0,
+              "selected_opinions": 4,
+              "selected_reviews": 4,
+              "truncated": false,
+              "unique_expressions": 1
+            },
+            "input_sha256": "79baf3de000f8cfbe9ec5bf1f823b1e7a369bb829f3bbd209d72f8d3f3dfaaf6"
+          },
+          {
+            "aspect": "logistics",
+            "total": 3,
+            "total_opinions": 3,
+            "coverage": {
+              "opinion_coverage": 1.0,
+              "review_coverage": 1.0,
+              "selected_opinions": 3,
+              "selected_reviews": 3,
+              "truncated": false,
+              "unique_expressions": 1
+            },
+            "input_sha256": "26fa6298ccc8df3f6428c215d52d9e2a013893748e2f1a38f5bbd3055ec8100d"
+          }
+        ]
+      },
+      "observed_tools": [],
+      "observed_model_attempts": [
+        {
+          "stage": "topic_discovery",
+          "aspect": "service",
+          "kind": "p6_offline_transport"
+        },
+        {
+          "stage": "topic_classification",
+          "aspect": "service",
+          "kind": "p6_offline_transport"
+        },
+        {
+          "stage": "topic_discovery",
+          "aspect": "effectiveness",
+          "kind": "p6_offline_transport"
+        },
+        {
+          "stage": "topic_discovery",
+          "aspect": "logistics",
+          "kind": "p6_offline_transport"
+        },
+        {
+          "stage": "topic_classification",
+          "aspect": "logistics",
+          "kind": "p6_offline_transport"
+        }
+      ],
+      "observed_per_aspect": [
+        {
+          "aspect": "service",
+          "status": "complete",
+          "reason": "已通过逐维证据验收",
+          "M_a": 5,
+          "S_a": 5
+        },
+        {
+          "aspect": "effectiveness",
+          "status": "failed",
+          "reason": "主题模型请求超时，结果未被验收",
+          "M_a": 4,
+          "S_a": 4
+        },
+        {
+          "aspect": "logistics",
+          "status": "complete",
+          "reason": "已通过逐维证据验收",
+          "M_a": 3,
+          "S_a": 3
+        }
+      ],
+      "observed_publishable_aspects": [
+        "service",
+        "logistics"
+      ],
+      "task_sha256": "d4e2fe14c8a8da6884ea0b87860a14a6aa47d6ad91f11265e5aafe08d7d3d528"
+    },
+    "G18-T2": {
+      "task_id": "G18-T2",
+      "observed_scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588053"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31"
+      },
+      "observed_request_goal": {
+        "original_question": "具体体现在哪里？",
+        "levels": [
+          "themes"
+        ],
+        "aspect": null,
+        "sentiment": "negative",
+        "topic": null,
+        "statistic_families": [],
+        "source": "user_request",
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "selection_basis_sha256": "a718c1c30e217a1bf16c063207917f96fad81b4ca7c3eedcc6c3c50376eaf8ac",
+        "version": "review-request-goal-p6-v1",
+        "analysis_mode": "multi_aspect_negative_drilldown",
+        "per_aspect_level": "themes",
+        "ranking_source": {
+          "finished_at": "2026-11-10T16:26:52.229333+00:00",
+          "integrity_version": "analysis-task-integrity-v1",
+          "result_id": "r1",
+          "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+          "snapshot_at": "2026-11-10T16:26:52.217+00:00",
+          "task_id": "G18-T1",
+          "task_sha256": "eb2ebf5a03ad2b686b6ab79f6b4cfbd57c43f2809f539ba102881333c7916bad",
+          "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d",
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881"
+        },
+        "expected_scope": {
+          "as_of": null,
+          "base_url": "https://labels.stage1.invalid/v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31",
+          "dataset_version": "stage1-synthetic-v1",
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "model": "stage1-labels",
+          "product_ids": [
+            "100013588053"
+          ],
+          "prompt_version": "stage1-labels-v1",
+          "source": "reviews_csv"
+        },
+        "selection_basis": {
+          "ranking_basis": {
+            "denominator": {
+              "field": "successful_reviews",
+              "value": 8
+            },
+            "ranking": [
+              {
+                "aspect": "service",
+                "denominator": 8,
+                "negative_rate": 0.625,
+                "negative_review_count": 5,
+                "rank": 1
+              },
+              {
+                "aspect": "effectiveness",
+                "denominator": 8,
+                "negative_rate": 0.5,
+                "negative_review_count": 4,
+                "rank": 2
+              },
+              {
+                "aspect": "logistics",
+                "denominator": 8,
+                "negative_rate": 0.375,
+                "negative_review_count": 3,
+                "rank": 3
+              },
+              {
+                "aspect": "quality",
+                "denominator": 8,
+                "negative_rate": 0.25,
+                "negative_review_count": 2,
+                "rank": 4
+              },
+              {
+                "aspect": "price",
+                "denominator": 8,
+                "negative_rate": 0.125,
+                "negative_review_count": 1,
+                "rank": 5
+              },
+              {
+                "aspect": "packaging",
+                "denominator": 8,
+                "negative_rate": 0.0,
+                "negative_review_count": 0,
+                "rank": 6
+              }
+            ],
+            "scope": {
+              "as_of": null,
+              "base_url": "https://labels.stage1.invalid/v1",
+              "baseline_from": "2023-01-01",
+              "baseline_to": "2023-01-31",
+              "dataset_version": "stage1-synthetic-v1",
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "model": "stage1-labels",
+              "product_ids": [
+                "100013588053"
+              ],
+              "prompt_version": "stage1-labels-v1",
+              "source": "reviews_csv"
+            },
+            "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+            "sentiment": "negative",
+            "source": {
+              "finished_at": "2026-11-10T16:26:52.229333+00:00",
+              "integrity_version": "analysis-task-integrity-v1",
+              "result_id": "r1",
+              "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+              "snapshot_at": "2026-11-10T16:26:52.217+00:00",
+              "task_id": "G18-T1",
+              "task_sha256": "eb2ebf5a03ad2b686b6ab79f6b4cfbd57c43f2809f539ba102881333c7916bad",
+              "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+            }
+          },
+          "required_aspects": [
+            "service",
+            "effectiveness",
+            "logistics"
+          ],
+          "selection_rule_version": "negative-count-desc-aspect-asc-top3-v1"
+        }
+      },
+      "observed_user_intent": {
+        "query_type": "aspect_drilldown",
+        "sentiment": "negative",
+        "aspect": null,
+        "sub_intent": "drill_down",
+        "needs_clarification": false,
+        "resolved_product_ids": [
+          "100013588053"
+        ],
+        "effective_time_range": {
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28"
+        }
+      },
+      "raw_analysis_intent": "aspect_drilldown",
+      "raw_sentiment_intent": "negative",
+      "observed_query_plan": {
+        "analysis_type": "aspect_drilldown",
+        "sentiment": "negative",
+        "scope": {
+          "as_of": null,
+          "base_url": "https://labels.stage1.invalid/v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31",
+          "dataset_version": "stage1-synthetic-v1",
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "model": "stage1-labels",
+          "product_ids": [
+            "100013588053"
+          ],
+          "prompt_version": "stage1-labels-v1",
+          "source": "reviews_csv"
+        },
+        "requirements": [
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": "service",
+              "sentiment": "negative"
+            }
+          },
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": "effectiveness",
+              "sentiment": "negative"
+            }
+          },
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": "logistics",
+              "sentiment": "negative"
+            }
+          }
+        ],
+        "optional_tools": [],
+        "requires_evidence": true,
+        "max_evidence_pages": 0,
+        "max_evidence_items": 0,
+        "evidence_start_page": 1,
+        "evidence_page_size": 3,
+        "unsupported_reason": null,
+        "answer_question": null,
+        "product_groups": [],
+        "task_contract": {
+          "version": "review-runtime-contract-v1",
+          "original_question": "具体体现在哪里？",
+          "evidence_question": "具体体现在哪里？",
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31",
+            "timezone": "UTC"
+          },
+          "scope_sha256": "e92ad4c86320fb3cf7ae7a855953c78fc18ba01144184bdc5da32bcab69e0bf0",
+          "task_type": "evidence",
+          "operation": "opinion_summary",
+          "target_entity": "review_opinion",
+          "subtopic": "multiple",
+          "sentiment_intent": "negative",
+          "required_facts": {
+            "operator": "all_of",
+            "items": [],
+            "relations": []
+          },
+          "statistics": [
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            },
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            },
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            }
+          ],
+          "support_status": "supported",
+          "unsupported_reason": null,
+          "uncertainty": []
+        },
+        "analysis_mode": "multi_aspect_negative_drilldown",
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "required_tools": [
+          "get_aspect_drilldown"
+        ]
+      },
+      "observed_task_acceptance": {
+        "agent_status": "partial",
+        "complete": false,
+        "current_ranking_matches": true,
+        "outcome_coverage": true,
+        "per_aspect": [
+          {
+            "acceptance": null,
+            "aspect": "service",
+            "status": "failed"
+          },
+          {
+            "acceptance": {
+              "checks": [
+                {
+                  "detail": "计划能力须满足编译前的原始请求，不能以计划类型降低目标。",
+                  "name": "请求目标与计划能力",
+                  "passed": true
+                },
+                {
+                  "detail": "当前范围须与执行前确认的任务范围一致。",
+                  "name": "本轮有效范围",
+                  "passed": true
+                },
+                {
+                  "detail": "未明确修改的继承字段须保持一致，显式选择优先。",
+                  "name": "继承范围",
+                  "passed": true
+                },
+                {
+                  "detail": "计划中的查询及完整筛选条件须已执行。",
+                  "name": "所需查询",
+                  "passed": true
+                },
+                {
+                  "detail": "实际结果须包含用户要求的产物类型。",
+                  "name": "实际产物:themes",
+                  "passed": true
+                },
+                {
+                  "detail": "复用原 Validator 的数字、分母、范围、主题来源及精确引用校验。",
+                  "name": "统计与引用校验",
+                  "passed": true
+                },
+                {
+                  "detail": "查询快照须使用确认的商品、数据集、日期和标注身份。",
+                  "name": "实际查询范围",
+                  "passed": true
+                },
+                {
+                  "detail": "具体表现归纳须读取候选子主题，维度计数不能替代。",
+                  "name": "子主题查询",
+                  "passed": true
+                },
+                {
+                  "detail": "超时、失败或部分复核不能作为完整主题分析。",
+                  "name": "分类批次完整",
+                  "passed": true
+                },
+                {
+                  "detail": "候选主题须有来源观点与去重计数，不得编造全量频次。",
+                  "name": "子主题及去重证据",
+                  "passed": true
+                },
+                {
+                  "detail": "内容任务须执行观点、主题或原文查询。",
+                  "name": "观点查询",
+                  "passed": true
+                },
+                {
+                  "detail": "观点查询须保留本轮维度和情感。",
+                  "name": "观点筛选",
+                  "passed": true
+                },
+                {
+                  "detail": "须存在带原始评论来源的观点，RAG 候选或计数不替代引用。",
+                  "name": "原文引用",
+                  "passed": true
+                }
+              ],
+              "classification_status": "model_candidates_unreviewed",
+              "complete": true,
+              "evidence_status": "available",
+              "message": "本轮任务目标、范围与证据验收通过。",
+              "plan_check": {
+                "checks": [
+                  {
+                    "name": "themes",
+                    "passed": true
+                  }
+                ],
+                "passed": true
+              },
+              "status": "passed"
+            },
+            "aspect": "effectiveness",
+            "status": "complete"
+          },
+          {
+            "acceptance": {
+              "checks": [
+                {
+                  "detail": "计划能力须满足编译前的原始请求，不能以计划类型降低目标。",
+                  "name": "请求目标与计划能力",
+                  "passed": true
+                },
+                {
+                  "detail": "当前范围须与执行前确认的任务范围一致。",
+                  "name": "本轮有效范围",
+                  "passed": true
+                },
+                {
+                  "detail": "未明确修改的继承字段须保持一致，显式选择优先。",
+                  "name": "继承范围",
+                  "passed": true
+                },
+                {
+                  "detail": "计划中的查询及完整筛选条件须已执行。",
+                  "name": "所需查询",
+                  "passed": true
+                },
+                {
+                  "detail": "实际结果须包含用户要求的产物类型。",
+                  "name": "实际产物:themes",
+                  "passed": true
+                },
+                {
+                  "detail": "复用原 Validator 的数字、分母、范围、主题来源及精确引用校验。",
+                  "name": "统计与引用校验",
+                  "passed": true
+                },
+                {
+                  "detail": "查询快照须使用确认的商品、数据集、日期和标注身份。",
+                  "name": "实际查询范围",
+                  "passed": true
+                },
+                {
+                  "detail": "具体表现归纳须读取候选子主题，维度计数不能替代。",
+                  "name": "子主题查询",
+                  "passed": true
+                },
+                {
+                  "detail": "超时、失败或部分复核不能作为完整主题分析。",
+                  "name": "分类批次完整",
+                  "passed": true
+                },
+                {
+                  "detail": "候选主题须有来源观点与去重计数，不得编造全量频次。",
+                  "name": "子主题及去重证据",
+                  "passed": true
+                },
+                {
+                  "detail": "内容任务须执行观点、主题或原文查询。",
+                  "name": "观点查询",
+                  "passed": true
+                },
+                {
+                  "detail": "观点查询须保留本轮维度和情感。",
+                  "name": "观点筛选",
+                  "passed": true
+                },
+                {
+                  "detail": "须存在带原始评论来源的观点，RAG 候选或计数不替代引用。",
+                  "name": "原文引用",
+                  "passed": true
+                }
+              ],
+              "classification_status": "model_candidates_unreviewed",
+              "complete": true,
+              "evidence_status": "available",
+              "message": "本轮任务目标、范围与证据验收通过。",
+              "plan_check": {
+                "checks": [
+                  {
+                    "name": "themes",
+                    "passed": true
+                  }
+                ],
+                "passed": true
+              },
+              "status": "passed"
+            },
+            "aspect": "logistics",
+            "status": "complete"
+          }
+        ],
+        "plan_check": {
+          "checks": [
+            {
+              "name": "independent_goal",
+              "passed": true
+            },
+            {
+              "name": "scope_and_mode",
+              "passed": true
+            },
+            {
+              "name": "p6_metadata",
+              "passed": true
+            },
+            {
+              "name": "exact_required_aspects",
+              "passed": true
+            },
+            {
+              "name": "per_aspect_capability",
+              "passed": true
+            }
+          ],
+          "passed": true
+        },
+        "publishable_aspects": [
+          "effectiveness",
+          "logistics"
+        ],
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "status": "partial",
+        "task_status": "partial",
+        "version": "review-p6-acceptance-v1",
+        "parent_status": "partial",
+        "message": "部分完成",
+        "checks": [
+          {
+            "name": "p6_publication_integrity",
+            "passed": true,
+            "detail": "完整冻结目标、全部子维度、来源、原文与重算计数已重新验收；仅发布允许的维度。"
+          }
+        ]
+      },
+      "observed_status": "partial",
+      "observed_worker_status": "partial",
+      "observed_answer": "# 多维度负面主题分析\n\n状态：部分完成；完整任务完成：否。\n\n商品：100013588053；数据集：reviews\\_csv / stage1-synthetic-v1。\n\n当前窗口（UTC）：2023-02-01 — 2023-02-28；评论截止：未限定。\n\n标注版本：stage1-labels / stage1-labels-v1；成功标注评论数 D=8。\n\n必做维度（冻结排名顺序）：客服、使用效果、物流。\n\n## 1. 客服 · 执行失败\n\n全量负面去重评论 M=5；维度负面率 M/D=5/8（62.5%）。\n\n实际分类样本 S=5；冻结候选评论=5；样本覆盖 S/M=100.0%。\n\n观点归属覆盖：0/5（0.0%）；未归属观点仍保留在样本分母中。\n\n未完成原因：主题模型请求超时，结果未被验收（timeout）。未发布该维度主题。\n\n## 2. 使用效果 · 已完成\n\n全量负面去重评论 M=4；维度负面率 M/D=4/8（50.0%）。\n\n实际分类样本 S=4；冻结候选评论=4；样本覆盖 S/M=100.0%。\n\n观点归属覆盖：4/4（100.0%）；未归属观点仍保留在样本分母中。\n\n### 降温速度慢\n\n降温速度慢\n\n样本内去重评论 N=4；样本内主题比例 N/S=4/4（100.0%）。\n\n支持引用：降温速度慢\n\n评论 4；原文位置 [12, 17)（Unicode 字符）；观点 opinion:e10ab0a88aaa7ee83f5240ef。\n\n来源：sha256:1111111111111111111111111111111111111111111111111111111111111111#line=4；标注 1004；人工修订 无；观点来源 model。\n\n原文：合成评论：客服回复缓慢；降温速度慢\n\n## 3. 物流 · 已完成\n\n全量负面去重评论 M=3；维度负面率 M/D=3/8（37.5%）。\n\n实际分类样本 S=3；冻结候选评论=3；样本覆盖 S/M=100.0%。\n\n观点归属覆盖：3/3（100.0%）；未归属观点仍保留在样本分母中。\n\n### 物流很慢\n\n物流很慢\n\n样本内去重评论 N=3；样本内主题比例 N/S=3/3（100.0%）。\n\n支持引用：物流很慢\n\n评论 3；原文位置 [5, 9)（Unicode 字符）；观点 opinion:61bf8090660fda26affd7ae5。\n\n来源：sha256:1111111111111111111111111111111111111111111111111111111111111111#line=3；标注 1003；人工修订 无；观点来源 model。\n\n原文：合成评论：物流很慢；客服回复缓慢；降温速度慢\n\n## 口径与限制\n\n主题为模型发现并复核的候选，未经人工确认。\n\n主题比例 N/S 仅描述已分析样本，不是全量投诉率；维度负面率为 M/D。\n\n各维度及主题可引用同一评论，计数不可相加作为独立评论数或用户数。\n\n有限候选采用最近评论及观点顺序的有界非随机抽样；未覆盖评论不能推断为无问题。\n",
+      "observed_input_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": {
+          "source": {
+            "task_id": "G18-T1",
+            "task_sha256": "eb2ebf5a03ad2b686b6ab79f6b4cfbd57c43f2809f539ba102881333c7916bad",
+            "integrity_version": "analysis-task-integrity-v1",
+            "finished_at": "2026-11-10T16:26:52.229333+00:00",
+            "result_id": "r1",
+            "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+            "snapshot_at": "2026-11-10T16:26:52.217+00:00",
+            "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+          },
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+          "sentiment": "negative",
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 8
+          },
+          "ranking": [
+            {
+              "rank": 1,
+              "aspect": "service",
+              "negative_review_count": 5,
+              "negative_rate": 0.625,
+              "denominator": 8
+            },
+            {
+              "rank": 2,
+              "aspect": "effectiveness",
+              "negative_review_count": 4,
+              "negative_rate": 0.5,
+              "denominator": 8
+            },
+            {
+              "rank": 3,
+              "aspect": "logistics",
+              "negative_review_count": 3,
+              "negative_rate": 0.375,
+              "denominator": 8
+            },
+            {
+              "rank": 4,
+              "aspect": "quality",
+              "negative_review_count": 2,
+              "negative_rate": 0.25,
+              "denominator": 8
+            },
+            {
+              "rank": 5,
+              "aspect": "price",
+              "negative_review_count": 1,
+              "negative_rate": 0.125,
+              "denominator": 8
+            },
+            {
+              "rank": 6,
+              "aspect": "packaging",
+              "negative_review_count": 0,
+              "negative_rate": 0.0,
+              "denominator": 8
+            }
+          ]
+        },
+        "pending_goal": null
+      },
+      "observed_post_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": {
+          "source": {
+            "task_id": "G18-T1",
+            "task_sha256": "eb2ebf5a03ad2b686b6ab79f6b4cfbd57c43f2809f539ba102881333c7916bad",
+            "integrity_version": "analysis-task-integrity-v1",
+            "finished_at": "2026-11-10T16:26:52.229333+00:00",
+            "result_id": "r1",
+            "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+            "snapshot_at": "2026-11-10T16:26:52.217+00:00",
+            "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+          },
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+          "sentiment": "negative",
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 8
+          },
+          "ranking": [
+            {
+              "rank": 1,
+              "aspect": "service",
+              "negative_review_count": 5,
+              "negative_rate": 0.625,
+              "denominator": 8
+            },
+            {
+              "rank": 2,
+              "aspect": "effectiveness",
+              "negative_review_count": 4,
+              "negative_rate": 0.5,
+              "denominator": 8
+            },
+            {
+              "rank": 3,
+              "aspect": "logistics",
+              "negative_review_count": 3,
+              "negative_rate": 0.375,
+              "denominator": 8
+            },
+            {
+              "rank": 4,
+              "aspect": "quality",
+              "negative_review_count": 2,
+              "negative_rate": 0.25,
+              "denominator": 8
+            },
+            {
+              "rank": 5,
+              "aspect": "price",
+              "negative_review_count": 1,
+              "negative_rate": 0.125,
+              "denominator": 8
+            },
+            {
+              "rank": 6,
+              "aspect": "packaging",
+              "negative_review_count": 0,
+              "negative_rate": 0.0,
+              "denominator": 8
+            }
+          ]
+        },
+        "pending_goal": null
+      },
+      "observed_input_users": [
+        {
+          "task_id": "G18-T1",
+          "question": "100013588053的差评主要集中在哪些方面？"
+        }
+      ],
+      "observed_query_executions": 4,
+      "observed_preparation": {
+        "version": "review-p6-prepared-v1",
+        "status": "ready",
+        "current_snapshot": {
+          "definitions": {
+            "as_of_field": "published_at",
+            "count_unit": "distinct_reviews",
+            "human_policy": "latest_snapshot",
+            "labeling_coverage_denominator": "eligible_text_reviews",
+            "negative_rate_denominator": "successful_reviews",
+            "positive_aspect_rate_denominator": "positive_review_count",
+            "positive_success_rate_denominator": "successful_reviews",
+            "rate_unit": "fraction_0_to_1"
+          },
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 8
+          },
+          "negative_review_counts": {
+            "effectiveness": 4,
+            "logistics": 3,
+            "packaging": 0,
+            "price": 1,
+            "quality": 2,
+            "service": 5
+          },
+          "scope": {
+            "as_of": null,
+            "base_url": "https://labels.stage1.invalid/v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31",
+            "dataset_version": "stage1-synthetic-v1",
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "model": "stage1-labels",
+            "product_ids": [
+              "100013588053"
+            ],
+            "prompt_version": "stage1-labels-v1",
+            "source": "reviews_csv"
+          }
+        },
+        "snapshot_audit": {
+          "backend": "postgresql",
+          "isolation": "repeatable read",
+          "logical_transaction_id": "923c25a9395e4a28be08dbe71ba3429e",
+          "read_finished_at": "2026-11-10T16:26:52.253+00:00",
+          "read_started_at": "2026-11-10T16:26:52.250+00:00",
+          "readonly": true
+        },
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "current_ranking_matches": true,
+        "query_executions": 4,
+        "database_statement_count": 0,
+        "topic_model_calls": 0,
+        "reason": "classification_not_enabled",
+        "input_sha256": "3d6106220110de44256c672e2acefa82ad6952b4678d4e34974848f138532dc6",
+        "inputs": [
+          {
+            "aspect": "service",
+            "total": 5,
+            "total_opinions": 5,
+            "coverage": {
+              "opinion_coverage": 1.0,
+              "review_coverage": 1.0,
+              "selected_opinions": 5,
+              "selected_reviews": 5,
+              "truncated": false,
+              "unique_expressions": 1
+            },
+            "input_sha256": "8a9de67a224a4077216ddc225dc5c27ed53dda13ff9d0d62c9f62ff1c7ac3c46"
+          },
+          {
+            "aspect": "effectiveness",
+            "total": 4,
+            "total_opinions": 4,
+            "coverage": {
+              "opinion_coverage": 1.0,
+              "review_coverage": 1.0,
+              "selected_opinions": 4,
+              "selected_reviews": 4,
+              "truncated": false,
+              "unique_expressions": 1
+            },
+            "input_sha256": "5d59d503723ed3522697a31fde6827fa13b8fb9f81f9fc75c94e94bf0a71cad3"
+          },
+          {
+            "aspect": "logistics",
+            "total": 3,
+            "total_opinions": 3,
+            "coverage": {
+              "opinion_coverage": 1.0,
+              "review_coverage": 1.0,
+              "selected_opinions": 3,
+              "selected_reviews": 3,
+              "truncated": false,
+              "unique_expressions": 1
+            },
+            "input_sha256": "5567adf1a85afcd0054a7a4a9a63257a88828e897749ed682419bc41b53b0a51"
+          }
+        ]
+      },
+      "observed_tools": [],
+      "observed_model_attempts": [
+        {
+          "stage": "topic_discovery",
+          "aspect": "service",
+          "kind": "p6_offline_transport"
+        },
+        {
+          "stage": "topic_discovery",
+          "aspect": "effectiveness",
+          "kind": "p6_offline_transport"
+        },
+        {
+          "stage": "topic_classification",
+          "aspect": "effectiveness",
+          "kind": "p6_offline_transport"
+        },
+        {
+          "stage": "topic_discovery",
+          "aspect": "logistics",
+          "kind": "p6_offline_transport"
+        },
+        {
+          "stage": "topic_classification",
+          "aspect": "logistics",
+          "kind": "p6_offline_transport"
+        }
+      ],
+      "observed_per_aspect": [
+        {
+          "aspect": "service",
+          "status": "failed",
+          "reason": "主题模型请求超时，结果未被验收",
+          "M_a": 5,
+          "S_a": 5
+        },
+        {
+          "aspect": "effectiveness",
+          "status": "complete",
+          "reason": "已通过逐维证据验收",
+          "M_a": 4,
+          "S_a": 4
+        },
+        {
+          "aspect": "logistics",
+          "status": "complete",
+          "reason": "已通过逐维证据验收",
+          "M_a": 3,
+          "S_a": 3
+        }
+      ],
+      "observed_publishable_aspects": [
+        "effectiveness",
+        "logistics"
+      ],
+      "task_sha256": "39e6032f757c9d9ba43f8f4e015c6c332727aa734bbae89efacad29a8bfab968"
+    },
+    "G19-T2": {
+      "task_id": "G19-T2",
+      "observed_scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588053"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31"
+      },
+      "observed_request_goal": {
+        "original_question": "具体体现在哪里？",
+        "levels": [
+          "themes"
+        ],
+        "aspect": null,
+        "sentiment": "negative",
+        "topic": null,
+        "statistic_families": [],
+        "source": "user_request",
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "selection_basis_sha256": "3f2124b3dd41d65b1fa751eb287374a60ae0867b7dcce9604828cac199b56030",
+        "version": "review-request-goal-p6-v1",
+        "analysis_mode": "multi_aspect_negative_drilldown",
+        "per_aspect_level": "themes",
+        "ranking_source": {
+          "finished_at": "2026-11-10T16:26:52.436309+00:00",
+          "integrity_version": "analysis-task-integrity-v1",
+          "result_id": "r1",
+          "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+          "snapshot_at": "2026-11-10T16:26:52.425+00:00",
+          "task_id": "G19-T1",
+          "task_sha256": "a3e466208eb6d5837c33299dbd84eb89b0daca8cc3c3283c179066c1b0f1c56c",
+          "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d",
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881"
+        },
+        "expected_scope": {
+          "as_of": null,
+          "base_url": "https://labels.stage1.invalid/v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31",
+          "dataset_version": "stage1-synthetic-v1",
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "model": "stage1-labels",
+          "product_ids": [
+            "100013588053"
+          ],
+          "prompt_version": "stage1-labels-v1",
+          "source": "reviews_csv"
+        },
+        "selection_basis": {
+          "ranking_basis": {
+            "denominator": {
+              "field": "successful_reviews",
+              "value": 8
+            },
+            "ranking": [
+              {
+                "aspect": "service",
+                "denominator": 8,
+                "negative_rate": 0.625,
+                "negative_review_count": 5,
+                "rank": 1
+              },
+              {
+                "aspect": "effectiveness",
+                "denominator": 8,
+                "negative_rate": 0.5,
+                "negative_review_count": 4,
+                "rank": 2
+              },
+              {
+                "aspect": "logistics",
+                "denominator": 8,
+                "negative_rate": 0.375,
+                "negative_review_count": 3,
+                "rank": 3
+              },
+              {
+                "aspect": "quality",
+                "denominator": 8,
+                "negative_rate": 0.25,
+                "negative_review_count": 2,
+                "rank": 4
+              },
+              {
+                "aspect": "price",
+                "denominator": 8,
+                "negative_rate": 0.125,
+                "negative_review_count": 1,
+                "rank": 5
+              },
+              {
+                "aspect": "packaging",
+                "denominator": 8,
+                "negative_rate": 0.0,
+                "negative_review_count": 0,
+                "rank": 6
+              }
+            ],
+            "scope": {
+              "as_of": null,
+              "base_url": "https://labels.stage1.invalid/v1",
+              "baseline_from": "2023-01-01",
+              "baseline_to": "2023-01-31",
+              "dataset_version": "stage1-synthetic-v1",
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "model": "stage1-labels",
+              "product_ids": [
+                "100013588053"
+              ],
+              "prompt_version": "stage1-labels-v1",
+              "source": "reviews_csv"
+            },
+            "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+            "sentiment": "negative",
+            "source": {
+              "finished_at": "2026-11-10T16:26:52.436309+00:00",
+              "integrity_version": "analysis-task-integrity-v1",
+              "result_id": "r1",
+              "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+              "snapshot_at": "2026-11-10T16:26:52.425+00:00",
+              "task_id": "G19-T1",
+              "task_sha256": "a3e466208eb6d5837c33299dbd84eb89b0daca8cc3c3283c179066c1b0f1c56c",
+              "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+            }
+          },
+          "required_aspects": [
+            "service",
+            "effectiveness",
+            "logistics"
+          ],
+          "selection_rule_version": "negative-count-desc-aspect-asc-top3-v1"
+        }
+      },
+      "observed_user_intent": {
+        "query_type": "aspect_drilldown",
+        "sentiment": "negative",
+        "aspect": null,
+        "sub_intent": "drill_down",
+        "needs_clarification": false,
+        "resolved_product_ids": [
+          "100013588053"
+        ],
+        "effective_time_range": {
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28"
+        }
+      },
+      "raw_analysis_intent": "aspect_drilldown",
+      "raw_sentiment_intent": "negative",
+      "observed_query_plan": {
+        "analysis_type": "aspect_drilldown",
+        "sentiment": "negative",
+        "scope": {
+          "as_of": null,
+          "base_url": "https://labels.stage1.invalid/v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31",
+          "dataset_version": "stage1-synthetic-v1",
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "model": "stage1-labels",
+          "product_ids": [
+            "100013588053"
+          ],
+          "prompt_version": "stage1-labels-v1",
+          "source": "reviews_csv"
+        },
+        "requirements": [
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": "service",
+              "sentiment": "negative"
+            }
+          },
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": "effectiveness",
+              "sentiment": "negative"
+            }
+          },
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": "logistics",
+              "sentiment": "negative"
+            }
+          }
+        ],
+        "optional_tools": [],
+        "requires_evidence": true,
+        "max_evidence_pages": 0,
+        "max_evidence_items": 0,
+        "evidence_start_page": 1,
+        "evidence_page_size": 3,
+        "unsupported_reason": null,
+        "answer_question": null,
+        "product_groups": [],
+        "task_contract": {
+          "version": "review-runtime-contract-v1",
+          "original_question": "具体体现在哪里？",
+          "evidence_question": "具体体现在哪里？",
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31",
+            "timezone": "UTC"
+          },
+          "scope_sha256": "e92ad4c86320fb3cf7ae7a855953c78fc18ba01144184bdc5da32bcab69e0bf0",
+          "task_type": "evidence",
+          "operation": "opinion_summary",
+          "target_entity": "review_opinion",
+          "subtopic": "multiple",
+          "sentiment_intent": "negative",
+          "required_facts": {
+            "operator": "all_of",
+            "items": [],
+            "relations": []
+          },
+          "statistics": [
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            },
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            },
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            }
+          ],
+          "support_status": "supported",
+          "unsupported_reason": null,
+          "uncertainty": []
+        },
+        "analysis_mode": "multi_aspect_negative_drilldown",
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "required_tools": [
+          "get_aspect_drilldown"
+        ]
+      },
+      "observed_task_acceptance": {
+        "agent_status": "partial",
+        "complete": false,
+        "current_ranking_matches": true,
+        "outcome_coverage": true,
+        "per_aspect": [
+          {
+            "acceptance": {
+              "checks": [
+                {
+                  "detail": "计划能力须满足编译前的原始请求，不能以计划类型降低目标。",
+                  "name": "请求目标与计划能力",
+                  "passed": true
+                },
+                {
+                  "detail": "当前范围须与执行前确认的任务范围一致。",
+                  "name": "本轮有效范围",
+                  "passed": true
+                },
+                {
+                  "detail": "未明确修改的继承字段须保持一致，显式选择优先。",
+                  "name": "继承范围",
+                  "passed": true
+                },
+                {
+                  "detail": "计划中的查询及完整筛选条件须已执行。",
+                  "name": "所需查询",
+                  "passed": true
+                },
+                {
+                  "detail": "实际结果须包含用户要求的产物类型。",
+                  "name": "实际产物:themes",
+                  "passed": true
+                },
+                {
+                  "detail": "复用原 Validator 的数字、分母、范围、主题来源及精确引用校验。",
+                  "name": "统计与引用校验",
+                  "passed": true
+                },
+                {
+                  "detail": "查询快照须使用确认的商品、数据集、日期和标注身份。",
+                  "name": "实际查询范围",
+                  "passed": true
+                },
+                {
+                  "detail": "具体表现归纳须读取候选子主题，维度计数不能替代。",
+                  "name": "子主题查询",
+                  "passed": true
+                },
+                {
+                  "detail": "超时、失败或部分复核不能作为完整主题分析。",
+                  "name": "分类批次完整",
+                  "passed": true
+                },
+                {
+                  "detail": "候选主题须有来源观点与去重计数，不得编造全量频次。",
+                  "name": "子主题及去重证据",
+                  "passed": true
+                },
+                {
+                  "detail": "内容任务须执行观点、主题或原文查询。",
+                  "name": "观点查询",
+                  "passed": true
+                },
+                {
+                  "detail": "观点查询须保留本轮维度和情感。",
+                  "name": "观点筛选",
+                  "passed": true
+                },
+                {
+                  "detail": "须存在带原始评论来源的观点，RAG 候选或计数不替代引用。",
+                  "name": "原文引用",
+                  "passed": true
+                }
+              ],
+              "classification_status": "model_candidates_unreviewed",
+              "complete": true,
+              "evidence_status": "available",
+              "message": "本轮任务目标、范围与证据验收通过。",
+              "plan_check": {
+                "checks": [
+                  {
+                    "name": "themes",
+                    "passed": true
+                  }
+                ],
+                "passed": true
+              },
+              "status": "passed"
+            },
+            "aspect": "service",
+            "status": "complete"
+          },
+          {
+            "acceptance": {
+              "checks": [
+                {
+                  "detail": "计划能力须满足编译前的原始请求，不能以计划类型降低目标。",
+                  "name": "请求目标与计划能力",
+                  "passed": true
+                },
+                {
+                  "detail": "当前范围须与执行前确认的任务范围一致。",
+                  "name": "本轮有效范围",
+                  "passed": true
+                },
+                {
+                  "detail": "未明确修改的继承字段须保持一致，显式选择优先。",
+                  "name": "继承范围",
+                  "passed": true
+                },
+                {
+                  "detail": "计划中的查询及完整筛选条件须已执行。",
+                  "name": "所需查询",
+                  "passed": true
+                },
+                {
+                  "detail": "实际结果须包含用户要求的产物类型。",
+                  "name": "实际产物:themes",
+                  "passed": true
+                },
+                {
+                  "detail": "复用原 Validator 的数字、分母、范围、主题来源及精确引用校验。",
+                  "name": "统计与引用校验",
+                  "passed": true
+                },
+                {
+                  "detail": "查询快照须使用确认的商品、数据集、日期和标注身份。",
+                  "name": "实际查询范围",
+                  "passed": true
+                },
+                {
+                  "detail": "具体表现归纳须读取候选子主题，维度计数不能替代。",
+                  "name": "子主题查询",
+                  "passed": true
+                },
+                {
+                  "detail": "超时、失败或部分复核不能作为完整主题分析。",
+                  "name": "分类批次完整",
+                  "passed": true
+                },
+                {
+                  "detail": "候选主题须有来源观点与去重计数，不得编造全量频次。",
+                  "name": "子主题及去重证据",
+                  "passed": true
+                },
+                {
+                  "detail": "内容任务须执行观点、主题或原文查询。",
+                  "name": "观点查询",
+                  "passed": true
+                },
+                {
+                  "detail": "观点查询须保留本轮维度和情感。",
+                  "name": "观点筛选",
+                  "passed": true
+                },
+                {
+                  "detail": "须存在带原始评论来源的观点，RAG 候选或计数不替代引用。",
+                  "name": "原文引用",
+                  "passed": true
+                }
+              ],
+              "classification_status": "model_candidates_unreviewed",
+              "complete": true,
+              "evidence_status": "available",
+              "message": "本轮任务目标、范围与证据验收通过。",
+              "plan_check": {
+                "checks": [
+                  {
+                    "name": "themes",
+                    "passed": true
+                  }
+                ],
+                "passed": true
+              },
+              "status": "passed"
+            },
+            "aspect": "effectiveness",
+            "status": "complete"
+          },
+          {
+            "acceptance": null,
+            "aspect": "logistics",
+            "status": "failed"
+          }
+        ],
+        "plan_check": {
+          "checks": [
+            {
+              "name": "independent_goal",
+              "passed": true
+            },
+            {
+              "name": "scope_and_mode",
+              "passed": true
+            },
+            {
+              "name": "p6_metadata",
+              "passed": true
+            },
+            {
+              "name": "exact_required_aspects",
+              "passed": true
+            },
+            {
+              "name": "per_aspect_capability",
+              "passed": true
+            }
+          ],
+          "passed": true
+        },
+        "publishable_aspects": [
+          "service",
+          "effectiveness"
+        ],
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "status": "partial",
+        "task_status": "partial",
+        "version": "review-p6-acceptance-v1",
+        "parent_status": "partial",
+        "message": "部分完成",
+        "checks": [
+          {
+            "name": "p6_publication_integrity",
+            "passed": true,
+            "detail": "完整冻结目标、全部子维度、来源、原文与重算计数已重新验收；仅发布允许的维度。"
+          }
+        ]
+      },
+      "observed_status": "partial",
+      "observed_worker_status": "partial",
+      "observed_answer": "# 多维度负面主题分析\n\n状态：部分完成；完整任务完成：否。\n\n商品：100013588053；数据集：reviews\\_csv / stage1-synthetic-v1。\n\n当前窗口（UTC）：2023-02-01 — 2023-02-28；评论截止：未限定。\n\n标注版本：stage1-labels / stage1-labels-v1；成功标注评论数 D=8。\n\n必做维度（冻结排名顺序）：客服、使用效果、物流。\n\n## 1. 客服 · 已完成\n\n全量负面去重评论 M=5；维度负面率 M/D=5/8（62.5%）。\n\n实际分类样本 S=5；冻结候选评论=5；样本覆盖 S/M=100.0%。\n\n观点归属覆盖：5/5（100.0%）；未归属观点仍保留在样本分母中。\n\n### 客服回复缓慢\n\n客服回复缓慢\n\n样本内去重评论 N=5；样本内主题比例 N/S=5/5（100.0%）。\n\n支持引用：客服回复缓慢\n\n评论 5；原文位置 [5, 11)（Unicode 字符）；观点 opinion:ada6ea4e71eec5399445e813。\n\n来源：sha256:1111111111111111111111111111111111111111111111111111111111111111#line=5；标注 1005；人工修订 无；观点来源 model。\n\n原文：合成评论：客服回复缓慢\n\n## 2. 使用效果 · 已完成\n\n全量负面去重评论 M=4；维度负面率 M/D=4/8（50.0%）。\n\n实际分类样本 S=4；冻结候选评论=4；样本覆盖 S/M=100.0%。\n\n观点归属覆盖：4/4（100.0%）；未归属观点仍保留在样本分母中。\n\n### 降温速度慢\n\n降温速度慢\n\n样本内去重评论 N=4；样本内主题比例 N/S=4/4（100.0%）。\n\n支持引用：降温速度慢\n\n评论 4；原文位置 [12, 17)（Unicode 字符）；观点 opinion:e10ab0a88aaa7ee83f5240ef。\n\n来源：sha256:1111111111111111111111111111111111111111111111111111111111111111#line=4；标注 1004；人工修订 无；观点来源 model。\n\n原文：合成评论：客服回复缓慢；降温速度慢\n\n## 3. 物流 · 执行失败\n\n全量负面去重评论 M=3；维度负面率 M/D=3/8（37.5%）。\n\n实际分类样本 S=3；冻结候选评论=3；样本覆盖 S/M=100.0%。\n\n观点归属覆盖：0/3（0.0%）；未归属观点仍保留在样本分母中。\n\n未完成原因：主题模型请求超时，结果未被验收（timeout）。未发布该维度主题。\n\n## 口径与限制\n\n主题为模型发现并复核的候选，未经人工确认。\n\n主题比例 N/S 仅描述已分析样本，不是全量投诉率；维度负面率为 M/D。\n\n各维度及主题可引用同一评论，计数不可相加作为独立评论数或用户数。\n\n有限候选采用最近评论及观点顺序的有界非随机抽样；未覆盖评论不能推断为无问题。\n",
+      "observed_input_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": {
+          "source": {
+            "task_id": "G19-T1",
+            "task_sha256": "a3e466208eb6d5837c33299dbd84eb89b0daca8cc3c3283c179066c1b0f1c56c",
+            "integrity_version": "analysis-task-integrity-v1",
+            "finished_at": "2026-11-10T16:26:52.436309+00:00",
+            "result_id": "r1",
+            "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+            "snapshot_at": "2026-11-10T16:26:52.425+00:00",
+            "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+          },
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+          "sentiment": "negative",
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 8
+          },
+          "ranking": [
+            {
+              "rank": 1,
+              "aspect": "service",
+              "negative_review_count": 5,
+              "negative_rate": 0.625,
+              "denominator": 8
+            },
+            {
+              "rank": 2,
+              "aspect": "effectiveness",
+              "negative_review_count": 4,
+              "negative_rate": 0.5,
+              "denominator": 8
+            },
+            {
+              "rank": 3,
+              "aspect": "logistics",
+              "negative_review_count": 3,
+              "negative_rate": 0.375,
+              "denominator": 8
+            },
+            {
+              "rank": 4,
+              "aspect": "quality",
+              "negative_review_count": 2,
+              "negative_rate": 0.25,
+              "denominator": 8
+            },
+            {
+              "rank": 5,
+              "aspect": "price",
+              "negative_review_count": 1,
+              "negative_rate": 0.125,
+              "denominator": 8
+            },
+            {
+              "rank": 6,
+              "aspect": "packaging",
+              "negative_review_count": 0,
+              "negative_rate": 0.0,
+              "denominator": 8
+            }
+          ]
+        },
+        "pending_goal": null
+      },
+      "observed_post_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": {
+          "source": {
+            "task_id": "G19-T1",
+            "task_sha256": "a3e466208eb6d5837c33299dbd84eb89b0daca8cc3c3283c179066c1b0f1c56c",
+            "integrity_version": "analysis-task-integrity-v1",
+            "finished_at": "2026-11-10T16:26:52.436309+00:00",
+            "result_id": "r1",
+            "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+            "snapshot_at": "2026-11-10T16:26:52.425+00:00",
+            "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+          },
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+          "sentiment": "negative",
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 8
+          },
+          "ranking": [
+            {
+              "rank": 1,
+              "aspect": "service",
+              "negative_review_count": 5,
+              "negative_rate": 0.625,
+              "denominator": 8
+            },
+            {
+              "rank": 2,
+              "aspect": "effectiveness",
+              "negative_review_count": 4,
+              "negative_rate": 0.5,
+              "denominator": 8
+            },
+            {
+              "rank": 3,
+              "aspect": "logistics",
+              "negative_review_count": 3,
+              "negative_rate": 0.375,
+              "denominator": 8
+            },
+            {
+              "rank": 4,
+              "aspect": "quality",
+              "negative_review_count": 2,
+              "negative_rate": 0.25,
+              "denominator": 8
+            },
+            {
+              "rank": 5,
+              "aspect": "price",
+              "negative_review_count": 1,
+              "negative_rate": 0.125,
+              "denominator": 8
+            },
+            {
+              "rank": 6,
+              "aspect": "packaging",
+              "negative_review_count": 0,
+              "negative_rate": 0.0,
+              "denominator": 8
+            }
+          ]
+        },
+        "pending_goal": null
+      },
+      "observed_input_users": [
+        {
+          "task_id": "G19-T1",
+          "question": "100013588053的差评主要集中在哪些方面？"
+        }
+      ],
+      "observed_query_executions": 4,
+      "observed_preparation": {
+        "version": "review-p6-prepared-v1",
+        "status": "ready",
+        "current_snapshot": {
+          "definitions": {
+            "as_of_field": "published_at",
+            "count_unit": "distinct_reviews",
+            "human_policy": "latest_snapshot",
+            "labeling_coverage_denominator": "eligible_text_reviews",
+            "negative_rate_denominator": "successful_reviews",
+            "positive_aspect_rate_denominator": "positive_review_count",
+            "positive_success_rate_denominator": "successful_reviews",
+            "rate_unit": "fraction_0_to_1"
+          },
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 8
+          },
+          "negative_review_counts": {
+            "effectiveness": 4,
+            "logistics": 3,
+            "packaging": 0,
+            "price": 1,
+            "quality": 2,
+            "service": 5
+          },
+          "scope": {
+            "as_of": null,
+            "base_url": "https://labels.stage1.invalid/v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31",
+            "dataset_version": "stage1-synthetic-v1",
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "model": "stage1-labels",
+            "product_ids": [
+              "100013588053"
+            ],
+            "prompt_version": "stage1-labels-v1",
+            "source": "reviews_csv"
+          }
+        },
+        "snapshot_audit": {
+          "backend": "postgresql",
+          "isolation": "repeatable read",
+          "logical_transaction_id": "39914f9a4e4942c8a4646bb1e30ffdc0",
+          "read_finished_at": "2026-11-10T16:26:52.459+00:00",
+          "read_started_at": "2026-11-10T16:26:52.456+00:00",
+          "readonly": true
+        },
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "current_ranking_matches": true,
+        "query_executions": 4,
+        "database_statement_count": 0,
+        "topic_model_calls": 0,
+        "reason": "classification_not_enabled",
+        "input_sha256": "681b4777b3c4133dafdb7f31d4416dfc73235a7906c20060b66f29b7c0517b16",
+        "inputs": [
+          {
+            "aspect": "service",
+            "total": 5,
+            "total_opinions": 5,
+            "coverage": {
+              "opinion_coverage": 1.0,
+              "review_coverage": 1.0,
+              "selected_opinions": 5,
+              "selected_reviews": 5,
+              "truncated": false,
+              "unique_expressions": 1
+            },
+            "input_sha256": "574480917b9b4cd855285ebd22506e78bb1a088f6e6c6c28566f4bab1d6c59b5"
+          },
+          {
+            "aspect": "effectiveness",
+            "total": 4,
+            "total_opinions": 4,
+            "coverage": {
+              "opinion_coverage": 1.0,
+              "review_coverage": 1.0,
+              "selected_opinions": 4,
+              "selected_reviews": 4,
+              "truncated": false,
+              "unique_expressions": 1
+            },
+            "input_sha256": "21dba69cbb271428db681fd362b253fdcd56438f7df0209e0368b126ecab74fa"
+          },
+          {
+            "aspect": "logistics",
+            "total": 3,
+            "total_opinions": 3,
+            "coverage": {
+              "opinion_coverage": 1.0,
+              "review_coverage": 1.0,
+              "selected_opinions": 3,
+              "selected_reviews": 3,
+              "truncated": false,
+              "unique_expressions": 1
+            },
+            "input_sha256": "a7f0b712b8198a6b41a053dd2b40f298ada3f733ad7f031189aa08be7305bd7b"
+          }
+        ]
+      },
+      "observed_tools": [],
+      "observed_model_attempts": [
+        {
+          "stage": "topic_discovery",
+          "aspect": "service",
+          "kind": "p6_offline_transport"
+        },
+        {
+          "stage": "topic_classification",
+          "aspect": "service",
+          "kind": "p6_offline_transport"
+        },
+        {
+          "stage": "topic_discovery",
+          "aspect": "effectiveness",
+          "kind": "p6_offline_transport"
+        },
+        {
+          "stage": "topic_classification",
+          "aspect": "effectiveness",
+          "kind": "p6_offline_transport"
+        },
+        {
+          "stage": "topic_discovery",
+          "aspect": "logistics",
+          "kind": "p6_offline_transport"
+        }
+      ],
+      "observed_per_aspect": [
+        {
+          "aspect": "service",
+          "status": "complete",
+          "reason": "已通过逐维证据验收",
+          "M_a": 5,
+          "S_a": 5
+        },
+        {
+          "aspect": "effectiveness",
+          "status": "complete",
+          "reason": "已通过逐维证据验收",
+          "M_a": 4,
+          "S_a": 4
+        },
+        {
+          "aspect": "logistics",
+          "status": "failed",
+          "reason": "主题模型请求超时，结果未被验收",
+          "M_a": 3,
+          "S_a": 3
+        }
+      ],
+      "observed_publishable_aspects": [
+        "service",
+        "effectiveness"
+      ],
+      "task_sha256": "1ecaabd757311d4bfbd305a4dad53296434e94163abaeb9c99e79f5e6b5ea138"
+    },
+    "G20-T2": {
+      "task_id": "G20-T2",
+      "observed_scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588053"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31"
+      },
+      "observed_request_goal": {
+        "original_question": "具体体现在哪里？",
+        "levels": [
+          "themes"
+        ],
+        "aspect": null,
+        "sentiment": "negative",
+        "topic": null,
+        "statistic_families": [],
+        "source": "user_request",
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "selection_basis_sha256": "18283f9a2d5d56577ed5479b7761266a5422a8bafb675bc639579c308de0cc69",
+        "version": "review-request-goal-p6-v1",
+        "analysis_mode": "multi_aspect_negative_drilldown",
+        "per_aspect_level": "themes",
+        "ranking_source": {
+          "finished_at": "2026-11-10T16:26:52.623434+00:00",
+          "integrity_version": "analysis-task-integrity-v1",
+          "result_id": "r1",
+          "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+          "snapshot_at": "2026-11-10T16:26:52.612+00:00",
+          "task_id": "G20-T1",
+          "task_sha256": "0596d8800283ad5c78ed5d8794ab19dd4093d6c94d5b18182022d68fe39b1081",
+          "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d",
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881"
+        },
+        "expected_scope": {
+          "as_of": null,
+          "base_url": "https://labels.stage1.invalid/v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31",
+          "dataset_version": "stage1-synthetic-v1",
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "model": "stage1-labels",
+          "product_ids": [
+            "100013588053"
+          ],
+          "prompt_version": "stage1-labels-v1",
+          "source": "reviews_csv"
+        },
+        "selection_basis": {
+          "ranking_basis": {
+            "denominator": {
+              "field": "successful_reviews",
+              "value": 8
+            },
+            "ranking": [
+              {
+                "aspect": "service",
+                "denominator": 8,
+                "negative_rate": 0.625,
+                "negative_review_count": 5,
+                "rank": 1
+              },
+              {
+                "aspect": "effectiveness",
+                "denominator": 8,
+                "negative_rate": 0.5,
+                "negative_review_count": 4,
+                "rank": 2
+              },
+              {
+                "aspect": "logistics",
+                "denominator": 8,
+                "negative_rate": 0.375,
+                "negative_review_count": 3,
+                "rank": 3
+              },
+              {
+                "aspect": "quality",
+                "denominator": 8,
+                "negative_rate": 0.25,
+                "negative_review_count": 2,
+                "rank": 4
+              },
+              {
+                "aspect": "price",
+                "denominator": 8,
+                "negative_rate": 0.125,
+                "negative_review_count": 1,
+                "rank": 5
+              },
+              {
+                "aspect": "packaging",
+                "denominator": 8,
+                "negative_rate": 0.0,
+                "negative_review_count": 0,
+                "rank": 6
+              }
+            ],
+            "scope": {
+              "as_of": null,
+              "base_url": "https://labels.stage1.invalid/v1",
+              "baseline_from": "2023-01-01",
+              "baseline_to": "2023-01-31",
+              "dataset_version": "stage1-synthetic-v1",
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "model": "stage1-labels",
+              "product_ids": [
+                "100013588053"
+              ],
+              "prompt_version": "stage1-labels-v1",
+              "source": "reviews_csv"
+            },
+            "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+            "sentiment": "negative",
+            "source": {
+              "finished_at": "2026-11-10T16:26:52.623434+00:00",
+              "integrity_version": "analysis-task-integrity-v1",
+              "result_id": "r1",
+              "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+              "snapshot_at": "2026-11-10T16:26:52.612+00:00",
+              "task_id": "G20-T1",
+              "task_sha256": "0596d8800283ad5c78ed5d8794ab19dd4093d6c94d5b18182022d68fe39b1081",
+              "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+            }
+          },
+          "required_aspects": [
+            "service",
+            "effectiveness",
+            "logistics"
+          ],
+          "selection_rule_version": "negative-count-desc-aspect-asc-top3-v1"
+        }
+      },
+      "observed_user_intent": {
+        "query_type": "aspect_drilldown",
+        "sentiment": "negative",
+        "aspect": null,
+        "sub_intent": "drill_down",
+        "needs_clarification": false,
+        "resolved_product_ids": [
+          "100013588053"
+        ],
+        "effective_time_range": {
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28"
+        }
+      },
+      "raw_analysis_intent": "aspect_drilldown",
+      "raw_sentiment_intent": "negative",
+      "observed_query_plan": {
+        "analysis_type": "aspect_drilldown",
+        "sentiment": "negative",
+        "scope": {
+          "as_of": null,
+          "base_url": "https://labels.stage1.invalid/v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31",
+          "dataset_version": "stage1-synthetic-v1",
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "model": "stage1-labels",
+          "product_ids": [
+            "100013588053"
+          ],
+          "prompt_version": "stage1-labels-v1",
+          "source": "reviews_csv"
+        },
+        "requirements": [
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": "service",
+              "sentiment": "negative"
+            }
+          },
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": "effectiveness",
+              "sentiment": "negative"
+            }
+          },
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": "logistics",
+              "sentiment": "negative"
+            }
+          }
+        ],
+        "optional_tools": [],
+        "requires_evidence": true,
+        "max_evidence_pages": 0,
+        "max_evidence_items": 0,
+        "evidence_start_page": 1,
+        "evidence_page_size": 3,
+        "unsupported_reason": null,
+        "answer_question": null,
+        "product_groups": [],
+        "task_contract": {
+          "version": "review-runtime-contract-v1",
+          "original_question": "具体体现在哪里？",
+          "evidence_question": "具体体现在哪里？",
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31",
+            "timezone": "UTC"
+          },
+          "scope_sha256": "e92ad4c86320fb3cf7ae7a855953c78fc18ba01144184bdc5da32bcab69e0bf0",
+          "task_type": "evidence",
+          "operation": "opinion_summary",
+          "target_entity": "review_opinion",
+          "subtopic": "multiple",
+          "sentiment_intent": "negative",
+          "required_facts": {
+            "operator": "all_of",
+            "items": [],
+            "relations": []
+          },
+          "statistics": [
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            },
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            },
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            }
+          ],
+          "support_status": "supported",
+          "unsupported_reason": null,
+          "uncertainty": []
+        },
+        "analysis_mode": "multi_aspect_negative_drilldown",
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "required_tools": [
+          "get_aspect_drilldown"
+        ]
+      },
+      "observed_task_acceptance": {
+        "status": "failed",
+        "complete": false,
+        "checks": [],
+        "plan_check": {
+          "passed": true,
+          "checks": [
+            {
+              "name": "independent_goal",
+              "passed": true
+            },
+            {
+              "name": "scope_and_mode",
+              "passed": true
+            },
+            {
+              "name": "p6_metadata",
+              "passed": true
+            },
+            {
+              "name": "exact_required_aspects",
+              "passed": true
+            },
+            {
+              "name": "per_aspect_capability",
+              "passed": true
+            }
+          ]
+        },
+        "evidence_status": "not_executed",
+        "message": "仅准备多维度输入，尚未执行或完成主题分析。"
+      },
+      "observed_status": "unsupported",
+      "observed_worker_status": "succeeded",
+      "observed_answer": "历史排名已过期，需要刷新统计。",
+      "observed_input_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": {
+          "source": {
+            "task_id": "G20-T1",
+            "task_sha256": "0596d8800283ad5c78ed5d8794ab19dd4093d6c94d5b18182022d68fe39b1081",
+            "integrity_version": "analysis-task-integrity-v1",
+            "finished_at": "2026-11-10T16:26:52.623434+00:00",
+            "result_id": "r1",
+            "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+            "snapshot_at": "2026-11-10T16:26:52.612+00:00",
+            "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+          },
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+          "sentiment": "negative",
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 8
+          },
+          "ranking": [
+            {
+              "rank": 1,
+              "aspect": "service",
+              "negative_review_count": 5,
+              "negative_rate": 0.625,
+              "denominator": 8
+            },
+            {
+              "rank": 2,
+              "aspect": "effectiveness",
+              "negative_review_count": 4,
+              "negative_rate": 0.5,
+              "denominator": 8
+            },
+            {
+              "rank": 3,
+              "aspect": "logistics",
+              "negative_review_count": 3,
+              "negative_rate": 0.375,
+              "denominator": 8
+            },
+            {
+              "rank": 4,
+              "aspect": "quality",
+              "negative_review_count": 2,
+              "negative_rate": 0.25,
+              "denominator": 8
+            },
+            {
+              "rank": 5,
+              "aspect": "price",
+              "negative_review_count": 1,
+              "negative_rate": 0.125,
+              "denominator": 8
+            },
+            {
+              "rank": 6,
+              "aspect": "packaging",
+              "negative_review_count": 0,
+              "negative_rate": 0.0,
+              "denominator": 8
+            }
+          ]
+        },
+        "pending_goal": null
+      },
+      "observed_post_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": {
+          "source": {
+            "task_id": "G20-T1",
+            "task_sha256": "0596d8800283ad5c78ed5d8794ab19dd4093d6c94d5b18182022d68fe39b1081",
+            "integrity_version": "analysis-task-integrity-v1",
+            "finished_at": "2026-11-10T16:26:52.623434+00:00",
+            "result_id": "r1",
+            "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+            "snapshot_at": "2026-11-10T16:26:52.612+00:00",
+            "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+          },
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+          "sentiment": "negative",
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 8
+          },
+          "ranking": [
+            {
+              "rank": 1,
+              "aspect": "service",
+              "negative_review_count": 5,
+              "negative_rate": 0.625,
+              "denominator": 8
+            },
+            {
+              "rank": 2,
+              "aspect": "effectiveness",
+              "negative_review_count": 4,
+              "negative_rate": 0.5,
+              "denominator": 8
+            },
+            {
+              "rank": 3,
+              "aspect": "logistics",
+              "negative_review_count": 3,
+              "negative_rate": 0.375,
+              "denominator": 8
+            },
+            {
+              "rank": 4,
+              "aspect": "quality",
+              "negative_review_count": 2,
+              "negative_rate": 0.25,
+              "denominator": 8
+            },
+            {
+              "rank": 5,
+              "aspect": "price",
+              "negative_review_count": 1,
+              "negative_rate": 0.125,
+              "denominator": 8
+            },
+            {
+              "rank": 6,
+              "aspect": "packaging",
+              "negative_review_count": 0,
+              "negative_rate": 0.0,
+              "denominator": 8
+            }
+          ]
+        },
+        "pending_goal": null
+      },
+      "observed_input_users": [
+        {
+          "task_id": "G20-T1",
+          "question": "100013588053的差评主要集中在哪些方面？"
+        }
+      ],
+      "observed_query_executions": 1,
+      "observed_preparation": {
+        "version": "review-p6-prepared-v1",
+        "status": "blocked",
+        "reason": "stale_ranking",
+        "required_aspects": [
+          "service",
+          "effectiveness",
+          "logistics"
+        ],
+        "current_ranking_matches": false,
+        "query_executions": 1,
+        "database_statement_count": 0,
+        "topic_model_calls": 0,
+        "current_snapshot": {
+          "scope": {
+            "as_of": null,
+            "base_url": "https://labels.stage1.invalid/v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31",
+            "dataset_version": "stage1-synthetic-v1",
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "model": "stage1-labels",
+            "product_ids": [
+              "100013588053"
+            ],
+            "prompt_version": "stage1-labels-v1",
+            "source": "reviews_csv"
+          },
+          "definitions": {
+            "count_unit": "distinct_reviews",
+            "labeling_coverage_denominator": "eligible_text_reviews",
+            "negative_rate_denominator": "successful_reviews",
+            "positive_aspect_rate_denominator": "positive_review_count",
+            "positive_success_rate_denominator": "successful_reviews",
+            "rate_unit": "fraction_0_to_1",
+            "human_policy": "latest_snapshot",
+            "as_of_field": "published_at"
+          },
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 9
+          },
+          "negative_review_counts": {
+            "quality": 2,
+            "effectiveness": 4,
+            "price": 1,
+            "packaging": 1,
+            "logistics": 3,
+            "service": 5
+          }
+        },
+        "snapshot_audit": {
+          "logical_transaction_id": "100db81cd458472183f0cc7c53549d5b",
+          "read_started_at": "2026-11-10T16:26:52.646+00:00",
+          "backend": "postgresql",
+          "isolation": "repeatable read",
+          "readonly": true
+        }
+      },
+      "observed_tools": [],
+      "observed_model_attempts": [],
+      "observed_per_aspect": [],
+      "observed_publishable_aspects": null,
+      "task_sha256": "b2b6c9b343d2e8108df1f58a5898a9b0ad93171fd00b44d58033dfa8db74673b"
+    },
+    "G24-T2": {
+      "task_id": "G24-T2",
+      "observed_scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588053"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31"
+      },
+      "observed_request_goal": {
+        "original_question": "客服呢？",
+        "levels": [
+          "statistics"
+        ],
+        "aspect": "service",
+        "sentiment": null,
+        "topic": null,
+        "statistic_families": [],
+        "source": "user_request"
+      },
+      "observed_user_intent": {
+        "query_type": null,
+        "product_mentions": [],
+        "sentiment": null,
+        "aspect": "service",
+        "sub_intent": "overview",
+        "topic": null,
+        "time_range": null,
+        "period": "month",
+        "needs_clarification": true,
+        "clarification_question": "上轮为语义检索，请补充完整的检索问题；省略追问不能自动改为按时间浏览原文。",
+        "resolved_product_ids": [
+          "100013588053"
+        ],
+        "effective_time_range": {
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28"
+        }
+      },
+      "raw_analysis_intent": null,
+      "raw_sentiment_intent": null,
+      "observed_query_plan": null,
+      "observed_task_acceptance": null,
+      "observed_status": "unsupported",
+      "observed_worker_status": "succeeded",
+      "observed_answer": "上轮为语义检索，请补充完整的检索问题；省略追问不能自动改为按时间浏览原文。",
+      "observed_input_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": null,
+        "pending_goal": null
+      },
+      "observed_post_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": null,
+        "pending_goal": null
+      },
+      "observed_input_users": [
+        {
+          "task_id": "G24-T1",
+          "question": "100013588053有没有物流很慢的反馈？"
+        }
+      ],
+      "observed_query_executions": 0,
+      "observed_preparation": null,
+      "observed_tools": [],
+      "observed_model_attempts": [],
+      "observed_per_aspect": [],
+      "observed_publishable_aspects": null,
+      "task_sha256": "9529685a5837da27b24781859430df67e131ebcdff95c04af90920531e9d3f39"
+    },
+    "G30-T3": {
+      "task_id": "G30-T3",
+      "observed_scope": {
+        "model": "stage1-labels",
+        "base_url": "https://labels.stage1.invalid/v1",
+        "prompt_version": "stage1-labels-v1",
+        "product_ids": [
+          "100013588053"
+        ],
+        "date_from": "2023-02-01",
+        "date_to": "2023-02-28",
+        "as_of": null,
+        "source": "reviews_csv",
+        "dataset_version": "stage1-synthetic-v1",
+        "baseline_from": "2023-01-01",
+        "baseline_to": "2023-01-31"
+      },
+      "observed_request_goal": {
+        "original_question": "那好评呢？",
+        "levels": [
+          "themes"
+        ],
+        "aspect": null,
+        "sentiment": "positive",
+        "topic": null,
+        "statistic_families": [],
+        "source": "user_request"
+      },
+      "observed_user_intent": {
+        "query_type": "aspect_drilldown",
+        "product_mentions": [],
+        "sentiment": "positive",
+        "aspect": null,
+        "sub_intent": "drill_down",
+        "topic": null,
+        "time_range": null,
+        "period": "month",
+        "needs_clarification": false,
+        "clarification_question": null,
+        "resolved_product_ids": [
+          "100013588053"
+        ],
+        "effective_time_range": {
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28"
+        }
+      },
+      "raw_analysis_intent": "aspect_drilldown",
+      "raw_sentiment_intent": "positive",
+      "observed_query_plan": {
+        "analysis_type": "aspect_drilldown",
+        "sentiment": "positive",
+        "scope": {
+          "model": "stage1-labels",
+          "base_url": "https://labels.stage1.invalid/v1",
+          "prompt_version": "stage1-labels-v1",
+          "product_ids": [
+            "100013588053"
+          ],
+          "date_from": "2023-02-01",
+          "date_to": "2023-02-28",
+          "as_of": null,
+          "source": "reviews_csv",
+          "dataset_version": "stage1-synthetic-v1",
+          "baseline_from": "2023-01-01",
+          "baseline_to": "2023-01-31"
+        },
+        "requirements": [
+          {
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": null,
+              "sentiment": "positive"
+            }
+          }
+        ],
+        "optional_tools": [],
+        "requires_evidence": true,
+        "max_evidence_pages": 0,
+        "max_evidence_items": 8,
+        "evidence_start_page": 1,
+        "evidence_page_size": 3,
+        "unsupported_reason": null,
+        "answer_question": "二级主题细分",
+        "product_groups": [],
+        "task_contract": {
+          "version": "review-runtime-contract-v1",
+          "original_question": "那好评呢？",
+          "evidence_question": "那好评呢？",
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31",
+            "timezone": "UTC"
+          },
+          "scope_sha256": "e92ad4c86320fb3cf7ae7a855953c78fc18ba01144184bdc5da32bcab69e0bf0",
+          "task_type": "evidence",
+          "operation": "opinion_summary",
+          "target_entity": "review_opinion",
+          "subtopic": "unknown",
+          "sentiment_intent": "positive",
+          "required_facts": {
+            "operator": "all_of",
+            "items": [],
+            "relations": []
+          },
+          "statistics": [
+            {
+              "tool": "get_aspect_drilldown",
+              "metric": "review_count",
+              "value_path": "topics[].review_count",
+              "numerator": "topics[].review_count",
+              "denominator": null,
+              "definition_key": null
+            }
+          ],
+          "support_status": "supported",
+          "unsupported_reason": null,
+          "uncertainty": []
+        },
+        "required_tools": [
+          "get_aspect_drilldown"
+        ]
+      },
+      "observed_task_acceptance": {
+        "status": "passed",
+        "complete": true,
+        "checks": [
+          {
+            "name": "请求目标与计划能力",
+            "passed": true,
+            "detail": "计划能力须满足编译前的原始请求，不能以计划类型降低目标。"
+          },
+          {
+            "name": "本轮有效范围",
+            "passed": true,
+            "detail": "当前范围须与执行前确认的任务范围一致。"
+          },
+          {
+            "name": "继承范围",
+            "passed": true,
+            "detail": "未明确修改的继承字段须保持一致，显式选择优先。"
+          },
+          {
+            "name": "所需查询",
+            "passed": true,
+            "detail": "计划中的查询及完整筛选条件须已执行。"
+          },
+          {
+            "name": "实际产物:themes",
+            "passed": true,
+            "detail": "实际结果须包含用户要求的产物类型。"
+          },
+          {
+            "name": "统计与引用校验",
+            "passed": true,
+            "detail": "复用原 Validator 的数字、分母、范围、主题来源及精确引用校验。"
+          },
+          {
+            "name": "实际查询范围",
+            "passed": true,
+            "detail": "查询快照须使用确认的商品、数据集、日期和标注身份。"
+          },
+          {
+            "name": "子主题查询",
+            "passed": true,
+            "detail": "具体表现归纳须读取候选子主题，维度计数不能替代。"
+          },
+          {
+            "name": "分类批次完整",
+            "passed": true,
+            "detail": "超时、失败或部分复核不能作为完整主题分析。"
+          },
+          {
+            "name": "子主题及去重证据",
+            "passed": true,
+            "detail": "候选主题须有来源观点与去重计数，不得编造全量频次。"
+          },
+          {
+            "name": "观点查询",
+            "passed": true,
+            "detail": "内容任务须执行观点、主题或原文查询。"
+          },
+          {
+            "name": "观点筛选",
+            "passed": true,
+            "detail": "观点查询须保留本轮维度和情感。"
+          },
+          {
+            "name": "原文引用",
+            "passed": true,
+            "detail": "须存在带原始评论来源的观点，RAG 候选或计数不替代引用。"
+          }
+        ],
+        "plan_check": {
+          "passed": true,
+          "checks": [
+            {
+              "name": "themes",
+              "passed": true
+            }
+          ]
+        },
+        "evidence_status": "available",
+        "classification_status": "model_candidates_unreviewed",
+        "message": "本轮任务目标、范围与证据验收通过。"
+      },
+      "observed_status": "ok",
+      "observed_worker_status": "succeeded",
+      "observed_answer": "[r1] 二级主题complete，纳入 2 条评论、6 条观点；模型候选主题未经人工确认。",
+      "observed_input_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": {
+          "source": {
+            "task_id": "G30-T1",
+            "task_sha256": "49b1162bc3b32f725c2095d7b18c572e16dde3948b31613f34c6ecfe2aa3e440",
+            "integrity_version": "analysis-task-integrity-v1",
+            "finished_at": "2026-11-10T16:26:52.988850+00:00",
+            "result_id": "r1",
+            "result_sha256": "660fdd12c31b129a6ce32cf5c4ebc79cbe257dd73975989ed635894918694a0a",
+            "snapshot_at": "2026-11-10T16:26:52.977+00:00",
+            "validation_sha256": "0f64f98298ebe9cea187c488670ffd951f8e97c64352306493e2bf7fe1fd859d"
+          },
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+          "sentiment": "negative",
+          "denominator": {
+            "field": "successful_reviews",
+            "value": 8
+          },
+          "ranking": [
+            {
+              "rank": 1,
+              "aspect": "service",
+              "negative_review_count": 5,
+              "negative_rate": 0.625,
+              "denominator": 8
+            },
+            {
+              "rank": 2,
+              "aspect": "effectiveness",
+              "negative_review_count": 4,
+              "negative_rate": 0.5,
+              "denominator": 8
+            },
+            {
+              "rank": 3,
+              "aspect": "logistics",
+              "negative_review_count": 3,
+              "negative_rate": 0.375,
+              "denominator": 8
+            },
+            {
+              "rank": 4,
+              "aspect": "quality",
+              "negative_review_count": 2,
+              "negative_rate": 0.25,
+              "denominator": 8
+            },
+            {
+              "rank": 5,
+              "aspect": "price",
+              "negative_review_count": 1,
+              "negative_rate": 0.125,
+              "denominator": 8
+            },
+            {
+              "rank": 6,
+              "aspect": "packaging",
+              "negative_review_count": 0,
+              "negative_rate": 0.0,
+              "denominator": 8
+            }
+          ]
+        },
+        "pending_goal": {
+          "source": {
+            "task_id": "G30-T2",
+            "task_sha256": "16666ce20d95b7e8a9570b6aedcdc4b093ecf763048e0468f7fc5c90fe6da41c",
+            "integrity_version": "analysis-task-integrity-v1",
+            "finished_at": "2026-11-10T16:26:53.004868+00:00"
+          },
+          "scope": {
+            "model": "stage1-labels",
+            "base_url": "https://labels.stage1.invalid/v1",
+            "prompt_version": "stage1-labels-v1",
+            "product_ids": [
+              "100013588053"
+            ],
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "as_of": null,
+            "source": "reviews_csv",
+            "dataset_version": "stage1-synthetic-v1",
+            "baseline_from": "2023-01-01",
+            "baseline_to": "2023-01-31"
+          },
+          "scope_sha256": "a84a3b851a96fefeab29604e08a5f8eb3fb95766f74ea74fc6bfeee8ddbc5881",
+          "goal": {
+            "original_question": "具体体现在哪里？",
+            "levels": [
+              "themes"
+            ],
+            "aspect": null,
+            "sentiment": "negative",
+            "topic": null,
+            "statistic_families": [],
+            "source": "user_request"
+          },
+          "status": "awaiting_aspect",
+          "completed": false
+        }
+      },
+      "observed_post_state": {
+        "version": "review-analysis-state-v1",
+        "ranking_basis": null,
+        "pending_goal": null
+      },
+      "observed_input_users": [
+        {
+          "task_id": "G30-T2",
+          "question": "具体体现在哪里？"
+        },
+        {
+          "task_id": "G30-T1",
+          "question": "100013588053的差评主要集中在哪些方面？"
+        }
+      ],
+      "observed_query_executions": 2,
+      "observed_preparation": null,
+      "observed_tools": [
+        {
+          "node": "tool_start",
+          "name": "get_analysis_context",
+          "parameters": {},
+          "plan_authorized": true
+        },
+        {
+          "node": "tool_start",
+          "name": "get_aspect_drilldown",
+          "parameters": {
+            "product_ids": [
+              "100013588053"
+            ],
+            "aspect": null,
+            "sentiment": "positive"
+          },
+          "plan_authorized": true
+        }
+      ],
+      "observed_model_attempts": [
+        {
+          "stage": "TopicCatalog",
+          "aspect": null,
+          "kind": "single_fixed_response"
+        },
+        {
+          "stage": "TopicBatch",
+          "aspect": null,
+          "kind": "single_fixed_response"
+        }
+      ],
+      "observed_per_aspect": [],
+      "observed_publishable_aspects": null,
+      "task_sha256": "affecb713aad80ca28c424fbd4d82fbf592f8397dd6d3162c78d1c8f734a33d0"
+    }
+  }
+}

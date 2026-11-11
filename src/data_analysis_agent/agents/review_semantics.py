@@ -197,7 +197,23 @@ def resolve_question_scope(question, scope, products, *, product_groups=None):
     return resolved
 
 
+ASPECT_SWITCH = re.compile(r'(?:改看|换看|改为)(?:商品)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面)?[？?。]*')
+
+
+def active_request(question):
+    """仅提取明确否定旧产物后提出的新请求；原问题由调用者原样保留。"""
+    match = re.fullmatch(r'\s*(?:我)?(?:不是(?:要|在)?问|不要|不用|无需|不需要)([^，,。；;]{1,40})[，,。；;]\s*'
+                         r'((?:我想知道|我想看|我要看|要看|只统计|只告诉我|请统计|改为统计|改为分析).+)', question, re.S)
+    if match and re.search(r'数量|统计|主题|原文|原话|观点内容|观点分组', match[1]):
+        return match[2]
+    switch = re.fullmatch(r'\s*(?:不要|不用)(?:分析|看)(?:商品)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)了?[，,。；;]\s*(.+)', question)
+    if switch and ASPECT_SWITCH.fullmatch(switch[1]):
+        return switch[1]
+    return question
+
+
 def normalize_question(question):
+    question = active_request(question)
     if re.search(r'集中|关注|评价|效果|问题|好评|差评|维度', question):
         return re.sub(r"哪些地方|什么地方", "哪些方面", question)
     return question
@@ -224,7 +240,7 @@ def opinion_request(question):
     # 枚举具体抱怨是二级主题；“哪些维度”及原始观点文本分组仍沿用原能力。
     theme_enumeration = not re.search(r'维度|原始观点|观点文本|逐条观点', text) and bool(re.search(
         r'(?:抱怨|吐槽|投诉)(?:的|了|些|的是|的主要是|主要是|主要在|主要是在)*(?:哪些|什么|些什么)(?:事情|问题|内容)|'
-        r'(?:抱怨|吐槽|投诉)些什么|有哪些不满意的(?:地方|方面)', text) or (aspect and re.search(
+        r'(?:抱怨|吐槽|投诉)些什么|具体(?:在)?(?:抱怨|吐槽|投诉)什么|有哪些不满意的(?:地方|方面)', text) or (aspect and re.search(
         r'(?:具体(?:涉及|有)?|主要有)哪些问题|主要问题集中在(?:哪些|什么)环节', text)))
     theme_summary = bool(not positive_summary and not examples and not metric_manifestation and (
         theme_enumeration or re.search(r'体现|表现|归纳|总结|子主题|主题归类', text)))

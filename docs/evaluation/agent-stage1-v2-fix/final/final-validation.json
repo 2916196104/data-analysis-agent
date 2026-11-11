@@ -1,0 +1,41 @@
+{
+  "verified_at": "2026-11-11T12:53:28.530729+08:00",
+  "old_files": 843,
+  "old_files_changed": [
+    "src/data_analysis_agent/agents/review_acceptance.py",
+    "src/data_analysis_agent/agents/review_intent.py"
+  ],
+  "immutable_assets_and_v2_1_scorer": "PASS",
+  "v5_source_binding": "PASS",
+  "original_PASS_retained": "59/59",
+  "G24_G30": "PASS",
+  "formal_oracle_result": {
+    "PASS": 61,
+    "FAIL": 1,
+    "remaining_FAIL": "G25-T1"
+  },
+  "specialized_tests": {
+    "tests": 17,
+    "failures": 0,
+    "errors": 0
+  },
+  "compatibility": {
+    "tests": 738,
+    "passed": 734,
+    "failures": 1,
+    "errors": 3,
+    "skips": 0,
+    "status": "FAIL",
+    "failure_ids": [
+      "test_p1a_f01.F01WorkerTests.test_positive_theme_with_matching_evidence_completes_without_paid_model"
+    ],
+    "error_ids": [
+      "test_p1a_f01.F01WorkerTests.test_a_short_sentiment_keeps_themes_with_correct_empty_positive_result",
+      "test_p1a_f01.F01WorkerTests.test_legacy_user_conditions_without_structured_state_keep_theme_goal",
+      "test_p6b_planner_snapshot.P6BPlannerSnapshotTests.test_explicit_other_requests_and_f01_short_sentiment_do_not_trigger_p6"
+    ]
+  },
+  "actual_external_calls": 0,
+  "P6_E1B": "BLOCKED",
+  "PG01_PG08": "NOT EXECUTED"
+}

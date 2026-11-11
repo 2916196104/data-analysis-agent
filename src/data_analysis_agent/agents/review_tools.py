@@ -159,6 +159,9 @@ class ReviewToolContext:
 
     def execute(self, name, parameters):
         self.last_cache_hit = False
+        if (name == 'get_aspect_drilldown' and self.query_plan
+                and self.query_plan.analysis_mode == 'multi_aspect_negative_drilldown'):
+            raise ReviewDataError('P6 多维度分类尚未启用；只能消费已冻结输入，禁止工具缓存缺失后读库。')
         if self.query_plan:
             self.query_plan.check_call(name, parameters, default_products=self.allowed_products)
         normalized = dict(parameters)

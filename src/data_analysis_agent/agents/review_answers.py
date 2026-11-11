@@ -437,6 +437,11 @@ def read_public_answer(task, *, public_analysis=None):
     """冻结历史快照转换；只读、零模型调用，持久化文字也必须重新验证。"""
     from data_analysis_agent.agents.review_compression import read_public_analysis
 
+    if isinstance(task.get('result'), dict) and 'p6_publication' in task['result']:
+        from data_analysis_agent.agents.review_publication import read_p6_publication, public_answer
+        publication = read_p6_publication(task)
+        return public_answer(publication) if publication else unavailable_answer('failed')
+
     public = public_analysis if public_analysis is not None else read_public_analysis(task)
     result = task.get("result")
     result = result if isinstance(result, dict) else {}

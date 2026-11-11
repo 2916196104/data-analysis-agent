@@ -10,6 +10,7 @@ from data_analysis_agent.agents.review_plan import ASPECT_WORDS, TOOL_KINDS, bui
 from data_analysis_agent.agents.review_prompts import detect_sentiment_intent
 from data_analysis_agent.agents.review_semantics import (
     QuestionScopeError, bind_product_ids, match_product_mentions, opinion_request, product_mentions, resolve_question_scope,
+    active_request, ASPECT_SWITCH,
 )
 from data_analysis_agent.core.validation import Input
 from data_analysis_agent.reviews.opinions import Aspect
@@ -181,15 +182,20 @@ def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False
 
 def _followup_intent(question, conditions):
     """只转换唯一的查询条件；此处不读取统计、原文或分页结果。"""
+    question = active_request(question)
     if re.search(r'(?:所有|全部)(?:的)?(?:商品|产品|空调)|(?:整个|所有|全部)数据集', question):
         return None
     semantic = opinion_request(question)
-    short_aspect = bool(re.fullmatch(r'(?:那|那么|再|也|只看|仅看)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面|问题)?(?:呢|怎么样)?[？?。]*', question.strip()))
+    short_aspect = bool(ASPECT_SWITCH.fullmatch(question.strip()) or re.fullmatch(r'(?:那|那么|再|也|只看|仅看)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面|问题)?(?:呢|怎么样)?[？?。]*', question.strip()))
     short_sentiment = bool(re.fullmatch(r'(?:那|那么|然后)?(?:好评|差评|正面|负面|优点|缺点|投诉)(?:呢|吧)?[？?。]*', question.strip()))
     short_period = re.fullmatch(r'(?:换成|改成|改为)?按(月|日|天)(?:看|查看|统计)?[？?。]*', question.strip())
     summary_ref = bool(re.fullmatch(r'(?:那|那么)?(?:主要)?集中在(?:哪些|什么)(?:地方|方面)(?:呢)?[？?。]*', question.strip()))
     detail_ref = bool(re.fullmatch(r'(?:这些|那些|上述)(?:好评|差评|评价|观点)(?:具体)?(?:反映|说明|表达)(?:了)?什么[？?。]*', question.strip()))
     count_ref = bool(re.search(r'数量|占比|比例|多少条|有多少|几条', question) and not semantic['examples'] and not semantic['theme_summary'])
+    # 完整的新统计请求不受旧 RAG 追问约束；省略请求仍需唯一承接。
+    if count_ref and semantic['aspect'] and detect_sentiment_intent(question) in ('negative', 'positive'):
+        if conditions and any(row['kind'] == 'semantic_evidence' for row in conditions.get('queries', [])):
+            return None
     if not conditions or not ((semantic['aspect'] and (short_aspect or semantic['breakdown'])) or semantic['content_detail'] or count_ref or short_sentiment or short_period or summary_ref or detail_ref):
         return None
     queries = conditions.get('queries', [])
@@ -199,7 +205,13 @@ def _followup_intent(question, conditions):
         raise QuestionScopeError(f'上轮包含{labels}。这次要看该维度的汇总、趋势还是原文？')
     last = selected[0]
     if last['kind'] == 'semantic_evidence':
+        if short_aspect:
+            raise QuestionScopeError('这次要看该维度的统计、主题具体表现，还是检索某个具体反馈？请明确分析目标。')
         raise QuestionScopeError('上轮为语义检索，请补充完整的检索问题；省略追问不能自动改为按时间浏览原文。')
+    if (short_sentiment and conditions.get('pending_query_type') == 'aspect_drilldown'
+            and last['kind'] in ('issues', 'positive_aspects') and not last['parameters'].get('aspect')):
+        direction = '好评' if detect_sentiment_intent(question) == 'positive' else '差评'
+        raise QuestionScopeError(f'本轮要查看{direction}统计，还是{direction}的主题具体表现？原未完成的主题目标仍保留，请明确分析层次。')
     if summary_ref and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown'}:
         raise QuestionScopeError('上轮是' + KIND_LABELS.get(last['kind'], last['kind']) + '。这次要继续该统计，还是查看评价维度和观点细分？')
     if short_period and last['kind'] not in {'trend', 'aspect_trend', 'ratings'}:
@@ -209,6 +221,9 @@ def _followup_intent(question, conditions):
     if short_sentiment and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown', 'evidence', 'trend', 'aspect_trend'}:
         raise QuestionScopeError('上轮没有可切换的评价情感目标，这次要看好差评汇总还是原文？')
     last_params = dict(last['parameters'])
+    if count_ref and last['kind'] == 'evidence' and (not last_params.get('aspect') or
+            (conditions.get('sentiment') or last_params.get('sentiment')) not in ('negative', 'positive')):
+        raise QuestionScopeError('数量追问需要唯一明确的评价维度和情感，请补充统计目标。')
     if count_ref and last['kind'] not in ('positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown', 'evidence'):
         return None
     if count_ref and last_params.get('window') == 'baseline':
@@ -264,24 +279,47 @@ def _inherit_scope(question, scope, products, context, prior_mentions):
     resolved, origins = dict(scope), {}
     if (mentions or explicit_all) and (context or {}).get('selection_scope'):
         resolved['product_ids'] = reference['product_ids'] or sorted(row['product_id'] for row in products)
-    elif previous and not mentions and not explicit_all and not compare and 'product_ids' not in changes:
-        ids = previous['scope']['product_ids']
+    elif (previous or prior_mentions) and not mentions and not explicit_all and not compare and 'product_ids' not in changes:
+        ids = previous.get('scope', {}).get('product_ids', [])
         if prior_mentions and ((context or {}).get('user') or {}).get('task_id') != previous.get('task_id'):
             ids = match_product_mentions(prior_mentions, products, selected_ids=reference['product_ids'])
         allowed = reference['product_ids'] or [row['product_id'] for row in products]
         if set(ids) <= set(allowed):
             resolved['product_ids'] = list(ids)
-            origins['product_ids'] = 'inherited' if ids == previous['scope']['product_ids'] else 'user_context'
+            origins['product_ids'] = 'inherited' if ids == previous.get('scope', {}).get('product_ids') else 'user_context'
+        else:
+            raise QuestionScopeError('上轮明确指定的商品与当前有效选择冲突，请先在页面确认切换商品范围。')
     explicit_dates = bool(re.search(r'\d{4}-\d{2}-\d{2}', question))
+    user_window = None
+    if not explicit_dates and not mentions and not (changes & {'product_ids', 'current_window'}):
+        for user in (context or {}).get('users', []):
+            if user.get('task_id') == previous.get('task_id'):
+                break
+            prior_question = user.get('question', '')
+            if len(re.findall(r'\d{4}-\d{2}-\d{2}', prior_question)) == 2:
+                # 仅重验用户明确的日期，不读取失败结果中的 scope 或统计。
+                user_window = resolve_question_scope(prior_question, reference, products)
+                break
     for name, fields in {'current_window': ('date_from', 'date_to'),
                          'baseline_window': ('baseline_from', 'baseline_to'), 'as_of': ('as_of',)}.items():
-        source = reference if name in changes or (name == 'current_window' and explicit_dates) else previous.get('scope')
+        source = (reference if name in changes or (name == 'current_window' and explicit_dates)
+                  else user_window if name == 'current_window' and user_window else previous.get('scope'))
         if source:
             resolved.update({key: source.get(key) for key in fields})
-            origins[name] = 'selection' if source is reference else 'inherited'
+            origins[name] = 'selection' if source is reference else 'user_context' if source is user_window else 'inherited'
     origins['product_ids'] = 'explicit' if mentions or explicit_all else origins.get('product_ids', 'selection')
     return resolved, {'origins': origins, 'effective_scope': dict(resolved), 'inherited_scope': previous.get('scope'),
                       'selection_changes': sorted(changes), 'selection_scope': reference}
+
+
+def bind_review_scope(question, scope, products, context=None):
+    """P6 入口复用实体/日期绑定，不编译计划或调用模型。"""
+    users = (context or {}).get('users') or [((context or {}).get('user') or {})]
+    mentions = next((values for row in users if (values := product_mentions(row.get('question', ''), products))), [])
+    bound, resolution = _inherit_scope(question, scope, products, context, mentions)
+    bound = resolve_question_scope(question, bound, products)
+    resolution['effective_scope'] = dict(bound)
+    return bound, resolution
 
 
 def resolve_review_request(question, scope, products, *, settings, context=None, diagnostics=None, intent_state=None):

@@ -1,0 +1,17 @@
+{
+  "version": "agent-stage1-freeze-v2.1",
+  "frozen_at": "2026-11-11T12:20:47.199316+08:00",
+  "timezone": "Asia/Taipei",
+  "original_manifest_sha256": "c11073affadd71a1c860406d58806f3932e9b4b1d4094baadc6dc90d29125eb8",
+  "oracle_sha256": "81306475371fd769b61f8132cf97dbc8dcdc82975a67a0982018575c08bed198",
+  "scoring_contract_sha256": "4b38505dbfd2b4e1750631f928eb13c020c9b510a488a4e510cd187dcd460711",
+  "evaluation_code_sha256": {
+    "scripts/agent_stage1_v2_1_scoring.py": "d2da305cac79da9288313d686ac9f36fad610c43e58fdeecd06b3994eb93b5ca",
+    "scripts/run_agent_stage1_oracle_v2_1.py": "39ce24f930cd9f8bb43b5db088c98e1cc7e9e5123d02dea060bfcdd707ca8beb",
+    "tests/test_agent_stage1_v2_1_scoring.py": "ecfe31580b58cedfa0cfde0ba7a3b161ab5928bfd5204223673ecd29c0309766"
+  },
+  "original_run": ".cache/agent-stage1-oracle-v2/run-01.json",
+  "original_run_sha256": "2e371add04732bffb3be53cee34e6e64913439bc416314254f0aa7dc9c86b3c6",
+  "original_assessment_sha256": "7b615c7798f1bec39c3a21d7ce9f34a50b05af31b51140d129cbf70c2c43e078",
+  "frozen_before_execution": true
+}

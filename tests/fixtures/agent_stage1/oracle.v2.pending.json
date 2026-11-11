@@ -1,0 +1,5768 @@
+{
+  "authorship": "Pending proposals based on v1 text and source contracts; not derived by copying Agent outputs.",
+  "clarification_contract": "No final plan is required; no business tool/query execution; acceptance absent is allowed but complete=true is forbidden.",
+  "frozen_at_utc": null,
+  "groups": [
+    {
+      "id": "G01",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "053 可信排名后多维具体表现",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "present"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "service",
+              "effectiveness",
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "themes"
+            ],
+            "required_aspects": [
+              "service",
+              "effectiveness",
+              "logistics"
+            ],
+            "sentiment": "negative",
+            "version": "review-request-goal-p6-v1"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G02",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "已完成负面统计切换总体好评",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "positive_aspects",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "present"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "positive_aspects",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "positive"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "positive"
+          },
+          "expected_required_tools": [
+            "get_positive_aspects"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "positive"
+          },
+          "fault": null,
+          "input": "那好评呢？",
+          "kind": "positive_statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G03",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "明确物流主题与同义表达",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053物流差评主要体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "物流差评主要在抱怨哪些事情？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G04",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "055 单维主题后客服短追问",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588055"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588055物流差评主要体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "service"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "service",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588055"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "service",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "客服呢？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G05",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "否定旧维度并显式改为质量",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053物流差评主要体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "quality"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "quality",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "quality",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "不要分析物流了，改看商品质量。",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G06",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "显式修改商品 ID",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588055"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "换成100013588055，差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G07",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "本轮文字明确缩小日期",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-15",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "2023-02-15到2023-02-28，100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G08",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "页面商品变化不能继承旧目标",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "positive_aspects",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "positive_aspects",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "positive"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "positive"
+          },
+          "expected_required_tools": [
+            "get_positive_aspects"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588055"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "positive"
+          },
+          "fault": null,
+          "input": "那好评呢？",
+          "kind": "positive_statistics",
+          "parent_override": null,
+          "selection_changes": {
+            "product_ids": [
+              "100013588055"
+            ]
+          },
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G09",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "页面日期变化后必须刷新可信排名",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": true,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "not_finalized",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "unsupported",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "awaiting_aspect",
+          "expected_query_plan": {
+            "analysis_type": null,
+            "aspects": [],
+            "blocked": true,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [],
+          "expected_scope": {
+            "date_from": "2023-02-15",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": false,
+            "status": "not_completed"
+          },
+          "expected_user_intent": {
+            "needs_clarification": true
+          },
+          "fault": null,
+          "input": "具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": {
+            "date_from": "2023-02-15"
+          },
+          "strict_business_completion": false
+        }
+      ]
+    },
+    {
+      "id": "G10",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "标注身份变化导致状态失效",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": "PENDING_HUMAN",
+          "clarification_must_execute_zero": true,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_analysis_state": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_final_status": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_pending_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_query_plan": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_request_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_required_tools": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_scope": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_task_acceptance": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_user_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "fault": null,
+          "input": "具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": {
+            "model": "changed-label-profile"
+          },
+          "strict_business_completion": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "v1_original_turn": {
+            "adjudication": null,
+            "clarification_must_execute_zero": true,
+            "conversation_override": null,
+            "data_mode": null,
+            "expected_analysis_intent": "not_finalized",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "absent"
+            },
+            "expected_final_status": {
+              "agent": "unsupported",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": null,
+              "aspects": [],
+              "blocked": true,
+              "sentiment": null
+            },
+            "expected_request_goal": {
+              "aspect": null,
+              "levels": [
+                "themes"
+              ],
+              "sentiment": null
+            },
+            "expected_required_tools": [],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053",
+                "100013588055"
+              ]
+            },
+            "expected_task_acceptance": {
+              "complete": false,
+              "status": "not_completed"
+            },
+            "expected_user_intent": {
+              "needs_clarification": true
+            },
+            "fault": null,
+            "input": "具体体现在哪里？",
+            "kind": "themes",
+            "parent_override": null,
+            "selection_changes": {
+              "model": "changed-label-profile"
+            },
+            "strict_business_completion": false
+          },
+          "human_review": {
+            "classification": "条件不充分；澄清/Goal 表示待裁决",
+            "v1_findings": "v1 实际已写 sentiment=null、澄清、零工具；旧 REVIEW 说明中的“预期 negative”不符合冻结文件。not_completed 仍是待修正的验收标签。",
+            "recommendation_option_id": "G10-T2-A",
+            "recommendation_is_not_approval": true,
+            "independent_rationale": "推荐根据本轮明示信息形成有限内容 Goal，缺条件就澄清；依据 C01/C08，而非实际输出碰巧相同。",
+            "possible_agent_defect": "原始 result.analysis_intent=aspect_drilldown、sentiment_intent=negative 只是 P6 候选路由遗留；若业务/API把它当最终负向意图，可能误导。需裁决是否只允许在诊断层保留。",
+            "options": [
+              {
+                "id": "G10-T2-A",
+                "label": "承认内容意图、澄清缺失条件",
+                "business_meaning": "新标注身份；当前页面含 053/055，不能从旧身份拿排名或默认单 SKU/negative。 将“具体体现”视为主题内容意图，Goal 仅部分明确，尚无执行授权。",
+                "contract_evidence": [
+                  "C01",
+                  "C02",
+                  "C06",
+                  "C08",
+                  "C09"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "not_finalized",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "absent"
+                  },
+                  "expected_final_status": {
+                    "agent": "unsupported",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": null,
+                    "aspects": [],
+                    "blocked": true,
+                    "sentiment": null
+                  },
+                  "expected_request_goal": {
+                    "aspect": null,
+                    "levels": [
+                      "themes"
+                    ],
+                    "sentiment": null
+                  },
+                  "expected_required_tools": [],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053",
+                      "100013588055"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "representation_rule": "absent_or_explicit_failure",
+                    "permitted_representations": [
+                      null,
+                      {
+                        "status": "failed",
+                        "complete": false
+                      }
+                    ],
+                    "complete_true_forbidden": true
+                  },
+                  "expected_user_intent": {
+                    "needs_clarification": true
+                  }
+                },
+                "execution_constraints": {
+                  "business_query_executions": 0,
+                  "classification_attempts": 0,
+                  "must_not_publish_evidence": true,
+                  "catalog_reads_before_planning_are_not_business_queries": true
+                },
+                "risk_if_misapplied": [
+                  "不得默认 negative、恢复旧排名或执行任一主题工具。",
+                  "Worker succeeded 只表示已正确回复澄清，不代表主题完成。"
+                ],
+                "representation_notes": [],
+                "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+              },
+              {
+                "id": "G10-T2-B",
+                "label": "先澄清完整任务、暂不冻结 Goal",
+                "business_meaning": "新标注身份；当前页面含 053/055，不能从旧身份拿排名或默认单 SKU/negative。 先确认业务层次及缺失条件，原问题仅作为未决请求保留。",
+                "contract_evidence": [
+                  "C01",
+                  "C06",
+                  "C08"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "not_finalized",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "absent"
+                  },
+                  "expected_final_status": {
+                    "agent": "unsupported",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": null,
+                    "aspects": [],
+                    "blocked": true,
+                    "sentiment": null
+                  },
+                  "expected_request_goal": null,
+                  "expected_required_tools": [],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053",
+                      "100013588055"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "representation_rule": "absent_or_explicit_failure",
+                    "permitted_representations": [
+                      null,
+                      {
+                        "status": "failed",
+                        "complete": false
+                      }
+                    ],
+                    "complete_true_forbidden": true
+                  },
+                  "expected_user_intent": {
+                    "needs_clarification": true
+                  }
+                },
+                "execution_constraints": {
+                  "business_query_executions": 0,
+                  "classification_attempts": 0,
+                  "must_not_publish_evidence": true,
+                  "catalog_reads_before_planning_are_not_business_queries": true
+                },
+                "risk_if_misapplied": [
+                  "不能因 Goal=None 而进入无约束 Planner 或工具。"
+                ],
+                "representation_notes": [
+                  "Goal=None 在此表示未冻结，不表示用户提出了 RAG 请求。",
+                  "两方案安全执行边界相同，只在 Goal 形成时点及澄清范围上不同。"
+                ],
+                "implementation_implication": "若选择不冻结 Goal，现有提前建立 themes Goal 的代码可能需要后续独立对齐；本轮不修改。"
+              }
+            ],
+            "final_human_decision": {
+              "status": "pending",
+              "selected_option_id": null,
+              "reviewed_by": null,
+              "reviewed_at": null,
+              "reason": null,
+              "approved": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "G11",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "跨会话不继承可信排名",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": "PENDING_HUMAN",
+          "clarification_must_execute_zero": true,
+          "conversation_override": "new-session",
+          "data_mode": null,
+          "expected_analysis_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_analysis_state": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_final_status": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_pending_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_query_plan": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_request_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_required_tools": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_scope": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_task_acceptance": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_user_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "fault": null,
+          "input": "具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "v1_original_turn": {
+            "adjudication": null,
+            "clarification_must_execute_zero": true,
+            "conversation_override": "new-session",
+            "data_mode": null,
+            "expected_analysis_intent": "not_finalized",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "absent"
+            },
+            "expected_final_status": {
+              "agent": "unsupported",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": null,
+              "aspects": [],
+              "blocked": true,
+              "sentiment": null
+            },
+            "expected_request_goal": {
+              "aspect": null,
+              "levels": [
+                "themes"
+              ],
+              "sentiment": null
+            },
+            "expected_required_tools": [],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053",
+                "100013588055"
+              ]
+            },
+            "expected_task_acceptance": {
+              "complete": false,
+              "status": "not_completed"
+            },
+            "expected_user_intent": {
+              "needs_clarification": true
+            },
+            "fault": null,
+            "input": "具体体现在哪里？",
+            "kind": "themes",
+            "parent_override": null,
+            "selection_changes": null,
+            "strict_business_completion": false
+          },
+          "human_review": {
+            "classification": "条件不充分；澄清/Goal 表示待裁决",
+            "v1_findings": "v1 实际已写 sentiment=null、澄清、零工具；旧 REVIEW 说明中的“预期 negative”不符合冻结文件。not_completed 仍是待修正的验收标签。",
+            "recommendation_option_id": "G11-T2-A",
+            "recommendation_is_not_approval": true,
+            "independent_rationale": "推荐根据本轮明示信息形成有限内容 Goal，缺条件就澄清；依据 C01/C08，而非实际输出碰巧相同。",
+            "possible_agent_defect": "原始 result.analysis_intent=aspect_drilldown、sentiment_intent=negative 只是 P6 候选路由遗留；若业务/API把它当最终负向意图，可能误导。需裁决是否只允许在诊断层保留。",
+            "options": [
+              {
+                "id": "G11-T2-A",
+                "label": "承认内容意图、澄清缺失条件",
+                "business_meaning": "新会话；旧会话任务仍可作为审计背景展示，但不能作为当前用户事实或条件。 将“具体体现”视为主题内容意图，Goal 仅部分明确，尚无执行授权。",
+                "contract_evidence": [
+                  "C01",
+                  "C02",
+                  "C06",
+                  "C08",
+                  "C09"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "not_finalized",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "absent"
+                  },
+                  "expected_final_status": {
+                    "agent": "unsupported",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": null,
+                    "aspects": [],
+                    "blocked": true,
+                    "sentiment": null
+                  },
+                  "expected_request_goal": {
+                    "aspect": null,
+                    "levels": [
+                      "themes"
+                    ],
+                    "sentiment": null
+                  },
+                  "expected_required_tools": [],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053",
+                      "100013588055"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "representation_rule": "absent_or_explicit_failure",
+                    "permitted_representations": [
+                      null,
+                      {
+                        "status": "failed",
+                        "complete": false
+                      }
+                    ],
+                    "complete_true_forbidden": true
+                  },
+                  "expected_user_intent": {
+                    "needs_clarification": true
+                  }
+                },
+                "execution_constraints": {
+                  "business_query_executions": 0,
+                  "classification_attempts": 0,
+                  "must_not_publish_evidence": true,
+                  "catalog_reads_before_planning_are_not_business_queries": true
+                },
+                "risk_if_misapplied": [
+                  "不得默认 negative、恢复旧排名或执行任一主题工具。",
+                  "Worker succeeded 只表示已正确回复澄清，不代表主题完成。"
+                ],
+                "representation_notes": [],
+                "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+              },
+              {
+                "id": "G11-T2-B",
+                "label": "先澄清完整任务、暂不冻结 Goal",
+                "business_meaning": "新会话；旧会话任务仍可作为审计背景展示，但不能作为当前用户事实或条件。 先确认业务层次及缺失条件，原问题仅作为未决请求保留。",
+                "contract_evidence": [
+                  "C01",
+                  "C06",
+                  "C08"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "not_finalized",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "absent"
+                  },
+                  "expected_final_status": {
+                    "agent": "unsupported",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": null,
+                    "aspects": [],
+                    "blocked": true,
+                    "sentiment": null
+                  },
+                  "expected_request_goal": null,
+                  "expected_required_tools": [],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053",
+                      "100013588055"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "representation_rule": "absent_or_explicit_failure",
+                    "permitted_representations": [
+                      null,
+                      {
+                        "status": "failed",
+                        "complete": false
+                      }
+                    ],
+                    "complete_true_forbidden": true
+                  },
+                  "expected_user_intent": {
+                    "needs_clarification": true
+                  }
+                },
+                "execution_constraints": {
+                  "business_query_executions": 0,
+                  "classification_attempts": 0,
+                  "must_not_publish_evidence": true,
+                  "catalog_reads_before_planning_are_not_business_queries": true
+                },
+                "risk_if_misapplied": [
+                  "不能因 Goal=None 而进入无约束 Planner 或工具。"
+                ],
+                "representation_notes": [
+                  "Goal=None 在此表示未冻结，不表示用户提出了 RAG 请求。",
+                  "两方案安全执行边界相同，只在 Goal 形成时点及澄清范围上不同。"
+                ],
+                "implementation_implication": "若选择不冻结 Goal，现有提前建立 themes Goal 的代码可能需要后续独立对齐；本轮不修改。"
+              }
+            ],
+            "final_human_decision": {
+              "status": "pending",
+              "selected_option_id": null,
+              "reviewed_by": null,
+              "reviewed_at": null,
+              "reason": null,
+              "approved": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "G12",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "没有可信历史的具体追问",
+      "turns": [
+        {
+          "adjudication": "PENDING_HUMAN",
+          "clarification_must_execute_zero": true,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_analysis_state": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_final_status": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_pending_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_query_plan": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_request_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_required_tools": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_scope": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_task_acceptance": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_user_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "fault": null,
+          "input": "100013588053具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "v1_original_turn": {
+            "adjudication": null,
+            "clarification_must_execute_zero": true,
+            "conversation_override": null,
+            "data_mode": null,
+            "expected_analysis_intent": "not_finalized",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "absent"
+            },
+            "expected_final_status": {
+              "agent": "unsupported",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": null,
+              "aspects": [],
+              "blocked": true,
+              "sentiment": null
+            },
+            "expected_request_goal": {
+              "aspect": null,
+              "levels": [
+                "themes"
+              ],
+              "sentiment": null
+            },
+            "expected_required_tools": [],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053"
+              ]
+            },
+            "expected_task_acceptance": {
+              "complete": false,
+              "status": "not_completed"
+            },
+            "expected_user_intent": {
+              "needs_clarification": true
+            },
+            "fault": null,
+            "input": "100013588053具体体现在哪里？",
+            "kind": "themes",
+            "parent_override": null,
+            "selection_changes": null,
+            "strict_business_completion": false
+          },
+          "human_review": {
+            "classification": "条件不充分；澄清/Goal 表示待裁决",
+            "v1_findings": "v1 实际已写 sentiment=null、澄清、零工具；旧 REVIEW 说明中的“预期 negative”不符合冻结文件。not_completed 仍是待修正的验收标签。",
+            "recommendation_option_id": "G12-T1-A",
+            "recommendation_is_not_approval": true,
+            "independent_rationale": "推荐根据本轮明示信息形成有限内容 Goal，缺条件就澄清；依据 C01/C08，而非实际输出碰巧相同。",
+            "possible_agent_defect": "原始 result.analysis_intent=aspect_drilldown、sentiment_intent=negative 只是 P6 候选路由遗留；若业务/API把它当最终负向意图，可能误导。需裁决是否只允许在诊断层保留。",
+            "options": [
+              {
+                "id": "G12-T1-A",
+                "label": "承认内容意图、澄清缺失条件",
+                "business_meaning": "本轮明确 053，可以绑定 SKU；没有任何历史，正/负情感和具体方向须问清。 将“具体体现”视为主题内容意图，Goal 仅部分明确，尚无执行授权。",
+                "contract_evidence": [
+                  "C01",
+                  "C02",
+                  "C06",
+                  "C08",
+                  "C09"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "not_finalized",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "absent"
+                  },
+                  "expected_final_status": {
+                    "agent": "unsupported",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": null,
+                    "aspects": [],
+                    "blocked": true,
+                    "sentiment": null
+                  },
+                  "expected_request_goal": {
+                    "aspect": null,
+                    "levels": [
+                      "themes"
+                    ],
+                    "sentiment": null
+                  },
+                  "expected_required_tools": [],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "representation_rule": "absent_or_explicit_failure",
+                    "permitted_representations": [
+                      null,
+                      {
+                        "status": "failed",
+                        "complete": false
+                      }
+                    ],
+                    "complete_true_forbidden": true
+                  },
+                  "expected_user_intent": {
+                    "needs_clarification": true
+                  }
+                },
+                "execution_constraints": {
+                  "business_query_executions": 0,
+                  "classification_attempts": 0,
+                  "must_not_publish_evidence": true,
+                  "catalog_reads_before_planning_are_not_business_queries": true
+                },
+                "risk_if_misapplied": [
+                  "不得默认 negative、恢复旧排名或执行任一主题工具。",
+                  "Worker succeeded 只表示已正确回复澄清，不代表主题完成。"
+                ],
+                "representation_notes": [],
+                "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+              },
+              {
+                "id": "G12-T1-B",
+                "label": "先澄清完整任务、暂不冻结 Goal",
+                "business_meaning": "本轮明确 053，可以绑定 SKU；没有任何历史，正/负情感和具体方向须问清。 先确认业务层次及缺失条件，原问题仅作为未决请求保留。",
+                "contract_evidence": [
+                  "C01",
+                  "C06",
+                  "C08"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "not_finalized",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "absent"
+                  },
+                  "expected_final_status": {
+                    "agent": "unsupported",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": null,
+                    "aspects": [],
+                    "blocked": true,
+                    "sentiment": null
+                  },
+                  "expected_request_goal": null,
+                  "expected_required_tools": [],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "representation_rule": "absent_or_explicit_failure",
+                    "permitted_representations": [
+                      null,
+                      {
+                        "status": "failed",
+                        "complete": false
+                      }
+                    ],
+                    "complete_true_forbidden": true
+                  },
+                  "expected_user_intent": {
+                    "needs_clarification": true
+                  }
+                },
+                "execution_constraints": {
+                  "business_query_executions": 0,
+                  "classification_attempts": 0,
+                  "must_not_publish_evidence": true,
+                  "catalog_reads_before_planning_are_not_business_queries": true
+                },
+                "risk_if_misapplied": [
+                  "不能因 Goal=None 而进入无约束 Planner 或工具。"
+                ],
+                "representation_notes": [
+                  "Goal=None 在此表示未冻结，不表示用户提出了 RAG 请求。",
+                  "两方案安全执行边界相同，只在 Goal 形成时点及澄清范围上不同。"
+                ],
+                "implementation_implication": "若选择不冻结 Goal，现有提前建立 themes Goal 的代码可能需要后续独立对齐；本轮不修改。"
+              }
+            ],
+            "final_human_decision": {
+              "status": "pending",
+              "selected_option_id": null,
+              "reviewed_by": null,
+              "reviewed_at": null,
+              "reason": null,
+              "approved": null
+            }
+          }
+        },
+        {
+          "adjudication": "PENDING_HUMAN",
+          "clarification_must_execute_zero": true,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_analysis_state": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_final_status": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_pending_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_query_plan": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_request_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_required_tools": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_scope": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_task_acceptance": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_user_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "fault": null,
+          "input": "具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "v1_original_turn": {
+            "adjudication": null,
+            "clarification_must_execute_zero": true,
+            "conversation_override": null,
+            "data_mode": null,
+            "expected_analysis_intent": "not_finalized",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "absent"
+            },
+            "expected_final_status": {
+              "agent": "unsupported",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": null,
+              "aspects": [],
+              "blocked": true,
+              "sentiment": null
+            },
+            "expected_request_goal": {
+              "aspect": null,
+              "levels": [
+                "themes"
+              ],
+              "sentiment": null
+            },
+            "expected_required_tools": [],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053",
+                "100013588055"
+              ]
+            },
+            "expected_task_acceptance": {
+              "complete": false,
+              "status": "not_completed"
+            },
+            "expected_user_intent": {
+              "needs_clarification": true
+            },
+            "fault": null,
+            "input": "具体体现在哪里？",
+            "kind": "themes",
+            "parent_override": null,
+            "selection_changes": null,
+            "strict_business_completion": false
+          },
+          "human_review": {
+            "classification": "v1 范围约束陈旧；语言条件仍不充分",
+            "v1_findings": "v1 scope=053/055，与后来已验收 P0-01“用户条件不依赖分析成功”不一致；sentiment 原本就是 null，并非 negative。",
+            "recommendation_option_id": "G12-T2-A",
+            "recommendation_is_not_approval": true,
+            "independent_rationale": "单 SKU 由此前用户原文及同会话校验独立确定；未执行事实仍为空。",
+            "possible_agent_defect": "当前无业务查询；候选路由 raw negative 与未定情感的表示仍需审查，不能直接当最终语义。",
+            "options": [
+              {
+                "id": "G12-T2-A",
+                "label": "继承显式 SKU，继续澄清情感/层次",
+                "business_meaning": "同会话同身份、未改选择；上一轮未完成不抹掉用户明确写出的 053。只继承条件，不继承排名、统计、情感或完成事实。",
+                "contract_evidence": [
+                  "C01",
+                  "C02",
+                  "C08"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "not_finalized",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "absent"
+                  },
+                  "expected_final_status": {
+                    "agent": "unsupported",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": null,
+                    "aspects": [],
+                    "blocked": true,
+                    "sentiment": null
+                  },
+                  "expected_request_goal": {
+                    "aspect": null,
+                    "levels": [
+                      "themes"
+                    ],
+                    "sentiment": null
+                  },
+                  "expected_required_tools": [],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "representation_rule": "absent_or_explicit_failure",
+                    "permitted_representations": [
+                      null,
+                      {
+                        "status": "failed",
+                        "complete": false
+                      }
+                    ],
+                    "complete_true_forbidden": true
+                  },
+                  "expected_user_intent": {
+                    "needs_clarification": true
+                  }
+                },
+                "execution_constraints": {
+                  "business_query_executions": 0,
+                  "classification_attempts": 0,
+                  "must_not_publish_evidence": true,
+                  "catalog_reads_before_planning_are_not_business_queries": true
+                },
+                "risk_if_misapplied": [
+                  "失败条件不能升级为可信事实。",
+                  "不能回退到页面两商品并执行合并分析。"
+                ],
+                "representation_notes": [],
+                "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+              }
+            ],
+            "final_human_decision": {
+              "status": "pending",
+              "selected_option_id": null,
+              "reviewed_by": null,
+              "reviewed_at": null,
+              "reason": null,
+              "approved": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "G13",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "有观点但没有被支持的主题",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": "empty_catalog",
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "unsupported",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "service"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "service",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": false,
+            "status": "insufficient_evidence"
+          },
+          "expected_user_intent": {
+            "aspect": "service",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053客服差评主要体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": false
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [
+              "service"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "service",
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "service",
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "只统计客服差评有多少条。",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G14",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "目标维度观点缺失与零计数区分",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": "missing_logistics_opinions",
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "unsupported",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": false,
+            "status": "insufficient_evidence"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053物流差评主要体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": false
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": "missing_logistics_opinions",
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "物流差评有多少条？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G15",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "分类失败后明确改为统计",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": "fail_logistics",
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "error",
+            "worker": "failed"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": false,
+            "status": "failed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053物流差评主要体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": false
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "不用主题分析，只告诉我物流差评多少条。",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G16",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "多维全部证据不足",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": "empty_catalog",
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "present"
+          },
+          "expected_final_status": {
+            "agent": "unsupported",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "service",
+              "effectiveness",
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "themes"
+            ],
+            "required_aspects": [
+              "service",
+              "effectiveness",
+              "logistics"
+            ],
+            "sentiment": "negative",
+            "version": "review-request-goal-p6-v1"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": false,
+            "status": "insufficient_evidence"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": false
+        }
+      ]
+    },
+    {
+      "id": "G17",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "多维中间维度失败后继续单维",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": "PENDING_HUMAN",
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": "fail_effectiveness",
+          "expected_analysis_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_analysis_state": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_final_status": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_pending_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_query_plan": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_request_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_required_tools": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_scope": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_task_acceptance": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_user_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "fault": null,
+          "input": "具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "v1_original_turn": {
+            "adjudication": null,
+            "clarification_must_execute_zero": false,
+            "conversation_override": null,
+            "data_mode": "fail_effectiveness",
+            "expected_analysis_intent": "aspect_drilldown",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "present"
+            },
+            "expected_final_status": {
+              "agent": "partial",
+              "worker": "partial"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": "aspect_drilldown",
+              "aspects": [
+                "service",
+                "effectiveness",
+                "logistics"
+              ],
+              "blocked": false,
+              "sentiment": "negative"
+            },
+            "expected_request_goal": {
+              "aspect": null,
+              "levels": [
+                "themes"
+              ],
+              "required_aspects": [
+                "service",
+                "effectiveness",
+                "logistics"
+              ],
+              "sentiment": "negative",
+              "version": "review-request-goal-p6-v1"
+            },
+            "expected_required_tools": [
+              "get_aspect_drilldown"
+            ],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053"
+              ]
+            },
+            "expected_task_acceptance": {
+              "complete": false,
+              "status": "failed"
+            },
+            "expected_user_intent": {
+              "aspect": null,
+              "query_type": "aspect_drilldown",
+              "sentiment": "negative"
+            },
+            "fault": null,
+            "input": "具体体现在哪里？",
+            "kind": "themes",
+            "parent_override": null,
+            "selection_changes": null,
+            "strict_business_completion": false
+          },
+          "human_review": {
+            "classification": "原预期状态定义错误（契约唯一）",
+            "v1_findings": "v1 已要求 Agent partial/Worker partial，却把 task_acceptance.status 写为 failed；是生成器状态映射错误。",
+            "recommendation_option_id": "G17-T2-A",
+            "recommendation_is_not_approval": true,
+            "independent_rationale": "C03/C04 明文规定部分成功的父级及公开状态；不以实际当前 partial 反推规范。",
+            "possible_agent_defect": "本例未见全局完整性失配；没有依据把它提升为全局 failed。所有源码证据仍须按既有 Validator 校验，候选主题不等于人工确认。",
+            "options": [
+              {
+                "id": "G17-T2-A",
+                "label": "按既有 P6 契约判为 partial",
+                "business_meaning": "完整目标仍为三个维度；effectiveness 分类失败，其余维度独立通过。发布成功子维度，父任务不完整。",
+                "contract_evidence": [
+                  "C03",
+                  "C04",
+                  "C07",
+                  "C11"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "aspect_drilldown",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "present"
+                  },
+                  "expected_final_status": {
+                    "agent": "partial",
+                    "worker": "partial"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": "aspect_drilldown",
+                    "aspects": [
+                      "service",
+                      "effectiveness",
+                      "logistics"
+                    ],
+                    "blocked": false,
+                    "sentiment": "negative"
+                  },
+                  "expected_request_goal": {
+                    "aspect": null,
+                    "levels": [
+                      "themes"
+                    ],
+                    "required_aspects": [
+                      "service",
+                      "effectiveness",
+                      "logistics"
+                    ],
+                    "sentiment": "negative",
+                    "version": "review-request-goal-p6-v1"
+                  },
+                  "expected_required_tools": [
+                    "get_aspect_drilldown"
+                  ],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "status": "partial",
+                    "complete": false,
+                    "parent_status": "partial"
+                  },
+                  "expected_user_intent": {
+                    "aspect": null,
+                    "query_type": "aspect_drilldown",
+                    "sentiment": "negative"
+                  }
+                },
+                "execution_constraints": {
+                  "frozen_order": [
+                    "service",
+                    "effectiveness",
+                    "logistics"
+                  ],
+                  "classification_attempts": 5,
+                  "failed_aspect": "effectiveness",
+                  "child_statuses": {
+                    "service": "complete",
+                    "effectiveness": "failed",
+                    "logistics": "complete"
+                  },
+                  "publishable_aspects": [
+                    "service",
+                    "logistics"
+                  ],
+                  "all_required_aspects_retained": true,
+                  "failed_aspect_topics_published": false
+                },
+                "risk_if_misapplied": [
+                  "不得将成功子集替换 required_aspects。",
+                  "不得改成 ok/complete=true，也不得把局部失败误称全局来源失败。"
+                ],
+                "representation_notes": [],
+                "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+              }
+            ],
+            "final_human_decision": {
+              "status": "pending",
+              "selected_option_id": null,
+              "reviewed_by": null,
+              "reviewed_at": null,
+              "reason": null,
+              "approved": null
+            }
+          }
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "present"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "只看物流，具体有哪些问题？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G18",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "多维第一维失败保留全部目标",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": "PENDING_HUMAN",
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": "fail_service",
+          "expected_analysis_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_analysis_state": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_final_status": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_pending_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_query_plan": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_request_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_required_tools": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_scope": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_task_acceptance": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_user_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "fault": null,
+          "input": "具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "v1_original_turn": {
+            "adjudication": null,
+            "clarification_must_execute_zero": false,
+            "conversation_override": null,
+            "data_mode": "fail_service",
+            "expected_analysis_intent": "aspect_drilldown",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "present"
+            },
+            "expected_final_status": {
+              "agent": "partial",
+              "worker": "partial"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": "aspect_drilldown",
+              "aspects": [
+                "service",
+                "effectiveness",
+                "logistics"
+              ],
+              "blocked": false,
+              "sentiment": "negative"
+            },
+            "expected_request_goal": {
+              "aspect": null,
+              "levels": [
+                "themes"
+              ],
+              "required_aspects": [
+                "service",
+                "effectiveness",
+                "logistics"
+              ],
+              "sentiment": "negative",
+              "version": "review-request-goal-p6-v1"
+            },
+            "expected_required_tools": [
+              "get_aspect_drilldown"
+            ],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053"
+              ]
+            },
+            "expected_task_acceptance": {
+              "complete": false,
+              "status": "failed"
+            },
+            "expected_user_intent": {
+              "aspect": null,
+              "query_type": "aspect_drilldown",
+              "sentiment": "negative"
+            },
+            "fault": null,
+            "input": "具体体现在哪里？",
+            "kind": "themes",
+            "parent_override": null,
+            "selection_changes": null,
+            "strict_business_completion": false
+          },
+          "human_review": {
+            "classification": "原预期状态定义错误（契约唯一）",
+            "v1_findings": "v1 已要求 Agent partial/Worker partial，却把 task_acceptance.status 写为 failed；是生成器状态映射错误。",
+            "recommendation_option_id": "G18-T2-A",
+            "recommendation_is_not_approval": true,
+            "independent_rationale": "C03/C04 明文规定部分成功的父级及公开状态；不以实际当前 partial 反推规范。",
+            "possible_agent_defect": "本例未见全局完整性失配；没有依据把它提升为全局 failed。所有源码证据仍须按既有 Validator 校验，候选主题不等于人工确认。",
+            "options": [
+              {
+                "id": "G18-T2-A",
+                "label": "按既有 P6 契约判为 partial",
+                "business_meaning": "完整目标仍为三个维度；service 分类失败，其余维度独立通过。发布成功子维度，父任务不完整。",
+                "contract_evidence": [
+                  "C03",
+                  "C04",
+                  "C07",
+                  "C11"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "aspect_drilldown",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "present"
+                  },
+                  "expected_final_status": {
+                    "agent": "partial",
+                    "worker": "partial"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": "aspect_drilldown",
+                    "aspects": [
+                      "service",
+                      "effectiveness",
+                      "logistics"
+                    ],
+                    "blocked": false,
+                    "sentiment": "negative"
+                  },
+                  "expected_request_goal": {
+                    "aspect": null,
+                    "levels": [
+                      "themes"
+                    ],
+                    "required_aspects": [
+                      "service",
+                      "effectiveness",
+                      "logistics"
+                    ],
+                    "sentiment": "negative",
+                    "version": "review-request-goal-p6-v1"
+                  },
+                  "expected_required_tools": [
+                    "get_aspect_drilldown"
+                  ],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "status": "partial",
+                    "complete": false,
+                    "parent_status": "partial"
+                  },
+                  "expected_user_intent": {
+                    "aspect": null,
+                    "query_type": "aspect_drilldown",
+                    "sentiment": "negative"
+                  }
+                },
+                "execution_constraints": {
+                  "frozen_order": [
+                    "service",
+                    "effectiveness",
+                    "logistics"
+                  ],
+                  "classification_attempts": 5,
+                  "failed_aspect": "service",
+                  "child_statuses": {
+                    "service": "failed",
+                    "effectiveness": "complete",
+                    "logistics": "complete"
+                  },
+                  "publishable_aspects": [
+                    "effectiveness",
+                    "logistics"
+                  ],
+                  "all_required_aspects_retained": true,
+                  "failed_aspect_topics_published": false
+                },
+                "risk_if_misapplied": [
+                  "不得将成功子集替换 required_aspects。",
+                  "不得改成 ok/complete=true，也不得把局部失败误称全局来源失败。"
+                ],
+                "representation_notes": [],
+                "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+              }
+            ],
+            "final_human_decision": {
+              "status": "pending",
+              "selected_option_id": null,
+              "reviewed_by": null,
+              "reviewed_at": null,
+              "reason": null,
+              "approved": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "G19",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "多维最后一维失败保留全部目标",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": "PENDING_HUMAN",
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": "fail_logistics",
+          "expected_analysis_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_analysis_state": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_final_status": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_pending_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_query_plan": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_request_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_required_tools": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_scope": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_task_acceptance": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_user_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "fault": null,
+          "input": "具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "v1_original_turn": {
+            "adjudication": null,
+            "clarification_must_execute_zero": false,
+            "conversation_override": null,
+            "data_mode": "fail_logistics",
+            "expected_analysis_intent": "aspect_drilldown",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "present"
+            },
+            "expected_final_status": {
+              "agent": "partial",
+              "worker": "partial"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": "aspect_drilldown",
+              "aspects": [
+                "service",
+                "effectiveness",
+                "logistics"
+              ],
+              "blocked": false,
+              "sentiment": "negative"
+            },
+            "expected_request_goal": {
+              "aspect": null,
+              "levels": [
+                "themes"
+              ],
+              "required_aspects": [
+                "service",
+                "effectiveness",
+                "logistics"
+              ],
+              "sentiment": "negative",
+              "version": "review-request-goal-p6-v1"
+            },
+            "expected_required_tools": [
+              "get_aspect_drilldown"
+            ],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053"
+              ]
+            },
+            "expected_task_acceptance": {
+              "complete": false,
+              "status": "failed"
+            },
+            "expected_user_intent": {
+              "aspect": null,
+              "query_type": "aspect_drilldown",
+              "sentiment": "negative"
+            },
+            "fault": null,
+            "input": "具体体现在哪里？",
+            "kind": "themes",
+            "parent_override": null,
+            "selection_changes": null,
+            "strict_business_completion": false
+          },
+          "human_review": {
+            "classification": "原预期状态定义错误（契约唯一）",
+            "v1_findings": "v1 已要求 Agent partial/Worker partial，却把 task_acceptance.status 写为 failed；是生成器状态映射错误。",
+            "recommendation_option_id": "G19-T2-A",
+            "recommendation_is_not_approval": true,
+            "independent_rationale": "C03/C04 明文规定部分成功的父级及公开状态；不以实际当前 partial 反推规范。",
+            "possible_agent_defect": "本例未见全局完整性失配；没有依据把它提升为全局 failed。所有源码证据仍须按既有 Validator 校验，候选主题不等于人工确认。",
+            "options": [
+              {
+                "id": "G19-T2-A",
+                "label": "按既有 P6 契约判为 partial",
+                "business_meaning": "完整目标仍为三个维度；logistics 分类失败，其余维度独立通过。发布成功子维度，父任务不完整。",
+                "contract_evidence": [
+                  "C03",
+                  "C04",
+                  "C07",
+                  "C11"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "aspect_drilldown",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "present"
+                  },
+                  "expected_final_status": {
+                    "agent": "partial",
+                    "worker": "partial"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": "aspect_drilldown",
+                    "aspects": [
+                      "service",
+                      "effectiveness",
+                      "logistics"
+                    ],
+                    "blocked": false,
+                    "sentiment": "negative"
+                  },
+                  "expected_request_goal": {
+                    "aspect": null,
+                    "levels": [
+                      "themes"
+                    ],
+                    "required_aspects": [
+                      "service",
+                      "effectiveness",
+                      "logistics"
+                    ],
+                    "sentiment": "negative",
+                    "version": "review-request-goal-p6-v1"
+                  },
+                  "expected_required_tools": [
+                    "get_aspect_drilldown"
+                  ],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "status": "partial",
+                    "complete": false,
+                    "parent_status": "partial"
+                  },
+                  "expected_user_intent": {
+                    "aspect": null,
+                    "query_type": "aspect_drilldown",
+                    "sentiment": "negative"
+                  }
+                },
+                "execution_constraints": {
+                  "frozen_order": [
+                    "service",
+                    "effectiveness",
+                    "logistics"
+                  ],
+                  "classification_attempts": 5,
+                  "failed_aspect": "logistics",
+                  "child_statuses": {
+                    "service": "complete",
+                    "effectiveness": "complete",
+                    "logistics": "failed"
+                  },
+                  "publishable_aspects": [
+                    "service",
+                    "effectiveness"
+                  ],
+                  "all_required_aspects_retained": true,
+                  "failed_aspect_topics_published": false
+                },
+                "risk_if_misapplied": [
+                  "不得将成功子集替换 required_aspects。",
+                  "不得改成 ok/complete=true，也不得把局部失败误称全局来源失败。"
+                ],
+                "representation_notes": [],
+                "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+              }
+            ],
+            "final_human_decision": {
+              "status": "pending",
+              "selected_option_id": null,
+              "reviewed_by": null,
+              "reviewed_at": null,
+              "reason": null,
+              "approved": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "G20",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "当前计数与历史排名冲突必须阻断",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": "PENDING_HUMAN",
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": "stale_counts",
+          "expected_analysis_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_analysis_state": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_final_status": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_pending_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_query_plan": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_request_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_required_tools": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_scope": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_task_acceptance": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_user_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "fault": null,
+          "input": "具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "v1_original_turn": {
+            "adjudication": null,
+            "clarification_must_execute_zero": false,
+            "conversation_override": null,
+            "data_mode": "stale_counts",
+            "expected_analysis_intent": "aspect_drilldown",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "present"
+            },
+            "expected_final_status": {
+              "agent": "unsupported",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": "aspect_drilldown",
+              "aspects": [
+                "service",
+                "effectiveness",
+                "logistics"
+              ],
+              "blocked": false,
+              "sentiment": "negative"
+            },
+            "expected_request_goal": {
+              "aspect": null,
+              "levels": [
+                "themes"
+              ],
+              "required_aspects": [
+                "service",
+                "effectiveness",
+                "logistics"
+              ],
+              "sentiment": "negative",
+              "version": "review-request-goal-p6-v1"
+            },
+            "expected_required_tools": [
+              "get_aspect_drilldown"
+            ],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053"
+              ]
+            },
+            "expected_task_acceptance": {
+              "complete": false,
+              "status": "not_completed"
+            },
+            "expected_user_intent": {
+              "aspect": null,
+              "query_type": "aspect_drilldown",
+              "sentiment": "negative"
+            },
+            "fault": null,
+            "input": "具体体现在哪里？",
+            "kind": "themes",
+            "parent_override": null,
+            "selection_changes": null,
+            "strict_business_completion": false
+          },
+          "human_review": {
+            "classification": "原状态标签错误；计划/执行阶段需分离",
+            "v1_findings": "v1 task_acceptance.status=not_completed 无对应状态；主题工具是计划要求，并不表示过期后允许执行。原工具产物匹配逻辑还可能把零主题产物视为失败，需正式 v2 规范审查。",
+            "recommendation_option_id": "G20-T2-A",
+            "recommendation_is_not_approval": true,
+            "independent_rationale": "C05 在观点预读前验证排名；C06 用 unsupported 保留原因，C07 可映射 succeeded。",
+            "possible_agent_defect": "诊断仍保留旧 ranking_basis 及未执行目标，后续每次必须重新复核新鲜度；“候选可信来源存在”不等于“当前数据未变”。",
+            "options": [
+              {
+                "id": "G20-T2-A",
+                "label": "拒用过期排名，服务受控返回 unsupported",
+                "business_meaning": "原 themes/三维 Goal 和已编译计划不降低；当前 D/M 不匹配只阻断准备，要求用户重新生成可信统计，不自动刷新或分类。",
+                "contract_evidence": [
+                  "C05",
+                  "C06",
+                  "C07",
+                  "C09"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "aspect_drilldown",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "present"
+                  },
+                  "expected_final_status": {
+                    "agent": "unsupported",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": "aspect_drilldown",
+                    "aspects": [
+                      "service",
+                      "effectiveness",
+                      "logistics"
+                    ],
+                    "blocked": false,
+                    "sentiment": "negative"
+                  },
+                  "expected_request_goal": {
+                    "aspect": null,
+                    "levels": [
+                      "themes"
+                    ],
+                    "required_aspects": [
+                      "service",
+                      "effectiveness",
+                      "logistics"
+                    ],
+                    "sentiment": "negative",
+                    "version": "review-request-goal-p6-v1"
+                  },
+                  "expected_required_tools": [
+                    "get_aspect_drilldown"
+                  ],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "status": "failed",
+                    "complete": false,
+                    "evidence_status": "not_executed"
+                  },
+                  "expected_user_intent": {
+                    "aspect": null,
+                    "query_type": "aspect_drilldown",
+                    "sentiment": "negative"
+                  }
+                },
+                "execution_constraints": {
+                  "preparation_reason": "stale_ranking",
+                  "current_ranking_validation_reads": 1,
+                  "aspect_prefetch_reads": 0,
+                  "classification_attempts": 0,
+                  "public_topics": 0,
+                  "planned_tools": [
+                    "get_aspect_drilldown"
+                  ],
+                  "completed_theme_artifact_required": false,
+                  "required_aspects_retained": [
+                    "service",
+                    "effectiveness",
+                    "logistics"
+                  ]
+                },
+                "risk_if_misapplied": [
+                  "task_acceptance.failed 不是 Worker.failed。",
+                  "不得新加 not_completed 或 stale_ranking 外层 API 枚举。",
+                  "不得用新统计偷偷替换旧前三或把统计成功冒充主题完成。"
+                ],
+                "representation_notes": [
+                  "not_completed 可作证据阶段描述，不能作为 task_acceptance.status。",
+                  "计划存在但执行受阻，不能用“无主计划”代替真实轨迹；也不能要求其交付已禁止生成的主题。",
+                  "未来 v2 的工具产物指标须区分 stale 受控阻断与已执行完成；本轮不改 v1 评分。"
+                ],
+                "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+              }
+            ],
+            "final_human_decision": {
+              "status": "pending",
+              "selected_option_id": null,
+              "reviewed_by": null,
+              "reviewed_at": null,
+              "reason": null,
+              "approved": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "G21",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "用户纠正情感方向",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053物流差评主要体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "positive"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "positive"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_drilldown",
+            "sentiment": "positive"
+          },
+          "fault": null,
+          "input": "我不是要看差评，要看物流好评具体表现。",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G22",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "用户纠正统计层级为主题",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053物流差评有多少条？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "不是问数量，我想知道物流差评具体在抱怨什么。",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G23",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "明确取消主题仅保留数量",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "service"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "service",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "service",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053客服差评具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [
+              "service"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "service",
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "service",
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "不要归纳主题了，只统计客服差评数量。",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G24",
+      "notes": "053 空候选模拟用户已说明的覆盖缺口；外层检索成功不代表业务事实完成。",
+      "p6_enabled": true,
+      "title": "053 RAG 覆盖缺口不伪造证据",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": "rag_gap",
+          "expected_analysis_intent": "semantic_evidence",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "semantic_evidence",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": null
+          },
+          "expected_request_goal": null,
+          "expected_required_tools": [
+            "search_semantic_evidence"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "contract": "frozen_RAG_separate",
+            "permitted_evidence": false
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "evidence",
+            "sentiment": null
+          },
+          "fault": null,
+          "input": "100013588053有没有物流很慢的反馈？",
+          "kind": "rag",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": false
+        },
+        {
+          "adjudication": "PENDING_HUMAN",
+          "clarification_must_execute_zero": true,
+          "conversation_override": null,
+          "data_mode": "rag_gap",
+          "expected_analysis_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_analysis_state": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_final_status": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_pending_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_query_plan": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_request_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_required_tools": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_scope": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_task_acceptance": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_user_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "fault": null,
+          "input": "客服呢？",
+          "kind": "rag",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "v1_original_turn": {
+            "adjudication": null,
+            "clarification_must_execute_zero": true,
+            "conversation_override": null,
+            "data_mode": "rag_gap",
+            "expected_analysis_intent": "not_finalized",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "absent"
+            },
+            "expected_final_status": {
+              "agent": "unsupported",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": null,
+              "aspects": [],
+              "blocked": true,
+              "sentiment": null
+            },
+            "expected_request_goal": null,
+            "expected_required_tools": [],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053"
+              ]
+            },
+            "expected_task_acceptance": {
+              "contract": "frozen_RAG_separate",
+              "permitted_evidence": false
+            },
+            "expected_user_intent": {
+              "needs_clarification": true
+            },
+            "fault": null,
+            "input": "客服呢？",
+            "kind": "rag",
+            "parent_override": null,
+            "selection_changes": null,
+            "strict_business_completion": false
+          },
+          "human_review": {
+            "classification": "真正的省略语义歧义；Goal 默认层次需审查",
+            "v1_findings": "v1 在澄清轮强制 Goal=None 且 task_acceptance 为 frozen_RAG_separate；但这一新问题没有完整命题，也没有实际执行 RAG，不能直接套用上一轮已执行检索验收。",
+            "recommendation_option_id": "G24-T2-A",
+            "recommendation_is_not_approval": true,
+            "independent_rationale": "由明确的 service 和有限历史提问，选择最少假设的澄清；两方案都禁止在补全前执行。",
+            "possible_agent_defect": "当前 Goal 默认 statistics/service/null 虽然被 Router 阻断，仍可能过早冻结未经用户确认的层次；若选候选 A/B，后续需独立核验 Goal 表示，不在本轮修复。",
+            "options": [
+              {
+                "id": "G24-T2-A",
+                "label": "先问客服要查什么、统计还是具体反馈",
+                "business_meaning": "只确定 service 和 053；不推断正负、具体命题或业务层次。尚未形成可执行目标。",
+                "contract_evidence": [
+                  "C01",
+                  "C08",
+                  "C09"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "not_finalized",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "absent"
+                  },
+                  "expected_final_status": {
+                    "agent": "unsupported",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": null,
+                    "aspects": [],
+                    "blocked": true,
+                    "sentiment": null
+                  },
+                  "expected_request_goal": null,
+                  "expected_required_tools": [],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "representation_rule": "absent_or_explicit_failure",
+                    "permitted_representations": [
+                      null,
+                      {
+                        "status": "failed",
+                        "complete": false
+                      }
+                    ],
+                    "complete_true_forbidden": true
+                  },
+                  "expected_user_intent": {
+                    "needs_clarification": true
+                  }
+                },
+                "execution_constraints": {
+                  "business_query_executions": 0,
+                  "classification_attempts": 0,
+                  "must_not_publish_evidence": true,
+                  "catalog_reads_before_planning_are_not_business_queries": true
+                },
+                "risk_if_misapplied": [
+                  "不能把物流很慢的“慢”机械替换成客服响应慢。",
+                  "不能以 053 空候选推出没有客服问题。"
+                ],
+                "representation_notes": [
+                  "已知约束放在澄清上下文，RequestGoal 暂不冻结；这不是已执行的 RAG 任务。"
+                ],
+                "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+              },
+              {
+                "id": "G24-T2-B",
+                "label": "保留检索意向，但请用户补全客服命题",
+                "business_meaning": "承接上一轮“检索相关反馈”的意向，不承接物流谓词或情感；先让用户说清客服要检索的完整反馈。补全前不检索。",
+                "contract_evidence": [
+                  "C08"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "not_finalized",
+                  "expected_analysis_state": {
+                    "pending_goal": "absent",
+                    "ranking_basis": "absent"
+                  },
+                  "expected_final_status": {
+                    "agent": "unsupported",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": null,
+                    "aspects": [],
+                    "blocked": true,
+                    "sentiment": null
+                  },
+                  "expected_request_goal": null,
+                  "expected_required_tools": [],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "representation_rule": "absent_or_explicit_failure",
+                    "permitted_representations": [
+                      null,
+                      {
+                        "status": "failed",
+                        "complete": false
+                      }
+                    ],
+                    "complete_true_forbidden": true
+                  },
+                  "expected_user_intent": {
+                    "needs_clarification": true
+                  }
+                },
+                "execution_constraints": {
+                  "business_query_executions": 0,
+                  "classification_attempts": 0,
+                  "must_not_publish_evidence": true,
+                  "catalog_reads_before_planning_are_not_business_queries": true
+                },
+                "risk_if_misapplied": [
+                  "检索意向不是已绑定 SemanticQuery，不得生成猜测向量或 permitted evidence。"
+                ],
+                "representation_notes": [
+                  "query family 仅为未执行的 semantic_evidence 提示；最终 query_plan 仍未生成。"
+                ],
+                "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+              }
+            ],
+            "final_human_decision": {
+              "status": "pending",
+              "selected_option_id": null,
+              "reviewed_by": null,
+              "reviewed_at": null,
+              "reason": null,
+              "approved": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "G25",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "055 合成 RAG 后切换统计",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "semantic_evidence",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "semantic_evidence",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": null
+          },
+          "expected_request_goal": null,
+          "expected_required_tools": [
+            "search_semantic_evidence"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588055"
+            ]
+          },
+          "expected_task_acceptance": {
+            "contract": "frozen_RAG_separate",
+            "permitted_evidence": true
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "evidence",
+            "sentiment": null
+          },
+          "fault": null,
+          "input": "100013588055有没有物流很慢的反馈？",
+          "kind": "rag",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588055"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "只统计物流差评数量。",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G26",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "按条件浏览原文不应误走 RAG",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "evidence",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "evidence",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "evidence"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_evidence"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "evidence",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "给我三条100013588053物流差评原文。",
+          "kind": "evidence",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "有多少条？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G27",
+      "notes": "",
+      "p6_enabled": true,
+      "title": "评论内指令不污染用户目标",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": "instruction_in_review",
+          "expected_analysis_intent": "evidence",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "evidence",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "evidence"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_evidence"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "evidence",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "给我三条100013588053物流差评原文。",
+          "kind": "evidence",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": "instruction_in_review",
+          "expected_analysis_intent": "evidence",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "evidence",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "positive"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "evidence"
+            ],
+            "sentiment": "positive"
+          },
+          "expected_required_tools": [
+            "get_evidence"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "evidence",
+            "sentiment": "positive"
+          },
+          "fault": null,
+          "input": "那好评呢？",
+          "kind": "evidence",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G28",
+      "notes": "主动注入；不计为自然 Planner 失误，独立记录是否在工具前拦截。",
+      "p6_enabled": true,
+      "title": "Planner 被故意降级的防护反例",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "present"
+          },
+          "expected_final_status": {
+            "agent": "error",
+            "worker": "failed"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": false,
+            "status": "failed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": "statistics_plan",
+          "input": "物流差评主要体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": false
+        }
+      ]
+    },
+    {
+      "id": "G29",
+      "notes": "主动注入；不得发布错误商品范围的成功主题。",
+      "p6_enabled": true,
+      "title": "工具来源被故意篡改的防护反例",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "error",
+            "worker": "failed"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": "logistics",
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": false,
+            "status": "failed"
+          },
+          "expected_user_intent": {
+            "aspect": "logistics",
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          },
+          "fault": "wrong_result_product",
+          "input": "100013588053物流差评主要体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": false
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        }
+      ]
+    },
+    {
+      "id": "G30",
+      "notes": "第三轮业务层次留待人工裁决；不强行计 PASS，也不以当前输出回填预期。",
+      "p6_enabled": false,
+      "title": "默认开关关闭时的待完成主题与短情感歧义",
+      "turns": [
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "issues",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "ok",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "issues",
+            "aspects": [],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "statistics"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [
+            "get_top_issues"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": true,
+            "status": "passed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_summary",
+            "sentiment": "negative"
+          },
+          "fault": null,
+          "input": "100013588053的差评主要集中在哪些方面？",
+          "kind": "statistics",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": true
+        },
+        {
+          "adjudication": null,
+          "clarification_must_execute_zero": true,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": "not_finalized",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "present"
+          },
+          "expected_final_status": {
+            "agent": "unsupported",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "awaiting_aspect",
+          "expected_query_plan": {
+            "analysis_type": null,
+            "aspects": [],
+            "blocked": true,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "themes"
+            ],
+            "sentiment": "negative"
+          },
+          "expected_required_tools": [],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "complete": false,
+            "status": "not_completed"
+          },
+          "expected_user_intent": {
+            "needs_clarification": true
+          },
+          "fault": null,
+          "input": "具体体现在哪里？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": false
+        },
+        {
+          "adjudication": "PENDING_HUMAN",
+          "clarification_must_execute_zero": false,
+          "conversation_override": null,
+          "data_mode": null,
+          "expected_analysis_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_analysis_state": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_final_status": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_pending_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_query_plan": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_request_goal": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_required_tools": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_scope": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_task_acceptance": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "expected_user_intent": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "fault": null,
+          "input": "那好评呢？",
+          "kind": "themes",
+          "parent_override": null,
+          "selection_changes": null,
+          "strict_business_completion": {
+            "status": "pending",
+            "approved_value": null
+          },
+          "v1_original_turn": {
+            "adjudication": "PENDING_HUMAN",
+            "clarification_must_execute_zero": false,
+            "conversation_override": null,
+            "data_mode": null,
+            "expected_analysis_intent": "aspect_drilldown",
+            "expected_analysis_state": {
+              "pending_goal": "present",
+              "ranking_basis": "present"
+            },
+            "expected_final_status": {
+              "agent": "ok",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": "aspect_drilldown",
+              "aspects": [],
+              "blocked": false,
+              "sentiment": "positive"
+            },
+            "expected_request_goal": {
+              "aspect": null,
+              "levels": [
+                "themes"
+              ],
+              "sentiment": "positive"
+            },
+            "expected_required_tools": [
+              "get_aspect_drilldown"
+            ],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053"
+              ]
+            },
+            "expected_task_acceptance": {
+              "complete": false,
+              "status": "not_completed"
+            },
+            "expected_user_intent": {
+              "aspect": null,
+              "query_type": "aspect_drilldown",
+              "sentiment": "positive"
+            },
+            "fault": null,
+            "input": "那好评呢？",
+            "kind": "themes",
+            "parent_override": null,
+            "selection_changes": null,
+            "strict_business_completion": false
+          },
+          "human_review": {
+            "classification": "真正的层次歧义；原完成性预期自相矛盾",
+            "v1_findings": "v1 既写 themes/positive、ok/succeeded，又写 complete=false/status=not_completed，且 strict_business_completion=false；没有唯一正式业务答案。",
+            "recommendation_option_id": "G30-T3-A",
+            "recommendation_is_not_approval": true,
+            "independent_rationale": "原始句子没有明确统计或主题；默认零执行的澄清最少假设。此建议不是最终裁决。",
+            "possible_agent_defect": "若采纳 A 或 C，当前已执行两次 positive 主题模型并 complete=true 可能是错误目标完成；若采纳 B 则需完整验证主题证据。不能在人工选择前判 PASS。",
+            "options": [
+              {
+                "id": "G30-T3-A",
+                "label": "先区分正向统计还是正向主题（建议）",
+                "business_meaning": "positive 和 053 已明确，但旧待办 themes 与上轮已完成统计存在两种可承接层次。先澄清，不替用户执行其中一种。",
+                "contract_evidence": [
+                  "C02",
+                  "C08",
+                  "C09"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "not_finalized",
+                  "expected_analysis_state": {
+                    "pending_goal": "present",
+                    "ranking_basis": "present"
+                  },
+                  "expected_final_status": {
+                    "agent": "unsupported",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "awaiting_aspect",
+                  "expected_query_plan": {
+                    "blocked": true,
+                    "analysis_type": null,
+                    "aspects": [],
+                    "sentiment": "positive"
+                  },
+                  "expected_request_goal": null,
+                  "expected_required_tools": [],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "representation_rule": "absent_or_explicit_failure",
+                    "permitted_representations": [
+                      null,
+                      {
+                        "status": "failed",
+                        "complete": false
+                      }
+                    ],
+                    "complete_true_forbidden": true
+                  },
+                  "expected_user_intent": {
+                    "needs_clarification": true
+                  }
+                },
+                "execution_constraints": {
+                  "business_query_executions": 0,
+                  "classification_attempts": 0,
+                  "must_not_publish_evidence": true,
+                  "catalog_reads_before_planning_are_not_business_queries": true
+                },
+                "risk_if_misapplied": [
+                  "不能直接统计来降级原 themes，也不能用主题分类把未确认层次变成事实。"
+                ],
+                "representation_notes": [
+                  "旧 negative/themes pending 作为未完成历史保持，不改写成 positive 已完成；当前 positive 是已知澄清条件。",
+                  "awaiting_aspect 为现有待办状态，仅保留原待办；不发明 awaiting_level API 枚举。",
+                  "待用户后续明确选项，才冻结新 Goal 并显式说明延续或替换旧目标。"
+                ],
+                "implementation_implication": "若人工选择先澄清，当前自动执行 positive/themes 的轨迹不符合；未来单独记录普通业务缺陷，本轮不修。"
+              },
+              {
+                "id": "G30-T3-B",
+                "label": "明确约定短情感追问延续待办主题层次",
+                "business_meaning": "将“那好评呢”定义为把待办主题目标切换到正向总体主题；不是正向排名统计。旧 negative 目标被本轮意图替换但不标为已完成。",
+                "contract_evidence": [
+                  "C08",
+                  "C09"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "aspect_drilldown",
+                  "expected_analysis_state": {
+                    "pending_goal": "present",
+                    "ranking_basis": "present"
+                  },
+                  "expected_final_status": {
+                    "agent": "ok",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "analysis_type": "aspect_drilldown",
+                    "aspects": [],
+                    "blocked": false,
+                    "sentiment": "positive"
+                  },
+                  "expected_request_goal": {
+                    "aspect": null,
+                    "levels": [
+                      "themes"
+                    ],
+                    "sentiment": "positive"
+                  },
+                  "expected_required_tools": [
+                    "get_aspect_drilldown"
+                  ],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "status": "passed",
+                    "complete": true
+                  },
+                  "expected_user_intent": {
+                    "aspect": null,
+                    "query_type": "aspect_drilldown",
+                    "sentiment": "positive"
+                  }
+                },
+                "execution_constraints": {
+                  "business_query_executions": 2,
+                  "classification_attempts": 2,
+                  "tool": "get_aspect_drilldown",
+                  "parameters": {
+                    "product_ids": [
+                      "100013588053"
+                    ],
+                    "aspect": null,
+                    "sentiment": "positive"
+                  },
+                  "complete_only_if_theme_and_evidence_validation_pass": true,
+                  "negative_pending_not_marked_complete": true
+                },
+                "risk_if_misapplied": [
+                  "用户本意若为好评数量，则分类目标及两次模型调用均错误。",
+                  "仅统计一级维度不能完成该候选语义。"
+                ],
+                "representation_notes": [],
+                "implementation_implication": "当前轨迹在此候选语义下可能满足程序验收；必须先由负责人确定承接规则，不能用输出反证该选择正确。"
+              },
+              {
+                "id": "G30-T3-C",
+                "label": "明确约定本轮替换为总体好评统计",
+                "business_meaning": "将该短句定义为以 positive 总体统计替换旧待办主题，不继承 themes；这必须是人工选定的业务规则，不能用于制造通过。",
+                "contract_evidence": [
+                  "C09"
+                ],
+                "proposed_expectations": {
+                  "expected_analysis_intent": "positive_aspects",
+                  "expected_analysis_state": {
+                    "pending_goal": "present",
+                    "ranking_basis": "present"
+                  },
+                  "expected_final_status": {
+                    "agent": "ok",
+                    "worker": "succeeded"
+                  },
+                  "expected_pending_goal": "absent",
+                  "expected_query_plan": {
+                    "blocked": false,
+                    "analysis_type": "positive_aspects",
+                    "aspects": [],
+                    "sentiment": "positive"
+                  },
+                  "expected_request_goal": {
+                    "levels": [
+                      "statistics"
+                    ],
+                    "aspect": null,
+                    "sentiment": "positive"
+                  },
+                  "expected_required_tools": [
+                    "get_positive_aspects"
+                  ],
+                  "expected_scope": {
+                    "date_from": "2023-02-01",
+                    "date_to": "2023-02-28",
+                    "product_ids": [
+                      "100013588053"
+                    ]
+                  },
+                  "expected_task_acceptance": {
+                    "status": "passed",
+                    "complete": true
+                  },
+                  "expected_user_intent": {
+                    "query_type": "aspect_summary",
+                    "aspect": null,
+                    "sentiment": "positive"
+                  }
+                },
+                "execution_constraints": {
+                  "business_query_executions": 2,
+                  "classification_attempts": 0,
+                  "tool": "get_positive_aspects",
+                  "complete_only_if_statistics_validation_pass": true
+                },
+                "risk_if_misapplied": [
+                  "短句未写“总体统计”；若用户要延续 themes，这会降低任务目标。",
+                  "旧 negative/themes 只能记录为被替换，不能声称完成。"
+                ],
+                "representation_notes": [],
+                "implementation_implication": "当前 positive/themes 执行不符合统计语义；需要另行业务修复和回归，本轮不改代码。"
+              }
+            ],
+            "final_human_decision": {
+              "status": "pending",
+              "selected_option_id": null,
+              "reviewed_by": null,
+              "reviewed_at": null,
+              "reason": null,
+              "approved": null
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "rag_contract": "Frozen RAG contract separate from P0-B RequestGoal; empty candidates may have outer ok but cannot count as factual task completion.",
+  "scope": {
+    "as_of": null,
+    "base_url": "https://labels.stage1.invalid/v1",
+    "baseline_from": "2023-01-01",
+    "baseline_to": "2023-01-31",
+    "dataset_version": "stage1-synthetic-v1",
+    "date_from": "2023-02-01",
+    "date_to": "2023-02-28",
+    "model": "stage1-labels",
+    "product_ids": [
+      "100013588053",
+      "100013588055"
+    ],
+    "prompt_version": "stage1-labels-v1",
+    "source": "reviews_csv"
+  },
+  "state_contract": "expected_analysis_state is the scope-filtered trusted input state; expected_pending_goal is the post-turn restorable pending goal.",
+  "version": "agent-stage1-oracle-v2-pending-v1",
+  "publication_status": "pending_human_decision",
+  "scoring_enabled": false,
+  "formal_oracle_v2_created": false,
+  "approval": {
+    "status": "pending",
+    "approved_by": null,
+    "approved_at": null
+  },
+  "basis": {
+    "v1_oracle_sha256": "08b9af5a94f8d86ba44d355f7d72d1482885c357d7d1429564850375af441e42",
+    "v1_corpus_sha256": "ffc3b996e855417cc259cfa148e49c903f7e82398e7065656282a491bc2b3775",
+    "v1_manifest_sha256": "34d84f0be984ec86db93ffe3e644e20daafb37fe4621c3930b6c248c939fa356",
+    "source_revision_v3_sha256": "4c42e621869338ed038d524200959ae29d028a3ed2c517b2831f84c9923946a5",
+    "source_revision_v4_sha256": "0a5912158d9d643844338e80e809eac91fc5a35ad409d3be2a1efb519fc6add0"
+  },
+  "draft_created_on": "2026-11-11",
+  "original_frozen_at_utc": "2026-11-10T15:10:21.608767+00:00",
+  "pending_turn_ids": [
+    "G10-T2",
+    "G11-T2",
+    "G12-T1",
+    "G12-T2",
+    "G17-T2",
+    "G18-T2",
+    "G19-T2",
+    "G20-T2",
+    "G24-T2",
+    "G30-T3"
+  ],
+  "unmodified_turn_count": 52,
+  "formal_v2_expected_denominator": null,
+  "source_contracts": {
+    "C01": {
+      "path": "src/data_analysis_agent/jobs/analysis_context.py",
+      "lines": [
+        11,
+        29,
+        45,
+        65,
+        92
+      ],
+      "rule": "同会话、同标注身份和合法范围才恢复；用户原文条件与可信事实分离。",
+      "sha256": "2106775c15d8167382bc54e3591f6ec8eb7bc81cdf32929cf48580a7fbcb9105"
+    },
+    "C02": {
+      "path": "src/data_analysis_agent/jobs/analysis_state.py",
+      "lines": [
+        37,
+        100,
+        122,
+        136
+      ],
+      "rule": "排名与待办分别严格验收、精确范围投影；当前 pending 恢复仅负向、无单维度、单商品的合法澄清任务。",
+      "sha256": "6974b5be3402962aadd730b8a22dcb1b6f0097181dce140a8ad1ef2b27b5449f"
+    },
+    "C03": {
+      "path": "src/data_analysis_agent/agents/review_multi_aspect.py",
+      "lines": [
+        108,
+        162,
+        190,
+        241,
+        245
+      ],
+      "rule": "P6 必做维度不变；全部完成才 complete=true，有已验收成功维且未全完成则 partial。",
+      "sha256": "ac067d2057a69c5ed1232aec42ff001ed9e90ec219074888ef416a384706e696"
+    },
+    "C04": {
+      "path": "src/data_analysis_agent/agents/review_publication.py",
+      "lines": [
+        99,
+        138,
+        147
+      ],
+      "rule": "只公开 publishable_aspects，父 partial 对外 partial、complete=false，逐维原因保留。",
+      "sha256": "c103266a3947b706583a54a4c669842054dc22b8ea6a765e21e0c00d34600db4"
+    },
+    "C05": {
+      "path": "src/data_analysis_agent/agents/review_preparation.py",
+      "lines": [
+        111,
+        149,
+        165
+      ],
+      "rule": "统计 D/六维 M 变化先报 stale_ranking，未预读观点、未分类；不重新选前三。",
+      "sha256": "8ec814317f9895283f5198d2b65893f96e0113361cff6ef07a35365b98f6b4de"
+    },
+    "C06": {
+      "path": "src/data_analysis_agent/agents/reviews.py",
+      "lines": [
+        122,
+        193,
+        204,
+        210,
+        419,
+        427,
+        492
+      ],
+      "rule": "缺可信排名先澄清；stale 准备错误走 unsupported；Goal 已有但未完成时任务验收 complete=false。",
+      "sha256": "c75e3eee893c9b97aa1290b0c52f3ad18030835f87d155dcef6ced05cfda807c"
+    },
+    "C07": {
+      "path": "src/data_analysis_agent/jobs/worker.py",
+      "lines": [
+        188,
+        263,
+        267,
+        294
+      ],
+      "rule": "受控 unsupported 可 succeeded；P6 通过校验的 partial 为 Worker partial；error/校验失败为 failed。",
+      "sha256": "15b666f7789fba018232b87dbf636d510c982ae91c1b07ad72d7750eecaf0946"
+    },
+    "C08": {
+      "path": "src/data_analysis_agent/agents/review_intent.py",
+      "lines": [
+        115,
+        183,
+        207,
+        229,
+        240
+      ],
+      "rule": "未明确任务不执行；RAG 省略追问先澄清；当前短情感追问可承接待完成 themes，但该代码不裁决业务语义。",
+      "sha256": "a86a42c895046a378745017f6cf82c834cfba2bb2509581a494ee9b6916f6c15"
+    },
+    "C09": {
+      "path": "src/data_analysis_agent/agents/review_acceptance.py",
+      "lines": [
+        41,
+        109,
+        135,
+        162,
+        184
+      ],
+      "rule": "原始 Goal 在 Planner 前独立形成；not_completed 不是任务验收状态，未完成不能 complete=true。",
+      "sha256": "52cd912c94c9e0c31dae3f39ba97a7ffb7a9ba4572325bfe960ba8fd87f6e8e7"
+    },
+    "C10": {
+      "path": "scripts/summarize_agent_stage1_evaluation.py",
+      "lines": [
+        11,
+        35,
+        75,
+        98
+      ],
+      "rule": "v1 历史评分将无主计划投影为 not_finalized，保留原 10 轮 REVIEW；本轮不调用或修改评分。",
+      "sha256": "7dbcad36c865a677b0d1edbe8eceb112456f066ce12c49bae78285f116a8e4ae"
+    },
+    "C11": {
+      "path": "scripts/freeze_agent_stage1_evaluation.py",
+      "lines": [
+        31,
+        37,
+        89
+      ],
+      "rule": "原作者将 partial 映成 failed；not_completed 为预期生成标签；G30 原本已声明待人工裁决。",
+      "sha256": "82ce71e5a41ccefaa4dd59ea2c7169d10433d6439773c2e248bd18f0e2c3f201"
+    }
+  },
+  "observation_reference": {
+    "path": "docs/evaluation/agent-stage1-human-review-observations.json",
+    "sha256": "210c9415904182a1189e3faeb658392a4df472b347605dc8a214971f69fad1c6",
+    "role": "non_normative_evidence_only"
+  },
+  "scoring_boundary": "Do not feed this pending schema to any scorer. V1 scoring/exclusions/results remain unchanged. No official v2 score.",
+  "completion_and_metric_policy_pending": true
+}

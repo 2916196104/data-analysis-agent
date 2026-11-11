@@ -1,0 +1,39 @@
+--- v4/review_acceptance.py
++++ v5/review_acceptance.py
+@@ -116,6 +116,9 @@
+         inherited_aspect, inherited_topic = params.get('aspect'), params.get('topic')
+         from data_analysis_agent.jobs.analysis_state import pending_context
+         pending, users = pending_context(context)
++        if aspect and REFERENCE.fullmatch(text.strip()) and last.get('kind') == 'semantic_evidence':
++            # 维度明确不代表统计、主题或检索命题已明确。
++            return None
+         if pending:
+             prior_level = pending['levels'][0]
+             inherited_sentiment = pending['sentiment'] or inherited_sentiment
+@@ -132,6 +135,10 @@
+                     inherited_topic = prior.topic or inherited_topic
+                     if not REFERENCE.fullmatch(user['question'].strip()):
+                         prior_level = prior.levels[0]
++        if (prior_level == 'themes' and re.fullmatch(r'(?:那|那么|然后)?(?:好评|差评|正面|负面|优点|缺点|投诉)(?:呢|吧)?[？?。]*', text.strip())
++                and last.get('kind') in ('issues', 'positive_aspects') and not params.get('aspect')):
++            # 结构化待办或合法用户请求都可能与已完成统计竞争；这里只澄清，不恢复事实。
++            return None
+         switch = bool(ASPECT_SWITCH.fullmatch(text.strip()) and len(queries) == 1)
+         count_reference = bool(re.fullmatch(r'(?:那|那么)?(?:有多少条|多少条|几条|数量呢)[？?。]*', text.strip()))
+         reference = bool(REFERENCE.fullmatch(text.strip()) or re.search(r'^那再往里挖', text) or switch)
+--- v4/review_intent.py
++++ v5/review_intent.py
+@@ -205,7 +205,13 @@
+         raise QuestionScopeError(f'上轮包含{labels}。这次要看该维度的汇总、趋势还是原文？')
+     last = selected[0]
+     if last['kind'] == 'semantic_evidence':
++        if short_aspect:
++            raise QuestionScopeError('这次要看该维度的统计、主题具体表现，还是检索某个具体反馈？请明确分析目标。')
+         raise QuestionScopeError('上轮为语义检索，请补充完整的检索问题；省略追问不能自动改为按时间浏览原文。')
++    if (short_sentiment and conditions.get('pending_query_type') == 'aspect_drilldown'
++            and last['kind'] in ('issues', 'positive_aspects') and not last['parameters'].get('aspect')):
++        direction = '好评' if detect_sentiment_intent(question) == 'positive' else '差评'
++        raise QuestionScopeError(f'本轮要查看{direction}统计，还是{direction}的主题具体表现？原未完成的主题目标仍保留，请明确分析层次。')
+     if summary_ref and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown'}:
+         raise QuestionScopeError('上轮是' + KIND_LABELS.get(last['kind'], last['kind']) + '。这次要继续该统计，还是查看评价维度和观点细分？')
+     if short_period and last['kind'] not in {'trend', 'aspect_trend', 'ratings'}:

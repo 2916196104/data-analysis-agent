@@ -1,0 +1,404 @@
+{
+  "provenance": "New fictional offline records; not production comments or existing human/RAG gold assets.",
+  "rows": [
+    {
+      "opinions": [
+        {
+          "aspect": "logistics",
+          "quote": "物流很慢",
+          "quote_end": 9,
+          "quote_start": 5,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "service",
+          "quote": "客服回复缓慢",
+          "quote_end": 16,
+          "quote_start": 10,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "quality",
+          "quote": "外壳开裂",
+          "quote_end": 21,
+          "quote_start": 17,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "effectiveness",
+          "quote": "降温速度慢",
+          "quote_end": 27,
+          "quote_start": 22,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "price",
+          "quote": "价格太高",
+          "quote_end": 32,
+          "quote_start": 28,
+          "sentiment": "negative"
+        }
+      ],
+      "product_id": "100013588053",
+      "published_at": "2023-02-10T00:00:00+00:00",
+      "review_id": 1,
+      "text": "合成评论：物流很慢；客服回复缓慢；外壳开裂；降温速度慢；价格太高"
+    },
+    {
+      "opinions": [
+        {
+          "aspect": "logistics",
+          "quote": "物流很慢",
+          "quote_end": 9,
+          "quote_start": 5,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "service",
+          "quote": "客服回复缓慢",
+          "quote_end": 16,
+          "quote_start": 10,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "quality",
+          "quote": "外壳开裂",
+          "quote_end": 21,
+          "quote_start": 17,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "effectiveness",
+          "quote": "降温速度慢",
+          "quote_end": 27,
+          "quote_start": 22,
+          "sentiment": "negative"
+        }
+      ],
+      "product_id": "100013588053",
+      "published_at": "2023-02-13T00:00:00+00:00",
+      "review_id": 2,
+      "text": "合成评论：物流很慢；客服回复缓慢；外壳开裂；降温速度慢"
+    },
+    {
+      "opinions": [
+        {
+          "aspect": "logistics",
+          "quote": "物流很慢",
+          "quote_end": 9,
+          "quote_start": 5,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "service",
+          "quote": "客服回复缓慢",
+          "quote_end": 16,
+          "quote_start": 10,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "effectiveness",
+          "quote": "降温速度慢",
+          "quote_end": 22,
+          "quote_start": 17,
+          "sentiment": "negative"
+        }
+      ],
+      "product_id": "100013588053",
+      "published_at": "2023-02-16T00:00:00+00:00",
+      "review_id": 3,
+      "text": "合成评论：物流很慢；客服回复缓慢；降温速度慢"
+    },
+    {
+      "opinions": [
+        {
+          "aspect": "service",
+          "quote": "客服回复缓慢",
+          "quote_end": 11,
+          "quote_start": 5,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "effectiveness",
+          "quote": "降温速度慢",
+          "quote_end": 17,
+          "quote_start": 12,
+          "sentiment": "negative"
+        }
+      ],
+      "product_id": "100013588053",
+      "published_at": "2023-02-19T00:00:00+00:00",
+      "review_id": 4,
+      "text": "合成评论：客服回复缓慢；降温速度慢"
+    },
+    {
+      "opinions": [
+        {
+          "aspect": "service",
+          "quote": "客服回复缓慢",
+          "quote_end": 11,
+          "quote_start": 5,
+          "sentiment": "negative"
+        }
+      ],
+      "product_id": "100013588053",
+      "published_at": "2023-02-22T00:00:00+00:00",
+      "review_id": 5,
+      "text": "合成评论：客服回复缓慢"
+    },
+    {
+      "opinions": [],
+      "product_id": "100013588053",
+      "published_at": "2023-02-25T00:00:00+00:00",
+      "review_id": 6,
+      "text": "合成评论：暂无明确维度观点。"
+    },
+    {
+      "opinions": [
+        {
+          "aspect": "logistics",
+          "quote": "物流很快",
+          "quote_end": 9,
+          "quote_start": 5,
+          "sentiment": "positive"
+        },
+        {
+          "aspect": "service",
+          "quote": "客服态度好",
+          "quote_end": 15,
+          "quote_start": 10,
+          "sentiment": "positive"
+        },
+        {
+          "aspect": "quality",
+          "quote": "质量可靠",
+          "quote_end": 20,
+          "quote_start": 16,
+          "sentiment": "positive"
+        }
+      ],
+      "product_id": "100013588053",
+      "published_at": "2023-02-26T00:00:00+00:00",
+      "review_id": 7,
+      "text": "合成评论：物流很快；客服态度好；质量可靠"
+    },
+    {
+      "opinions": [
+        {
+          "aspect": "logistics",
+          "quote": "物流很快",
+          "quote_end": 9,
+          "quote_start": 5,
+          "sentiment": "positive"
+        },
+        {
+          "aspect": "service",
+          "quote": "客服态度好",
+          "quote_end": 15,
+          "quote_start": 10,
+          "sentiment": "positive"
+        },
+        {
+          "aspect": "quality",
+          "quote": "质量可靠",
+          "quote_end": 20,
+          "quote_start": 16,
+          "sentiment": "positive"
+        }
+      ],
+      "product_id": "100013588053",
+      "published_at": "2023-02-27T00:00:00+00:00",
+      "review_id": 8,
+      "text": "合成评论：物流很快；客服态度好；质量可靠"
+    },
+    {
+      "opinions": [
+        {
+          "aspect": "packaging",
+          "quote": "包装破了",
+          "quote_end": 9,
+          "quote_start": 5,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "logistics",
+          "quote": "物流很慢",
+          "quote_end": 14,
+          "quote_start": 10,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "service",
+          "quote": "客服回复缓慢",
+          "quote_end": 21,
+          "quote_start": 15,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "quality",
+          "quote": "外壳开裂",
+          "quote_end": 26,
+          "quote_start": 22,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "effectiveness",
+          "quote": "降温速度慢",
+          "quote_end": 32,
+          "quote_start": 27,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "price",
+          "quote": "价格太高",
+          "quote_end": 37,
+          "quote_start": 33,
+          "sentiment": "negative"
+        }
+      ],
+      "product_id": "100013588055",
+      "published_at": "2023-02-10T00:00:00+00:00",
+      "review_id": 101,
+      "text": "合成评论：包装破了；物流很慢；客服回复缓慢；外壳开裂；降温速度慢；价格太高"
+    },
+    {
+      "opinions": [
+        {
+          "aspect": "logistics",
+          "quote": "物流很慢",
+          "quote_end": 9,
+          "quote_start": 5,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "service",
+          "quote": "客服回复缓慢",
+          "quote_end": 16,
+          "quote_start": 10,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "quality",
+          "quote": "外壳开裂",
+          "quote_end": 21,
+          "quote_start": 17,
+          "sentiment": "negative"
+        }
+      ],
+      "product_id": "100013588055",
+      "published_at": "2023-02-13T00:00:00+00:00",
+      "review_id": 102,
+      "text": "合成评论：物流很慢；客服回复缓慢；外壳开裂"
+    },
+    {
+      "opinions": [
+        {
+          "aspect": "logistics",
+          "quote": "物流很慢",
+          "quote_end": 9,
+          "quote_start": 5,
+          "sentiment": "negative"
+        },
+        {
+          "aspect": "quality",
+          "quote": "外壳开裂",
+          "quote_end": 14,
+          "quote_start": 10,
+          "sentiment": "negative"
+        }
+      ],
+      "product_id": "100013588055",
+      "published_at": "2023-02-16T00:00:00+00:00",
+      "review_id": 103,
+      "text": "合成评论：物流很慢；外壳开裂"
+    },
+    {
+      "opinions": [
+        {
+          "aspect": "logistics",
+          "quote": "物流很慢",
+          "quote_end": 9,
+          "quote_start": 5,
+          "sentiment": "negative"
+        }
+      ],
+      "product_id": "100013588055",
+      "published_at": "2023-02-19T00:00:00+00:00",
+      "review_id": 104,
+      "text": "合成评论：物流很慢"
+    },
+    {
+      "opinions": [],
+      "product_id": "100013588055",
+      "published_at": "2023-02-22T00:00:00+00:00",
+      "review_id": 105,
+      "text": "合成评论：暂无明确维度观点。"
+    },
+    {
+      "opinions": [],
+      "product_id": "100013588055",
+      "published_at": "2023-02-25T00:00:00+00:00",
+      "review_id": 106,
+      "text": "合成评论：暂无明确维度观点。"
+    },
+    {
+      "opinions": [
+        {
+          "aspect": "logistics",
+          "quote": "物流很快",
+          "quote_end": 9,
+          "quote_start": 5,
+          "sentiment": "positive"
+        },
+        {
+          "aspect": "service",
+          "quote": "客服态度好",
+          "quote_end": 15,
+          "quote_start": 10,
+          "sentiment": "positive"
+        },
+        {
+          "aspect": "quality",
+          "quote": "质量可靠",
+          "quote_end": 20,
+          "quote_start": 16,
+          "sentiment": "positive"
+        }
+      ],
+      "product_id": "100013588055",
+      "published_at": "2023-02-26T00:00:00+00:00",
+      "review_id": 107,
+      "text": "合成评论：物流很快；客服态度好；质量可靠"
+    },
+    {
+      "opinions": [
+        {
+          "aspect": "logistics",
+          "quote": "物流很快",
+          "quote_end": 9,
+          "quote_start": 5,
+          "sentiment": "positive"
+        },
+        {
+          "aspect": "service",
+          "quote": "客服态度好",
+          "quote_end": 15,
+          "quote_start": 10,
+          "sentiment": "positive"
+        },
+        {
+          "aspect": "quality",
+          "quote": "质量可靠",
+          "quote_end": 20,
+          "quote_start": 16,
+          "sentiment": "positive"
+        }
+      ],
+      "product_id": "100013588055",
+      "published_at": "2023-02-27T00:00:00+00:00",
+      "review_id": 108,
+      "text": "合成评论：物流很快；客服态度好；质量可靠"
+    }
+  ],
+  "version": "agent-stage1-synthetic-corpus-v1"
+}

@@ -11,6 +11,8 @@ import type { AgentChat } from './useAgentChat';
 import Markdown from './Markdown';
 import { exportAgentReport } from './report-export';
 import PublicAnswerView from './PublicAnswerView';
+import P6Results from './P6Results';
+import { readP6Publication } from './p6-publication';
 
 export default function ChatMessage({ turn, chat, onPrepare }: {
   turn: ConversationTurn; chat: AgentChat; onPrepare: (result: AgentResult, products: string[]) => void;
@@ -46,7 +48,10 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
   const state = active ? chat.activeState : archivedState;
   const task = state.id === turn.taskId ? state.task : null;
   const savedResult = task?.result?.agent === true ? task.result as unknown as AgentResult : undefined;
-  const result = task?.status === 'succeeded' && !task.error && savedResult
+  const publication = readP6Publication(savedResult);
+  const p6Result = publication && task?.status === ({ ok: 'succeeded', partial: 'partial', unsupported: 'succeeded', error: 'failed' }[publication.status])
+    && (!task.error || (task.status === 'partial' && task.error.code === 'partial_result') || task.status === 'failed') ? savedResult : undefined;
+  const result = !savedResult?.p6_publication && task?.status === 'succeeded' && !task.error && savedResult
     && ['ok', 'unsupported'].includes(savedResult.status) && savedResult.validation?.status !== 'failed'
     && (!savedResult.public_answer || ['ok', 'unsupported'].includes(savedResult.public_answer.status)) ? savedResult : undefined;
   const [detail, setDetail] = useState<{ value: unknown; title: string }>();
@@ -111,14 +116,15 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
         {turn.taskId && !task && !state.error && <div className="chat-status" role="status"><Spin size="small" /> 正在读取任务…</div>}
         {state.error && <Alert type="error" showIcon message="任务连接异常" description={state.error} action={<Button onClick={state.refresh}>重新连接</Button>} />}
         {task && isActive(task.status) && <div className="chat-status" role="status"><Spin size="small" /> {task.progress.stage === 'starting' ? '正在准备分析，首次本地检索可能需要加载模型，请稍候…' : stageLabels[task.progress.stage] || '正在分析…'}</div>}
-        {task?.error && task.status !== 'partial' && <Alert type="error" showIcon message={topicFailures.length ? '主题分析未完成' : task.error.message === 'embedding_failed' ? '本地语义检索暂不可用，请检查模型运行配置后重试。' : task.error.message}
+        {task?.error && task.status !== 'partial' && !p6Result && <Alert type="error" showIcon message={topicFailures.length ? '主题分析未完成' : task.error.message === 'embedding_failed' ? '本地语义检索暂不可用，请检查模型运行配置后重试。' : task.error.message}
           description={failureDetails} />}
-        {task?.status === 'partial' && <Alert type="warning" showIcon message="任务部分完成"
+        {task?.status === 'partial' && !p6Result && <Alert type="warning" showIcon message="任务部分完成"
           description={<>完整回答尚未确认，统计与原文暂不展示。可以重试任务。{topicFailures.length > 0 && failureDetails}</>} />}
-        {task?.status === 'failed' && <p role="status">分析未完成，未发布统计与原文。请重试任务。</p>}
-        {task?.status === 'succeeded' && savedResult && !result && <Alert type="error" message="分析结果未通过校验，未发布回答。" />}
+        {task?.status === 'failed' && !p6Result && <p role="status">分析未完成，未发布统计与原文。请重试任务。</p>}
+        {task?.status === 'succeeded' && savedResult && !result && !p6Result && <Alert type="error" message="分析结果未通过校验，未发布回答。" />}
         {chat.errors[turn.id] && turn.taskId && <Alert type="error" showIcon message="重试未完成" description={chat.errors[turn.id]} />}
         {task && canRetry(task.status) && <Button className="spaced" loading={active && chat.posting} disabled={chat.pending} onClick={() => void chat.retry(turn)}>重试任务</Button>}
+        {p6Result && <P6Results result={p6Result} taskId={turn.taskId} />}
         {result && <>
           {result.public_answer && ['ok', 'unsupported'].includes(result.public_answer.status)
             ? <PublicAnswerView answer={result.public_answer} evidence={(result.result_ids || []).flatMap(id => {

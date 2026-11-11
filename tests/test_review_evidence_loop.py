@@ -18,13 +18,14 @@ from data_analysis_agent.agents.review_evidence_semantics import evidence_relati
 from data_analysis_agent.reviews import analytics
 
 
+PACKAGING_STAT_CONTEXT = '执行本轮已确认的只读查询\n' + json.dumps({
+    'tool':'get_top_issues','parameters':{'aspect':'packaging'},
+    'question':'包装差评有多少条，具体如何解读？'})
+
+
 class EvidenceLoopTests(EvidenceFixture):
     execute_plan=plan_fixture.QueryPlanTests.execute_plan
     def run_sync(self, question):
-        # 内容问句现在直接查询观点；补查回归仍从已确认的一级统计计划开始。
-        if question == '包装差评具体反映什么问题？':
-            question = '执行本轮已确认的只读查询\n' + json.dumps({
-                'tool': 'get_top_issues', 'parameters': {'aspect': 'packaging'}, 'question': question})
         return plan_fixture.QueryPlanTests.run_sync(self, question)
 
     def setUp(self):
@@ -37,8 +38,9 @@ class EvidenceLoopTests(EvidenceFixture):
     def test_packaging_auto_query_and_local_layer_relation_without_external_topic_text(self):
         before=hashlib.sha256(self.db.read_bytes()).hexdigest()
         with patch('data_analysis_agent.agents.review_topics.analyze_aspect_topics',side_effect=AssertionError('no automatic raw egress')):
-            result=self.run_sync('包装差评具体反映什么问题？')
+            result=self.run_sync(PACKAGING_STAT_CONTEXT)
         self.assertEqual(result['status'],'ok',result.get('error'))
+        self.assertTrue(result['task_plan_check']['passed'])
         record=result['evidence_completion']
         self.assertEqual((record['cycles'],record['status'],record['additional_tool_calls']),(1,'completed',1))
         self.assertEqual(record['requests'][0]['tool'],'get_opinion_breakdown')
@@ -70,7 +72,7 @@ class EvidenceLoopTests(EvidenceFixture):
         self.assertEqual(read_public_analysis({'status':'succeeded','result':invalid})['status'],'failed')
 
     def test_budget_exhaustion_fails_without_supplement_or_false_success(self):
-        query='执行本轮已确认的只读查询\n'+json.dumps({'tool':'get_top_issues','parameters':{'aspect':'packaging'},'question':'包装差评具体反映什么问题？'})
+        query=PACKAGING_STAT_CONTEXT
         with patch('openai.OpenAI',side_effect=AssertionError('no model')):
             result=run_review_agent(self.db,query,scope=self.scope(),settings=replace(SETTINGS,max_tool_calls=2))
         self.assertEqual(result['status'],'error')
@@ -87,7 +89,7 @@ class EvidenceLoopTests(EvidenceFixture):
                 data['items'][0]['opinions'][0]['quote']='不存在的伪造原文'
                 return data
             with self.subTest(invalid=invalid),patch.object(analytics,'get_opinion_breakdown',side_effect=broken):
-                result=self.run_sync('包装差评具体反映什么问题？')
+                result=self.run_sync(PACKAGING_STAT_CONTEXT)
             self.assertEqual(result['status'],'error')
             self.assertEqual(result['evidence_completion']['status'],'failed')
             self.assertNotEqual(result['public_answer']['status'],'ok')
@@ -116,7 +118,7 @@ class EvidenceLoopTests(EvidenceFixture):
             self.assertNotEqual(result['public_answer']['status'],'ok')
 
     def test_unrecognized_negated_or_wrong_product_quotes_do_not_gain_semantic_roles(self):
-        result=self.run_sync('包装差评具体反映什么问题？')
+        result=self.run_sync(PACKAGING_STAT_CONTEXT)
         context=CompactAnalysisContext.model_validate(result['compact_context'])
         context.evidence[0].product_id='IE-LOG-A'
         catalog,_=fact_catalog(context)
@@ -137,7 +139,7 @@ class EvidenceLoopTests(EvidenceFixture):
         self.assertFalse(result['evidence_completion']['automatic'])
 
     def test_changed_sample_between_transactions_is_rejected(self):
-        result=self.run_sync('包装差评具体反映什么问题？')
+        result=self.run_sync(PACKAGING_STAT_CONTEXT)
         context=CompactAnalysisContext.model_validate(result['compact_context'])
         request=result['evidence_completion']['requests'][0]
         child=deepcopy({key:result['results'][key]for key in request['result_ids']})

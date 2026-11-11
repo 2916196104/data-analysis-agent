@@ -1,0 +1,14 @@
+{
+  "files": {
+    "scripts/freeze_agent_stage1_evaluation.py": "82ce71e5a41ccefaa4dd59ea2c7169d10433d6439773c2e248bd18f0e2c3f201",
+    "scripts/summarize_agent_stage1_evaluation.py": "698114916b3f9dbee0e65ca421e7a95c8c065d3b8cb401d0c5fc49ede5a8e9ab",
+    "scripts/check_agent_stage1_offline.py": "4c4076c2e765ec89347f51b01de3ad8beca3551bc4498f3b664b7c9141145835",
+    "tests/agent_stage1_multiturn_evaluation.py": "5846dd662545665bc69288ec88f7b6ec2adcc6aa2447754dd95196a28c101996",
+    "tests/test_agent_stage1_evaluation.py": "f13f138b63861ad1adff604ff74e2083a52acbe7667639bb624f2577581c3fb3",
+    "docs/agent-stage1-multiturn-business-evaluation.md": "52c8742dcc3f5a2cf63a04e24da91d77fcc8dc87deab7a40a943cf49c4d4253d",
+    "docs/evaluation/agent-stage1/turns.jsonl": "65be109f9b0ad6977ba637d9e62866e8c7bc040240885bac3dddb275060a4407",
+    "docs/evaluation/agent-stage1/metrics.json": "7c3c3e0a6f76504f4d6a395f926005cb3ebf5af644dc7f72e5fedd0ffc1c1cbc",
+    "docs/evaluation/agent-stage1/secondary-probes.json": "d546882711c71d79b04d821ed284e9f6259eff885b918ddfdbef6dc27276f36b"
+  },
+  "verification": "Production source and independent oracle unchanged; all data boundaries simulated; no real DB/network/model execution."
+}

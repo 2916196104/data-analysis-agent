@@ -1,0 +1,29 @@
+{
+  "verified_at": "2026-11-11T12:29:41.069536+08:00",
+  "timezone": "Asia/Taipei",
+  "protected_old_files": 462,
+  "old_files_changed": [],
+  "freeze_bindings": "PASS",
+  "report_matrix_turns": 62,
+  "matches_actual_assessment": true,
+  "matcher_tests": {
+    "executed": 71,
+    "failures": 0,
+    "skips": 0
+  },
+  "business_evaluation": {
+    "groups": 30,
+    "turns": 62,
+    "PASS": 59,
+    "FAIL": 3,
+    "pending": 0
+  },
+  "zero_real_operations": {
+    "postgresql_connections": 0,
+    "paid_model_calls": 0,
+    "embedding_calls": 0,
+    "forbidden_attempts": []
+  },
+  "p6e1b": "BLOCKED",
+  "PG01_PG08": "NOT EXECUTED"
+}

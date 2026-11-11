@@ -161,7 +161,9 @@ class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
             'parameters': {'aspect': 'logistics'}, 'question': '物流差评主要体现在哪里？'})
         result = self.run_local(question)
         self.assertEqual(result['status'], 'error')
-        self.assertEqual(result['evidence_completion']['status'], 'completed')
+        self.assertEqual(result['evidence_completion']['status'], 'not_started')
+        self.assertFalse(result['task_plan_check']['passed'])
+        self.assertEqual(result['query_executions'], 0)
         self.assertFalse(result['task_acceptance']['complete'])
         self.assertNotEqual(result['public_answer']['status'], 'ok')
         with patch.object(analytics, 'get_opinion_breakdown', side_effect=TimeoutError('offline failure')):
@@ -193,9 +195,11 @@ class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
             self.assertNotIn(phrase, json.dumps(answer, ensure_ascii=False))
 
     def test_one_controlled_supplement_and_failure_protection(self):
-        question = self.explicit('客服方面有什么问题？')
+        # 合法补证从已满足统计目标的主计划出发；冲突目标由上例验证零查询。
+        question = self.explicit('客服差评有多少条，具体如何解读？')
         result = self.run_local(question)
         self.assertEqual(result['status'], 'ok', result.get('error'))
+        self.assertTrue(result['task_plan_check']['passed'])
         record = result['evidence_completion']
         self.assertEqual((record['cycles'], record['additional_tool_calls'], record['status']), (1, 1, 'completed'))
         self.assertEqual(record['requests'][0]['tool'], 'get_opinion_breakdown')

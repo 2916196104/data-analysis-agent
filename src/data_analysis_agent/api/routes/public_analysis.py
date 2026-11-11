@@ -21,6 +21,17 @@ def create_router(task_db):
         is_agent = isinstance(result, dict) and result.get("agent") is True
         if task["kind"] != "analysis" or not (is_agent or isinstance(task.get("parameters", {}).get("question"), str)):
             raise ReviewDataError("该任务不是评论 Agent 分析。")
+        if isinstance(result, dict) and 'p6_publication' in result:
+            from data_analysis_agent.agents.review_publication import read_p6_publication, public_answer
+            from data_analysis_agent.agents.review_compression import empty_public
+            publication = read_p6_publication(task)
+            if publication is None:
+                return ok_result({'task_id': task_id, 'status': task['status'], 'p6_publication': None,
+                    'public_analysis': empty_public('failed').model_dump(),
+                    'public_answer': read_public_answer({'status': 'failed'})})
+            return ok_result({'task_id': task_id, 'status': task['status'], 'p6_publication': publication,
+                'public_analysis': empty_public(publication['status']).model_dump(),
+                'public_answer': public_answer(publication)})
         analysis = read_public_analysis(task)
         return ok_result({"task_id": task["task_id"], "status": task["status"], "public_analysis": analysis,
                           "public_answer": read_public_answer(task, public_analysis=analysis)})

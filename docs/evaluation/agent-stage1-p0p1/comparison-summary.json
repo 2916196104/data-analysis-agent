@@ -1,0 +1,264 @@
+{
+  "before_metrics": {
+    "state_context_inheritance": {
+      "passed": 46,
+      "total": 50,
+      "percent": 92.0
+    },
+    "intent_router": {
+      "passed": 43,
+      "total": 50,
+      "percent": 86.0
+    },
+    "request_goal": {
+      "passed": 46,
+      "total": 50,
+      "percent": 92.0
+    },
+    "planner": {
+      "passed": 43,
+      "total": 50,
+      "percent": 86.0
+    },
+    "tool_target_match": {
+      "passed": 41,
+      "total": 48,
+      "percent": 85.42
+    },
+    "validator_injected_error_interception": {
+      "passed": 2,
+      "total": 2,
+      "percent": 100.0
+    },
+    "turn_end_to_end_contract": {
+      "passed": 42,
+      "total": 52,
+      "percent": 80.77
+    },
+    "turn_strict_business_completion": {
+      "passed": 34,
+      "total": 43,
+      "percent": 79.07
+    },
+    "conversation_end_to_end_contract": {
+      "passed": 12,
+      "total": 21,
+      "percent": 57.14
+    }
+  },
+  "after_metrics": {
+    "state_context_inheritance": {
+      "passed": 49,
+      "total": 50,
+      "percent": 98.0
+    },
+    "intent_router": {
+      "passed": 48,
+      "total": 50,
+      "percent": 96.0
+    },
+    "request_goal": {
+      "passed": 48,
+      "total": 50,
+      "percent": 96.0
+    },
+    "planner": {
+      "passed": 48,
+      "total": 50,
+      "percent": 96.0
+    },
+    "tool_target_match": {
+      "passed": 46,
+      "total": 48,
+      "percent": 95.83
+    },
+    "validator_injected_error_interception": {
+      "passed": 2,
+      "total": 2,
+      "percent": 100.0
+    },
+    "turn_end_to_end_contract": {
+      "passed": 47,
+      "total": 52,
+      "percent": 90.38
+    },
+    "turn_strict_business_completion": {
+      "passed": 39,
+      "total": 43,
+      "percent": 90.7
+    },
+    "conversation_end_to_end_contract": {
+      "passed": 17,
+      "total": 21,
+      "percent": 80.95
+    }
+  },
+  "fixed_turns": [
+    "G13-T2",
+    "G14-T2",
+    "G15-T2",
+    "G22-T2",
+    "G23-T2"
+  ],
+  "regressions_of_prior_passes": [],
+  "pending_human": {
+    "G10-T2": "无可信身份历史时，原预期仍指定 negative 和单商品，缺少独立语义依据。",
+    "G11-T2": "新会话无商品/情感线索，原预期单商品及 negative 需人工裁决。",
+    "G12-T1": "首轮具体表现未指定情感，原预期 negative 需人工裁决。",
+    "G12-T2": "上一轮未形成有效范围，原预期单商品及 negative 需人工裁决。",
+    "G17-T2": "原预期父级业务状态误写 failed；P6 契约要求 partial。保留原预期，状态字段待裁决。",
+    "G18-T2": "原预期父级业务状态误写 failed；P6 契约要求 partial。保留原预期，状态字段待裁决。",
+    "G19-T2": "原预期父级业务状态误写 failed；P6 契约要求 partial。保留原预期，状态字段待裁决。",
+    "G20-T2": "原预期 not_completed 不属于已冻结业务验收状态；过期排名的 complete=false、unsupported 阻断可独立确认，状态枚举待裁决。",
+    "G24-T2": "原预期将“客服呢？”澄清轮继续定义为冻结 RAG 请求且 RequestGoal=None；该新请求的层次本就不唯一，需人工裁决。",
+    "G30-T3": "冻结前已声明短情感追问的业务层次待人工裁决。"
+  },
+  "group_states": {
+    "G01": "PASS",
+    "G02": "PASS",
+    "G03": "PASS",
+    "G04": "PASS",
+    "G05": "FAIL",
+    "G06": "PASS",
+    "G07": "PASS",
+    "G08": "PASS",
+    "G09": "FAIL",
+    "G10": "PENDING_HUMAN",
+    "G11": "PENDING_HUMAN",
+    "G12": "PENDING_HUMAN",
+    "G13": "PASS",
+    "G14": "PASS",
+    "G15": "PASS",
+    "G16": "PASS",
+    "G17": "PENDING_HUMAN",
+    "G18": "PENDING_HUMAN",
+    "G19": "PENDING_HUMAN",
+    "G20": "PENDING_HUMAN",
+    "G21": "PASS",
+    "G22": "PASS",
+    "G23": "PASS",
+    "G24": "PENDING_HUMAN",
+    "G25": "FAIL",
+    "G26": "FAIL",
+    "G27": "PASS",
+    "G28": "PASS",
+    "G29": "PASS",
+    "G30": "PENDING_HUMAN"
+  },
+  "before_execution": ".cache/agent-stage1/run-07.json",
+  "after_execution": ".cache/agent-stage1-p0p1/run-02.json",
+  "real_paid_calls": 0,
+  "real_embedding_calls": 0,
+  "main_evaluation_db_connections": 0,
+  "main_evaluation_sqlite_writes": 0,
+  "blocked_external_dependencies": [],
+  "source_revision": {
+    "path": "docs/evaluation/agent-stage1-p0p1/source-revision.v2.json",
+    "sha256": "01ee264041b542f1a225ecf093cc8d3ebc196d8703da8c558ef95b972b79aa8c",
+    "binding": {
+      "version": "agent-stage1-p0-p1-source-revision-v2",
+      "baseline_manifest_sha256": "34d84f0be984ec86db93ffe3e644e20daafb37fe4621c3930b6c248c939fa356",
+      "production_source_sha256": {
+        "src/data_analysis_agent/agents/chat.py": "51b663d7e1a6f1d5525aa30d504fac50435c924902788d6bf74fe04924c53c25",
+        "src/data_analysis_agent/agents/reviews.py": "c75e3eee893c9b97aa1290b0c52f3ad18030835f87d155dcef6ced05cfda807c",
+        "src/data_analysis_agent/agents/review_acceptance.py": "4a424558852abd2eed454d6971b34e63e93df7d568419a6c253d66d130a778e6",
+        "src/data_analysis_agent/agents/review_answers.py": "f62c006aec20edfae5313b0471f1f2dab6aadc9fa309f8f20904f231bd508c94",
+        "src/data_analysis_agent/agents/review_answer_facts.py": "41929bb65472353e3a93fa4f5939e47bc729d586bd94280d45aeb96d4c675e6b",
+        "src/data_analysis_agent/agents/review_budget.py": "6ffe4c32509e2ee4319653b82d0d744cf2a7c059dcb0117956ef3e912b6ac01b",
+        "src/data_analysis_agent/agents/review_compression.py": "13888b571b84c3fc23ad7b13e673a38330b459410f2d688c5e371d7116aef16b",
+        "src/data_analysis_agent/agents/review_evidence.py": "02846166ace38f49ade226ae42ade409f36f9d9404999390f4d2816f206dbbda",
+        "src/data_analysis_agent/agents/review_evidence_loop.py": "b8d7e63ac71fd8ceba1f861ffb134ae34d93740cde6c32ac6f6ca854c41d0d00",
+        "src/data_analysis_agent/agents/review_evidence_semantics.py": "7bae670893cba4b31a6879963fdf927f327fc4840f089d1cd3a2bc09d4ea1d2a",
+        "src/data_analysis_agent/agents/review_execution.py": "98f61bce5650cf7b0ba21dd8ebd5d65ac079e8f6f98cc78475754c59d98f972c",
+        "src/data_analysis_agent/agents/review_insights.py": "58d13b57048bb2c3b251bd0066bd8b2195d7a477793edd0cae543337772101d5",
+        "src/data_analysis_agent/agents/review_intent.py": "fc68d61e27720c9d08e1275b035db8e343fe7606f211f0fbbf24d7a076deb1a5",
+        "src/data_analysis_agent/agents/review_multi_aspect.py": "ac067d2057a69c5ed1232aec42ff001ed9e90ec219074888ef416a384706e696",
+        "src/data_analysis_agent/agents/review_plan.py": "7a83a407cda9205a25b8be00e0cc8201f9eaa23ac43dd1d7bd42361c5a554673",
+        "src/data_analysis_agent/agents/review_preparation.py": "8ec814317f9895283f5198d2b65893f96e0113361cff6ef07a35365b98f6b4de",
+        "src/data_analysis_agent/agents/review_prompts.py": "b16d962377ecee0b71689216a52cb1219ee2839955cf64a1420ae4d1f5a9e22d",
+        "src/data_analysis_agent/agents/review_provider.py": "87a185f5108aecacc571e4dccc3d0b025face9ba3193cf11802f14b64d41cfd8",
+        "src/data_analysis_agent/agents/review_publication.py": "c103266a3947b706583a54a4c669842054dc22b8ea6a765e21e0c00d34600db4",
+        "src/data_analysis_agent/agents/review_reported_facts.py": "3f060319041aa79d1e30e9a406429f9f6178da9b2075ec3048710e0a83ef057a",
+        "src/data_analysis_agent/agents/review_results.py": "1d6ee6b64a93738d32ad8b980c855ea0745fe4395c8c1bb486d9e5287d4c520f",
+        "src/data_analysis_agent/agents/review_retrieval.py": "6cbe8c7df1be5ac17cc9c7afdc24ffb8ec79b630a3d40d2de20e4017db29361e",
+        "src/data_analysis_agent/agents/review_semantics.py": "4627b23aaca149650ecc941653546125ea73c3d988b5479d8fe45535c2ef28d5",
+        "src/data_analysis_agent/agents/review_shadow_adapter.py": "2d9bfdc0370d2419cbb36be37edd9f6e19ef9889598cac7b074a93275e63be09",
+        "src/data_analysis_agent/agents/review_shadow_diagnostics.py": "e90b62355a7abe1ad6a00b5a09b693c011b4772f4deed40fe362f6dcde0eedca",
+        "src/data_analysis_agent/agents/review_shadow_openai.py": "557a910ee744124a4676ede00bfac719427cb93d4dd6ea8bd9a4ec8cb1cf244b",
+        "src/data_analysis_agent/agents/review_shadow_siliconflow.py": "d2c26d27e2300228ec28f0f6475e938e37214838da277dbf41c9d3e64ca56500",
+        "src/data_analysis_agent/agents/review_shadow_worker.py": "e3fadc27b434bf0e140a08ca5d4790c0f95479545d256930c6f62b15fbdc65f8",
+        "src/data_analysis_agent/agents/review_structured_evidence.py": "1071e809fa8ed8037b5119e645673deb975a228a5d2a8880ca14c973dc9bed24",
+        "src/data_analysis_agent/agents/review_task_contract.py": "f394b064c3ef1ac67027bd84344ecbde20c0f8e85a1f4172c08c92733f9b19d1",
+        "src/data_analysis_agent/agents/review_tools.py": "bc7b54a0a6f74d3919e7d3bd45ac80778ca0be28e9367a3ab7378c4059672d62",
+        "src/data_analysis_agent/agents/review_topics.py": "4312aeb04bb6201f047dcc2e8c6adf782a128a1be7e9cc30268d876d032cbcc1",
+        "src/data_analysis_agent/agents/review_validation.py": "ca90a4c205e94131a8ed4d9ea922c67ae2634e4a9da25799b5e07e2d98a8a467",
+        "src/data_analysis_agent/agents/runtime.py": "f3854a01abeb15559156a1c9200e70dcd28bc731ba2b8e1d9e85fe5c7eee6724",
+        "src/data_analysis_agent/agents/sales.py": "34917ad210fa452b9877da5e4b9411ccd389a9fb91410c0dc073f4ae5c16ed36",
+        "src/data_analysis_agent/agents/tools.py": "25cd5a87392fed29d54e78cc930ddcdee111d2b3d81f1f97ebf79d85f14e49e3",
+        "src/data_analysis_agent/agents/__init__.py": "f5203d380ce8aacebe0af51f66f43bcd2afc076df83575ee01b54b40823094cc",
+        "src/data_analysis_agent/jobs/analysis_context.py": "32f8bc44e5edf28bd3ccef775c89449e95f53b88c517d5cd33f760263fd99f72",
+        "src/data_analysis_agent/jobs/analysis_state.py": "6974b5be3402962aadd730b8a22dcb1b6f0097181dce140a8ad1ef2b27b5449f",
+        "src/data_analysis_agent/jobs/label_dispatch.py": "ec843b50f9f89aed200a1f084545b1629f682962630c3c530d493ceb94e5923b",
+        "src/data_analysis_agent/jobs/label_limiter.py": "af818bbd15e8ca2a838f58045cecbfcfa656548a845bca6eded1350a6363ad68",
+        "src/data_analysis_agent/jobs/label_metrics.py": "0fb559c1c566cad1076b144043dd6ba532782ed77cf1e663f51a7f1d060ed43b",
+        "src/data_analysis_agent/jobs/label_queue.py": "503cff3b1670acdbf446e9da65ee3c67d3afe1de6b02d1b6a69af27ccea97e70",
+        "src/data_analysis_agent/jobs/label_stream.py": "3fadbb8b584ae77951fc69b3dff953cc8955a1f23e27114bdf40b61aa6fa9eed",
+        "src/data_analysis_agent/jobs/label_worker.py": "2c31ba681ef5964933e5cf0319633004dc3030a478f42b8d23094a40269acfe8",
+        "src/data_analysis_agent/jobs/parameters.py": "eed8bf99a2c0096cd976ff529e48a99c631dc380178098795045c0d9f4306369",
+        "src/data_analysis_agent/jobs/store.py": "b02c7ce097dc4264dcc3e3aff72eaa8a05c25b69637a50aa518d1b342ff85f6f",
+        "src/data_analysis_agent/jobs/submission.py": "1ca68d13c321b0ffb73c0b715f526535a6e47735b8f3e0f2711a93e9dc601e77",
+        "src/data_analysis_agent/jobs/worker.py": "15b666f7789fba018232b87dbf636d510c982ae91c1b07ad72d7750eecaf0946",
+        "src/data_analysis_agent/jobs/__init__.py": "81282276138d72b52344f1170e625dcbc72e273417ba06da2248cf731db78e39",
+        "src/data_analysis_agent/reviews/analytics.py": "2ae0ff9039387f887c99419dc8f0b52b25baefd26a5fa8ec99e29393f62d63b1",
+        "src/data_analysis_agent/reviews/catalog.py": "4be5f804c12ad8ccf292d8d042c68a2b75b914f76eb38992e15ef470a005c610",
+        "src/data_analysis_agent/reviews/csv_loader.py": "c40a5d34413d0c7601de1ec6053d6cd59ad9149124375650e15c912688f80b95",
+        "src/data_analysis_agent/reviews/e1a_b3_runtime.py": "9bc53cfb7e4edf7b933c85c3851b0af9601892eab3e926ad1fab783ba0b2e7bd",
+        "src/data_analysis_agent/reviews/e1a_b3_worker.py": "da4b389e5fe4bebd4c5a8cca1fc0b192efe2a3cac29ddab5705331b5e33a99eb",
+        "src/data_analysis_agent/reviews/e1a_evaluation.py": "76698f7cd3c3282292071a17fc8185edd0ab112ca6e3012172be82e7975e54f1",
+        "src/data_analysis_agent/reviews/e1a_output_audit.py": "44d14f3d0a247cb72fbb4da0f90d794e047e7557ec5dec924628a39eccb5b1b9",
+        "src/data_analysis_agent/reviews/e1a_prediction.py": "58c70cc5206d71d6ffcddd9e334cf7518ad687e5e002fafe26417a16ab2b92af",
+        "src/data_analysis_agent/reviews/e1a_protocol.py": "28cf1a542ffb40f36339294f766610975fc7288c71c8c94feaee83d17729f577",
+        "src/data_analysis_agent/reviews/e1a_reference_release.py": "1c2e8210d71ae89d2ad980ea0cdb581ab635c44b7baeeea8167afb5fef694d1e",
+        "src/data_analysis_agent/reviews/e1a_windows_worker.py": "667f32a08a62010d16ec6fc6e2713456b07d16bfcb2bb813986222ef1e46cbaa",
+        "src/data_analysis_agent/reviews/e1_preparation.py": "eee12774cd8dc58b8b768ec61793d58fd59e089c93823e0a67c148c27b4785b4",
+        "src/data_analysis_agent/reviews/e1_review_protocol.py": "e3591d0edb7f6fa2e60ac2a95e39589f005806cd2dbebffe9b582da3ea8d9ec8",
+        "src/data_analysis_agent/reviews/embedding.py": "30f6588548927598d55dc79fe30f4ab5eef68ff355c38092aacd3e401504dfa5",
+        "src/data_analysis_agent/reviews/embedding_budget.py": "abcbb5cc821ef31ec4dc8a85eaf9e9c6b939e93618f88881883ffe58d328ea8c",
+        "src/data_analysis_agent/reviews/embedding_process.py": "06cff8bac7b211277122ce9a1958320761a699277c4f9cf9433fc17fbe8abf85",
+        "src/data_analysis_agent/reviews/embedding_store.py": "6ed1d03e612e8ec319da044296aa3972bd9f8a9d2284b3921c7611e3fd3f4cec",
+        "src/data_analysis_agent/reviews/evidence_judge.py": "98def753f61c116b78a252fbbaa8d962e222487871ec2d6e3429d31ce7fcc8ac",
+        "src/data_analysis_agent/reviews/exploratory_e1.py": "ae9d335c966ba88fcf9b64194fa3ad82783df479ca3e51d4129b4754a2e584c5",
+        "src/data_analysis_agent/reviews/exploratory_e1_metrics.py": "4793aebba64c469915238a2b8232c35621723ef295911e77aa4f8138578ad499",
+        "src/data_analysis_agent/reviews/historical_snapshot.py": "77170b6743f80baa82acf1a16f3e029611bacf6892d8932180439842facd6273",
+        "src/data_analysis_agent/reviews/human_adjudication.py": "3acb151564e35cb83213e7896817fa1850b18135260e961e4bc8eb93eba69a8c",
+        "src/data_analysis_agent/reviews/human_review.py": "bba3ed19d2348118864990a13fcd3c891185d703be8587896c2932ad4ccbcc89",
+        "src/data_analysis_agent/reviews/labeling.py": "8ab5469091ff5c5a751e077e65f200806dd7a8a2714edf5fc3ede2324aac5e81",
+        "src/data_analysis_agent/reviews/label_store.py": "3aa23810b51f04185f88c3ce19086222df1769f0b2461318c4f3f37518af0b9d",
+        "src/data_analysis_agent/reviews/loader.py": "47eb7ed91f5eb5433cc49d8e2eadcbdae8cfff048f0718c0e0df40a5a1374aa2",
+        "src/data_analysis_agent/reviews/monitoring.py": "ff54b3ed2d9f9b76a66e3cdb2efe4add6eb1935cdbf8411b208bb75ad6b2a6bc",
+        "src/data_analysis_agent/reviews/monitor_store.py": "10b3b5a312bcfa3d11fbc4e6165edd3b2b38b7bea4ef12a566d590a7d710488c",
+        "src/data_analysis_agent/reviews/opinions.py": "2f3089daea717a33b3e1b6bf4e5eace08c1e5b567fa9c2bfef62828c7f5cd8d2",
+        "src/data_analysis_agent/reviews/parameters.py": "78320c99838cd4c3c3124730ba11768363407022363288b6537d9ed4031a223a",
+        "src/data_analysis_agent/reviews/prompts.py": "7819139b96722b164792d7f65eeaaa2003f3bc7646e4db366cf649c330d9a0b5",
+        "src/data_analysis_agent/reviews/query_contract.py": "f31ea72701d4daaf1ce387377e6e1e40492806a29c828050fc3d8dc25be59742",
+        "src/data_analysis_agent/reviews/rag_corpus.py": "ed0ba5349caefbc1478116128ad397956c7e41ec5e8eb217b4da13fdcb877a79",
+        "src/data_analysis_agent/reviews/retrieval_evaluation.py": "7f07284ee075a089ce90e088dafbd861982edb470280e28658d344d277257712",
+        "src/data_analysis_agent/reviews/scope.py": "673b0dc117c8b35cdae77b61c3565dc13aad795a40c81756b6c0287d74d82b32",
+        "src/data_analysis_agent/reviews/semantic_retrieval.py": "993db794b78adb1e0ecbef10440855510d2ffe90be8e90ef61f5427f97453322",
+        "src/data_analysis_agent/reviews/store.py": "8442a8a90538bae67b4e69af43dcb219849f335c648c85dfdcefcf19ae2bbdf2",
+        "src/data_analysis_agent/reviews/__init__.py": "a0734ce2e73e0e0d0ad2e3a1ed7f6344577cf3f0b56e8e74d1787028522f9a22"
+      },
+      "changed_files": [
+        "src/data_analysis_agent/agents/reviews.py",
+        "src/data_analysis_agent/agents/review_acceptance.py",
+        "src/data_analysis_agent/agents/review_intent.py",
+        "src/data_analysis_agent/agents/review_semantics.py",
+        "src/data_analysis_agent/jobs/analysis_context.py"
+      ],
+      "purpose": "Bind final code only; business oracle, corpus, review exclusions and denominators unchanged; no database authorization."
+    }
+  },
+  "before_connections": 66,
+  "after_connections": 64,
+  "after_connections_closed": 64
+}

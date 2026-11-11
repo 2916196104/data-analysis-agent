@@ -1,0 +1,23 @@
+{
+  "docs/evaluation/agent-stage1-v2-fix/final/assessment.v5.json": "ad2ef381d21ec78cbe143a4dbe5a069edd8c5a75b93b71c7c1e3624d8bae4ee7",
+  "docs/evaluation/agent-stage1-v2-fix/final/before-assessment.v4.json": "15fe609d3684585bc4830228f8346054945799fd6e193ee4b906276d4c627f9b",
+  "docs/evaluation/agent-stage1-v2-fix/final/business-code.v4-v5.diff": "97f66c20ab0a05ae3f630229c285ec6d3bdba22221bcc15995c3bfd4853dd506",
+  "docs/evaluation/agent-stage1-v2-fix/final/comparison-summary.json": "ad98fa77d9eba3ed55a8df08ae8d6f00b82c6e34a2efe581989bb46a11ec1b77",
+  "docs/evaluation/agent-stage1-v2-fix/final/G24-G30-nine-fields.json": "db46e720bb37d106fae18036c16e2cf38a178c6b4cc9fcc8fc53b8a581c6d3e1",
+  "docs/evaluation/agent-stage1-v2-fix/final/pending-lifecycle.json": "cc79c2207268f46320d24bc9fded7bfae6a5f43db8977a365927bccc9dba56d4",
+  "docs/evaluation/agent-stage1-v2-fix/final/regression-summary.json": "d7a71a5b6446bc405170e9d8fe459557dd4845500721c4b47398f95388fe8817",
+  "docs/evaluation/agent-stage1-v2-fix/final/source-revision.v5.json": "1a257a154f8db17e66b7d207ccd02ead75de68419064f176e7dd13c735c746d5",
+  "docs/evaluation/agent-stage1-v2-fix/final/turn-comparison.json": "c7c6a9ee322643034b5c130b752c1396df89a78aa11ab1ace8e64298e3a5a77f",
+  "docs/evaluation/agent-stage1-v2-fix/final/turns.v5.jsonl": "320d2b9a71a7b7b9082fa336002132a9eaaefdd60f74712853f89a1723a9c66a",
+  "docs/evaluation/agent-stage1-v2-fix/final/unchanged-safety-functions.json": "df14f1d6095377458d0668a366aa5ffcd63b50b4ed0ed970ddb8971277933625",
+  ".cache/agent-stage1-oracle-v2/run-03.json": "55915b56203546935a755bfcaa2947c08e89608f3efcd9475052b1479a11f573",
+  ".cache/agent-stage1-oracle-v2/assessment-03.json": "15fe609d3684585bc4830228f8346054945799fd6e193ee4b906276d4c627f9b",
+  ".cache/agent-stage1-v2-fix/final/run-01.json": "631de8ca7ff69117ca6c9053492d30d252df1a01dd696079fec51d6c2d727b4f",
+  ".cache/agent-stage1-v2-fix/final/assessment-01.json": "ad2ef381d21ec78cbe143a4dbe5a069edd8c5a75b93b71c7c1e3624d8bae4ee7",
+  ".cache/agent-stage1-v2-fix/final/specialized.txt": "10acbe2d7cfc8dd6b48aef7b70d6302e1dfa15b5715c602f8c9cf32fcf078598",
+  ".cache/agent-stage1-v2-fix/final/regression/tests.txt": "20fa6e5e476d4c00645d5756979b0a1c4d7b3057254d37b624d6ddff5fb9a2c6",
+  "scripts/run_agent_stage1_v2_fixes.py": "5e984d96785d9a9c415ed8906dd921c46cfd4e2b3ae5f84907dc374b279e394b",
+  "tests/test_agent_stage1_v2_fixes.py": "5908b2a05dd1f8a9bd38e87c424a85abe1615166cf44d4126272e7645fbc1f67",
+  "src/data_analysis_agent/agents/review_acceptance.py": "074f13ddd136a85ddb2888b6339ab701d19c3b406f852903b4aec6c03d58415c",
+  "src/data_analysis_agent/agents/review_intent.py": "a7e3f0e26658f2b99f31795934a122d3c10ad379f0307be83ad667aedae05e58"
+}

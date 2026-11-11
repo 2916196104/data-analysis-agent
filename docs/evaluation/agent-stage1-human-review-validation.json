@@ -1,0 +1,85 @@
+{
+  "asset_integrity_checks": 18,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "30 groups and 62 original turns preserved",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "all group metadata and input histories preserved",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "exact ten pending review IDs",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "52 unreviewed turns preserve exact original JSON objects",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "unchanged 51 historical PASS and G25-T1 FAIL, not rescored",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "each pending turn embeds complete untouched v1 turn",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "all disputed expectations and completion flags pending",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "no final human decision prefilled",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "pending draft explicitly non-public non-scoring",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "candidate options have independent contracts and complete proposed projections",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "partial proposals obey frozen parent mapping",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "stale proposal forbids prefetch and classification",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "observed evidence separated and hash-bound",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "all source contract pointers hash-match current code",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "v4 source unchanged, no Agent edits",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "303 existing source assets reports authorizations logs unchanged",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "10 human worksheet cases and zero selected decisions",
+      "status": "passed_asset_integrity_only"
+    },
+    {
+      "name": "all local report evidence links exist",
+      "status": "passed_asset_integrity_only"
+    }
+  ],
+  "protected_files": 303,
+  "agent_executions_this_phase": 0,
+  "database_calls_this_phase": 0,
+  "model_calls_this_phase": 0,
+  "scoring_runs_this_phase": 0,
+  "business_judgments_approved": 0,
+  "formal_oracle_v2_published": false
+}

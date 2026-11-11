@@ -182,6 +182,53 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             from data_analysis_agent.agents.review_acceptance import build_request_goal, build_task_goal, validate_goal_plan
             request_goal = build_request_goal(question, conversation_context)
             result['request_goal'] = asdict(request_goal) if request_goal is not None else None
+            if getattr(settings, 'p6_preparation_enabled', False):
+                from data_analysis_agent.agents.review_intent import bind_review_scope
+                from data_analysis_agent.agents.review_multi_aspect import freeze_p6_goal, validate_p6_plan, MODE
+                from data_analysis_agent.agents.review_plan import build_p6_query_plan
+                from data_analysis_agent.agents.review_preparation import prepare_p6_analysis, P6PreparationError
+                history = conversation_context or {}
+                identity = result['agent_model_identity']
+                authorization = {'conversation_id': history.get('conversation_id'), 'agent_identity': identity,
+                                 'context': conversation_context}
+                candidate = freeze_p6_goal(question, scope=scope, ranking_task=None, **authorization)
+                if candidate.route != 'existing':
+                    scope, resolution = bind_review_scope(question, scope, products, conversation_context)
+                    result.update(scope=scope, analysis_intent='aspect_drilldown', sentiment_intent='negative')
+                    result['intent_resolution']['scope_resolution'] = resolution
+                    decision = freeze_p6_goal(question, scope=scope, ranking_task=history.get('ranking_task'), **authorization)
+                    result['p6_preparation'] = {'status': 'blocked', 'reason': decision.reason,
+                        'query_executions': 0, 'database_statement_count': 0, 'topic_model_calls': 0}
+                    if decision.goal is None:
+                        raise QuestionScopeError('当前没有同会话、同身份且范围一致的可信负面排名，请先刷新统计。')
+                    p6_goal = decision.goal
+                    result['request_goal'] = p6_goal.to_dict()
+                    result['task_goal'] = p6_goal.to_dict()
+                    plan = build_p6_query_plan(p6_goal)
+                    checked = validate_p6_plan(p6_goal, scope, plan, ranking_task=history['ranking_task'], **authorization)
+                    result.update(query_plan=plan.to_dict(), task_plan_check=checked, analysis_mode=MODE)
+                    result['task_acceptance'] = {'status': 'failed', 'complete': False, 'checks': [],
+                        'plan_check': checked, 'evidence_status': 'not_executed',
+                        'message': '仅准备多维度输入，尚未执行或完成主题分析。'}
+                    result['user_intent'].update(query_type='aspect_drilldown', sentiment='negative', aspect=None,
+                        sub_intent='drill_down', needs_clarification=False, resolved_product_ids=scope['product_ids'],
+                        effective_time_range={k: scope[k] for k in ('date_from', 'date_to')})
+                    if not checked['passed']:
+                        raise ReviewDataError('P6 独立计划校验失败，尚未读取分析输入。')
+                    result['query_contract'] = plan.task_contract.model_dump(mode='json')
+                    try:
+                        prepared = prepare_p6_analysis(connection, p6_goal, plan,
+                            ranking_task=history['ranking_task'], **authorization)
+                        # 完整正文只保留在此内部对象中；任务 JSON 只保存安全的准备诊断。
+                        result['p6_preparation'] = prepared.diagnostics()
+                    except P6PreparationError as exc:
+                        result['p6_preparation'] = exc.diagnostics
+                        raise UnsupportedReviewQuery(str(exc)) from exc
+                    deferred = UnsupportedReviewQuery('已识别多维度负面主题目标并冻结输入，但分类执行尚未启用。')
+                    if getattr(settings, 'p6_execution_enabled', False):
+                        deferred.p6_prepared = prepared
+                        deferred.p6_authorization = {**authorization, 'ranking_task':history['ranking_task']}
+                    raise deferred
             scope, plan, semantic_direct = resolve_review_request(question, scope, products, settings=settings,
                 context=conversation_context, diagnostics=result['intent_resolution'], intent_state=result['user_intent'])
             timings['intent_resolution_duration_ms'] = (perf_counter() - planning_started) * 1000
@@ -201,6 +248,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             timings['planning_duration_ms'] = (perf_counter() - planning_started) * 1000
             if plan.unsupported_reason:
                 raise UnsupportedReviewQuery(plan.unsupported_reason)
+            if goal is not None and not result['task_plan_check']['passed']:
+                raise ReviewDataError('原始请求目标与主计划能力冲突，尚未执行业务查询或分类。')
             if plan.analysis_type == "pros_cons" and len(plan.requirements) + 1 > settings.max_tool_calls:
                 raise UnsupportedReviewQuery("本轮商品数量超过工具调用预算，请减少商品后分析优缺点。")
             context = ReviewToolContext(connection, scope, Path(temporary), settings.max_tool_calls, report,
@@ -377,6 +426,31 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
         result.update(status="unsupported", answer=str(exc), result_ids=[])
     except UnsupportedReviewQuery as exc:
         result.update(status="unsupported", answer=str(exc), result_ids=[])
+        if getattr(exc, 'p6_prepared', None) is not None:
+            # 已离开只读事务和 closing；P6-C 只消费冻结输入，不恢复旧工具循环。
+            from data_analysis_agent.agents.review_budget import make_execution_budget
+            from data_analysis_agent.agents.review_execution import execute_p6_prepared
+            execution_budget = make_execution_budget(settings)
+            try:
+                executed = execute_p6_prepared(exc.p6_prepared, settings=settings, budget=execution_budget,
+                                               **exc.p6_authorization)
+                result['p6_execution'] = executed.diagnostics()
+                result['answer'] = 'P6 内部执行与验收已记录；公开分析功能尚未启用，未发布主题结论。'
+                if getattr(settings, 'p6_publication_enabled', False):
+                    from data_analysis_agent.agents.review_publication import publish_p6_execution
+                    result.update(publish_p6_execution(executed, exc.p6_prepared, settings=settings,
+                                                       **exc.p6_authorization))
+                    result['p6_execution']['public_release_enabled'] = True
+                elif executed.acceptance['agent_status'] == 'error':
+                    result.update(status='error', error={'code':'p6_execution_blocked',
+                        'message':'P6 预算不足或内部执行失败，未发布主题结论。'})
+                    result.pop('answer', None)
+            except Exception:
+                result.update(status='error', error={'code':'p6_execution_error',
+                    'message':'P6 全局执行或输入校验失败，未发布任何主题结论。'},
+                    p6_execution={'status':'failed', 'complete':False, 'public_release_enabled':False,
+                                  'budget':execution_budget.snapshot()})
+                result.pop('answer', None)
     except Exception as exc:
         if progress_error is not None:
             raise progress_error
@@ -408,15 +482,16 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
         result.update(results=context.results if context else {}, trace=context.trace if context else [],
                       model_tool_attempts=context.model_tool_attempts if context else 0,
                       cache_hits=context.cache_hits if context else 0,
-                      query_executions=context.query_executions if context else 0,
+                      query_executions=context.query_executions if context else result.get('p6_preparation', {}).get('query_executions', 0),
                       tool_calls=context.tool_calls if context else 0, model_calls=llm.budget.calls if llm else 0,
                       planning_model_calls=llm.budget.calls if llm else 0,
                       model_responses=model_responses, usage=usage or None,
                       answer_model_calls=result.get("answer_generation", {}).get("attempts", 0),
-                      topic_model_calls=context.topic_model_calls if context else 0,
+                      topic_model_calls=context.topic_model_calls if context else result.get('p6_execution', {}).get('budget', {}).get('attempts', 0),
                       intent_model_calls=result['intent_resolution'].get('model_calls', 0),
                       total_model_calls=(llm.budget.calls if llm else 0) + result.get("answer_generation", {}).get("attempts", 0)
-                                        + result['intent_resolution'].get('model_calls', 0) + (context.topic_model_calls if context else 0),
+                                        + result['intent_resolution'].get('model_calls', 0) + (context.topic_model_calls if context else
+                                            result.get('p6_execution', {}).get('budget', {}).get('attempts', 0)),
                       elapsed_seconds=round(timings["total_duration_ms"] / 1000, 3))
     result.setdefault("public_analysis", empty_public(result["status"]).model_dump())
     from data_analysis_agent.jobs.analysis_state import analysis_state_for_scope

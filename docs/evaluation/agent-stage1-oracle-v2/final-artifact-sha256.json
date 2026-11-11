@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-11-11T12:29:41.069536+08:00",
+  "sha256": {
+    ".cache/agent-stage1-oracle-v2/export_evidence.py": "5842033caedfde135b9a05688c6541d630624583a97fc86bbf1619075f5c18f2",
+    ".cache/agent-stage1-oracle-v2/matcher-tests-after-freeze.txt": "6e27436ac9bb0a119eead09cb24b5bae9f494960d8ede7b4586e2d3781fb7a52",
+    "docs/agent-stage1-oracle-v2-final-acceptance.md": "1a34e49885e89c485e20f0e8f735f8db8801fe2aab308058fa8f195bc38bfc4b",
+    "docs/evaluation/agent-stage1-human-adjudication.v1.json": "97b38e01d204adfa2b3d2177a4bc1f7ee6d6026b9523242d6fe98ae825b12643",
+    "docs/evaluation/agent-stage1-oracle-v2/artifact-sha256.json": "8aeb36992e1edf0ef0e054b8ddb8faa209e017f3c77df24f50f29225f6e15d96",
+    "docs/evaluation/agent-stage1-oracle-v2/assessment.v2.1.json": "0046bbbdd25a9a27c5952ef95ecd5fcf0e2a47917c01f0debb55cdb9cc7be998",
+    "docs/evaluation/agent-stage1-oracle-v2/diff-and-preservation-audit.json": "5b990bf0b4bd983a9571054907241c293d9f12fac6ed0ccbfb4f4a403a520b90",
+    "docs/evaluation/agent-stage1-oracle-v2/failures.v2.1.json": "e791edbbb5fcf6cc7c9023bcfe46460f06b807ba93e3bfd802c63bcdfaabbdf9",
+    "docs/evaluation/agent-stage1-oracle-v2/final-validation.json": "7f2191a156c25708fac6bd1d4edc8b1fdbb0f94abb5ce8b6642f60855384a02d",
+    "docs/evaluation/agent-stage1-oracle-v2/summary.json": "3127089b870de38a9f8ab25c123f8ba62716fe0b5aee51a5c122a4f4133552c9",
+    "docs/evaluation/agent-stage1-oracle-v2/turns.v2.1.jsonl": "75fa24a86a6966d2a658c2c2e21b52986ffa9304bfd62e53e6f2e5203b174421",
+    "scripts/agent_stage1_v2_1_scoring.py": "d2da305cac79da9288313d686ac9f36fad610c43e58fdeecd06b3994eb93b5ca",
+    "scripts/agent_stage1_v2_scoring.py": "39a08727ff4eed79826d7c3aaf42e3c9acbed6fa130966901b07cdfaa1e8756a",
+    "scripts/freeze_agent_stage1_oracle_v2.py": "0e318f9ae368d725c471f137b9c4eeb1b680a680bf27551c8e66397627612d3a",
+    "scripts/run_agent_stage1_oracle_v2.py": "13187a6eba8cd22641d4149ba73cdb771828c729f030307612eedb9d32c21491",
+    "scripts/run_agent_stage1_oracle_v2_1.py": "39ce24f930cd9f8bb43b5db088c98e1cc7e9e5123d02dea060bfcdd707ca8beb",
+    "tests/fixtures/agent_stage1/freeze-manifest.v2.1.json": "dc9310c681c2054a2db1db75eb9355f087d1a04e83f7172b49443fcfa055af4d",
+    "tests/fixtures/agent_stage1/freeze-manifest.v2.json": "c11073affadd71a1c860406d58806f3932e9b4b1d4094baadc6dc90d29125eb8",
+    "tests/fixtures/agent_stage1/oracle.v2.json": "81306475371fd769b61f8132cf97dbc8dcdc82975a67a0982018575c08bed198",
+    "tests/fixtures/agent_stage1/oracle.v2.pending.json": "cef672935eeea692c6a887eb395668484ffc18d420122dfa11203ff3a4ff3613",
+    "tests/fixtures/agent_stage1/scoring-contract.v2.1.json": "4b38505dbfd2b4e1750631f928eb13c020c9b510a488a4e510cd187dcd460711",
+    "tests/fixtures/agent_stage1/scoring-contract.v2.json": "56fa304bfc39d33a59a7c639e82a31ea5081a744e844d32253acee939dfd635e",
+    "tests/test_agent_stage1_v2_1_scoring.py": "ecfe31580b58cedfa0cfde0ba7a3b161ab5928bfd5204223673ecd29c0309766",
+    "tests/test_agent_stage1_v2_scoring.py": "349cc1fa0ce156faf66a0d4e817b379bf72fe0e6283432358c6baf8c9c90921f"
+  }
+}

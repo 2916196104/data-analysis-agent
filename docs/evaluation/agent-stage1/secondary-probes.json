@@ -1,0 +1,40 @@
+{
+  "id": "G09-T2",
+  "direct_restore_pending_goal_present": true,
+  "direct_pending_scope": {
+    "model": "stage1-labels",
+    "base_url": "https://labels.stage1.invalid/v1",
+    "prompt_version": "stage1-labels-v1",
+    "product_ids": [
+      "100013588053"
+    ],
+    "date_from": "2023-02-15",
+    "date_to": "2023-02-28",
+    "as_of": null,
+    "source": "reviews_csv",
+    "dataset_version": "stage1-synthetic-v1",
+    "baseline_from": "2023-01-01",
+    "baseline_to": "2023-01-31"
+  },
+  "post_load_selection_scope": {
+    "model": "stage1-labels",
+    "base_url": "https://labels.stage1.invalid/v1",
+    "prompt_version": "stage1-labels-v1",
+    "product_ids": [
+      "100013588053",
+      "100013588055"
+    ],
+    "date_from": "2023-02-15",
+    "date_to": "2023-02-28",
+    "as_of": null,
+    "source": "reviews_csv",
+    "dataset_version": "stage1-synthetic-v1",
+    "baseline_from": "2023-01-01",
+    "baseline_to": "2023-01-31"
+  },
+  "post_load_selection_changes": [
+    "current_window"
+  ],
+  "post_load_pending_goal": null,
+  "database_calls": 0
+}

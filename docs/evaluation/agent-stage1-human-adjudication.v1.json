@@ -1,0 +1,1314 @@
+{
+  "version": "agent-stage1-human-adjudication-v1",
+  "record_created_at": "2026-11-11T12:15:40.889627+08:00",
+  "timezone": "Asia/Taipei",
+  "utc_offset": "+08:00",
+  "historical_decision_timestamp": null,
+  "actor": {
+    "description": "本轮会话用户；未提供真实身份或签名",
+    "real_name": null,
+    "signature": null
+  },
+  "authority": {
+    "decision_statement": "10轮全部选 A",
+    "source": "用户本轮消息明确重申十项全部选 A，并要求正式冻结；未虚构其他消息 ID 或历史签署时间。",
+    "scope": "business_semantics_and_evaluation_expectations_only",
+    "excluded": [
+      "business_code_changes",
+      "database_operations",
+      "model_fees",
+      "deployment",
+      "P6-E1B_recovery"
+    ]
+  },
+  "candidate_file_sha256": "cef672935eeea692c6a887eb395668484ffc18d420122dfa11203ff3a4ff3613",
+  "worksheet_sha256": "7c2d13a19587e2e30c3bb43f3707a8ffa850431f56fd660ad47f76de33fc4dce",
+  "consistency_review": {
+    "passed": true,
+    "checks": "blocked-plan and partial/stale state consistency",
+    "representation_clarifications": [
+      "not_finalized is a review projection, not an API status",
+      "a blocked plan may preserve known sentiment but has no executable requirements",
+      "stale planned tools do not authorize prefetch/classification",
+      "G30 preserves the old negative pending goal, not a new completed positive goal"
+    ]
+  },
+  "decisions": [
+    {
+      "case_id": "G10-T2",
+      "selected": "A",
+      "selected_option_id": "G10-T2-A",
+      "selected_option_snapshot": {
+        "id": "G10-T2-A",
+        "label": "承认内容意图、澄清缺失条件",
+        "business_meaning": "新标注身份；当前页面含 053/055，不能从旧身份拿排名或默认单 SKU/negative。 将“具体体现”视为主题内容意图，Goal 仅部分明确，尚无执行授权。",
+        "contract_evidence": [
+          "C01",
+          "C02",
+          "C06",
+          "C08",
+          "C09"
+        ],
+        "proposed_expectations": {
+          "expected_analysis_intent": "not_finalized",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "unsupported",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": null,
+            "aspects": [],
+            "blocked": true,
+            "sentiment": null
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "themes"
+            ],
+            "sentiment": null
+          },
+          "expected_required_tools": [],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053",
+              "100013588055"
+            ]
+          },
+          "expected_task_acceptance": {
+            "representation_rule": "absent_or_explicit_failure",
+            "permitted_representations": [
+              null,
+              {
+                "status": "failed",
+                "complete": false
+              }
+            ],
+            "complete_true_forbidden": true
+          },
+          "expected_user_intent": {
+            "needs_clarification": true
+          }
+        },
+        "execution_constraints": {
+          "business_query_executions": 0,
+          "classification_attempts": 0,
+          "must_not_publish_evidence": true,
+          "catalog_reads_before_planning_are_not_business_queries": true
+        },
+        "risk_if_misapplied": [
+          "不得默认 negative、恢复旧排名或执行任一主题工具。",
+          "Worker succeeded 只表示已正确回复澄清，不代表主题完成。"
+        ],
+        "representation_notes": [],
+        "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+      },
+      "selected_option_sha256": "2553faefee22b672f282fe0529a865a7609e330fa2fbecc9202898d83d14b054",
+      "business_rationale": "推荐根据本轮明示信息形成有限内容 Goal，缺条件就澄清；依据 C01/C08，而非实际输出碰巧相同。",
+      "classification": "条件不充分；澄清/Goal 表示待裁决",
+      "unselected_options": [
+        {
+          "id": "G10-T2-B",
+          "label": "先澄清完整任务、暂不冻结 Goal",
+          "business_meaning": "新标注身份；当前页面含 053/055，不能从旧身份拿排名或默认单 SKU/negative。 先确认业务层次及缺失条件，原问题仅作为未决请求保留。",
+          "contract_evidence": [
+            "C01",
+            "C06",
+            "C08"
+          ],
+          "proposed_expectations": {
+            "expected_analysis_intent": "not_finalized",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "absent"
+            },
+            "expected_final_status": {
+              "agent": "unsupported",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": null,
+              "aspects": [],
+              "blocked": true,
+              "sentiment": null
+            },
+            "expected_request_goal": null,
+            "expected_required_tools": [],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053",
+                "100013588055"
+              ]
+            },
+            "expected_task_acceptance": {
+              "representation_rule": "absent_or_explicit_failure",
+              "permitted_representations": [
+                null,
+                {
+                  "status": "failed",
+                  "complete": false
+                }
+              ],
+              "complete_true_forbidden": true
+            },
+            "expected_user_intent": {
+              "needs_clarification": true
+            }
+          },
+          "execution_constraints": {
+            "business_query_executions": 0,
+            "classification_attempts": 0,
+            "must_not_publish_evidence": true,
+            "catalog_reads_before_planning_are_not_business_queries": true
+          },
+          "risk_if_misapplied": [
+            "不能因 Goal=None 而进入无约束 Planner 或工具。"
+          ],
+          "representation_notes": [
+            "Goal=None 在此表示未冻结，不表示用户提出了 RAG 请求。",
+            "两方案安全执行边界相同，只在 Goal 形成时点及澄清范围上不同。"
+          ],
+          "implementation_implication": "若选择不冻结 Goal，现有提前建立 themes Goal 的代码可能需要后续独立对齐；本轮不修改。"
+        }
+      ]
+    },
+    {
+      "case_id": "G11-T2",
+      "selected": "A",
+      "selected_option_id": "G11-T2-A",
+      "selected_option_snapshot": {
+        "id": "G11-T2-A",
+        "label": "承认内容意图、澄清缺失条件",
+        "business_meaning": "新会话；旧会话任务仍可作为审计背景展示，但不能作为当前用户事实或条件。 将“具体体现”视为主题内容意图，Goal 仅部分明确，尚无执行授权。",
+        "contract_evidence": [
+          "C01",
+          "C02",
+          "C06",
+          "C08",
+          "C09"
+        ],
+        "proposed_expectations": {
+          "expected_analysis_intent": "not_finalized",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "unsupported",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": null,
+            "aspects": [],
+            "blocked": true,
+            "sentiment": null
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "themes"
+            ],
+            "sentiment": null
+          },
+          "expected_required_tools": [],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053",
+              "100013588055"
+            ]
+          },
+          "expected_task_acceptance": {
+            "representation_rule": "absent_or_explicit_failure",
+            "permitted_representations": [
+              null,
+              {
+                "status": "failed",
+                "complete": false
+              }
+            ],
+            "complete_true_forbidden": true
+          },
+          "expected_user_intent": {
+            "needs_clarification": true
+          }
+        },
+        "execution_constraints": {
+          "business_query_executions": 0,
+          "classification_attempts": 0,
+          "must_not_publish_evidence": true,
+          "catalog_reads_before_planning_are_not_business_queries": true
+        },
+        "risk_if_misapplied": [
+          "不得默认 negative、恢复旧排名或执行任一主题工具。",
+          "Worker succeeded 只表示已正确回复澄清，不代表主题完成。"
+        ],
+        "representation_notes": [],
+        "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+      },
+      "selected_option_sha256": "8b2e00cfc16dae9088764cbce0bfe67255b3e117d9ab60bb391afbc60671c522",
+      "business_rationale": "推荐根据本轮明示信息形成有限内容 Goal，缺条件就澄清；依据 C01/C08，而非实际输出碰巧相同。",
+      "classification": "条件不充分；澄清/Goal 表示待裁决",
+      "unselected_options": [
+        {
+          "id": "G11-T2-B",
+          "label": "先澄清完整任务、暂不冻结 Goal",
+          "business_meaning": "新会话；旧会话任务仍可作为审计背景展示，但不能作为当前用户事实或条件。 先确认业务层次及缺失条件，原问题仅作为未决请求保留。",
+          "contract_evidence": [
+            "C01",
+            "C06",
+            "C08"
+          ],
+          "proposed_expectations": {
+            "expected_analysis_intent": "not_finalized",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "absent"
+            },
+            "expected_final_status": {
+              "agent": "unsupported",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": null,
+              "aspects": [],
+              "blocked": true,
+              "sentiment": null
+            },
+            "expected_request_goal": null,
+            "expected_required_tools": [],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053",
+                "100013588055"
+              ]
+            },
+            "expected_task_acceptance": {
+              "representation_rule": "absent_or_explicit_failure",
+              "permitted_representations": [
+                null,
+                {
+                  "status": "failed",
+                  "complete": false
+                }
+              ],
+              "complete_true_forbidden": true
+            },
+            "expected_user_intent": {
+              "needs_clarification": true
+            }
+          },
+          "execution_constraints": {
+            "business_query_executions": 0,
+            "classification_attempts": 0,
+            "must_not_publish_evidence": true,
+            "catalog_reads_before_planning_are_not_business_queries": true
+          },
+          "risk_if_misapplied": [
+            "不能因 Goal=None 而进入无约束 Planner 或工具。"
+          ],
+          "representation_notes": [
+            "Goal=None 在此表示未冻结，不表示用户提出了 RAG 请求。",
+            "两方案安全执行边界相同，只在 Goal 形成时点及澄清范围上不同。"
+          ],
+          "implementation_implication": "若选择不冻结 Goal，现有提前建立 themes Goal 的代码可能需要后续独立对齐；本轮不修改。"
+        }
+      ]
+    },
+    {
+      "case_id": "G12-T1",
+      "selected": "A",
+      "selected_option_id": "G12-T1-A",
+      "selected_option_snapshot": {
+        "id": "G12-T1-A",
+        "label": "承认内容意图、澄清缺失条件",
+        "business_meaning": "本轮明确 053，可以绑定 SKU；没有任何历史，正/负情感和具体方向须问清。 将“具体体现”视为主题内容意图，Goal 仅部分明确，尚无执行授权。",
+        "contract_evidence": [
+          "C01",
+          "C02",
+          "C06",
+          "C08",
+          "C09"
+        ],
+        "proposed_expectations": {
+          "expected_analysis_intent": "not_finalized",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "unsupported",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": null,
+            "aspects": [],
+            "blocked": true,
+            "sentiment": null
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "themes"
+            ],
+            "sentiment": null
+          },
+          "expected_required_tools": [],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "representation_rule": "absent_or_explicit_failure",
+            "permitted_representations": [
+              null,
+              {
+                "status": "failed",
+                "complete": false
+              }
+            ],
+            "complete_true_forbidden": true
+          },
+          "expected_user_intent": {
+            "needs_clarification": true
+          }
+        },
+        "execution_constraints": {
+          "business_query_executions": 0,
+          "classification_attempts": 0,
+          "must_not_publish_evidence": true,
+          "catalog_reads_before_planning_are_not_business_queries": true
+        },
+        "risk_if_misapplied": [
+          "不得默认 negative、恢复旧排名或执行任一主题工具。",
+          "Worker succeeded 只表示已正确回复澄清，不代表主题完成。"
+        ],
+        "representation_notes": [],
+        "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+      },
+      "selected_option_sha256": "9ea0ab3fbda00264e69aa75a47ce410fc5f33175662ffe605abd01bbfafcb89e",
+      "business_rationale": "推荐根据本轮明示信息形成有限内容 Goal，缺条件就澄清；依据 C01/C08，而非实际输出碰巧相同。",
+      "classification": "条件不充分；澄清/Goal 表示待裁决",
+      "unselected_options": [
+        {
+          "id": "G12-T1-B",
+          "label": "先澄清完整任务、暂不冻结 Goal",
+          "business_meaning": "本轮明确 053，可以绑定 SKU；没有任何历史，正/负情感和具体方向须问清。 先确认业务层次及缺失条件，原问题仅作为未决请求保留。",
+          "contract_evidence": [
+            "C01",
+            "C06",
+            "C08"
+          ],
+          "proposed_expectations": {
+            "expected_analysis_intent": "not_finalized",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "absent"
+            },
+            "expected_final_status": {
+              "agent": "unsupported",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": null,
+              "aspects": [],
+              "blocked": true,
+              "sentiment": null
+            },
+            "expected_request_goal": null,
+            "expected_required_tools": [],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053"
+              ]
+            },
+            "expected_task_acceptance": {
+              "representation_rule": "absent_or_explicit_failure",
+              "permitted_representations": [
+                null,
+                {
+                  "status": "failed",
+                  "complete": false
+                }
+              ],
+              "complete_true_forbidden": true
+            },
+            "expected_user_intent": {
+              "needs_clarification": true
+            }
+          },
+          "execution_constraints": {
+            "business_query_executions": 0,
+            "classification_attempts": 0,
+            "must_not_publish_evidence": true,
+            "catalog_reads_before_planning_are_not_business_queries": true
+          },
+          "risk_if_misapplied": [
+            "不能因 Goal=None 而进入无约束 Planner 或工具。"
+          ],
+          "representation_notes": [
+            "Goal=None 在此表示未冻结，不表示用户提出了 RAG 请求。",
+            "两方案安全执行边界相同，只在 Goal 形成时点及澄清范围上不同。"
+          ],
+          "implementation_implication": "若选择不冻结 Goal，现有提前建立 themes Goal 的代码可能需要后续独立对齐；本轮不修改。"
+        }
+      ]
+    },
+    {
+      "case_id": "G12-T2",
+      "selected": "A",
+      "selected_option_id": "G12-T2-A",
+      "selected_option_snapshot": {
+        "id": "G12-T2-A",
+        "label": "继承显式 SKU，继续澄清情感/层次",
+        "business_meaning": "同会话同身份、未改选择；上一轮未完成不抹掉用户明确写出的 053。只继承条件，不继承排名、统计、情感或完成事实。",
+        "contract_evidence": [
+          "C01",
+          "C02",
+          "C08"
+        ],
+        "proposed_expectations": {
+          "expected_analysis_intent": "not_finalized",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "unsupported",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": null,
+            "aspects": [],
+            "blocked": true,
+            "sentiment": null
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "themes"
+            ],
+            "sentiment": null
+          },
+          "expected_required_tools": [],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "representation_rule": "absent_or_explicit_failure",
+            "permitted_representations": [
+              null,
+              {
+                "status": "failed",
+                "complete": false
+              }
+            ],
+            "complete_true_forbidden": true
+          },
+          "expected_user_intent": {
+            "needs_clarification": true
+          }
+        },
+        "execution_constraints": {
+          "business_query_executions": 0,
+          "classification_attempts": 0,
+          "must_not_publish_evidence": true,
+          "catalog_reads_before_planning_are_not_business_queries": true
+        },
+        "risk_if_misapplied": [
+          "失败条件不能升级为可信事实。",
+          "不能回退到页面两商品并执行合并分析。"
+        ],
+        "representation_notes": [],
+        "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+      },
+      "selected_option_sha256": "83e67ece2d56bd5b87aec46a8e94d4f64ebc35dbb251721f4d76111ef018dae1",
+      "business_rationale": "单 SKU 由此前用户原文及同会话校验独立确定；未执行事实仍为空。",
+      "classification": "v1 范围约束陈旧；语言条件仍不充分",
+      "unselected_options": []
+    },
+    {
+      "case_id": "G17-T2",
+      "selected": "A",
+      "selected_option_id": "G17-T2-A",
+      "selected_option_snapshot": {
+        "id": "G17-T2-A",
+        "label": "按既有 P6 契约判为 partial",
+        "business_meaning": "完整目标仍为三个维度；effectiveness 分类失败，其余维度独立通过。发布成功子维度，父任务不完整。",
+        "contract_evidence": [
+          "C03",
+          "C04",
+          "C07",
+          "C11"
+        ],
+        "proposed_expectations": {
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "present"
+          },
+          "expected_final_status": {
+            "agent": "partial",
+            "worker": "partial"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "service",
+              "effectiveness",
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "themes"
+            ],
+            "required_aspects": [
+              "service",
+              "effectiveness",
+              "logistics"
+            ],
+            "sentiment": "negative",
+            "version": "review-request-goal-p6-v1"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "status": "partial",
+            "complete": false,
+            "parent_status": "partial"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          }
+        },
+        "execution_constraints": {
+          "frozen_order": [
+            "service",
+            "effectiveness",
+            "logistics"
+          ],
+          "classification_attempts": 5,
+          "failed_aspect": "effectiveness",
+          "child_statuses": {
+            "service": "complete",
+            "effectiveness": "failed",
+            "logistics": "complete"
+          },
+          "publishable_aspects": [
+            "service",
+            "logistics"
+          ],
+          "all_required_aspects_retained": true,
+          "failed_aspect_topics_published": false
+        },
+        "risk_if_misapplied": [
+          "不得将成功子集替换 required_aspects。",
+          "不得改成 ok/complete=true，也不得把局部失败误称全局来源失败。"
+        ],
+        "representation_notes": [],
+        "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+      },
+      "selected_option_sha256": "59205d6590963e6157fb321c58c52f8a76ffbf243413ced0f6c348a8481aeba0",
+      "business_rationale": "C03/C04 明文规定部分成功的父级及公开状态；不以实际当前 partial 反推规范。",
+      "classification": "原预期状态定义错误（契约唯一）",
+      "unselected_options": []
+    },
+    {
+      "case_id": "G18-T2",
+      "selected": "A",
+      "selected_option_id": "G18-T2-A",
+      "selected_option_snapshot": {
+        "id": "G18-T2-A",
+        "label": "按既有 P6 契约判为 partial",
+        "business_meaning": "完整目标仍为三个维度；service 分类失败，其余维度独立通过。发布成功子维度，父任务不完整。",
+        "contract_evidence": [
+          "C03",
+          "C04",
+          "C07",
+          "C11"
+        ],
+        "proposed_expectations": {
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "present"
+          },
+          "expected_final_status": {
+            "agent": "partial",
+            "worker": "partial"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "service",
+              "effectiveness",
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "themes"
+            ],
+            "required_aspects": [
+              "service",
+              "effectiveness",
+              "logistics"
+            ],
+            "sentiment": "negative",
+            "version": "review-request-goal-p6-v1"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "status": "partial",
+            "complete": false,
+            "parent_status": "partial"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          }
+        },
+        "execution_constraints": {
+          "frozen_order": [
+            "service",
+            "effectiveness",
+            "logistics"
+          ],
+          "classification_attempts": 5,
+          "failed_aspect": "service",
+          "child_statuses": {
+            "service": "failed",
+            "effectiveness": "complete",
+            "logistics": "complete"
+          },
+          "publishable_aspects": [
+            "effectiveness",
+            "logistics"
+          ],
+          "all_required_aspects_retained": true,
+          "failed_aspect_topics_published": false
+        },
+        "risk_if_misapplied": [
+          "不得将成功子集替换 required_aspects。",
+          "不得改成 ok/complete=true，也不得把局部失败误称全局来源失败。"
+        ],
+        "representation_notes": [],
+        "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+      },
+      "selected_option_sha256": "6f66e6aaac4c1975a56acd99b884d8e12f1d0f9a0bd24612aec4fc0086ca3623",
+      "business_rationale": "C03/C04 明文规定部分成功的父级及公开状态；不以实际当前 partial 反推规范。",
+      "classification": "原预期状态定义错误（契约唯一）",
+      "unselected_options": []
+    },
+    {
+      "case_id": "G19-T2",
+      "selected": "A",
+      "selected_option_id": "G19-T2-A",
+      "selected_option_snapshot": {
+        "id": "G19-T2-A",
+        "label": "按既有 P6 契约判为 partial",
+        "business_meaning": "完整目标仍为三个维度；logistics 分类失败，其余维度独立通过。发布成功子维度，父任务不完整。",
+        "contract_evidence": [
+          "C03",
+          "C04",
+          "C07",
+          "C11"
+        ],
+        "proposed_expectations": {
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "present"
+          },
+          "expected_final_status": {
+            "agent": "partial",
+            "worker": "partial"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "service",
+              "effectiveness",
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "themes"
+            ],
+            "required_aspects": [
+              "service",
+              "effectiveness",
+              "logistics"
+            ],
+            "sentiment": "negative",
+            "version": "review-request-goal-p6-v1"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "status": "partial",
+            "complete": false,
+            "parent_status": "partial"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          }
+        },
+        "execution_constraints": {
+          "frozen_order": [
+            "service",
+            "effectiveness",
+            "logistics"
+          ],
+          "classification_attempts": 5,
+          "failed_aspect": "logistics",
+          "child_statuses": {
+            "service": "complete",
+            "effectiveness": "complete",
+            "logistics": "failed"
+          },
+          "publishable_aspects": [
+            "service",
+            "effectiveness"
+          ],
+          "all_required_aspects_retained": true,
+          "failed_aspect_topics_published": false
+        },
+        "risk_if_misapplied": [
+          "不得将成功子集替换 required_aspects。",
+          "不得改成 ok/complete=true，也不得把局部失败误称全局来源失败。"
+        ],
+        "representation_notes": [],
+        "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+      },
+      "selected_option_sha256": "b2ea590b1fe4bf31fff1b3e690dcc7198fe7b13f8a2f4ab08baf83fa29000724",
+      "business_rationale": "C03/C04 明文规定部分成功的父级及公开状态；不以实际当前 partial 反推规范。",
+      "classification": "原预期状态定义错误（契约唯一）",
+      "unselected_options": []
+    },
+    {
+      "case_id": "G20-T2",
+      "selected": "A",
+      "selected_option_id": "G20-T2-A",
+      "selected_option_snapshot": {
+        "id": "G20-T2-A",
+        "label": "拒用过期排名，服务受控返回 unsupported",
+        "business_meaning": "原 themes/三维 Goal 和已编译计划不降低；当前 D/M 不匹配只阻断准备，要求用户重新生成可信统计，不自动刷新或分类。",
+        "contract_evidence": [
+          "C05",
+          "C06",
+          "C07",
+          "C09"
+        ],
+        "proposed_expectations": {
+          "expected_analysis_intent": "aspect_drilldown",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "present"
+          },
+          "expected_final_status": {
+            "agent": "unsupported",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": "aspect_drilldown",
+            "aspects": [
+              "service",
+              "effectiveness",
+              "logistics"
+            ],
+            "blocked": false,
+            "sentiment": "negative"
+          },
+          "expected_request_goal": {
+            "aspect": null,
+            "levels": [
+              "themes"
+            ],
+            "required_aspects": [
+              "service",
+              "effectiveness",
+              "logistics"
+            ],
+            "sentiment": "negative",
+            "version": "review-request-goal-p6-v1"
+          },
+          "expected_required_tools": [
+            "get_aspect_drilldown"
+          ],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "status": "failed",
+            "complete": false,
+            "evidence_status": "not_executed"
+          },
+          "expected_user_intent": {
+            "aspect": null,
+            "query_type": "aspect_drilldown",
+            "sentiment": "negative"
+          }
+        },
+        "execution_constraints": {
+          "preparation_reason": "stale_ranking",
+          "current_ranking_validation_reads": 1,
+          "aspect_prefetch_reads": 0,
+          "classification_attempts": 0,
+          "public_topics": 0,
+          "planned_tools": [
+            "get_aspect_drilldown"
+          ],
+          "completed_theme_artifact_required": false,
+          "required_aspects_retained": [
+            "service",
+            "effectiveness",
+            "logistics"
+          ]
+        },
+        "risk_if_misapplied": [
+          "task_acceptance.failed 不是 Worker.failed。",
+          "不得新加 not_completed 或 stale_ranking 外层 API 枚举。",
+          "不得用新统计偷偷替换旧前三或把统计成功冒充主题完成。"
+        ],
+        "representation_notes": [
+          "not_completed 可作证据阶段描述，不能作为 task_acceptance.status。",
+          "计划存在但执行受阻，不能用“无主计划”代替真实轨迹；也不能要求其交付已禁止生成的主题。",
+          "未来 v2 的工具产物指标须区分 stale 受控阻断与已执行完成；本轮不改 v1 评分。"
+        ],
+        "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+      },
+      "selected_option_sha256": "ade4409416df2cd0bd9e50001fe37cd9eba09b6d2f1f9d560ad69efb5d2502cf",
+      "business_rationale": "C05 在观点预读前验证排名；C06 用 unsupported 保留原因，C07 可映射 succeeded。",
+      "classification": "原状态标签错误；计划/执行阶段需分离",
+      "unselected_options": []
+    },
+    {
+      "case_id": "G24-T2",
+      "selected": "A",
+      "selected_option_id": "G24-T2-A",
+      "selected_option_snapshot": {
+        "id": "G24-T2-A",
+        "label": "先问客服要查什么、统计还是具体反馈",
+        "business_meaning": "只确定 service 和 053；不推断正负、具体命题或业务层次。尚未形成可执行目标。",
+        "contract_evidence": [
+          "C01",
+          "C08",
+          "C09"
+        ],
+        "proposed_expectations": {
+          "expected_analysis_intent": "not_finalized",
+          "expected_analysis_state": {
+            "pending_goal": "absent",
+            "ranking_basis": "absent"
+          },
+          "expected_final_status": {
+            "agent": "unsupported",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "absent",
+          "expected_query_plan": {
+            "analysis_type": null,
+            "aspects": [],
+            "blocked": true,
+            "sentiment": null
+          },
+          "expected_request_goal": null,
+          "expected_required_tools": [],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "representation_rule": "absent_or_explicit_failure",
+            "permitted_representations": [
+              null,
+              {
+                "status": "failed",
+                "complete": false
+              }
+            ],
+            "complete_true_forbidden": true
+          },
+          "expected_user_intent": {
+            "needs_clarification": true
+          }
+        },
+        "execution_constraints": {
+          "business_query_executions": 0,
+          "classification_attempts": 0,
+          "must_not_publish_evidence": true,
+          "catalog_reads_before_planning_are_not_business_queries": true
+        },
+        "risk_if_misapplied": [
+          "不能把物流很慢的“慢”机械替换成客服响应慢。",
+          "不能以 053 空候选推出没有客服问题。"
+        ],
+        "representation_notes": [
+          "已知约束放在澄清上下文，RequestGoal 暂不冻结；这不是已执行的 RAG 任务。"
+        ],
+        "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+      },
+      "selected_option_sha256": "cb95a39325d5c7f663c29ca7857df1da9d2767ed24a414d0d6570acf70b5d525",
+      "business_rationale": "由明确的 service 和有限历史提问，选择最少假设的澄清；两方案都禁止在补全前执行。",
+      "classification": "真正的省略语义歧义；Goal 默认层次需审查",
+      "unselected_options": [
+        {
+          "id": "G24-T2-B",
+          "label": "保留检索意向，但请用户补全客服命题",
+          "business_meaning": "承接上一轮“检索相关反馈”的意向，不承接物流谓词或情感；先让用户说清客服要检索的完整反馈。补全前不检索。",
+          "contract_evidence": [
+            "C08"
+          ],
+          "proposed_expectations": {
+            "expected_analysis_intent": "not_finalized",
+            "expected_analysis_state": {
+              "pending_goal": "absent",
+              "ranking_basis": "absent"
+            },
+            "expected_final_status": {
+              "agent": "unsupported",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": null,
+              "aspects": [],
+              "blocked": true,
+              "sentiment": null
+            },
+            "expected_request_goal": null,
+            "expected_required_tools": [],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053"
+              ]
+            },
+            "expected_task_acceptance": {
+              "representation_rule": "absent_or_explicit_failure",
+              "permitted_representations": [
+                null,
+                {
+                  "status": "failed",
+                  "complete": false
+                }
+              ],
+              "complete_true_forbidden": true
+            },
+            "expected_user_intent": {
+              "needs_clarification": true
+            }
+          },
+          "execution_constraints": {
+            "business_query_executions": 0,
+            "classification_attempts": 0,
+            "must_not_publish_evidence": true,
+            "catalog_reads_before_planning_are_not_business_queries": true
+          },
+          "risk_if_misapplied": [
+            "检索意向不是已绑定 SemanticQuery，不得生成猜测向量或 permitted evidence。"
+          ],
+          "representation_notes": [
+            "query family 仅为未执行的 semantic_evidence 提示；最终 query_plan 仍未生成。"
+          ],
+          "implementation_implication": "待人工选定后才可形成正式预期；当前不判 PASS。"
+        }
+      ]
+    },
+    {
+      "case_id": "G30-T3",
+      "selected": "A",
+      "selected_option_id": "G30-T3-A",
+      "selected_option_snapshot": {
+        "id": "G30-T3-A",
+        "label": "先区分正向统计还是正向主题（建议）",
+        "business_meaning": "positive 和 053 已明确，但旧待办 themes 与上轮已完成统计存在两种可承接层次。先澄清，不替用户执行其中一种。",
+        "contract_evidence": [
+          "C02",
+          "C08",
+          "C09"
+        ],
+        "proposed_expectations": {
+          "expected_analysis_intent": "not_finalized",
+          "expected_analysis_state": {
+            "pending_goal": "present",
+            "ranking_basis": "present"
+          },
+          "expected_final_status": {
+            "agent": "unsupported",
+            "worker": "succeeded"
+          },
+          "expected_pending_goal": "awaiting_aspect",
+          "expected_query_plan": {
+            "blocked": true,
+            "analysis_type": null,
+            "aspects": [],
+            "sentiment": "positive"
+          },
+          "expected_request_goal": null,
+          "expected_required_tools": [],
+          "expected_scope": {
+            "date_from": "2023-02-01",
+            "date_to": "2023-02-28",
+            "product_ids": [
+              "100013588053"
+            ]
+          },
+          "expected_task_acceptance": {
+            "representation_rule": "absent_or_explicit_failure",
+            "permitted_representations": [
+              null,
+              {
+                "status": "failed",
+                "complete": false
+              }
+            ],
+            "complete_true_forbidden": true
+          },
+          "expected_user_intent": {
+            "needs_clarification": true
+          }
+        },
+        "execution_constraints": {
+          "business_query_executions": 0,
+          "classification_attempts": 0,
+          "must_not_publish_evidence": true,
+          "catalog_reads_before_planning_are_not_business_queries": true
+        },
+        "risk_if_misapplied": [
+          "不能直接统计来降级原 themes，也不能用主题分类把未确认层次变成事实。"
+        ],
+        "representation_notes": [
+          "旧 negative/themes pending 作为未完成历史保持，不改写成 positive 已完成；当前 positive 是已知澄清条件。",
+          "awaiting_aspect 为现有待办状态，仅保留原待办；不发明 awaiting_level API 枚举。",
+          "待用户后续明确选项，才冻结新 Goal 并显式说明延续或替换旧目标。"
+        ],
+        "implementation_implication": "若人工选择先澄清，当前自动执行 positive/themes 的轨迹不符合；未来单独记录普通业务缺陷，本轮不修。"
+      },
+      "selected_option_sha256": "9943d895985793747e410e28eeca2426dab79b397097faa0d406005183b9db59",
+      "business_rationale": "原始句子没有明确统计或主题；默认零执行的澄清最少假设。此建议不是最终裁决。",
+      "classification": "真正的层次歧义；原完成性预期自相矛盾",
+      "unselected_options": [
+        {
+          "id": "G30-T3-B",
+          "label": "明确约定短情感追问延续待办主题层次",
+          "business_meaning": "将“那好评呢”定义为把待办主题目标切换到正向总体主题；不是正向排名统计。旧 negative 目标被本轮意图替换但不标为已完成。",
+          "contract_evidence": [
+            "C08",
+            "C09"
+          ],
+          "proposed_expectations": {
+            "expected_analysis_intent": "aspect_drilldown",
+            "expected_analysis_state": {
+              "pending_goal": "present",
+              "ranking_basis": "present"
+            },
+            "expected_final_status": {
+              "agent": "ok",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "analysis_type": "aspect_drilldown",
+              "aspects": [],
+              "blocked": false,
+              "sentiment": "positive"
+            },
+            "expected_request_goal": {
+              "aspect": null,
+              "levels": [
+                "themes"
+              ],
+              "sentiment": "positive"
+            },
+            "expected_required_tools": [
+              "get_aspect_drilldown"
+            ],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053"
+              ]
+            },
+            "expected_task_acceptance": {
+              "status": "passed",
+              "complete": true
+            },
+            "expected_user_intent": {
+              "aspect": null,
+              "query_type": "aspect_drilldown",
+              "sentiment": "positive"
+            }
+          },
+          "execution_constraints": {
+            "business_query_executions": 2,
+            "classification_attempts": 2,
+            "tool": "get_aspect_drilldown",
+            "parameters": {
+              "product_ids": [
+                "100013588053"
+              ],
+              "aspect": null,
+              "sentiment": "positive"
+            },
+            "complete_only_if_theme_and_evidence_validation_pass": true,
+            "negative_pending_not_marked_complete": true
+          },
+          "risk_if_misapplied": [
+            "用户本意若为好评数量，则分类目标及两次模型调用均错误。",
+            "仅统计一级维度不能完成该候选语义。"
+          ],
+          "representation_notes": [],
+          "implementation_implication": "当前轨迹在此候选语义下可能满足程序验收；必须先由负责人确定承接规则，不能用输出反证该选择正确。"
+        },
+        {
+          "id": "G30-T3-C",
+          "label": "明确约定本轮替换为总体好评统计",
+          "business_meaning": "将该短句定义为以 positive 总体统计替换旧待办主题，不继承 themes；这必须是人工选定的业务规则，不能用于制造通过。",
+          "contract_evidence": [
+            "C09"
+          ],
+          "proposed_expectations": {
+            "expected_analysis_intent": "positive_aspects",
+            "expected_analysis_state": {
+              "pending_goal": "present",
+              "ranking_basis": "present"
+            },
+            "expected_final_status": {
+              "agent": "ok",
+              "worker": "succeeded"
+            },
+            "expected_pending_goal": "absent",
+            "expected_query_plan": {
+              "blocked": false,
+              "analysis_type": "positive_aspects",
+              "aspects": [],
+              "sentiment": "positive"
+            },
+            "expected_request_goal": {
+              "levels": [
+                "statistics"
+              ],
+              "aspect": null,
+              "sentiment": "positive"
+            },
+            "expected_required_tools": [
+              "get_positive_aspects"
+            ],
+            "expected_scope": {
+              "date_from": "2023-02-01",
+              "date_to": "2023-02-28",
+              "product_ids": [
+                "100013588053"
+              ]
+            },
+            "expected_task_acceptance": {
+              "status": "passed",
+              "complete": true
+            },
+            "expected_user_intent": {
+              "query_type": "aspect_summary",
+              "aspect": null,
+              "sentiment": "positive"
+            }
+          },
+          "execution_constraints": {
+            "business_query_executions": 2,
+            "classification_attempts": 0,
+            "tool": "get_positive_aspects",
+            "complete_only_if_statistics_validation_pass": true
+          },
+          "risk_if_misapplied": [
+            "短句未写“总体统计”；若用户要延续 themes，这会降低任务目标。",
+            "旧 negative/themes 只能记录为被替换，不能声称完成。"
+          ],
+          "representation_notes": [],
+          "implementation_implication": "当前 positive/themes 执行不符合统计语义；需要另行业务修复和回归，本轮不改代码。"
+        }
+      ]
+    }
+  ],
+  "unchanged_original_turns": 52
+}

@@ -40,7 +40,8 @@ REFERENCE = re.compile(
 
 def build_request_goal(question, context=None):
     """在编译前冻结请求产物；不调用 opinion_request、Router、Planner 或模型。"""
-    text = question
+    from data_analysis_agent.agents.review_semantics import active_request, ASPECT_SWITCH
+    text = active_request(question)
     if question.startswith('执行本轮已确认的只读查询'):
         try:
             declared = json.loads(question.split('\n', 1)[1])
@@ -73,7 +74,7 @@ def build_request_goal(question, context=None):
     metrics = bool(re.search(r'多少|几条|数量|占比|比例|排名|分布', text))
     metric_manifestation = bool(re.search(r'(?:数量|占比|比例|评论数|观点数).*(?:体现|表现)', text))
     themes = not examples and not metric_manifestation and bool(re.search(
-        r'体现|表现|归纳|总结|子主题|主题归类|(?:抱怨|吐槽|投诉).*(?:哪些事情|哪些问题|些什么)|有哪些不满意的(?:地方|方面)', text)
+        r'体现|表现|归纳|总结|子主题|主题归类|具体(?:在)?抱怨什么|(?:抱怨|吐槽|投诉).*(?:哪些事情|哪些问题|些什么)|有哪些不满意的(?:地方|方面)', text)
         or (aspect and re.search(r'(?:具体(?:涉及|有)?|主要有)哪些问题|主要问题集中.*环节', text))
         or (sentiment == 'positive' and re.search(r'具体.*好评|好评.*具体', text) and not metrics
             and not re.match(r'这些|那些|上述', text)))
@@ -115,6 +116,9 @@ def build_request_goal(question, context=None):
         inherited_aspect, inherited_topic = params.get('aspect'), params.get('topic')
         from data_analysis_agent.jobs.analysis_state import pending_context
         pending, users = pending_context(context)
+        if aspect and REFERENCE.fullmatch(text.strip()) and last.get('kind') == 'semantic_evidence':
+            # 维度明确不代表统计、主题或检索命题已明确。
+            return None
         if pending:
             prior_level = pending['levels'][0]
             inherited_sentiment = pending['sentiment'] or inherited_sentiment
@@ -131,11 +135,21 @@ def build_request_goal(question, context=None):
                     inherited_topic = prior.topic or inherited_topic
                     if not REFERENCE.fullmatch(user['question'].strip()):
                         prior_level = prior.levels[0]
-        reference = bool(REFERENCE.fullmatch(text.strip()) or re.search(r'^那再往里挖', text))
+        if (prior_level == 'themes' and re.fullmatch(r'(?:那|那么|然后)?(?:好评|差评|正面|负面|优点|缺点|投诉)(?:呢|吧)?[？?。]*', text.strip())
+                and last.get('kind') in ('issues', 'positive_aspects') and not params.get('aspect')):
+            # 结构化待办或合法用户请求都可能与已完成统计竞争；这里只澄清，不恢复事实。
+            return None
+        switch = bool(ASPECT_SWITCH.fullmatch(text.strip()) and len(queries) == 1)
+        count_reference = bool(re.fullmatch(r'(?:那|那么)?(?:有多少条|多少条|几条|数量呢)[？?。]*', text.strip()))
+        reference = bool(REFERENCE.fullmatch(text.strip()) or re.search(r'^那再往里挖', text) or switch)
         if reference:
             goal = replace(goal, levels=(prior_level,), statistic_families=())
+        if count_reference:
+            goal = replace(goal, levels=('statistics',), statistic_families=('summary',))
         whole = bool(re.search(r'整体|总体|全部|所有|商品的?好评|评论中具体的好评', text))
-        inherit_aspect = not whole and (reference or bool(re.search(r'具体|体现|表现|抱怨|吐槽|往里挖', text)))
+        count_target = count_reference and bool(last and params.get('aspect') and
+            (params.get('sentiment') or previous.get('sentiment')) in ('positive', 'negative'))
+        inherit_aspect = not whole and (reference or count_target or bool(re.search(r'具体|体现|表现|抱怨|吐槽|往里挖', text)))
         inherit_topic = reference or bool(re.search(r'往里挖|^(?:这些|那些|上述)', text))
         goal = replace(goal, aspect=aspect or (inherited_aspect if inherit_aspect else None),
                        sentiment=sentiment or inherited_sentiment,

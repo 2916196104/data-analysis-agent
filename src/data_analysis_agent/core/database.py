@@ -149,6 +149,8 @@ class PostgresConnection:
         return self.raw.info.transaction_status != TransactionStatus.IDLE
 
     def _execute(self, query, parameters=None):
+        if query.lstrip().upper().startswith(('SELECT', 'WITH', 'SHOW')):
+            self.read_statement_count = getattr(self, 'read_statement_count', 0) + 1
         with _trace_sql(self.namespace, query):
             return self.raw.execute(query, parameters)
 

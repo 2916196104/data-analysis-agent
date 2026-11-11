@@ -258,7 +258,9 @@ export interface AgentResult {
   sentiment_intent?: string | null;
   answer?: string;
   public_answer?: PublicAnswer;
-  task_acceptance?: { status: 'passed' | 'failed' | 'insufficient_evidence'; complete: boolean; message: string;
+  p6_publication?: import('./features/agent/p6-publication').P6Publication;
+  task_acceptance?: { status: 'passed' | 'failed' | 'partial' | 'insufficient_evidence'; complete: boolean; message: string;
+    required_aspects?: string[];
     checks: { name: string; passed: boolean; detail: string }[] };
   answer_sections?: { result_id: string; kind: AgentToolResult['kind']; text: string }[];
   scope: AnalysisScope & Partial<Pick<AnalysisParameters, 'baseline_from' | 'baseline_to'>>;

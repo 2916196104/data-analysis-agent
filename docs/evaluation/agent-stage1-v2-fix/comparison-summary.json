@@ -1,0 +1,157 @@
+{
+  "created_at": "2026-11-11T12:44:36.310463+08:00",
+  "source_revision": "docs/evaluation/agent-stage1-v2-fix/source-revision.v5.json",
+  "source_revision_sha256": "0c3f3c8a1bf3fbc1699d3eea970c14ed106b2d2839b23444dd1ef0d25de926f8",
+  "before_run": ".cache/agent-stage1-oracle-v2/run-03.json",
+  "after_run": ".cache/agent-stage1-v2-fix/run-01.json",
+  "before_metrics": {
+    "state_context": {
+      "passed": 59,
+      "total": 60,
+      "percent": 98.33
+    },
+    "intent_router": {
+      "passed": 59,
+      "total": 60,
+      "percent": 98.33
+    },
+    "request_goal": {
+      "passed": 58,
+      "total": 60,
+      "percent": 96.67
+    },
+    "planner": {
+      "passed": 59,
+      "total": 60,
+      "percent": 98.33
+    },
+    "tools_stage_and_target": {
+      "passed": 58,
+      "total": 60,
+      "percent": 96.67
+    },
+    "validator_injected_error_interception": {
+      "passed": 2,
+      "total": 2,
+      "percent": 100.0
+    },
+    "pre_tool_block": {
+      "passed": 9,
+      "total": 10,
+      "percent": 90.0
+    },
+    "strict_business_completion": {
+      "passed": 42,
+      "total": 43,
+      "percent": 97.67
+    },
+    "turn_end_to_end": {
+      "passed": 59,
+      "total": 62,
+      "percent": 95.16
+    },
+    "conversation_end_to_end": {
+      "passed": 27,
+      "total": 30,
+      "percent": 90.0
+    }
+  },
+  "after_metrics": {
+    "state_context": {
+      "passed": 60,
+      "total": 60,
+      "percent": 100.0
+    },
+    "intent_router": {
+      "passed": 60,
+      "total": 60,
+      "percent": 100.0
+    },
+    "request_goal": {
+      "passed": 60,
+      "total": 60,
+      "percent": 100.0
+    },
+    "planner": {
+      "passed": 60,
+      "total": 60,
+      "percent": 100.0
+    },
+    "tools_stage_and_target": {
+      "passed": 59,
+      "total": 60,
+      "percent": 98.33
+    },
+    "validator_injected_error_interception": {
+      "passed": 2,
+      "total": 2,
+      "percent": 100.0
+    },
+    "pre_tool_block": {
+      "passed": 10,
+      "total": 10,
+      "percent": 100.0
+    },
+    "strict_business_completion": {
+      "passed": 42,
+      "total": 43,
+      "percent": 97.67
+    },
+    "turn_end_to_end": {
+      "passed": 61,
+      "total": 62,
+      "percent": 98.39
+    },
+    "conversation_end_to_end": {
+      "passed": 29,
+      "total": 30,
+      "percent": 96.67
+    }
+  },
+  "fixed_cases": {
+    "G24-T2": {
+      "before": "FAIL",
+      "after": "PASS"
+    },
+    "G30-T3": {
+      "before": "FAIL",
+      "after": "PASS"
+    }
+  },
+  "originally_passing_cases": 59,
+  "retained_passes": 59,
+  "regressions": [],
+  "remaining_failures": [
+    "G25-T1"
+  ],
+  "old_files_checked": 843,
+  "changed_old_files": [
+    "src/data_analysis_agent/agents/review_acceptance.py",
+    "src/data_analysis_agent/agents/review_intent.py"
+  ],
+  "original_compatibility_test_ids_retained": 650,
+  "regression": {
+    "tests": 737,
+    "failures": 1,
+    "errors": 3,
+    "skips": 0,
+    "failure_ids": [
+      "test_p1a_f01.F01WorkerTests.test_positive_theme_with_matching_evidence_completes_without_paid_model"
+    ],
+    "error_ids": [
+      "test_p1a_f01.F01WorkerTests.test_a_short_sentiment_keeps_themes_with_correct_empty_positive_result",
+      "test_p1a_f01.F01WorkerTests.test_legacy_user_conditions_without_structured_state_keep_theme_goal",
+      "test_p6b_planner_snapshot.P6BPlannerSnapshotTests.test_explicit_other_requests_and_f01_short_sentiment_do_not_trigger_p6"
+    ],
+    "external_attempts": [],
+    "sqlite_connections_to_synthetic_temp": 13707
+  },
+  "no_real_operations": {
+    "real_database_connections": 0,
+    "real_paid_provider_calls": 0,
+    "real_embedding_calls": 0,
+    "forbidden_attempts": []
+  },
+  "connection_doubles": 64,
+  "closed_connection_doubles": 64
+}

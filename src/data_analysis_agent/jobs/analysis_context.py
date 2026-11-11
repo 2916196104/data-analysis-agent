@@ -45,6 +45,23 @@ def load_analysis_context(task_db, parameters, *, max_turns=4):
         if selection is not None:
             if any(parameters.get(key) != previous.get(key) for key in keys[:5]):
                 break
+            # 选择变化也约束失败轮的用户条件，不能等待成功事实才识别。
+            if valid or 'selection_scope' not in context:
+                try:
+                    current = BaselineScope.model_validate(selection).model_dump()
+                    original = BaselineScope.model_validate(previous.get('selection_scope') or {
+                        key: previous[key] for key in BaselineScope.model_fields if key in previous}).model_dump()
+                    BaselineScope.model_validate({key: previous[key] for key in BaselineScope.model_fields if key in previous})
+                except (ValueError, KeyError, TypeError):
+                    break
+                if any(current[key] != parameters.get(key) or original[key] != previous.get(key) for key in keys[:5]):
+                    break
+                groups = {'product_ids': ('product_ids',), 'current_window': ('date_from', 'date_to'),
+                          'baseline_window': ('baseline_from', 'baseline_to'), 'as_of': ('as_of',)}
+                context.update(selection_scope=current, previous_selection_scope=original,
+                    selection_changes=[name for name, fields in groups.items()
+                        if any((sorted(current[key]) != sorted(original[key]) if key == 'product_ids'
+                                else current[key] != original[key]) for key in fields)])
         elif not same_scope(previous) and not (valid and same_scope(result.get('scope', {}))):
             break
         context['turns_read'] += 1
@@ -59,29 +76,26 @@ def load_analysis_context(task_db, parameters, *, max_turns=4):
                 expected = expected_result_scopes(result['results'],scope)
                 checked = validate_report(result['results'], result['result_ids'], expected_scopes=expected)
                 if checked['status'] == 'passed':
-                    if selection is not None:
-                        current = BaselineScope.model_validate(selection).model_dump()
-                        if any(current[key] != parameters.get(key) for key in keys[:5]):
-                            break
-                        original = BaselineScope.model_validate(previous.get('selection_scope') or {
-                            key: previous[key] for key in BaselineScope.model_fields if key in previous}).model_dump()
-                        groups = {'product_ids': ('product_ids',), 'current_window': ('date_from', 'date_to'),
-                                  'baseline_window': ('baseline_from', 'baseline_to'), 'as_of': ('as_of',)}
-                        context.update(selection_scope=current, previous_selection_scope=original,
-                            selection_changes=[name for name, fields in groups.items()
-                                if any((sorted(current[key]) != sorted(original[key]) if key == 'product_ids'
-                                        else current[key] != original[key]) for key in fields)])
                     context['validated'] = {'task_id': task_id, 'scope': scope,
                         'sentiment': result.get('sentiment_intent'), 'analysis_type': result.get('analysis_intent'),
                         'queries': [{'kind': result['results'][key]['kind'], 'parameters': result['results'][key]['parameters']}
                                     for key in result['result_ids'] if key != 'overview'],
                         'result_refs': list(result['result_ids'])}
                     context['analysis_state']['ranking_basis'] = restore_ranking(task)
+                    if context['analysis_state']['ranking_basis'] is not None:
+                        # 仅服务端运行时使用；不写入结果或接受客户端任务快照。
+                        context.update(ranking_task=task, conversation_id=conversation_id)
                     break
             except (ValueError, KeyError, TypeError, ArithmeticError, AttributeError, IndexError):
                 pass
         task_id = previous.get('context_task_id')
-    effective = ((context.get('selection_scope') or selection) if context.get('selection_changes')
-                 else (context.get('validated') or {}).get('scope')) or selection or parameters
+    pending = context['analysis_state'].get('pending_goal') or {}
+    effective = dict(pending.get('scope') or (context.get('validated') or {}).get('scope') or selection or parameters)
+    current = context.get('selection_scope') or selection
+    if current:
+        for name, fields in {'product_ids': ('product_ids',), 'current_window': ('date_from', 'date_to'),
+                             'baseline_window': ('baseline_from', 'baseline_to'), 'as_of': ('as_of',)}.items():
+            if name in context.get('selection_changes', []):
+                effective.update({key: current[key] for key in fields})
     context['analysis_state'] = analysis_state_for_scope(context, effective)
     return context if context['user'] else None

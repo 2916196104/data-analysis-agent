@@ -7,6 +7,7 @@ import { aspectRows, comparisonRows, sampleState, sectionSummary } from './agent
 import type { AgentResult, AgentToolResult, Summary } from './types';
 import ExtendedResults from './features/agent/ExtendedResults';
 import { exportAgentReport } from './features/agent/report-export';
+import P6Results from './features/agent/P6Results';
 
 const toolNames: Record<string, string> = {
   search_semantic_evidence: '语义检索评论证据',
@@ -68,6 +69,7 @@ export default function AgentResults({ result, onDetail, onPrepare, onEvidenceNe
   idPrefix?: string;
 }) {
   const selected = (result.result_ids || []).map(id => result.results[id]).filter(Boolean);
+  if (result.p6_publication) return <P6Results result={result} />;
   if (result.status === 'error' || result.validation?.status === 'failed') {
     return <Alert type="error" message="分析未完成，统计与原文暂不展示。" />;
   }

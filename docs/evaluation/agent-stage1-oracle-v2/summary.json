@@ -1,0 +1,111 @@
+{
+  "PASS": 59,
+  "FAIL": 3,
+  "PENDING_HUMAN": 0,
+  "failed_cases": [
+    "G24-T2",
+    "G25-T1",
+    "G30-T3"
+  ],
+  "metrics": {
+    "state_context": {
+      "passed": 59,
+      "total": 60,
+      "percent": 98.33
+    },
+    "intent_router": {
+      "passed": 59,
+      "total": 60,
+      "percent": 98.33
+    },
+    "request_goal": {
+      "passed": 58,
+      "total": 60,
+      "percent": 96.67
+    },
+    "planner": {
+      "passed": 59,
+      "total": 60,
+      "percent": 98.33
+    },
+    "tools_stage_and_target": {
+      "passed": 58,
+      "total": 60,
+      "percent": 96.67
+    },
+    "validator_injected_error_interception": {
+      "passed": 2,
+      "total": 2,
+      "percent": 100.0
+    },
+    "pre_tool_block": {
+      "passed": 9,
+      "total": 10,
+      "percent": 90.0
+    },
+    "strict_business_completion": {
+      "passed": 42,
+      "total": 43,
+      "percent": 97.67
+    },
+    "turn_end_to_end": {
+      "passed": 59,
+      "total": 62,
+      "percent": 95.16
+    },
+    "conversation_end_to_end": {
+      "passed": 27,
+      "total": 30,
+      "percent": 90.0
+    }
+  },
+  "groups": {
+    "G01": "PASS",
+    "G02": "PASS",
+    "G03": "PASS",
+    "G04": "PASS",
+    "G05": "PASS",
+    "G06": "PASS",
+    "G07": "PASS",
+    "G08": "PASS",
+    "G09": "PASS",
+    "G10": "PASS",
+    "G11": "PASS",
+    "G12": "PASS",
+    "G13": "PASS",
+    "G14": "PASS",
+    "G15": "PASS",
+    "G16": "PASS",
+    "G17": "PASS",
+    "G18": "PASS",
+    "G19": "PASS",
+    "G20": "PASS",
+    "G21": "PASS",
+    "G22": "PASS",
+    "G23": "PASS",
+    "G24": "FAIL",
+    "G25": "FAIL",
+    "G26": "PASS",
+    "G27": "PASS",
+    "G28": "PASS",
+    "G29": "PASS",
+    "G30": "FAIL"
+  },
+  "adjudicated_results": {
+    "G10-T2": "PASS",
+    "G11-T2": "PASS",
+    "G12-T1": "PASS",
+    "G12-T2": "PASS",
+    "G17-T2": "PASS",
+    "G18-T2": "PASS",
+    "G19-T2": "PASS",
+    "G20-T2": "PASS",
+    "G24-T2": "FAIL",
+    "G30-T3": "FAIL"
+  },
+  "original_PASS_retained": 51,
+  "original_PASS_count": 51,
+  "state": "BUSINESS_ACCEPTANCE_FAIL",
+  "oracle_freeze": "PASS",
+  "independent_evaluation": "COMPLETED"
+}

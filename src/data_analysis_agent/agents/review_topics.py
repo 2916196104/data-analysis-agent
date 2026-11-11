@@ -111,7 +111,7 @@ def topic_id(name, aspect, sentiment):
     return 'topic:' + content_sha256([TOPIC_VERSION, aspect, sentiment, canonical])[:20]
 
 
-def _call(settings, prompt, payload, schema, timeout):
+def _call(settings, prompt, payload, schema, timeout, *, shared_budget=None, aspect=None):
     from openai import OpenAI
     # 归属逐项重复长字段会拖慢真实模型；只压缩传输，持久化与校验仍使用原完整结构。
     wire_schema = TopicWireBatch if schema is TopicBatch else TopicWireCatalog if schema is TopicCatalog else schema
@@ -133,9 +133,36 @@ i 对应 opinion_id；s 用 a=assigned、u=uncertain、c=conflicting、n=unclass
     if urlsplit(settings.base_url).hostname in {'api.siliconflow.cn', 'api.siliconflow.com'} and settings.model.rsplit('/', 1)[-1] == 'DeepSeek-V3.2':
         # 该供应商支持显式关闭额外思考；主题发现与独立归属复核仍分别执行。
         options['extra_body'] = {'enable_thinking': False}
-    with OpenAI(api_key=settings.api_key, base_url=settings.base_url, timeout=timeout, max_retries=0) as client:
-        response = client.chat.completions.create(model=settings.model, temperature=0, max_tokens=1200 if schema is TopicCatalog else 3000,
-            response_format={'type': 'json_object'}, messages=[{'role': 'system', 'content': prompt}, {'role': 'user', 'content': body}], **options)
+    max_tokens = 1200 if schema is TopicCatalog else 3000
+    def provider(request_timeout):
+        with OpenAI(api_key=settings.api_key, base_url=settings.base_url, timeout=request_timeout, max_retries=0) as client:
+            create = client.chat.completions.with_raw_response.create if shared_budget else client.chat.completions.create
+            response = create(model=settings.model, temperature=0, max_tokens=max_tokens,
+                response_format={'type': 'json_object'}, messages=[{'role': 'system', 'content': prompt}, {'role': 'user', 'content': body}], **options)
+            if shared_budget:
+                from data_analysis_agent.agents.review_provider import parse_provider_response
+                return parse_provider_response(response)
+            return response
+    stage = payload.get('stage')
+    try:
+        response = (shared_budget.request(settings, aspect=aspect, stage=stage, prompt=prompt, body=body,
+            max_tokens=max_tokens, provider=provider, options=options) if shared_budget else provider(timeout))
+        parsed = _parse_topic_response(response, wire_schema, schema, payload)
+        if shared_budget:
+            shared_budget.accept(aspect, stage)
+        return parsed
+    except Exception as exc:
+        if shared_budget:
+            shared_budget.reject(aspect, stage, getattr(exc, 'code', None) or type(exc).__name__)
+        raise
+
+
+def call_topic_model(settings, prompt, payload, schema, timeout, *, shared_budget, aspect):
+    """P6 复用原 wire 协议和解析器；共享预算位于供应商调用之前。"""
+    return _call(settings, prompt, payload, schema, timeout, shared_budget=shared_budget, aspect=aspect)
+
+
+def _parse_topic_response(response, wire_schema, schema, payload):
     choice = response.choices[0]
     if choice.finish_reason != 'stop' or choice.message.tool_calls:
         raise TopicResponseError('output_truncated' if choice.finish_reason == 'length' else 'incomplete_response',
@@ -177,10 +204,14 @@ i 对应 opinion_id；s 用 a=assigned、u=uncertain、c=conflicting、n=unclass
     return parsed
 
 
-def _units(extracted):
+def _units(extracted, *, max_unique=None, max_opinions=None):
     rows, units, items = [], {}, {}
     # 正向总结至多保留二十种表达；拆小复核响应，不减少原有样本覆盖。
     unique_limit = min(MAX_UNIQUE, MAX_POSITIVE_UNIQUE) if extracted['sentiment'] == 'positive' else MAX_UNIQUE
+    if max_unique is not None:
+        unique_limit = min(unique_limit, max_unique)
+    if max_opinions is None:
+        max_opinions = MAX_OPINIONS
     entries = [(item, index, opinion) for item in extracted['items'] for index, opinion in enumerate(item['opinions'])]
     if extracted['aspect'] is None:
         groups = [[entry for entry in entries if entry[2]['aspect'] == aspect] for aspect in ASPECTS]
@@ -188,7 +219,7 @@ def _units(extracted):
     for item, index, opinion in entries:
         quote = opinion['quote']
         identity = (opinion['aspect'], quote)
-        if len(rows) >= MAX_OPINIONS or (identity not in units and len(units) >= unique_limit):
+        if len(rows) >= max_opinions or (identity not in units and len(units) >= unique_limit):
             continue
         # 太长的观点仍保留为未归类；不截断后冒充完整语义。
         unit_id = units.setdefault(identity, {'opinion_id': 'u' + str(len(units) + 1), 'quote': quote, 'aspect': opinion['aspect']})['opinion_id']
@@ -197,6 +228,12 @@ def _units(extracted):
         saved = items.setdefault(item['review_id'], {**deepcopy(item), 'opinions': []})
         saved['opinions'].append({**deepcopy(opinion), 'opinion_id': oid})
     return rows, list(units.values()), list(items.values())
+
+
+def prepare_topic_input(extracted):
+    """P6 有界候选选择及来源 ID；纯函数，不发现或分类主题。"""
+    rows, units, items = _units(extracted, max_unique=20, max_opinions=200)
+    return {'opinions': rows, 'units': units, 'items': items}
 
 
 def _checked_catalog(catalog, units, *, aspect=None):
@@ -271,9 +308,18 @@ def recompute_topics(data):
         'population_opinion_coverage': count_rate(len(evaluated), data['total_opinions'])}
 
 
-def analyze_aspect_topics(extracted, *, settings, progress=None):
+def analyze_aspect_topics(extracted=None, *, settings, progress=None, frozen_input=None, shared_budget=None):
     started = perf_counter()
-    rows, units, items = _units(extracted)
+    if frozen_input is not None or shared_budget is not None:
+        from data_analysis_agent.agents.review_budget import P6SharedBudget, P6BudgetBlocked, P6InputIntegrityError
+        if extracted is not None or frozen_input is None or type(shared_budget) is not P6SharedBudget:
+            raise P6InputIntegrityError('P6 分类必须消费受控冻结输入与同一个共享预算。')
+        shared_budget.verify_input(frozen_input['aspect'], frozen_input)
+        extracted = {key: deepcopy(frozen_input[key]) for key in ('summary', 'aspect', 'sentiment', 'total', 'total_opinions')}
+        extracted['scope'] = deepcopy(frozen_input['query_scope'])
+        rows, units, items = (deepcopy(frozen_input[key]) for key in ('opinions', 'units', 'items'))
+    else:
+        rows, units, items = _units(extracted)
     data = {key: deepcopy(extracted[key]) for key in ('scope', 'summary', 'aspect', 'sentiment', 'total', 'total_opinions')}
     data.update(analysis_type='aspect_drilldown', analysis_status='insufficient_data' if not rows else 'complete',
         population_mode='full' if len(rows) == extracted['total_opinions'] else 'sample',
@@ -285,6 +331,15 @@ def analyze_aspect_topics(extracted, *, settings, progress=None):
     request_timeout = 0
     def call(prompt, payload, schema):
         nonlocal request_timeout
+        if shared_budget is not None:
+            shared_budget.verify_input(data['aspect'], frozen_input)
+            request_timeout = min(settings.timeout_seconds, 20)
+            before = shared_budget.snapshot()['attempts']
+            try:
+                return call_topic_model(settings, prompt, payload, schema, request_timeout,
+                    shared_budget=shared_budget, aspect=data['aspect'])
+            finally:
+                data['model_calls'] += shared_budget.snapshot()['attempts'] - before
         remaining = MAX_SECONDS - (perf_counter() - started)
         request_timeout = 0
         if remaining <= 0:
@@ -297,7 +352,11 @@ def analyze_aspect_topics(extracted, *, settings, progress=None):
     def failure(exc, batch):
         stage = 'topic_classification' if batch else 'topic_discovery'
         label = f'主题归属复核第 {batch} 批' if batch else '主题发现'
-        if isinstance(exc, (TimeoutError, APITimeoutError)):
+        if shared_budget is not None and isinstance(exc, P6InputIntegrityError):
+            raise exc
+        if shared_budget is not None and isinstance(exc, P6BudgetBlocked):
+            code, reason = exc.code, '共享预算或截止条件阻止继续执行'
+        elif isinstance(exc, (TimeoutError, APITimeoutError)):
             code = 'timeout' if request_timeout else 'budget_exhausted'
             reason = f'请求超时（单次上限 {round(request_timeout, 1):g} 秒）' if request_timeout else f'总耗时预算 {MAX_SECONDS} 秒已用完'
         elif isinstance(exc, APIStatusError):

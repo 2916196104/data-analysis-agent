@@ -1,0 +1,58 @@
+{
+  "version": "agent-stage1-v2-matcher-v1.1",
+  "frozen_at": "2026-11-11T12:20:47.199316+08:00",
+  "timezone": "Asia/Taipei",
+  "principle": "No case-ID PASS logic. Compare independent expectations and explicit execution phase.",
+  "projections": {
+    "analysis_state": "scope-projected input ranking/pending presence; raw state retained",
+    "analysis_intent": "not_finalized iff no executable main requirements; raw intent/sentiment retained as diagnostics",
+    "blocked_plan": "no requirements; sentiment reflects only user_intent or partial Goal known sentiment, never a guessed raw routing hint",
+    "effective_scope": "exact normalized scope identity/products/windows from gold, not outputs",
+    "pending_goal": "post-turn legal state; if input pending exists and preservation is required, goal/scope/source task remain identical",
+    "acceptance": "supports null, subset partial/failed, and explicit absent-or-failure rule",
+    "rag": "frozen separate contract and permitted_keys; no RAG permission changes",
+    "pre_tool_block": "catalog transaction/GUC reads before planning allowed; registry/data calls and classifiers after known block forbidden"
+  },
+  "phase_rules": {
+    "clarification": "no executable plan; needs_clarification; zero query/registry/retrieval/classification; no facts or complete=true",
+    "preparation_block": "preserve compiled plan and frozen target; verify named reason/statistics validation count; zero prefetch/classification/public topics",
+    "partial_publication": "retain exact required_aspects and per-child statuses, publish only specified independently accepted aspects; parent partial/false",
+    "plan_fault_rejection": "verify independent Goal, false plan check and final rejection; no tools/classification; injected planner deviations are reported separately",
+    "result_fault_rejection": "verify final source/numeric rejection and no publication; altered artifact is the expected injected deviation",
+    "completed_or_insufficient": "compare output scope/capability and acceptance; numeric success never substitutes for semantic task acceptance"
+  },
+  "first_deviation_order": [
+    "analysis_state",
+    "effective_scope",
+    "request_goal",
+    "user_intent",
+    "analysis_intent",
+    "query_plan",
+    "required_tools",
+    "tool_execution",
+    "tool_target",
+    "task_acceptance",
+    "pending_goal",
+    "final_status"
+  ],
+  "metrics": {
+    "all_turn_contract": 62,
+    "natural_module_denominator": "all turns except explicitly injected faults (60)",
+    "tool_before_block": "all clarification/preparation-block/plan-fault-block turns; denominator computed from frozen contracts",
+    "strict_completion": "unchanged v1 strict_business_completion=true and expected successful analysis/RAG-permission goals; excludes deliberate faults",
+    "conversation_contract": "all 30 groups, no PENDING_HUMAN exclusions",
+    "v1_comparison": "historical only; expanded/phase-aware denominators are not quality trend evidence"
+  },
+  "matcher_path": "scripts/agent_stage1_v2_1_scoring.py",
+  "unit_test_path": "tests/test_agent_stage1_v2_1_scoring.py",
+  "original_scoring_contract_sha256": "56fa304bfc39d33a59a7c639e82a31ea5081a744e844d32253acee939dfd635e",
+  "implementation_correction": {
+    "rule": "A known clarification constraint may be represented in Intent or a separately matched partial RequestGoal; absent Intent slots may use Goal, explicit conflicting slots cannot.",
+    "business_expectations_changed": false,
+    "denominator_changed": false,
+    "case_id_overrides": false,
+    "original_run_and_matcher_preserved": true,
+    "unit_test_evidence": ".cache/agent-stage1-oracle-v2/matcher-v1.1-tests-before-freeze.txt",
+    "unit_test_evidence_sha256": "d357be7a6cdb268dd14d6b50d3653dadfef7bb733272366ed71aec6fee25a594"
+  }
+}

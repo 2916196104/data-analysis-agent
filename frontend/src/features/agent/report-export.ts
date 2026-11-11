@@ -1,6 +1,7 @@
 import type { AgentResult, AgentToolResult, Summary } from '../../types';
 import { aspectRows, sectionSummary } from '../../agent-report';
 import { publicAnswerText } from './public-answer';
+import { readP6Publication } from './p6-publication';
 
 const clean = (value: unknown) => String(value ?? '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/[\\`*_[\]#|]/g, '\\$&').replace(/\r?\n/g, ' ');
@@ -46,6 +47,10 @@ function statistics(item: AgentToolResult): string {
 }
 
 export function buildAgentReport(result: AgentResult, taskId?: string): string {
+  if (result.p6_publication) {
+    const publication = readP6Publication(result);
+    return publication ? publication.answer_text : '# 多维度负面主题分析\n\n结果未通过校验，未发布主题与引用。\n';
+  }
   const scope = result.scope;
   const sections = [
     '# 评论分析报告',

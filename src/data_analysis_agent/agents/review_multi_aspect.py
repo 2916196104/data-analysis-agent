@@ -171,6 +171,9 @@ def validate_p6_plan(goal, scope, plan, *, conversation_id, agent_identity, rank
             and plan.analysis_type == 'aspect_drilldown' and plan.sentiment == 'negative' and not plan.unsupported_reason
             and not plan.optional_tools})
         requirements = plan.requirements
+        if plan.analysis_mode is not None:
+            checks.append({'name': 'p6_metadata', 'passed': plan.analysis_mode == MODE
+                           and tuple(plan.required_aspects) == goal.required_aspects})
         checks.append({'name': 'exact_required_aspects', 'passed':
             [row['parameters'].get('aspect') for row in requirements] == list(goal.required_aspects)})
         checks.append({'name': 'per_aspect_capability', 'passed': bool(requirements) and all(

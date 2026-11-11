@@ -1,0 +1,242 @@
+--- before/src/data_analysis_agent/jobs/analysis_context.py
++++ after/src/data_analysis_agent/jobs/analysis_context.py
+@@ -45,6 +45,23 @@
+         if selection is not None:
+             if any(parameters.get(key) != previous.get(key) for key in keys[:5]):
+                 break
++            # 选择变化也约束失败轮的用户条件，不能等待成功事实才识别。
++            if valid or 'selection_scope' not in context:
++                try:
++                    current = BaselineScope.model_validate(selection).model_dump()
++                    original = BaselineScope.model_validate(previous.get('selection_scope') or {
++                        key: previous[key] for key in BaselineScope.model_fields if key in previous}).model_dump()
++                    BaselineScope.model_validate({key: previous[key] for key in BaselineScope.model_fields if key in previous})
++                except (ValueError, KeyError, TypeError):
++                    break
++                if any(current[key] != parameters.get(key) or original[key] != previous.get(key) for key in keys[:5]):
++                    break
++                groups = {'product_ids': ('product_ids',), 'current_window': ('date_from', 'date_to'),
++                          'baseline_window': ('baseline_from', 'baseline_to'), 'as_of': ('as_of',)}
++                context.update(selection_scope=current, previous_selection_scope=original,
++                    selection_changes=[name for name, fields in groups.items()
++                        if any((sorted(current[key]) != sorted(original[key]) if key == 'product_ids'
++                                else current[key] != original[key]) for key in fields)])
+         elif not same_scope(previous) and not (valid and same_scope(result.get('scope', {}))):
+             break
+         context['turns_read'] += 1
+@@ -59,18 +76,6 @@
+                 expected = expected_result_scopes(result['results'],scope)
+                 checked = validate_report(result['results'], result['result_ids'], expected_scopes=expected)
+                 if checked['status'] == 'passed':
+-                    if selection is not None:
+-                        current = BaselineScope.model_validate(selection).model_dump()
+-                        if any(current[key] != parameters.get(key) for key in keys[:5]):
+-                            break
+-                        original = BaselineScope.model_validate(previous.get('selection_scope') or {
+-                            key: previous[key] for key in BaselineScope.model_fields if key in previous}).model_dump()
+-                        groups = {'product_ids': ('product_ids',), 'current_window': ('date_from', 'date_to'),
+-                                  'baseline_window': ('baseline_from', 'baseline_to'), 'as_of': ('as_of',)}
+-                        context.update(selection_scope=current, previous_selection_scope=original,
+-                            selection_changes=[name for name, fields in groups.items()
+-                                if any((sorted(current[key]) != sorted(original[key]) if key == 'product_ids'
+-                                        else current[key] != original[key]) for key in fields)])
+                     context['validated'] = {'task_id': task_id, 'scope': scope,
+                         'sentiment': result.get('sentiment_intent'), 'analysis_type': result.get('analysis_intent'),
+                         'queries': [{'kind': result['results'][key]['kind'], 'parameters': result['results'][key]['parameters']}
+--- before/src/data_analysis_agent/agents/review_intent.py
++++ after/src/data_analysis_agent/agents/review_intent.py
+@@ -264,21 +264,34 @@
+     resolved, origins = dict(scope), {}
+     if (mentions or explicit_all) and (context or {}).get('selection_scope'):
+         resolved['product_ids'] = reference['product_ids'] or sorted(row['product_id'] for row in products)
+-    elif previous and not mentions and not explicit_all and not compare and 'product_ids' not in changes:
+-        ids = previous['scope']['product_ids']
++    elif (previous or prior_mentions) and not mentions and not explicit_all and not compare and 'product_ids' not in changes:
++        ids = previous.get('scope', {}).get('product_ids', [])
+         if prior_mentions and ((context or {}).get('user') or {}).get('task_id') != previous.get('task_id'):
+             ids = match_product_mentions(prior_mentions, products, selected_ids=reference['product_ids'])
+         allowed = reference['product_ids'] or [row['product_id'] for row in products]
+         if set(ids) <= set(allowed):
+             resolved['product_ids'] = list(ids)
+-            origins['product_ids'] = 'inherited' if ids == previous['scope']['product_ids'] else 'user_context'
++            origins['product_ids'] = 'inherited' if ids == previous.get('scope', {}).get('product_ids') else 'user_context'
++        else:
++            raise QuestionScopeError('上轮明确指定的商品与当前有效选择冲突，请先在页面确认切换商品范围。')
+     explicit_dates = bool(re.search(r'\d{4}-\d{2}-\d{2}', question))
++    user_window = None
++    if not explicit_dates and not mentions and not (changes & {'product_ids', 'current_window'}):
++        for user in (context or {}).get('users', []):
++            if user.get('task_id') == previous.get('task_id'):
++                break
++            prior_question = user.get('question', '')
++            if len(re.findall(r'\d{4}-\d{2}-\d{2}', prior_question)) == 2:
++                # 仅重验用户明确的日期，不读取失败结果中的 scope 或统计。
++                user_window = resolve_question_scope(prior_question, reference, products)
++                break
+     for name, fields in {'current_window': ('date_from', 'date_to'),
+                          'baseline_window': ('baseline_from', 'baseline_to'), 'as_of': ('as_of',)}.items():
+-        source = reference if name in changes or (name == 'current_window' and explicit_dates) else previous.get('scope')
++        source = (reference if name in changes or (name == 'current_window' and explicit_dates)
++                  else user_window if name == 'current_window' and user_window else previous.get('scope'))
+         if source:
+             resolved.update({key: source.get(key) for key in fields})
+-            origins[name] = 'selection' if source is reference else 'inherited'
++            origins[name] = 'selection' if source is reference else 'user_context' if source is user_window else 'inherited'
+     origins['product_ids'] = 'explicit' if mentions or explicit_all else origins.get('product_ids', 'selection')
+     return resolved, {'origins': origins, 'effective_scope': dict(resolved), 'inherited_scope': previous.get('scope'),
+                       'selection_changes': sorted(changes), 'selection_scope': reference}
+--- before/src/data_analysis_agent/agents/review_semantics.py
++++ after/src/data_analysis_agent/agents/review_semantics.py
+@@ -197,7 +197,17 @@
+     return resolved
+ 
+ 
++def active_request(question):
++    """仅提取明确否定旧产物后提出的新请求；原问题由调用者原样保留。"""
++    match = re.fullmatch(r'\s*(?:我)?(?:不是(?:要|在)?问|不要|不用|无需|不需要)([^，,。；;]{1,40})[，,。；;]\s*'
++                         r'((?:我想知道|我想看|我要看|要看|只统计|只告诉我|请统计|改为统计|改为分析).+)', question, re.S)
++    if match and re.search(r'数量|统计|主题|原文|原话|观点内容|观点分组', match[1]):
++        return match[2]
++    return question
++
++
+ def normalize_question(question):
++    question = active_request(question)
+     if re.search(r'集中|关注|评价|效果|问题|好评|差评|维度', question):
+         return re.sub(r"哪些地方|什么地方", "哪些方面", question)
+     return question
+@@ -224,7 +234,7 @@
+     # 枚举具体抱怨是二级主题；“哪些维度”及原始观点文本分组仍沿用原能力。
+     theme_enumeration = not re.search(r'维度|原始观点|观点文本|逐条观点', text) and bool(re.search(
+         r'(?:抱怨|吐槽|投诉)(?:的|了|些|的是|的主要是|主要是|主要在|主要是在)*(?:哪些|什么|些什么)(?:事情|问题|内容)|'
+-        r'(?:抱怨|吐槽|投诉)些什么|有哪些不满意的(?:地方|方面)', text) or (aspect and re.search(
++        r'(?:抱怨|吐槽|投诉)些什么|具体(?:在)?(?:抱怨|吐槽|投诉)什么|有哪些不满意的(?:地方|方面)', text) or (aspect and re.search(
+         r'(?:具体(?:涉及|有)?|主要有)哪些问题|主要问题集中在(?:哪些|什么)环节', text)))
+     theme_summary = bool(not positive_summary and not examples and not metric_manifestation and (
+         theme_enumeration or re.search(r'体现|表现|归纳|总结|子主题|主题归类', text)))
+--- before/src/data_analysis_agent/agents/review_acceptance.py
++++ after/src/data_analysis_agent/agents/review_acceptance.py
+@@ -40,7 +40,8 @@
+ 
+ def build_request_goal(question, context=None):
+     """在编译前冻结请求产物；不调用 opinion_request、Router、Planner 或模型。"""
+-    text = question
++    from data_analysis_agent.agents.review_semantics import active_request
++    text = active_request(question)
+     if question.startswith('执行本轮已确认的只读查询'):
+         try:
+             declared = json.loads(question.split('\n', 1)[1])
+@@ -73,7 +74,7 @@
+     metrics = bool(re.search(r'多少|几条|数量|占比|比例|排名|分布', text))
+     metric_manifestation = bool(re.search(r'(?:数量|占比|比例|评论数|观点数).*(?:体现|表现)', text))
+     themes = not examples and not metric_manifestation and bool(re.search(
+-        r'体现|表现|归纳|总结|子主题|主题归类|(?:抱怨|吐槽|投诉).*(?:哪些事情|哪些问题|些什么)|有哪些不满意的(?:地方|方面)', text)
++        r'体现|表现|归纳|总结|子主题|主题归类|具体(?:在)?抱怨什么|(?:抱怨|吐槽|投诉).*(?:哪些事情|哪些问题|些什么)|有哪些不满意的(?:地方|方面)', text)
+         or (aspect and re.search(r'(?:具体(?:涉及|有)?|主要有)哪些问题|主要问题集中.*环节', text))
+         or (sentiment == 'positive' and re.search(r'具体.*好评|好评.*具体', text) and not metrics
+             and not re.match(r'这些|那些|上述', text)))
+--- before/src/data_analysis_agent/agents/reviews.py
++++ after/src/data_analysis_agent/agents/reviews.py
+@@ -248,6 +248,8 @@
+             timings['planning_duration_ms'] = (perf_counter() - planning_started) * 1000
+             if plan.unsupported_reason:
+                 raise UnsupportedReviewQuery(plan.unsupported_reason)
++            if goal is not None and not result['task_plan_check']['passed']:
++                raise ReviewDataError('原始请求目标与主计划能力冲突，尚未执行业务查询或分类。')
+             if plan.analysis_type == "pros_cons" and len(plan.requirements) + 1 > settings.max_tool_calls:
+                 raise UnsupportedReviewQuery("本轮商品数量超过工具调用预算，请减少商品后分析优缺点。")
+             context = ReviewToolContext(connection, scope, Path(temporary), settings.max_tool_calls, report,
+--- before/tests/test_review_dimension_content.py
++++ after/tests/test_review_dimension_content.py
+@@ -161,7 +161,9 @@
+             'parameters': {'aspect': 'logistics'}, 'question': '物流差评主要体现在哪里？'})
+         result = self.run_local(question)
+         self.assertEqual(result['status'], 'error')
+-        self.assertEqual(result['evidence_completion']['status'], 'completed')
++        self.assertEqual(result['evidence_completion']['status'], 'not_started')
++        self.assertFalse(result['task_plan_check']['passed'])
++        self.assertEqual(result['query_executions'], 0)
+         self.assertFalse(result['task_acceptance']['complete'])
+         self.assertNotEqual(result['public_answer']['status'], 'ok')
+         with patch.object(analytics, 'get_opinion_breakdown', side_effect=TimeoutError('offline failure')):
+@@ -193,9 +195,11 @@
+             self.assertNotIn(phrase, json.dumps(answer, ensure_ascii=False))
+ 
+     def test_one_controlled_supplement_and_failure_protection(self):
+-        question = self.explicit('客服方面有什么问题？')
++        # 合法补证从已满足统计目标的主计划出发；冲突目标由上例验证零查询。
++        question = self.explicit('客服差评有多少条，具体如何解读？')
+         result = self.run_local(question)
+         self.assertEqual(result['status'], 'ok', result.get('error'))
++        self.assertTrue(result['task_plan_check']['passed'])
+         record = result['evidence_completion']
+         self.assertEqual((record['cycles'], record['additional_tool_calls'], record['status']), (1, 1, 'completed'))
+         self.assertEqual(record['requests'][0]['tool'], 'get_opinion_breakdown')
+--- before/tests/test_review_evidence_loop.py
++++ after/tests/test_review_evidence_loop.py
+@@ -18,13 +18,14 @@
+ from data_analysis_agent.reviews import analytics
+ 
+ 
++PACKAGING_STAT_CONTEXT = '执行本轮已确认的只读查询\n' + json.dumps({
++    'tool':'get_top_issues','parameters':{'aspect':'packaging'},
++    'question':'包装差评有多少条，具体如何解读？'})
++
++
+ class EvidenceLoopTests(EvidenceFixture):
+     execute_plan=plan_fixture.QueryPlanTests.execute_plan
+     def run_sync(self, question):
+-        # 内容问句现在直接查询观点；补查回归仍从已确认的一级统计计划开始。
+-        if question == '包装差评具体反映什么问题？':
+-            question = '执行本轮已确认的只读查询\n' + json.dumps({
+-                'tool': 'get_top_issues', 'parameters': {'aspect': 'packaging'}, 'question': question})
+         return plan_fixture.QueryPlanTests.run_sync(self, question)
+ 
+     def setUp(self):
+@@ -37,8 +38,9 @@
+     def test_packaging_auto_query_and_local_layer_relation_without_external_topic_text(self):
+         before=hashlib.sha256(self.db.read_bytes()).hexdigest()
+         with patch('data_analysis_agent.agents.review_topics.analyze_aspect_topics',side_effect=AssertionError('no automatic raw egress')):
+-            result=self.run_sync('包装差评具体反映什么问题？')
++            result=self.run_sync(PACKAGING_STAT_CONTEXT)
+         self.assertEqual(result['status'],'ok',result.get('error'))
++        self.assertTrue(result['task_plan_check']['passed'])
+         record=result['evidence_completion']
+         self.assertEqual((record['cycles'],record['status'],record['additional_tool_calls']),(1,'completed',1))
+         self.assertEqual(record['requests'][0]['tool'],'get_opinion_breakdown')
+@@ -70,7 +72,7 @@
+         self.assertEqual(read_public_analysis({'status':'succeeded','result':invalid})['status'],'failed')
+ 
+     def test_budget_exhaustion_fails_without_supplement_or_false_success(self):
+-        query='执行本轮已确认的只读查询\n'+json.dumps({'tool':'get_top_issues','parameters':{'aspect':'packaging'},'question':'包装差评具体反映什么问题？'})
++        query=PACKAGING_STAT_CONTEXT
+         with patch('openai.OpenAI',side_effect=AssertionError('no model')):
+             result=run_review_agent(self.db,query,scope=self.scope(),settings=replace(SETTINGS,max_tool_calls=2))
+         self.assertEqual(result['status'],'error')
+@@ -87,7 +89,7 @@
+                 data['items'][0]['opinions'][0]['quote']='不存在的伪造原文'
+                 return data
+             with self.subTest(invalid=invalid),patch.object(analytics,'get_opinion_breakdown',side_effect=broken):
+-                result=self.run_sync('包装差评具体反映什么问题？')
++                result=self.run_sync(PACKAGING_STAT_CONTEXT)
+             self.assertEqual(result['status'],'error')
+             self.assertEqual(result['evidence_completion']['status'],'failed')
+             self.assertNotEqual(result['public_answer']['status'],'ok')
+@@ -116,7 +118,7 @@
+             self.assertNotEqual(result['public_answer']['status'],'ok')
+ 
+     def test_unrecognized_negated_or_wrong_product_quotes_do_not_gain_semantic_roles(self):
+-        result=self.run_sync('包装差评具体反映什么问题？')
++        result=self.run_sync(PACKAGING_STAT_CONTEXT)
+         context=CompactAnalysisContext.model_validate(result['compact_context'])
+         context.evidence[0].product_id='IE-LOG-A'
+         catalog,_=fact_catalog(context)
+@@ -137,7 +139,7 @@
+         self.assertFalse(result['evidence_completion']['automatic'])
+ 
+     def test_changed_sample_between_transactions_is_rejected(self):
+-        result=self.run_sync('包装差评具体反映什么问题？')
++        result=self.run_sync(PACKAGING_STAT_CONTEXT)
+         context=CompactAnalysisContext.model_validate(result['compact_context'])
+         request=result['evidence_completion']['requests'][0]
+         child=deepcopy({key:result['results'][key]for key in request['result_ids']})

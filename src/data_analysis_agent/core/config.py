@@ -42,6 +42,9 @@ class AgentSettings:
     rag_model_cache: str | None = None
     rag_python: str | None = None
     rag_timeout_seconds: int = 600
+    p6_preparation_enabled: bool = False
+    p6_execution_enabled: bool = False
+    p6_publication_enabled: bool = False
 
     @classmethod
     def from_values(cls, values: dict[str, str]) -> "AgentSettings":
@@ -99,6 +102,9 @@ class AgentSettings:
             rag_model_cache=values.get('RAG_MODEL_CACHE', '').strip() or None,
             rag_python=values.get('RAG_PYTHON', '').strip() or None,
             rag_timeout_seconds=integer('RAG_TIMEOUT_SECONDS', 600, 1, 600),
+            p6_preparation_enabled=bool(integer('AGENT_P6_PREPARATION_ENABLED', 0, 0, 1)),
+            p6_execution_enabled=bool(integer('AGENT_P6_EXECUTION_ENABLED', 0, 0, 1)),
+            p6_publication_enabled=bool(integer('AGENT_P6_PUBLICATION_ENABLED', 0, 0, 1)),
         )
 
 

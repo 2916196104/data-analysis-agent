@@ -36,6 +36,8 @@ class ReviewQueryPlan:
     answer_question: str | None = None
     product_groups: list[dict] = field(default_factory=list)
     task_contract: RuntimeQueryContract | None = None
+    analysis_mode: str | None = None
+    required_aspects: tuple[str, ...] = ()
 
     @property
     def required_tools(self):
@@ -45,6 +47,11 @@ class ReviewQueryPlan:
         data = {**asdict(self), "required_tools": self.required_tools}
         if self.task_contract is not None:data['task_contract'] = self.task_contract.model_dump(mode='json')
         else:data.pop('task_contract', None)
+        if self.analysis_mode is None:
+            data.pop('analysis_mode')
+            data.pop('required_aspects')
+        else:
+            data['required_aspects'] = list(self.required_aspects)
         return data
 
     def check_call(self, name, parameters, *, default_products=None):
@@ -87,6 +94,18 @@ class ReviewQueryPlan:
             )) for item in results):
                 return False
         return True
+
+
+def build_p6_query_plan(goal):
+    """仅编译已经独立冻结的目标；此函数不授予执行或来源权限。"""
+    from data_analysis_agent.agents.review_task_contract import build_task_contract
+    plan = ReviewQueryPlan('aspect_drilldown', 'negative', goal.expected_scope,
+        requirements=[{'tool': 'get_aspect_drilldown', 'parameters': {
+            'product_ids': goal.expected_scope['product_ids'], 'aspect': aspect, 'sentiment': 'negative'}}
+            for aspect in goal.required_aspects], requires_evidence=True,
+        analysis_mode=goal.analysis_mode, required_aspects=goal.required_aspects)
+    plan.task_contract = build_task_contract(goal.original_question, plan.scope, plan)
+    return plan
 
 
 def build_query_plan(question, scope, *, product_groups=None):
