@@ -20,7 +20,8 @@ PATTERNS = {
     'noise_high': r'(?:空调)?(?:噪音|噪声)(?:大|很大|太大|明显)|(?:空调)?声音很吵',
     'noise_low': r'(?:空调)?(?:噪音|噪声)(?:小|很小|不大)|(?:空调)?很安静',
     'delivery_fast': r'(?:物流|配送|到货)(?:很快|快|迅速)|送货很快',
-    'delivery_slow': r'(?:物流|配送|到货)(?:很慢|慢|太慢)|送货很慢',
+    'delivery_slow': (r'(?:(?:物流|配送|到货|送货|快递到货)(?:速度)?(?:很慢|太慢|慢)'
+                      r'|(?:商品|快递|包裹)?到货时间(?:太|很|特别|过于)(?:长|久))(?:了|啊|呀|呢)?'),
     'service_good': r'客服(?:态度好|态度很好|很热情)',
     'service_bad': r'客服(?:态度差|态度很差|不耐烦)',
     'installer_good': r'安装师傅(?:态度好|态度很好|很热情)',
@@ -70,6 +71,9 @@ def quote_facts(quote):
 
 def context_ok(row, facts):
     text=row['review_text'];start=row['quote_start'];end=row['quote_end']
+    if ('delivery_slow' in facts and re.search(r'等(?:待)?了[一二三四五六七八九十两\d]{1,3}(?:天|日|周|星期)才到货', row['quote'])
+            and re.search(r'退货|退回|退件|返修|寄回|换货', text)):
+        return False
     if re.search(HAZARDS + r'|忽略.*规则|给AI|提示词|系统指令|不对|错了|不实|其实|实际上|然而|但是|不过|至于|上述|那是|那只是|这只是|才怪'
                  r'|说|声称|表示|转述|传闻|假设|假定|倘若|否认|不.*(?:认为|觉得|认同|认可)|这话|此话|前一句',text):return False
     # A phrase cut out of a negated/reported/hypothetical clause is not an assertion.
@@ -91,7 +95,10 @@ def context_ok(row, facts):
     words='|'.join(domains[f.split('_')[0]] for f in facts)
     for m in re.finditer(r'[^，,。！!；;\n]+',text):
         clause=re.sub(r'^(?:冷暖效果|使用效果|使用体验)[：:]\s*','',m.group().strip())
-        if re.search(words,clause) and fact(clause) is None:return False
+        # A separate duration describes context, but cannot itself establish delay.
+        neutral_wait = (facts == {'delivery_slow'} and re.fullmatch(
+            r'等(?:待)?了[一二三四五六七八九十两\d]{1,3}(?:天|日|周|星期)才到货(?:了|啊|呀|呢)?', clause))
+        if re.search(words,clause) and fact(clause) is None and not neutral_wait:return False
     return True
 
 

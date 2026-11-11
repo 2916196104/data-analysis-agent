@@ -23,11 +23,13 @@ def evidence_question(question, scope=None):
         try:
             ids = scope['product_ids']
             if (isinstance(ids, (list, tuple)) and len(ids) == 1 and isinstance(ids[0], str) and ids[0]
-                    and evidence_scope_matches(question, scope) and text.startswith(ids[0])):
-                remainder = text[len(ids[0]):]
-                # Only the existing complete proposition grammar qualifies; no numeric/clause deletion.
-                if target(remainder) is not None:
-                    return remainder
+                    and evidence_scope_matches(question, scope)):
+                prefix = re.match(r'^(?:商品[ \t]*)?' + re.escape(ids[0]) + r'[ \t]*', text)
+                if prefix:
+                    remainder = text[prefix.end():]
+                    # Only the existing complete proposition grammar qualifies; no numeric/clause deletion.
+                    if target(remainder) is not None:
+                        return remainder
         except (KeyError, TypeError, AttributeError):
             pass
     return text
