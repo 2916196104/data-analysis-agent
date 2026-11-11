@@ -1,0 +1,73 @@
+{
+  "verified_at": "2026-11-11T15:20:13.578347+08:00",
+  "timezone": "Asia/Taipei",
+  "scope": "first8 human-review preparation only",
+  "selected_cases": [
+    "RB03",
+    "RB04",
+    "RB05",
+    "RB08",
+    "RB09",
+    "RB10",
+    "RB15",
+    "RB16"
+  ],
+  "other_original_cases_unchanged": [
+    "RB01",
+    "RB02",
+    "RB06",
+    "RB07",
+    "RB11",
+    "RB12",
+    "RB13",
+    "RB14"
+  ],
+  "candidate_file_unchanged": true,
+  "parent_candidate_sha256": "b064b4518ba4ab80d2cfa79790608b8cf1f5a108d3eddc888a6043f10f8872b5",
+  "protected_existing_files": 622,
+  "changed_existing_files": [],
+  "v6_production_files_unchanged": 88,
+  "case_material_source_checks": {
+    "RB03": "TECHNICAL_CHECKS_PASSED; semantics PENDING_HUMAN_REVIEW",
+    "RB04": "TECHNICAL_CHECKS_PASSED; semantics PENDING_HUMAN_REVIEW",
+    "RB05": "TECHNICAL_CHECKS_PASSED; semantics PENDING_HUMAN_REVIEW",
+    "RB08": "TECHNICAL_CHECKS_PASSED; semantics PENDING_HUMAN_REVIEW",
+    "RB09": "TECHNICAL_CHECKS_PASSED; semantics PENDING_HUMAN_REVIEW",
+    "RB10": "TECHNICAL_CHECKS_PASSED; semantics PENDING_HUMAN_REVIEW",
+    "RB15": "TECHNICAL_CHECKS_PASSED; semantics PENDING_HUMAN_REVIEW",
+    "RB16": "TECHNICAL_CHECKS_PASSED; semantics PENDING_HUMAN_REVIEW"
+  },
+  "source_blocked_case_count": 0,
+  "candidate_occurrences": 20,
+  "unique_candidate_reviews": 17,
+  "unique_saved_opinions": 27,
+  "existing_RB10_pool": {
+    "reviews": 57,
+    "opinions": 93,
+    "new_candidates_added": 0,
+    "reading_completed": null,
+    "question_scope_confirmed": null
+  },
+  "candidate_comments_complete_and_quotes_matched": true,
+  "human_confirmed": 0,
+  "new_references_approved": 0,
+  "all_semantic_fields_unfilled": true,
+  "private_body_and_identity_in_public_docs": false,
+  "private_directory": "outputs/agent-stage2-real-business-readiness-20261111/first8-review-v1",
+  "private_artifact_sha256": {
+    "evidence-and-review.v1.json": "513e8a8a0f30ffbc0b7f5d65a148350265c4d541f1753e8c8948f72c00208a4a",
+    "full-evidence-workbook.md": "b560f1031e3c52f45d55555df7667f9af9daed7782cce0200a005c1915f64b84",
+    "human-decisions.pending.json": "353b64a6d24deead312ca9ebfe6aa3d72fdc7889380e5d7a66721ed0fe0f1c57",
+    "technical-verification.v1.json": "9f4a5b83bf0413d9093e6936b3b139356e8120663ff49c137bb54df7017c4fe6"
+  },
+  "agent_runs": 0,
+  "test_suite_runs": 0,
+  "database_connections": 0,
+  "model_calls": 0,
+  "embedding_calls": 0,
+  "retrievals": 0,
+  "source_history": "history_unproven, no current source certification",
+  "P6_E1B": "BLOCKED",
+  "oracle_v3_created": false,
+  "conclusion": "READY FOR HUMAN REVIEW; 0/8 confirmed; no evaluation execution authorized"
+}
