@@ -1,0 +1,190 @@
+{
+  "connection_attempts": 1,
+  "connection_closed": true,
+  "controlled_semantic_retrieval_data_prerequisite": "UNDETERMINED",
+  "credential_mechanism": "LIBPQ_PASSWORD_FILE_NO_MANUAL_PASSWORD_READ",
+  "database_connected": true,
+  "effective_corpus_authorized": false,
+  "effective_corpus_executed": false,
+  "effective_corpus_status": "NOT_EXECUTED_REQUIRES_SEPARATE_AUTHORIZATION",
+  "elapsed_seconds": 0.109,
+  "explicit_rollback": true,
+  "finished_at_utc": "2026-11-12T03:53:54.851238+00:00",
+  "limits": {
+    "connect_timeout_seconds": 10,
+    "lock_timeout_seconds": 3,
+    "statement_timeout_seconds": 15,
+    "total_execution_seconds": 120
+  },
+  "metrics": {
+    "active_vectors": null,
+    "current_member_vectors": null,
+    "effective_opinion_coverage": null,
+    "effective_opinions": null,
+    "human_opinions": null,
+    "missing_usable_opinions": null,
+    "model_opinions": null,
+    "provenance_matched_vectors": null,
+    "scoped_reviews": null,
+    "snapshot_matched_vectors": null,
+    "successful_reviews": null,
+    "superseded_annotation_vectors": null,
+    "superseded_human_vectors": null,
+    "text_reviews": null,
+    "unexplained_source_anomalies": null,
+    "usable_vectors_U": null
+  },
+  "mode": "preflight",
+  "preflight_status": "PASS",
+  "production_provenance_fields": [
+    "source",
+    "dataset_version",
+    "product_id",
+    "review_id",
+    "annotation_id",
+    "label_profile_key",
+    "opinion_source",
+    "model_opinion_id",
+    "human_opinion_id",
+    "human_revision_id",
+    "aspect",
+    "sentiment",
+    "quote_start",
+    "quote_end",
+    "review_content_sha256",
+    "embedding_input_sha256",
+    "text_builder_version",
+    "published_at"
+  ],
+  "prohibited_actions": {
+    "agent_runs": 0,
+    "database_mutations": 0,
+    "embedding_calls": 0,
+    "llm_calls": 0,
+    "similarity_searches": 0,
+    "worker_runs": 0
+  },
+  "query_count": 1,
+  "run_id": "20261112T035354744307Z",
+  "runner_sha256": "5e5453c052d8747f663e59c024a3f8d4622f1c4e48fe1c68802a2af2051e364e",
+  "scope": {
+    "as_of": null,
+    "dataset_version": "reviews-csv",
+    "date_from": "2021-09-11",
+    "date_to": "2022-08-26",
+    "embedding_space_id": "embedding-space-v1:11e6754662dbd13fc56c6e624bc9416c1c2766f962787267fd4a57b1fa8d622e",
+    "label_profile_key": "1b58dc189d7d3ea6a55713a989f4555837eb83492690afdc020d808a268a5304",
+    "product_ids": [
+      "100013588055"
+    ],
+    "source": "reviews_csv"
+  },
+  "semantic_retrieval_authorized": false,
+  "semantic_retrieval_executed": false,
+  "source_checks": [
+    {
+      "file": "reviews/scope.py",
+      "matches": true,
+      "sha256": "673b0dc117c8b35cdae77b61c3565dc13aad795a40c81756b6c0287d74d82b32"
+    },
+    {
+      "file": "reviews/rag_corpus.py",
+      "matches": true,
+      "sha256": "ed0ba5349caefbc1478116128ad397956c7e41ec5e8eb217b4da13fdcb877a79"
+    },
+    {
+      "file": "reviews/semantic_retrieval.py",
+      "matches": true,
+      "sha256": "993db794b78adb1e0ecbef10440855510d2ffe90be8e90ef61f5427f97453322"
+    },
+    {
+      "file": "reviews/embedding_store.py",
+      "matches": true,
+      "sha256": "6ed1d03e612e8ec319da044296aa3972bd9f8a9d2284b3921c7611e3fd3f4cec"
+    },
+    {
+      "file": "agents/review_retrieval.py",
+      "matches": true,
+      "sha256": "6c9c7cfd9ba6c2b07e5a800da9a27e87cdebbe83d918d1bda27faa79ee5b287a"
+    },
+    {
+      "file": "reviews/analytics.py",
+      "matches": true,
+      "sha256": "2ae0ff9039387f887c99419dc8f0b52b25baefd26a5fa8ec99e29393f62d63b1"
+    },
+    {
+      "file": "reviews/label_store.py",
+      "matches": true,
+      "sha256": "3aa23810b51f04185f88c3ce19086222df1769f0b2461318c4f3f37518af0b9d"
+    },
+    {
+      "file": "core/database.py",
+      "matches": true,
+      "sha256": "911675daa20b476f29fead1a3516d4af0ee5fbd5fa5cbe8f56a89bb0801186a8"
+    },
+    {
+      "file": "reviews/store.py",
+      "matches": true,
+      "sha256": "8442a8a90538bae67b4e69af43dcb219849f335c648c85dfdcefcf19ae2bbdf2"
+    },
+    {
+      "file": "core/serialization.py",
+      "matches": true,
+      "sha256": "d2e6d6cf7680cdc4e359edf3ecd5ecd34e8f283efa5a7af9c71a1db12e9d26a6"
+    }
+  ],
+  "stage": "preflight_complete",
+  "started_at_utc": "2026-11-12T03:53:54.744307+00:00",
+  "statements": [
+    {
+      "command": "SET",
+      "completed": true,
+      "template_sha256": "c22a78cc3ae2905579eca954710f5b6f662ae8cfc4132fc7dd45dacc583e0612"
+    },
+    {
+      "command": "BEGIN",
+      "completed": true,
+      "template_sha256": "884b307eaf68c26c0ee2c95bfebc014c633d0d00e03a5e60391e7b2efc4dcd48"
+    },
+    {
+      "command": "SET",
+      "completed": true,
+      "template_sha256": "cea9f42bb983b8f5fcac64ba0178dd95deb19e841e9be0baf352f818054b1798"
+    },
+    {
+      "command": "SET",
+      "completed": true,
+      "template_sha256": "7f3acf448a5612f6bd684b411a7bf72add21652f3489f59ebb5f4725650b9c40"
+    },
+    {
+      "command": "SET",
+      "completed": true,
+      "template_sha256": "4b5830d44f40cf0845a5d15cdcf2052a11ec3d47b10ffe520fc06c684e000c7e"
+    },
+    {
+      "command": "SET",
+      "completed": true,
+      "template_sha256": "bde8f156356932a5c61933db4cab1247df857513c6c75a7f293f09e02b222a27"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "9c7b36cea327e286954b685c0c0245e65903ecb378091cf9c646f4d87411d5a2"
+    }
+  ],
+  "status": "PREFLIGHT_PASS",
+  "transaction": {
+    "database_name": "reviews",
+    "effective_user": "rag_audit_ro",
+    "isolation_level": "repeatable read",
+    "lock_timeout": "3s",
+    "login_user": "rag_audit_ro",
+    "observed_at": "2026-11-12 03:53:54.849829+00",
+    "read_only": "on",
+    "statement_timeout": "15s",
+    "timezone": "UTC",
+    "transaction_snapshot": "1131227:1131227:"
+  },
+  "transaction_started": true,
+  "version": "agent055-effective-corpus-audit-v2"
+}

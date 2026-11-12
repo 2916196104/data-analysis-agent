@@ -1,0 +1,1859 @@
+{
+  "candidate_details": [
+    {
+      "key": "rag-opinion-v1:0b65b7ffc25e39b53e7c80372671de43e58701bb833ad00148d17344c7ef64cb",
+      "review_id": 9901,
+      "vector_id": 1,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:fffe81e2c121d27649406ca8c6130eb14c443417011526dd46300a16f21bf47b",
+      "review_id": 9901,
+      "vector_id": 2,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b52a5bb3016f656f1e143ddd8dfa63caf90303100323e3f18062359cbf8355f9",
+      "review_id": 9901,
+      "vector_id": 3,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b327fc4919eba75ddb1a05e9f8b90c2d2ce05d3c35ff8e04e4a78543bd7e5af2",
+      "review_id": 9901,
+      "vector_id": 4,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:7a466e9c948206084774df65a194a790d3bdcfd21b17836ed7a56ea7797caa47",
+      "review_id": 9902,
+      "vector_id": 5,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b7d1a54ab153e3ed38f56f0032312ba32c39bfa76619cbc5adc42e60f12c979b",
+      "review_id": 9902,
+      "vector_id": 6,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b25967dafdadf53a15a4a87b784ef59cdfdd1b23533d46c128ee035f6989e822",
+      "review_id": 9902,
+      "vector_id": 7,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:ff61a3f4f53d49a667bc1d23156f867b1a8c522c47d3a31db0ab8c7a293503fb",
+      "review_id": 9903,
+      "vector_id": 8,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:5130c88a2716c04cb74551c8b711cde006b78e31b1270e3016414c55e7639e8b",
+      "review_id": 9903,
+      "vector_id": 9,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:384ba524807564e66257cb601201a268ec292c3eb25a436933c5572334628343",
+      "review_id": 9903,
+      "vector_id": 10,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:6c3bccb695016780b6196132c629e34d0405e811bdb1564b5d0f75bfa2ef468e",
+      "review_id": 9903,
+      "vector_id": 11,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:e89128aec3632970db1dc7b4428457aaeffe26059903b8e07ce898dba65f4739",
+      "review_id": 9903,
+      "vector_id": 12,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:166d13df74ae93511c1a1f7cb2dbd671c21e31bf3312d9fdc027e5c68440e4ba",
+      "review_id": 9903,
+      "vector_id": 13,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:db784368ce4e6cc5afc9d0fb9816c4b93655d13183a0b3f49b83b4a009325f3b",
+      "review_id": 9903,
+      "vector_id": 14,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:a8fc69673d0a5cf04c13290f65fefed77da198a68c504f702fa0a643f09019ca",
+      "review_id": 9903,
+      "vector_id": 15,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:94acdf4ca7f6d4ddc5bd4892d6cd88ae99c93b0ec7746dc4e171412dccd01b3d",
+      "review_id": 9904,
+      "vector_id": 16,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:200d595ec8820330371b67f4d27d9a2093220355206177834a5f29433270c9fa",
+      "review_id": 9904,
+      "vector_id": 17,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:9dae05eeb42347527022d7053178b96add455dd051b808ffc879f91b89c2f26a",
+      "review_id": 9905,
+      "vector_id": 18,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:8957c25d6e1b97d8f9fd4d1bfdf91f45790d7df544367fb09150ccc897990990",
+      "review_id": 9905,
+      "vector_id": 19,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b07439a584611f81000fbf73a3e7b6ae7d2d63664d5074250ad258cd57c3881b",
+      "review_id": 9905,
+      "vector_id": 20,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:8839dc37c0e5d33db3705a2d2a47708d41eeca8adada79ceeb140e30065bfd9b",
+      "review_id": 9906,
+      "vector_id": 21,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:52f493d7c40a1f7366cdd2d7a628650eb268b1a78b0607317aebc2db8ac0c4bb",
+      "review_id": 9906,
+      "vector_id": 22,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b781842e5b3b353d410fb3d7b19507bd518b4b84967e991ca8ec97a265cac4d5",
+      "review_id": 9906,
+      "vector_id": 23,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:218e8b3793b9ba2944d4c1ed0a835b1c86e2e6892ed75d3dd08d06230ad529a0",
+      "review_id": 9906,
+      "vector_id": 24,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:6304832f034a77eae19fb2209d9c78451eadf80979518dc4d3faad3094498e6e",
+      "review_id": 9906,
+      "vector_id": 25,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:98f49c79100917ed646a870d8f557a6c46d15311617a9b656db0c36c7e936bcb",
+      "review_id": 9906,
+      "vector_id": 26,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:a1a301a3e77785a79ae602e93c4e5f45b4be0cba93e8d2ce45b268e8d8d6eb45",
+      "review_id": 9907,
+      "vector_id": 27,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:4cf6660c44ff1824494f7a9f695d4b681ea3f15cae2a35d9f0a9cdcec4129982",
+      "review_id": 9907,
+      "vector_id": 28,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:cc639e3f3e275cc5268eaa49ef6a6c58e9001fa8f9f720e0d0147ffe27789fbb",
+      "review_id": 9907,
+      "vector_id": 29,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:58d76cde81809369765da11604c95db0beb2346cdbfb5fe50cc9f094c2d42f2c",
+      "review_id": 9907,
+      "vector_id": 30,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:022032ca8ef4b670d4e61e49c173f8a4246a3af2742478c22ed2c1eb90172b24",
+      "review_id": 9908,
+      "vector_id": 31,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:5937f49107ccb3ea815f3a486e651cc75cf67bdb4c3c5874f989b0b43f0dfe4f",
+      "review_id": 9908,
+      "vector_id": 32,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:1e19b69bda80cb52dbb0648142794b0d7716be4ec66cee5878d2ff051ecc403d",
+      "review_id": 9908,
+      "vector_id": 33,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:4d1416ccbe626f91502a0d4f6457f7e7c46a940cf81c83cd931b7842028cc5a2",
+      "review_id": 9908,
+      "vector_id": 34,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:f47613853a64bee7b82d33ffbf6f21353995aad8e7f204cdb28a35ebd520cbaf",
+      "review_id": 9909,
+      "vector_id": 35,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:a3c7e9f370d368d2af8741a118022749d512c706596c4d422c21afbdd894874e",
+      "review_id": 9909,
+      "vector_id": 36,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:f79b0ab113ae21fa82f236063d243d53d5eecd9b43bc84c52e6edbfe6d0c1c98",
+      "review_id": 9910,
+      "vector_id": 37,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:320ecbe760c11f05395e004ca0432f3de84fa55c80db402b20fe2747031f0229",
+      "review_id": 9910,
+      "vector_id": 38,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:6378db42f6c78d810bff5168c79f2638c947d2b127657de05db72dc789926617",
+      "review_id": 9910,
+      "vector_id": 39,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:0561723fdd46ee29bdd5e62aa75ffc50643794f283ac7c8550cf3ecd2faba18e",
+      "review_id": 9910,
+      "vector_id": 40,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:afd22ff7ae75cbc7ef121f7deb7d52ce5fd6cc3ebab1655ad1640cd9b109aeff",
+      "review_id": 9910,
+      "vector_id": 41,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:2f49818fc3ef217ebcaa91c599dc9cc0851cda67703f08107240a1d437e5156e",
+      "review_id": 9910,
+      "vector_id": 42,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b85a72584b9aa0ea985d5dfb94863cd99a653128a916f0c796de062e82736544",
+      "review_id": 9912,
+      "vector_id": 43,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:3d30869d0faf6e2b9d30c7d382c64e499049e5a7708bbc01bd3d3da34ff52e41",
+      "review_id": 9912,
+      "vector_id": 44,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:044d2a94a9bd890211247485e61e0afe7089e7fd35bcf606d96052f4f5f61b95",
+      "review_id": 9913,
+      "vector_id": 45,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:a7800e57acb6fee57487282aa772e7470f98ae1c202570e61a92a94b2b35f813",
+      "review_id": 9913,
+      "vector_id": 46,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:d8effcd308d49f721fa79f954c56675b34578014eb2e92b5672fa5f88b630733",
+      "review_id": 9914,
+      "vector_id": 47,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:bf733aca4cce39949bb5489a2dc4ac1c53ececde65182e27c27b8c6c8ccc1dbf",
+      "review_id": 9914,
+      "vector_id": 48,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:68f9333e1c36a41a439724c30348cdbd7dee01990f4387ea53bcb7b586dc2ace",
+      "review_id": 9917,
+      "vector_id": 49,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b1bd870704a56d0f82339b89abdb2a7ef69f81470136e506c59098ea9633dcce",
+      "review_id": 9918,
+      "vector_id": 50,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:50d4e52833978eb56b57c438e1ed2f847902c0f3dd41831ddf8437b6add9a33a",
+      "review_id": 9919,
+      "vector_id": 51,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:54e10c8d105d8b67f3228a5dfb8e1a14e1d61f703f51337f6e49db479a57324f",
+      "review_id": 9920,
+      "vector_id": 52,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:bbf259d39f1b42deddda775fa30a3d2822e58f1c1c20039ee35e53850696d88f",
+      "review_id": 9921,
+      "vector_id": 53,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:93b32e49bd5829f5f2763dbe924db558d6f74dde4e07d8c1b38c36b2194098da",
+      "review_id": 9923,
+      "vector_id": 54,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:3f5985a1601f38555ef556a22639e24136e4b3589914ef82506a3a8d2e7c83ec",
+      "review_id": 9925,
+      "vector_id": 55,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:f8cec7cc5e15fc6ad877f3c44624abbe57e5c954c35a9304699f4bf41d911d3d",
+      "review_id": 9926,
+      "vector_id": 56,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:3bb08cc26a0be9738f43afb92733a9aefe0ff7f580d589b2237513219376752c",
+      "review_id": 9927,
+      "vector_id": 57,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:3eb12edefcea6186c146601ffeaa53835fb73ead2785cac4e7c78fdbb50ed254",
+      "review_id": 9928,
+      "vector_id": 58,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:4990ed8f5356ce7a3ab0f5f50751927227b7820388cfed440e93b89cce324973",
+      "review_id": 9928,
+      "vector_id": 59,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:6f12881ae4d7a0ee6d3444c887e6093a39596f4015ad6a538da36accda4bac91",
+      "review_id": 9929,
+      "vector_id": 60,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:cac3f2c216e3b9b90fc6f388e55a07e9f327beafdbb22fbcc980b5066b57430d",
+      "review_id": 9930,
+      "vector_id": 61,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:14905419297c6f875aa736c721251205d803694822891b8fbe469b488fb6e433",
+      "review_id": 9932,
+      "vector_id": 62,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:f728c18f91d990bbf4c5603c4d89a86cd32297f21a9ce3e299d0d70e9ee77e80",
+      "review_id": 9933,
+      "vector_id": 63,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:87309cbfc4abe58e795c8887c7c0a945173ba78870882ae15899eb1407642697",
+      "review_id": 9934,
+      "vector_id": 64,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:650aeda15d0be3f3499d97eff9dacc6fa77cb3b6059a2eb5f5bb7af67d02d522",
+      "review_id": 9934,
+      "vector_id": 65,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:5bf5577393ea0e4f58fb9f5741219cecb7c0e05a466ceee4ba2e0c2a09e43f4c",
+      "review_id": 9935,
+      "vector_id": 66,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:5de0f4aa400ad9db835846f9a3c6a4ac3371ad4505daba78112dbfd0184f2002",
+      "review_id": 9935,
+      "vector_id": 67,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:bf2020e5ead05a9ee084f1b225d3a23a269796bd49e639f7aac8bdaac738664a",
+      "review_id": 9936,
+      "vector_id": 68,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:f5072c575f115633f98cf7d434921f2de91188cf6c2a93620f5abd4c7c1c1eb8",
+      "review_id": 9936,
+      "vector_id": 69,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:fa7f7e6592e7598f10c37ef829da743d1e49b1d24cc0ebc2cd2926550df3e1cf",
+      "review_id": 9937,
+      "vector_id": 70,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:9c851a8bc1d331740890c185cefc735b886426ddae0d1e6055716eaa9ec70519",
+      "review_id": 9937,
+      "vector_id": 71,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:06f3ac935122c802bbbcb43cb13ba405b4046d39ac56a78c4fc123e4021caee5",
+      "review_id": 9938,
+      "vector_id": 72,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:9973c99dfc2c883208a634f5b6dc888ece4e59d8e14262e04258a15350b6b4fd",
+      "review_id": 9939,
+      "vector_id": 73,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:cbf0fe92d1a72e809dee04da0c439995503ba339b58d369a44d3782f1c60e1c2",
+      "review_id": 9939,
+      "vector_id": 74,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:40ef88d12b3b17b21e537b0c817705f6d3923d215a250332c4989ca260f9c5b4",
+      "review_id": 9940,
+      "vector_id": 75,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:3f01d5ca80aaae05b21df76eb5049b2653ab75fbd2ecfbe92391f3b4a9787cdb",
+      "review_id": 9941,
+      "vector_id": 76,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:f6028c0b912c61e978150a8270de2eb1355372f946d4f633a6923d259936f36a",
+      "review_id": 9941,
+      "vector_id": 77,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:ea6b2d7ab91923edea1ff8ae9ac77942d2fa83bc4993b257395b0ef1c125af72",
+      "review_id": 9941,
+      "vector_id": 78,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:e1845a2a17404afeb266862e5b35d11ab45b6b700085e5828d78aeb86fdf95d9",
+      "review_id": 9942,
+      "vector_id": 79,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b9e0ed8343f558ad62e3df7cac4251ed0ec48ca5d9106e2cbdfcde42fbdc0043",
+      "review_id": 9942,
+      "vector_id": 80,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:895aa8b55221bbb0db24c275be6c70b2d9cca67576aa31716919e3aa84d55f88",
+      "review_id": 9942,
+      "vector_id": 81,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:84f4b49b40730a3227601eb6d6a0c4d1406f23587587e09e3cb87e4a16f2a3b2",
+      "review_id": 9943,
+      "vector_id": 82,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:aea90c30776b6bc5aeb90bb94b6389403fe88f47c484a4e79c8c50e49c98e626",
+      "review_id": 9943,
+      "vector_id": 83,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:93b6c8ebff37ef8719200be5d13ef2cb32ac330981f7ab87a60ec0de37cfd8ae",
+      "review_id": 9944,
+      "vector_id": 84,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:085230acb5116cdffc0880e892afc7a5bf748a8b7d4e9b8624cdb1df0bfd1afb",
+      "review_id": 9944,
+      "vector_id": 85,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:85187dfcd99ed98de52537a534816f840ae3ca9d554c320db0afc1229a860b3f",
+      "review_id": 9944,
+      "vector_id": 86,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:48422861f6a54ba83a9b8c8a69019bcfef32548d2578c5dc36e8d961c055b9a1",
+      "review_id": 9945,
+      "vector_id": 87,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:26ada2a14b8d730a4ada665455cd2d7cf533b4dea91df467535ef4f295c27f68",
+      "review_id": 9946,
+      "vector_id": 88,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:e669c42202b1988bf3ce9669260666521399aa49f78fc4deb0305bb02967008a",
+      "review_id": 9946,
+      "vector_id": 89,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:a1c1bfd0a37c9de2d15167e1613a232923ab2c35a2077a5a11f7a9d37a635f95",
+      "review_id": 9947,
+      "vector_id": 90,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:5e9b0b0bd2c6488a4f3210a33f61c235f72045a7974caae12fef3eaab2b1356c",
+      "review_id": 9948,
+      "vector_id": 91,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:af07b8cd5b5f65bb636382fe986d9033b4f2e35d4d9b3caf723913e5e34c4a87",
+      "review_id": 9948,
+      "vector_id": 92,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:a10eb38526bfbfec622429d6b47dcbd559be9c15c05b1f4bce2eaade80788866",
+      "review_id": 9949,
+      "vector_id": 93,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:bc0074ade4ea2f35c3b644c9ca288bc8384c1a393b9a4849716ec9403f4b5de2",
+      "review_id": 9949,
+      "vector_id": 94,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:c4e7f61e7ce4b3512ba8c04cb2b5d013abb74592520d05448748b1351057fbe7",
+      "review_id": 9950,
+      "vector_id": 95,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:71186da6217aa00c64510f804a16b8c1c1ad26d3dd11319a0e3948a569db513a",
+      "review_id": 9950,
+      "vector_id": 96,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:90931b7d405af59574965bdfcb31dc7877bad5b97f532b816da5a45070128dcf",
+      "review_id": 9951,
+      "vector_id": 97,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:9c1f28c017b64d4dfabf22fde43b114146f22474dae50d6f2a1dcd2b9b0a1967",
+      "review_id": 9951,
+      "vector_id": 98,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:dbb3e466ca0e84f1c6aeabbc806d5ebc551fe702e3b8484302ffafc82e356c0d",
+      "review_id": 9952,
+      "vector_id": 99,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:955bd5976a73559d27f87d186bb32447b202b958c7098c942e0e31d18464fade",
+      "review_id": 9952,
+      "vector_id": 100,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:f9d847bfd86de2aa5f9eb1223d19ffef7b5863acdcac038d548d0e752c825575",
+      "review_id": 9953,
+      "vector_id": 101,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:79d605251fe4ba11c9263d6812c2a3789e22d22db145c9fa746dad5f8401b627",
+      "review_id": 9953,
+      "vector_id": 102,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:3e208cc5ea56f7ba0a5d04e1ff49645900042be7f36136a99c0855ee16295399",
+      "review_id": 9954,
+      "vector_id": 103,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:676e2194c626c62c1a460bec3f1639efbc824cd910019f71e62799a1f020e23d",
+      "review_id": 9954,
+      "vector_id": 104,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b1c64593e8f8ca9db82b8186d0ee7c83dd40dbc7226f70f38766e9cf8a153ebe",
+      "review_id": 9954,
+      "vector_id": 105,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:837e6960f6f46e57864d7816e065dca674510c91f4b5db33fc9beb093081540d",
+      "review_id": 9955,
+      "vector_id": 106,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:272c2936f396e153bfe7af38e1b99829aef3a98ddb6d7468322c0272898daa88",
+      "review_id": 9956,
+      "vector_id": 107,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:457009a9730a6243d30336fc13ea5b3f81737d177f62f37e2267ae72fae198c6",
+      "review_id": 9957,
+      "vector_id": 108,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:cca02f94eb8dc081d30bb124607572bbcd7bf9d1c0aa76e9bcc1ed3dfc0a575a",
+      "review_id": 9958,
+      "vector_id": 109,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b359118b1da46f3acd52c3873a876cad12998e2899e70cf0a9a337518be64276",
+      "review_id": 9958,
+      "vector_id": 110,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:1227356b4de93e887dfb6d8d74cfe3cbd11e2d6e20505c1522a1889c0d712f79",
+      "review_id": 9959,
+      "vector_id": 111,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:de763313c5a4914cd188cce483f087d8356eea2b974ff06bc9ebba61ddbd5b9d",
+      "review_id": 9959,
+      "vector_id": 112,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b978326c4bc5bde52ab7efb2b320dd42fa596ed25ec39fa5dd75930f6b1de845",
+      "review_id": 9960,
+      "vector_id": 113,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:3e45c790a3d490f9f7bf7c7829d719ab41bedaabde8ebe5b119b8abadc9e5583",
+      "review_id": 9961,
+      "vector_id": 114,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:014aaeaa1c51194dc2810bb63205b91c70446a5677c42869d5a5f08c0391f4d4",
+      "review_id": 9962,
+      "vector_id": 115,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:69590eb28c16058e8acb63f3eba61b0fba6183b80c8f7b0dc04aff3f10a419a4",
+      "review_id": 9963,
+      "vector_id": 116,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:e95d53a79f4d29833594f23e5fcf1349e34dc9737d198c34941018d331b77074",
+      "review_id": 9964,
+      "vector_id": 117,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:af778ac60c25bfa5de48cdaf1b16d589bedaede4e842d34d1ea9f66358eedcf1",
+      "review_id": 9965,
+      "vector_id": 118,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b9a67d169aabe6736a01441e6ad08145e1b69fcbddce360486f4d2fded129597",
+      "review_id": 9965,
+      "vector_id": 119,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b606471168be3c3541c3b805d7e385318b8c73bb8019869abe8fbd5ef6ef9d76",
+      "review_id": 9966,
+      "vector_id": 120,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:13cd56b3b0f0a96c12af11c3dd0978b4bb8e2698085544ab4963df11e91f4289",
+      "review_id": 9967,
+      "vector_id": 121,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:41d9c6a2eadc994dfd96e471cc0a879ee201a50366a9cda3ba03b2dd84f5bc28",
+      "review_id": 9967,
+      "vector_id": 122,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:32c81fd4aa2d121b256b7beabb3435a49bd90b98142458f2f37e57c9ac5fab9b",
+      "review_id": 9968,
+      "vector_id": 123,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:ae438c553e8048eee00b1af1eb9898431c6d073fafd671149a0b108853c5f155",
+      "review_id": 9969,
+      "vector_id": 124,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:601ab78b08e8335c1a8d88b6b38153018343df8f12602f207711264fe8249cc8",
+      "review_id": 9969,
+      "vector_id": 125,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:1a098fd59be1c7e6a58849b7b2f02bae460b2baca8b5b9f0772b0598b46d0b30",
+      "review_id": 9970,
+      "vector_id": 126,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:c98ca9a4a2878dd6eed8116b48942a8b4f7761bc429c6a399d57e2e18d6701e6",
+      "review_id": 9971,
+      "vector_id": 127,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:5ea75e4e6daa81e79194494c3f5a9ba7b86546cde74934743f01bdf11dcd7261",
+      "review_id": 9972,
+      "vector_id": 128,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:6fdef8e8d183778e244ef14087e7ae612b88a2b1fc71392b13c4deb9eef9e02e",
+      "review_id": 9973,
+      "vector_id": 129,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:489b0ca0613172487ec8260cc3c4c962d499f39e7b0d8dcb359205528c8cef49",
+      "review_id": 9974,
+      "vector_id": 130,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:196e622ef3fb591391ca8ef87dacc9347837db0d1442ba543206482f53926116",
+      "review_id": 9975,
+      "vector_id": 131,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:280b28d4d70baaa585281ad7d6455bd6cac279c5e1c3fc96d53cf2aeb634f6c0",
+      "review_id": 9976,
+      "vector_id": 132,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:e5b484c175dcd8e49b7cdc41a9ad0e303d4e66fde3c0d416e7789ea268d1e079",
+      "review_id": 9977,
+      "vector_id": 133,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:a81ab038a3b91ff704497bd2381d98fff7d73609fcdfa9e10b8e18f400b26cb1",
+      "review_id": 9978,
+      "vector_id": 134,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b38ce6187df0bcced19faa42a4075c51573b3fa5fc2acffb244a7143c6b49061",
+      "review_id": 9978,
+      "vector_id": 135,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:591fa4c6f930298ba77b45add8bff303598fb01ca10c0993e87cada61276a11a",
+      "review_id": 9979,
+      "vector_id": 136,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:09e5dca9b7d5e6014bb330d36829ffcc30e5aa5a8c9d7c9c78116c4fe9fbb5b0",
+      "review_id": 9979,
+      "vector_id": 137,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:a848d00a73663846b8e7e64dd24104a16deec4c4f3b400dcfd019a94502472c7",
+      "review_id": 9979,
+      "vector_id": 138,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:75719ad5506b5b87e384f088639eb3e25f70a211431636212503c9deacbb9015",
+      "review_id": 9980,
+      "vector_id": 139,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:257a96f6f3fea40d0e36a81f2c5a5a5bd6b1ca9b8010eafc67213f962e6f8336",
+      "review_id": 9980,
+      "vector_id": 140,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b643f9bb06ac4ff7362c92ed1521681c391a50e0e0346fc8365e4c5104f51ec9",
+      "review_id": 9981,
+      "vector_id": 141,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:3c6bc8705b48bcc47f18bf8e7f6cebdabdce69c71cc3031f85698b6aa2d6e4be",
+      "review_id": 9982,
+      "vector_id": 142,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:e3ae7884c72c10369b492e8f209f246e11f623498c63d722ece8c841ed67aecc",
+      "review_id": 9983,
+      "vector_id": 143,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:f80deef89c866ca05a73c6bd786c208cf8c3917019e2e03b970faf7fc8fa6515",
+      "review_id": 9983,
+      "vector_id": 144,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:e8e435b71d9d8b4324fc7b29c286f59144ab203d082d62b83265f185daad9710",
+      "review_id": 9983,
+      "vector_id": 145,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b9eb67a52019181ab121bc75a4a1d535aa4cf5de4e5006d10f50be8d30ea08d5",
+      "review_id": 9984,
+      "vector_id": 146,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:9e923df15fcca0dc44dfa789019b938156d8440f178e1b3df757abda1d174355",
+      "review_id": 9985,
+      "vector_id": 147,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:7edb73f56f63ce63847d2b00ce40d0b7b51a4aa53b8c7c0dae809fdfa71cc315",
+      "review_id": 9986,
+      "vector_id": 148,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:c8785d555d0389524ba0389d247296d44021f4aee16950072243d5f01376716a",
+      "review_id": 9986,
+      "vector_id": 149,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:25abfc9df27c7ff43b09675dfa2c8bec17c0db1927af56edfe0eead383744334",
+      "review_id": 9986,
+      "vector_id": 150,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:fb32d53ff781ea295be25a9dd4b3a7b8be99d350dd9cfc50b706d5ec014a2f5d",
+      "review_id": 9986,
+      "vector_id": 151,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:89d769ce254061cc609df785f85a5aa462f062b442aca3168d8c89b9bfea42f1",
+      "review_id": 9987,
+      "vector_id": 152,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:bd29ad37ac947d7fb56fc269b99f5192bd534791ac4c9e8b4d454d2198b9fa1f",
+      "review_id": 9987,
+      "vector_id": 153,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:ba0e27ac7d2e488d4bd121ee2f9117196cbebe44a733cd8a2c71b27bbc3da9d6",
+      "review_id": 9988,
+      "vector_id": 154,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:c03d026c11a3490b62a62c46631895afeac14b2e74ac0f064c190734edbbc631",
+      "review_id": 9988,
+      "vector_id": 155,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:4e2dc90bc4a660505abcdcc52eef8dfc23c5c3706ef0511ac4c561160c6e7588",
+      "review_id": 9988,
+      "vector_id": 156,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:049fd41acef7cb756a8adb16881a920ad3be7c5223dc36a4df2c94a456332db5",
+      "review_id": 9989,
+      "vector_id": 157,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:8041fdd5d3c3072c09bb0099b52ccb3a9ff299aed56e6d5917bb5d4584bcee2e",
+      "review_id": 9989,
+      "vector_id": 158,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:f5634428d285fb73c0495e1526a7d47161ab65f06d9619e0f63e7ef713c3f06d",
+      "review_id": 9990,
+      "vector_id": 159,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:46a955c0c4cf7dd12b9a3e906575c7a801a72279550f905fa1cf7577763c44a4",
+      "review_id": 9991,
+      "vector_id": 160,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:ba2072a8c661a809df91920e6a5249616acdcb87a0eeeef159aa5d8f2878afbf",
+      "review_id": 9991,
+      "vector_id": 161,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:a9ad7034250883f77560b76962aa29575e352fc1d541a572d9e48015f1d80c20",
+      "review_id": 9991,
+      "vector_id": 162,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b632e2eabbd5004d82bdc257a7de1fa2f4b1cca189f74b42e8ac6bad6f757fd0",
+      "review_id": 9992,
+      "vector_id": 163,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:dd2bb26efac6ad6c7c6847274cb275c3fe7bfcd801c29568f711ea28327d291c",
+      "review_id": 9992,
+      "vector_id": 164,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:63ededbc8320911c80a3cf4c98ead556667131d4e45e034dfdf01511c04aec83",
+      "review_id": 9993,
+      "vector_id": 165,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:f51e7b6aa2c8893311e3685b197dc24aaa9a322a3734de0b9e100e9410d0ea1c",
+      "review_id": 9993,
+      "vector_id": 166,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:1b97be01c25492ac8b7e664b5f009bf6b69ab783cccd0f8d24ab680226944f7c",
+      "review_id": 9993,
+      "vector_id": 167,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:d668e441575e0a7e72981bd9c8665ad6f6a406855ac1333349718125262965e3",
+      "review_id": 9993,
+      "vector_id": 168,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:1197e22c77bba3f3ec0edb3b68e413910e9de684f94fb6773f0fad8d2b695143",
+      "review_id": 9995,
+      "vector_id": 169,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:2de5cb48bb01f76c8cbbe05b117922a108e583c9f5c2880ae815ca164a92e6dc",
+      "review_id": 9995,
+      "vector_id": 170,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:174cae17581f12821da5f744d2f38fb763f17d1c1811a4ff04b2b2cd0f0f90ad",
+      "review_id": 9996,
+      "vector_id": 171,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:6544ec41b63bff387122c98a3a80cf4b56cbb7227bcb01f217d655d953873016",
+      "review_id": 9997,
+      "vector_id": 172,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:0e4c30c5cd1cc54b95310356524fb25592002ff07f458d45dd111e1852055cbc",
+      "review_id": 9998,
+      "vector_id": 173,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:9beb35b6b9e52407cbc9464af4e37a64409d9947eaddd8ce7e5d16961e526913",
+      "review_id": 9999,
+      "vector_id": 174,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:de163981307cbcb13baac37c55e4bc169f10eb275ced7cc2adbaa1fa1e907ae3",
+      "review_id": 9999,
+      "vector_id": 175,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:a4af5f3e143b1041e912364332193456a8542b27373b1380cfbe88609c29fb60",
+      "review_id": 9999,
+      "vector_id": 176,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:5b75e1ca8de18e12f4ce94a7f83fb77837b742537c618c8f9da6f98ecd8eb487",
+      "review_id": 9999,
+      "vector_id": 177,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:9d3559e3d44892200edcdd781ea7bb3f56e0b819305cc7170fb0b9c95a4dc869",
+      "review_id": 10000,
+      "vector_id": 178,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:2210a3dad87e6ba27931d5dcaed7bf9fa82d49e9815b18d3ac84065d233ab84d",
+      "review_id": 10001,
+      "vector_id": 179,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:8d942ca9a55cf10cd6d4ba07c30f4f8d105421bfc50be75b1ce071b2c3d74f02",
+      "review_id": 10001,
+      "vector_id": 180,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:a4909f9f365ade84aac9401e1f62c6780f7edaac5a7db8d936e96ad75ef3adfb",
+      "review_id": 10001,
+      "vector_id": 181,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:8f30868ed56023f5de0cac89b1bcf891a8dccf47cb0c7eeb46de94bcd3e37c94",
+      "review_id": 10001,
+      "vector_id": 182,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:3fa1b1e98c67c6b78bf2a5fdf0316c92c981bc82ebf8146e1527995ffc16ee7c",
+      "review_id": 10001,
+      "vector_id": 183,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:029842ef23ec984ad576fbc3827001f5b246166147d3eab520a8b17f68663dd3",
+      "review_id": 10002,
+      "vector_id": 184,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:5c02ed8e7e8e8e00efebbfb0cca591e80e275cfaca286a88c3538fb0239f01a4",
+      "review_id": 10003,
+      "vector_id": 185,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:6cc5c180c6a3e58494823191e33b0ce59c47d04aac2880708d50a705e1dce9db",
+      "review_id": 10004,
+      "vector_id": 186,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:5fd7f23f2140b28969572740eceb53bcec302e7577e19a0d7e2a02741e3e1cc9",
+      "review_id": 10005,
+      "vector_id": 187,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:8d213aaa6db42461d5675ef001ec7553eb16b404bc546a3c9d79854168cebc31",
+      "review_id": 10005,
+      "vector_id": 188,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:7a4862d829bdac150064666fd3d062e8de3cbdc36310d5016ca757e049000aa1",
+      "review_id": 10006,
+      "vector_id": 189,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:68e30b14b3db0fe75ab75357608dccddb8a329755f310ff60fb9f446f5dff7bc",
+      "review_id": 10007,
+      "vector_id": 190,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:c153982e9990eb8fdf212ab4ffdb9cfec7ffb06fe515dd86c161e859d2db5cc2",
+      "review_id": 10008,
+      "vector_id": 191,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:912ab26ea62189692db84b6f310c62dd49548b238da64a4a6a4bd2b0ac47c3d1",
+      "review_id": 10008,
+      "vector_id": 192,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:5d5a2fa27703a189360754417c168435ebd88ed2220e87d4408923ac07720642",
+      "review_id": 10009,
+      "vector_id": 193,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:0475ee2a3174f1f26fd6b25fb898ea926828e4aa20238109e6aad0209dd0c90e",
+      "review_id": 10009,
+      "vector_id": 194,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:534cfa305aef9a9443cc42169dd3c627e46fb09bda8f9c68be6631116b799ea2",
+      "review_id": 10009,
+      "vector_id": 195,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:b51dff1275611d330218224fb51849448c4929ad509adfd85545b5d269269066",
+      "review_id": 10012,
+      "vector_id": 196,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:448657827e2b3fb316212c5cfc3851c02f2a1bb05513d63655a06477e9abaca4",
+      "review_id": 10012,
+      "vector_id": 197,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:20a354dc01c079203f35b9e3bebc2f182db62fbd776f15bd63c73336e3ff5ea2",
+      "review_id": 10013,
+      "vector_id": 198,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:7e000c096962eae7f1abcbc6ee31d64861f6508a2815442c3003d1114a83d1f9",
+      "review_id": 10013,
+      "vector_id": 199,
+      "verdict": "usable"
+    },
+    {
+      "key": "rag-opinion-v1:906528d67df4fa5113c436749f10fa4826fab5488439a561443856b99ba6f9ad",
+      "review_id": 10020,
+      "vector_id": 200,
+      "verdict": "usable"
+    }
+  ],
+  "candidate_source_types": {
+    "model": 200
+  },
+  "connection_attempts": 1,
+  "connection_closed": true,
+  "controlled_semantic_retrieval_data_prerequisite": "READY_IN_THIS_SNAPSHOT",
+  "credential_mechanism": "LIBPQ_PASSWORD_FILE_NO_MANUAL_PASSWORD_READ",
+  "database_connected": true,
+  "effective_corpus_authorized": true,
+  "effective_corpus_executed": true,
+  "elapsed_seconds": 0.547,
+  "explicit_rollback": true,
+  "finished_at_utc": "2026-11-12T03:54:03.909263+00:00",
+  "limits": {
+    "connect_timeout_seconds": 10,
+    "lock_timeout_seconds": 3,
+    "statement_timeout_seconds": 15,
+    "total_execution_seconds": 120
+  },
+  "metrics": {
+    "active_vectors": 200,
+    "current_member_vectors": 200,
+    "effective_opinion_coverage": 0.18331805682859761,
+    "effective_opinions": 1091,
+    "human_opinions": 0,
+    "missing_usable_opinions": 891,
+    "model_opinions": 1091,
+    "provenance_matched_vectors": 200,
+    "scoped_reviews": 510,
+    "snapshot_matched_vectors": 200,
+    "successful_reviews": 505,
+    "superseded_annotation_vectors": 0,
+    "superseded_human_vectors": 0,
+    "text_reviews": 510,
+    "unexplained_source_anomalies": 0,
+    "usable_vectors_U": 200
+  },
+  "mode": "effective_corpus",
+  "numerical_integrity": {
+    "checked": 200,
+    "invalid": 0,
+    "valid": 200
+  },
+  "opinion_coverage_groups": [
+    {
+      "aspect": "effectiveness",
+      "covered": 30,
+      "missing": 61,
+      "opinion_source": "model",
+      "sentiment": "negative",
+      "total": 91
+    },
+    {
+      "aspect": "effectiveness",
+      "covered": 0,
+      "missing": 4,
+      "opinion_source": "model",
+      "sentiment": "neutral",
+      "total": 4
+    },
+    {
+      "aspect": "effectiveness",
+      "covered": 25,
+      "missing": 244,
+      "opinion_source": "model",
+      "sentiment": "positive",
+      "total": 269
+    },
+    {
+      "aspect": "effectiveness",
+      "covered": 1,
+      "missing": 11,
+      "opinion_source": "model",
+      "sentiment": "unknown",
+      "total": 12
+    },
+    {
+      "aspect": "logistics",
+      "covered": 20,
+      "missing": 41,
+      "opinion_source": "model",
+      "sentiment": "negative",
+      "total": 61
+    },
+    {
+      "aspect": "logistics",
+      "covered": 0,
+      "missing": 4,
+      "opinion_source": "model",
+      "sentiment": "neutral",
+      "total": 4
+    },
+    {
+      "aspect": "logistics",
+      "covered": 9,
+      "missing": 98,
+      "opinion_source": "model",
+      "sentiment": "positive",
+      "total": 107
+    },
+    {
+      "aspect": "packaging",
+      "covered": 1,
+      "missing": 4,
+      "opinion_source": "model",
+      "sentiment": "negative",
+      "total": 5
+    },
+    {
+      "aspect": "packaging",
+      "covered": 0,
+      "missing": 3,
+      "opinion_source": "model",
+      "sentiment": "positive",
+      "total": 3
+    },
+    {
+      "aspect": "price",
+      "covered": 5,
+      "missing": 28,
+      "opinion_source": "model",
+      "sentiment": "negative",
+      "total": 33
+    },
+    {
+      "aspect": "price",
+      "covered": 0,
+      "missing": 4,
+      "opinion_source": "model",
+      "sentiment": "neutral",
+      "total": 4
+    },
+    {
+      "aspect": "price",
+      "covered": 4,
+      "missing": 47,
+      "opinion_source": "model",
+      "sentiment": "positive",
+      "total": 51
+    },
+    {
+      "aspect": "price",
+      "covered": 0,
+      "missing": 1,
+      "opinion_source": "model",
+      "sentiment": "unknown",
+      "total": 1
+    },
+    {
+      "aspect": "quality",
+      "covered": 16,
+      "missing": 23,
+      "opinion_source": "model",
+      "sentiment": "negative",
+      "total": 39
+    },
+    {
+      "aspect": "quality",
+      "covered": 2,
+      "missing": 52,
+      "opinion_source": "model",
+      "sentiment": "positive",
+      "total": 54
+    },
+    {
+      "aspect": "quality",
+      "covered": 0,
+      "missing": 2,
+      "opinion_source": "model",
+      "sentiment": "unknown",
+      "total": 2
+    },
+    {
+      "aspect": "service",
+      "covered": 79,
+      "missing": 155,
+      "opinion_source": "model",
+      "sentiment": "negative",
+      "total": 234
+    },
+    {
+      "aspect": "service",
+      "covered": 0,
+      "missing": 2,
+      "opinion_source": "model",
+      "sentiment": "neutral",
+      "total": 2
+    },
+    {
+      "aspect": "service",
+      "covered": 8,
+      "missing": 107,
+      "opinion_source": "model",
+      "sentiment": "positive",
+      "total": 115
+    }
+  ],
+  "opinion_coverage_months": [
+    {
+      "covered": 2,
+      "missing": 1,
+      "month": "2021-09",
+      "total": 3
+    },
+    {
+      "covered": 1,
+      "missing": 11,
+      "month": "2021-10",
+      "total": 12
+    },
+    {
+      "covered": 8,
+      "missing": 62,
+      "month": "2021-11",
+      "total": 70
+    },
+    {
+      "covered": 2,
+      "missing": 19,
+      "month": "2021-12",
+      "total": 21
+    },
+    {
+      "covered": 6,
+      "missing": 14,
+      "month": "2022-01",
+      "total": 20
+    },
+    {
+      "covered": 10,
+      "missing": 12,
+      "month": "2022-02",
+      "total": 22
+    },
+    {
+      "covered": 0,
+      "missing": 29,
+      "month": "2022-03",
+      "total": 29
+    },
+    {
+      "covered": 38,
+      "missing": 34,
+      "month": "2022-04",
+      "total": 72
+    },
+    {
+      "covered": 1,
+      "missing": 31,
+      "month": "2022-05",
+      "total": 32
+    },
+    {
+      "covered": 27,
+      "missing": 171,
+      "month": "2022-06",
+      "total": 198
+    },
+    {
+      "covered": 78,
+      "missing": 162,
+      "month": "2022-07",
+      "total": 240
+    },
+    {
+      "covered": 27,
+      "missing": 345,
+      "month": "2022-08",
+      "total": 372
+    }
+  ],
+  "preflight_status": "PASS",
+  "production_provenance_fields": [
+    "source",
+    "dataset_version",
+    "product_id",
+    "review_id",
+    "annotation_id",
+    "label_profile_key",
+    "opinion_source",
+    "model_opinion_id",
+    "human_opinion_id",
+    "human_revision_id",
+    "aspect",
+    "sentiment",
+    "quote_start",
+    "quote_end",
+    "review_content_sha256",
+    "embedding_input_sha256",
+    "text_builder_version",
+    "published_at"
+  ],
+  "prohibited_actions": {
+    "agent_runs": 0,
+    "database_mutations": 0,
+    "embedding_calls": 0,
+    "llm_calls": 0,
+    "similarity_searches": 0,
+    "worker_runs": 0
+  },
+  "query_count": 23,
+  "required_objects": [
+    {
+      "can_select": true,
+      "name": "import_runs",
+      "object_exists": true,
+      "relforcerowsecurity": false,
+      "relkind": "r",
+      "relrowsecurity": false
+    },
+    {
+      "can_select": true,
+      "name": "products",
+      "object_exists": true,
+      "relforcerowsecurity": false,
+      "relkind": "r",
+      "relrowsecurity": false
+    },
+    {
+      "can_select": true,
+      "name": "review_annotations",
+      "object_exists": true,
+      "relforcerowsecurity": false,
+      "relkind": "r",
+      "relrowsecurity": false
+    },
+    {
+      "can_select": true,
+      "name": "review_database_schema",
+      "object_exists": true,
+      "relforcerowsecurity": false,
+      "relkind": "r",
+      "relrowsecurity": false
+    },
+    {
+      "can_select": true,
+      "name": "review_human_opinions",
+      "object_exists": true,
+      "relforcerowsecurity": false,
+      "relkind": "r",
+      "relrowsecurity": false
+    },
+    {
+      "can_select": true,
+      "name": "review_human_reviews",
+      "object_exists": true,
+      "relforcerowsecurity": false,
+      "relkind": "r",
+      "relrowsecurity": false
+    },
+    {
+      "can_select": true,
+      "name": "review_labeling_schema",
+      "object_exists": true,
+      "relforcerowsecurity": false,
+      "relkind": "r",
+      "relrowsecurity": false
+    },
+    {
+      "can_select": true,
+      "name": "review_opinion_embeddings",
+      "object_exists": true,
+      "relforcerowsecurity": false,
+      "relkind": "r",
+      "relrowsecurity": false
+    },
+    {
+      "can_select": true,
+      "name": "review_opinions",
+      "object_exists": true,
+      "relforcerowsecurity": false,
+      "relkind": "r",
+      "relrowsecurity": false
+    },
+    {
+      "can_select": true,
+      "name": "review_workbench_schema",
+      "object_exists": true,
+      "relforcerowsecurity": false,
+      "relkind": "r",
+      "relrowsecurity": false
+    },
+    {
+      "can_select": true,
+      "name": "reviews",
+      "object_exists": true,
+      "relforcerowsecurity": false,
+      "relkind": "r",
+      "relrowsecurity": false
+    }
+  ],
+  "review_coverage": {
+    "effective_opinion_reviews": 436,
+    "full": 105,
+    "none": 331,
+    "raw_candidate_reviews": 105,
+    "vector_covered_reviews": 105
+  },
+  "review_states": {
+    "failed": 5,
+    "success": 505
+  },
+  "run_id": "20261112T035403365378Z",
+  "runner_sha256": "5e5453c052d8747f663e59c024a3f8d4622f1c4e48fe1c68802a2af2051e364e",
+  "scope": {
+    "as_of": null,
+    "dataset_version": "reviews-csv",
+    "date_from": "2021-09-11",
+    "date_to": "2022-08-26",
+    "embedding_space_id": "embedding-space-v1:11e6754662dbd13fc56c6e624bc9416c1c2766f962787267fd4a57b1fa8d622e",
+    "label_profile_key": "1b58dc189d7d3ea6a55713a989f4555837eb83492690afdc020d808a268a5304",
+    "product_ids": [
+      "100013588055"
+    ],
+    "source": "reviews_csv"
+  },
+  "semantic_retrieval_authorized": false,
+  "semantic_retrieval_executed": false,
+  "source_checks": [
+    {
+      "file": "reviews/scope.py",
+      "matches": true,
+      "sha256": "673b0dc117c8b35cdae77b61c3565dc13aad795a40c81756b6c0287d74d82b32"
+    },
+    {
+      "file": "reviews/rag_corpus.py",
+      "matches": true,
+      "sha256": "ed0ba5349caefbc1478116128ad397956c7e41ec5e8eb217b4da13fdcb877a79"
+    },
+    {
+      "file": "reviews/semantic_retrieval.py",
+      "matches": true,
+      "sha256": "993db794b78adb1e0ecbef10440855510d2ffe90be8e90ef61f5427f97453322"
+    },
+    {
+      "file": "reviews/embedding_store.py",
+      "matches": true,
+      "sha256": "6ed1d03e612e8ec319da044296aa3972bd9f8a9d2284b3921c7611e3fd3f4cec"
+    },
+    {
+      "file": "agents/review_retrieval.py",
+      "matches": true,
+      "sha256": "6c9c7cfd9ba6c2b07e5a800da9a27e87cdebbe83d918d1bda27faa79ee5b287a"
+    },
+    {
+      "file": "reviews/analytics.py",
+      "matches": true,
+      "sha256": "2ae0ff9039387f887c99419dc8f0b52b25baefd26a5fa8ec99e29393f62d63b1"
+    },
+    {
+      "file": "reviews/label_store.py",
+      "matches": true,
+      "sha256": "3aa23810b51f04185f88c3ce19086222df1769f0b2461318c4f3f37518af0b9d"
+    },
+    {
+      "file": "core/database.py",
+      "matches": true,
+      "sha256": "911675daa20b476f29fead1a3516d4af0ee5fbd5fa5cbe8f56a89bb0801186a8"
+    },
+    {
+      "file": "reviews/store.py",
+      "matches": true,
+      "sha256": "8442a8a90538bae67b4e69af43dcb219849f335c648c85dfdcefcf19ae2bbdf2"
+    },
+    {
+      "file": "core/serialization.py",
+      "matches": true,
+      "sha256": "d2e6d6cf7680cdc4e359edf3ecd5ecd34e8f283efa5a7af9c71a1db12e9d26a6"
+    }
+  ],
+  "source_mismatch_counts": {
+    "provenance": 0,
+    "snapshot": 0,
+    "unexplained": 0
+  },
+  "source_verification": {
+    "key_set_sha256": "d143f1b370b251f7f9de25070416c1caf1b8cc2ff57d4de6efc19a6a908774ec",
+    "opinions": 1091,
+    "review_snapshot_set_sha256": "d17ea5c1b76a8cb399c3c4197831ac4587a638ca1f783cdee8c509d597fd7b2e",
+    "reviews": 436,
+    "status": "PASS"
+  },
+  "stage": "final_snapshot_check",
+  "started_at_utc": "2026-11-12T03:54:03.365378+00:00",
+  "statements": [
+    {
+      "command": "SET",
+      "completed": true,
+      "template_sha256": "c22a78cc3ae2905579eca954710f5b6f662ae8cfc4132fc7dd45dacc583e0612"
+    },
+    {
+      "command": "BEGIN",
+      "completed": true,
+      "template_sha256": "884b307eaf68c26c0ee2c95bfebc014c633d0d00e03a5e60391e7b2efc4dcd48"
+    },
+    {
+      "command": "SET",
+      "completed": true,
+      "template_sha256": "cea9f42bb983b8f5fcac64ba0178dd95deb19e841e9be0baf352f818054b1798"
+    },
+    {
+      "command": "SET",
+      "completed": true,
+      "template_sha256": "7f3acf448a5612f6bd684b411a7bf72add21652f3489f59ebb5f4725650b9c40"
+    },
+    {
+      "command": "SET",
+      "completed": true,
+      "template_sha256": "4b5830d44f40cf0845a5d15cdcf2052a11ec3d47b10ffe520fc06c684e000c7e"
+    },
+    {
+      "command": "SET",
+      "completed": true,
+      "template_sha256": "bde8f156356932a5c61933db4cab1247df857513c6c75a7f293f09e02b222a27"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "9c7b36cea327e286954b685c0c0245e65903ecb378091cf9c646f4d87411d5a2"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "fe214671cebc6beaa8257763e22dabb36f1e3b02d8cc491624a5576b786e70fc"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "e63f9fd0fd3894e6ad5551cf1cefda28ef7fe9b83310abfab8e892727e32f5e7"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "6ab926b1f57f38ba1c0a405f44baa927675dbf442a57e12ce0b07dff4d5ec0c0"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "bbfa91211f43280f15310fa98f69e4d4c1d268be080ae0c159cd7f7f92760ee6"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "6e1b8eea5fbaf846b51e4bdd4653aad840d17f0e3196e67ccd8a595ed5cb1aaa"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "599531a4a7c1936fdc9ff8701bef96368aaadb974557fc7f64a5cc392e49b153"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "4fdd8d767adad6211c4721df4748cf95e6442f7b6ca9706fb064b116d7bad4ac"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "4a24dde0d0db106b73620f1549902721bf587dafb31d4b5e8721d7a72987d4d7"
+    },
+    {
+      "command": "SHOW",
+      "completed": true,
+      "template_sha256": "da69ed32429a7730953ed4d9476d39925e381027a839a8eda4a77edb8389243d"
+    },
+    {
+      "command": "SHOW",
+      "completed": true,
+      "template_sha256": "1c14acdba350fc017fa2f9a6d0844090a95ca62f5d1095cba5e472f613cb3ec9"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "af6c2c8d2286b24c52ccad872d19ddd74a1fef9493723a37e0a5be872a6d0697"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "af6c2c8d2286b24c52ccad872d19ddd74a1fef9493723a37e0a5be872a6d0697"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "6ab926b1f57f38ba1c0a405f44baa927675dbf442a57e12ce0b07dff4d5ec0c0"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "bfd799e07965045fe7ec0fdc4979cfdf94639bfee957e447ae574094e9e51441"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "13d79e122b80fb46eb90ae116a8ff2912015c596049ea16036b8d63f5e7e4e63"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "6ab926b1f57f38ba1c0a405f44baa927675dbf442a57e12ce0b07dff4d5ec0c0"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "78037087f40bee63ca243c42f8c8b95a922d1cf2c7221e892401895fbe3a0624"
+    },
+    {
+      "command": "WITH",
+      "completed": true,
+      "template_sha256": "865979f513e5096d8032202afa33339cd1aa210a38ade4670feb150f8030fdea"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "af6c2c8d2286b24c52ccad872d19ddd74a1fef9493723a37e0a5be872a6d0697"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "38181efe93b5aed8cb7e42d9bd17a940a69a4a891578b4d8fb6f13f32ed37ebc"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "a7f364875257b9066163d96951fe3f73ef15985ee0e8514b9aa2963bf6831c53"
+    },
+    {
+      "command": "SELECT",
+      "completed": true,
+      "template_sha256": "9c7b36cea327e286954b685c0c0245e65903ecb378091cf9c646f4d87411d5a2"
+    }
+  ],
+  "status": "COMPLETED",
+  "transaction": {
+    "database_name": "reviews",
+    "effective_user": "rag_audit_ro",
+    "isolation_level": "repeatable read",
+    "lock_timeout": "3s",
+    "login_user": "rag_audit_ro",
+    "observed_at": "2026-11-12 03:54:03.485668+00",
+    "read_only": "on",
+    "statement_timeout": "15s",
+    "timezone": "UTC",
+    "transaction_snapshot": "1131227:1131227:"
+  },
+  "transaction_started": true,
+  "unique_profile_matches": 1,
+  "vector_storage": {
+    "output_function_executable": true,
+    "type": "vector(1024)"
+  },
+  "vector_verdicts": {
+    "usable": 200
+  },
+  "version": "agent055-effective-corpus-audit-v2",
+  "zero_opinion_reviews": 74
+}

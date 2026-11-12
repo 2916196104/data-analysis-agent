@@ -1,0 +1,83 @@
+{
+  "assessment": null,
+  "authorized": false,
+  "baseline": {
+    "effective_opinions": 1091,
+    "opinion_coverage_percent": 18.33,
+    "reaudited_this_run": false,
+    "record": "docs/evaluation/agent-055-effective-corpus/effective_corpus-20261112T035403365378Z.json",
+    "scoped_reviews": 510,
+    "successful_reviews": 505,
+    "uncovered_opinions": 891,
+    "usable_vectors_U": 200
+  },
+  "calls": {
+    "adapter_calls": 0,
+    "connection_attempts": 0,
+    "database_read_statements": 0,
+    "query_embedding_attempts": 0,
+    "query_embedding_successes": 0,
+    "top_k_sql_attempts": 0,
+    "top_k_sql_completed": 0
+  },
+  "candidates": null,
+  "category": null,
+  "cleanup": {
+    "connection_closed": null,
+    "encoder_closed": null,
+    "errors": [],
+    "rollback": null
+  },
+  "database_mutations": 0,
+  "elapsed_seconds": 0,
+  "error": null,
+  "final_llm_calls": 0,
+  "finished_at_utc": "2026-11-12T04:30:16.996169+00:00",
+  "fixed_scope": {
+    "as_of": null,
+    "aspect": null,
+    "dataset_version": "reviews-csv",
+    "date_from": "2021-09-11",
+    "date_to": "2022-08-26",
+    "embedding_space_id": "embedding-space-v1:11e6754662dbd13fc56c6e624bc9416c1c2766f962787267fd4a57b1fa8d622e",
+    "label_profile_key": "1b58dc189d7d3ea6a55713a989f4555837eb83492690afdc020d808a268a5304",
+    "product_ids": [
+      "100013588055"
+    ],
+    "sentiment": null,
+    "source": "reviews_csv",
+    "top_k": 5
+  },
+  "full_agent_runs": 0,
+  "implementation_validation": {
+    "existing_synthetic_semantic_tests_passed": 28,
+    "file_only_configuration": "PASS",
+    "new_synthetic_tests_passed": 11,
+    "real_database_queries": 0,
+    "real_embedding_calls": 0,
+    "real_top_k_queries": 0
+  },
+  "limitation": "Top-5 不足不能证明全部 200 条已索引观点、891 条未覆盖观点或全部 510 条评论没有送货慢反馈。",
+  "publication_allowed": false,
+  "query_encoder": {
+    "dimension": 1024,
+    "dtype": "float32",
+    "embedding_space_id": "embedding-space-v1:11e6754662dbd13fc56c6e624bc9416c1c2766f962787267fd4a57b1fa8d622e",
+    "local_only": true,
+    "max_input_tokens": 512,
+    "model": "BAAI/bge-m3",
+    "normalization": "l2",
+    "pooling": "cls",
+    "revision": "5617a9f61b028005a4858fdac845db406aefb181"
+  },
+  "question": "商品100013588055有没有送货慢的反馈？",
+  "retrieved_count": null,
+  "run_id": "20261112T043016995154Z",
+  "runner_sha256": "d5b0973a66bd60e4bb59e3a2f4ddd62a16cb5ac2ae5be169d4b214ff425081a3",
+  "source_authentication": "NOT_EXECUTED",
+  "stage": "not_executed",
+  "started_at_utc": "2026-11-12T04:30:16.995154+00:00",
+  "status": "NOT_EXECUTED",
+  "validator": "NOT_EXECUTED",
+  "version": "agent-055-real-rag-once-v1"
+}

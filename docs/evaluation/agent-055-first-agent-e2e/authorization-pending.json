@@ -1,0 +1,79 @@
+{
+  "version": "agent-055-first-agent-e2e-v1",
+  "status": "NOT_EXECUTED",
+  "execution_authorized": false,
+  "question": "商品100013588055有没有送货慢的反馈？",
+  "reason": "User requested the call plan and estimated cost before explicitly authorizing one local execution.",
+  "entrypoint": "data_analysis_agent.agents.reviews.run_review_agent",
+  "acceptance_scope": "production_agent_business_pipeline",
+  "excluded": ["persistent_worker_queue", "state_restart_recovery", "http_ui_acceptance", "p6_e1b_acceptance"],
+  "scope": {
+    "source": "reviews_csv",
+    "dataset_version": "reviews-csv",
+    "product_ids": ["100013588055"],
+    "date_from": "2021-09-11",
+    "date_to": "2022-08-26",
+    "as_of": null,
+    "label_profile_key": "1b58dc189d7d3ea6a55713a989f4555837eb83492690afdc020d808a268a5304",
+    "embedding_space_id": "embedding-space-v1:11e6754662dbd13fc56c6e624bc9416c1c2766f962787267fd4a57b1fa8d622e"
+  },
+  "proposed_schema_only_baseline": {
+    "baseline_from": "2021-09-10",
+    "baseline_to": "2021-09-10",
+    "read_authorized": false,
+    "queried": false
+  },
+  "prior_rag_record": "docs/evaluation/agent-055-first-real-rag/run-20261112T043912972154Z.json",
+  "prior_rag_summary": {
+    "status": "COMPLETED",
+    "category": "A",
+    "retrieved_opinions": 5,
+    "permitted_opinions": 3,
+    "distinct_permitted_reviews": 2,
+    "review_ids": [9958, 9993],
+    "is_current_agent_result": false
+  },
+  "planned_budget": {
+    "agent_runs": 1,
+    "query_embedding_calls": 1,
+    "top_k_queries": 1,
+    "top_k": 5,
+    "context_tool_calls": 1,
+    "rag_tool_calls": 1,
+    "intent_llm_calls": 0,
+    "planning_llm_calls": 0,
+    "topic_llm_calls": 0,
+    "answer_llm_calls": 0,
+    "external_api_cost": 0
+  },
+  "actual_calls": {
+    "agent_runs": 0,
+    "query_embedding_calls": 0,
+    "top_k_queries": 0,
+    "database_calls": 0,
+    "llm_calls": 0,
+    "database_mutations": 0
+  },
+  "runtime_checks": {
+    "state": "NOT_EXECUTED",
+    "intent_router": "NOT_EXECUTED",
+    "planner": "NOT_EXECUTED",
+    "rag_tool": "NOT_EXECUTED",
+    "validator": "NOT_EXECUTED",
+    "final_answer_and_citations": "NOT_EXECUTED"
+  },
+  "static_goal_contract_review": {
+    "legacy_request_goal": null,
+    "legacy_task_goal": null,
+    "legacy_validate_task_completion_applicable": false,
+    "runtime_required_fact_ids": ["delivery_slow"],
+    "runtime_goal_validator": "validate_report -> task_matches",
+    "is_runtime_pass_evidence": false
+  },
+  "final_answer": null,
+  "citations": null,
+  "elapsed_seconds": null,
+  "runtime_failure_root_cause": null,
+  "business_loop_passed": null,
+  "p6_e1b_unblocked": false
+}
