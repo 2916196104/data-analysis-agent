@@ -10,7 +10,7 @@ import { CHAT_KEY, readChatSession } from './chat-state';
 import ChatMessage from './ChatMessage';
 
 vi.mock('../../useTask', () => ({ useTask: vi.fn() }));
-const scope: AnalysisParameters = { source: 'amazon', dataset_version: 'v1', model: 'model', base_url: 'offline', prompt_version: 'v1',
+const scope: AnalysisParameters = { source: 'reviews_csv', dataset_version: 'reviews-csv', model: 'model', base_url: 'offline', prompt_version: 'v1',
   product_ids: ['A'], date_from: '2023-02-01', date_to: '2023-02-28', baseline_from: '2023-01-01', baseline_to: '2023-01-31' };
 const trend = (aspect = 'packaging'): AgentToolResult => ({ result_id: 'r1', kind: 'aspect_trend', parameters: { aspect, period: 'day', product_ids: ['A'] }, data: {
   scope, period: 'day', aspects: { [aspect]: aspect }, buckets: [], summary: { review_count: 12, eligible_text_reviews: 12,
@@ -84,7 +84,7 @@ describe('追问解析使用真实查询参数', () => {
     for (const previous of [undefined, parent(trend())]) {
       const next = resolveQuery(text, scope, previous);
       expect(next.clarification).toBeUndefined();
-      expect(next.parameters ?? scope).toMatchObject({ source: 'amazon', dataset_version: 'v1', product_ids: ['A'] });
+      expect(next.parameters ?? scope).toMatchObject({ source: 'reviews_csv', dataset_version: 'reviews-csv', product_ids: ['A'] });
       expect(next.query.effectiveQuestion).toBe(text);
     }
   });
@@ -315,7 +315,7 @@ describe('追问提交、澄清和快照恢复', () => {
     const firstContext = structuredClone(hook.result.current.session.context);
     await act(async () => { await hook.result.current.send(scope, '再次查询趋势'); });
     expect(hook.result.current.session.context).toEqual(firstContext);
-    expect(firstContext).toMatchObject({ last_successful_task_id: 'success', dataset_id: 'amazon', product_ids: ['A'], aspect: 'logistics' });
+    expect(firstContext).toMatchObject({ last_successful_task_id: 'success', dataset_id: 'reviews_csv', product_ids: ['A'], aspect: 'logistics' });
     await act(async () => { await hook.result.current.send(scope, '只看物流'); });
     expect(hook.result.current.session.turns.at(-1)?.query?.parentTaskId).toBe('failed');
     expect(submit).toHaveBeenCalledTimes(3);

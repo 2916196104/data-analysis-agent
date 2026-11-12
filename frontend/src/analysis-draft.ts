@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import type { AnalysisParameters, Options, Product, Quality } from './types';
+import type { AnalysisParameters, Options, Product, Quality, Task } from './types';
 
 export interface AnalysisDraft {
   dataset: string;
@@ -13,6 +13,26 @@ export interface AnalysisDraft {
 }
 
 export const DEFAULT_ANALYSIS_MODEL = 'Pro/deepseek-ai/DeepSeek-V3.2';
+export const AGENT_DATASET = JSON.stringify(['reviews_csv', 'reviews-csv']);
+export const isAgentScope = (scope: Pick<AnalysisParameters, 'source' | 'dataset_version'>): boolean =>
+  scope.source === 'reviews_csv' && scope.dataset_version === 'reviews-csv';
+
+export function agentAnalysisParameters(draft: AnalysisDraft, options: Options, quality?: Quality) {
+  return draft.dataset === AGENT_DATASET ? analysisParameters(draft, options, quality) : undefined;
+}
+
+/** Use saved task identity only; a missing source never means Amazon or the current draft. */
+export function taskDataset(task: Task): { source: string; dataset_version: string } | undefined {
+  const scope = task.result?.scope as Partial<AnalysisParameters> | undefined;
+  const imports = Array.isArray(task.result?.imports) ? task.result.imports : [];
+  const reviews = imports.filter(item => item.kind === 'reviews');
+  const source = task.parameters.source || scope?.source || (reviews.length === 1 ? reviews[0].source : undefined);
+  const version = task.parameters.dataset_version || scope?.dataset_version
+    || (reviews.length === 1 ? reviews[0].dataset_version : undefined);
+  if (typeof source !== 'string' || !source || typeof version !== 'string' || !version) return undefined;
+  if (scope && ((scope.source && scope.source !== source) || (scope.dataset_version && scope.dataset_version !== version))) return undefined;
+  return { source, dataset_version: version };
+}
 
 /** 优先使用产品默认的 V3.2；旧数据库没有该模型时回退到服务端默认版本。 */
 export function defaultProfileId(options: Options): number | undefined {

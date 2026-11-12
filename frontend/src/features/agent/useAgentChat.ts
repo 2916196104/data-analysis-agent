@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { api, errorMessage } from '../../api';
+import { isAgentScope } from '../../analysis-draft';
 import { isActive } from '../../task-state';
 import { useTask } from '../../useTask';
 import type { AgentResult, AnalysisParameters, Task } from '../../types';
@@ -27,12 +28,22 @@ function contextFromResult(conversationId: string, taskId: string, parameters: A
 function validResult(task: Task | null): task is Task & { result: AgentResult } {
   const result = task?.result as AgentResult | null | undefined;
   return !!task && task.status === 'succeeded' && !task.error && result?.agent === true
-    && result.status === 'ok' && result.validation?.status === 'passed';
+    && result.status === 'ok' && result.validation?.status === 'passed' && !!result.scope
+    && sameScopeIdentity(task.parameters as unknown as AnalysisParameters, result.scope);
 }
 
-export function useAgentChat(routeTaskId?: string, scopeKey?: string, currentScope?: AnalysisParameters) {
+export function useAgentChat(routeTaskId?: string, scopeKey?: string, currentScope?: AnalysisParameters, datasetId?: string) {
   const sessions = useChatSessions();
   const { conversation, sessionRef, commit, storageError, posting, postLock, resolving, errors, setPosting, setErrors } = sessions;
+  const datasetIdentity = datasetId ?? (currentScope ? JSON.stringify([currentScope.source, currentScope.dataset_version]) : undefined);
+  const previousDataset = useRef(datasetIdentity);
+  useEffect(() => {
+    if (previousDataset.current === datasetIdentity) return;
+    const previous = previousDataset.current;
+    previousDataset.current = datasetIdentity;
+    commit(current => ({ ...current, context: undefined, intent: undefined }));
+    if (previous && !routeTaskId) sessions.createSession();
+  }, [datasetIdentity, commit, sessions.createSession, routeTaskId]);
   const session = useMemo(() => analysisSession(conversation), [conversation]);
   const previousRoute = useRef(routeTaskId);
   const conversationId = conversation.id;
@@ -84,15 +95,22 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string, currentSco
 
   useEffect(() => {
     if (!activeTurn || task?.task_id !== activeTurn.taskId || !validResult(task)) return;
+    if (datasetIdentity !== undefined && datasetIdentity !== JSON.stringify([task.result.scope.source, task.result.scope.dataset_version])) return;
     const effective = { ...activeTurn.parameters, ...task.result.scope };
     const next = contextFromResult(conversationId, task.task_id, effective, task.result);
     if (JSON.stringify(sessionRef.current.context) === JSON.stringify(next) && sameScope(activeTurn.parameters, effective)) return;
     commit(current => ({ ...current, context: next, turns: current.turns.map(turn => turn.id === activeTurn.id && turn.kind === 'analysis'
       ? { ...turn, parameters: effective } : turn) }));
-  }, [activeTurn, task, commit]);
+  }, [activeTurn, task, commit, datasetIdentity]);
 
   async function submitTurn(turn: ChatTurn, retry = false): Promise<boolean> {
     if (postLock.current || pending) return false;
+    if (!isAgentScope(turn.parameters) || !isAgentScope(turn.selection || turn.parameters)
+      || (datasetIdentity !== undefined && datasetIdentity !== JSON.stringify([turn.parameters.source, turn.parameters.dataset_version]))) {
+      setErrors(current => ({ ...current, [turn.id]: 'AI 助手仅支持 reviews_csv / reviews-csv；历史任务可查看，请切换数据集后重新提问。' }));
+      return false;
+    }
+    const epoch = navigationEpoch.current;
     postLock.current = true;
     setPosting(true);
     setErrors(current => ({ ...current, [turn.id]: '' }));
@@ -103,8 +121,8 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string, currentSco
         : await api.submit({ kind: 'analysis', parameters: { ...turn.parameters, question: turn.query?.effectiveQuestion ?? turn.question,
           selection_scope: copyScope(turn.selection || turn.parameters),
           conversation_id: conversationId, context_task_id: turn.query?.parentTaskId } }, turn.requestKey);
-      commit(current => ({ ...current, intent: { task_id: result.task.task_id, question: turn.question,
-        product_ids: [...turn.parameters.product_ids], source: turn.parameters.source, dataset_version: turn.parameters.dataset_version },
+      commit(current => ({ ...current, ...(epoch === navigationEpoch.current ? { intent: { task_id: result.task.task_id, question: turn.question,
+        product_ids: [...turn.parameters.product_ids], source: turn.parameters.source, dataset_version: turn.parameters.dataset_version } } : {}),
         turns: current.turns.map(item => item.kind === 'analysis' && item.id === turn.id ? { ...item, taskId: result.task.task_id, retry: undefined } : item) }));
       return true;
     } catch (error) {
@@ -116,6 +134,7 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string, currentSco
   async function send(parameters: AnalysisParameters, question: string): Promise<boolean> {
     const text = question.trim();
     if (!text || text.length > 4000 || postLock.current || resolving.current || pending) return false;
+    if (!isAgentScope(parameters)) return false;
     const previous = analysisSession(sessionRef.current).turns.at(-1);
     if (previous && !previous.taskId && !previous.clarification && previous.question === text
       && JSON.stringify(previous.parameters) === JSON.stringify(parameters)) return submitTurn(previous);
@@ -140,6 +159,8 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string, currentSco
             const saved = task?.task_id === candidate.taskId ? task : await api.task(candidate.taskId!);
             if (epoch !== navigationEpoch.current) return false;
             if (saved?.parameters.conversation_id !== conversationId) continue;
+            if (!sameScopeIdentity(frozen, candidate.selection || candidate.parameters)
+              || !sameScopeIdentity(frozen, saved.parameters as unknown as AnalysisParameters)) continue;
             if (!intentParent && saved && isAgentTask(saved) && sameScopeIdentity(frozen, candidate.selection || candidate.parameters)) {
               intentParent = { id: candidate.id, taskId: candidate.taskId, question: candidate.question,
                 parameters: candidate.parameters, selection: candidate.selection };

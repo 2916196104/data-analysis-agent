@@ -12,7 +12,7 @@ import Markdown from './Markdown';
 
 vi.mock('../../useTask', () => ({ useTask: vi.fn() }));
 const parameters: AnalysisParameters = { model: 'fixture', base_url: 'offline', prompt_version: 'v1',
-  source: 'fixture', dataset_version: 'reviews', product_ids: ['A'], date_from: '2023-02-01', date_to: '2023-02-28', baseline_from: '2023-01-01', baseline_to: '2023-01-31' };
+  source: 'reviews_csv', dataset_version: 'reviews-csv', product_ids: ['A'], date_from: '2023-02-01', date_to: '2023-02-28', baseline_from: '2023-01-01', baseline_to: '2023-01-31' };
 const savedTask = (id: string): Task => ({ task_id: id, kind: 'analysis', status: 'succeeded', parameters: { ...parameters, question: '已有问题' },
   result: { agent: true, question: '已有问题', answer: '真实保存的回答' }, error: null, parent_task_id: null,
   created_at: '', started_at: null, finished_at: null, updated_at: '', progress: { stage: 'agent_completed', completed: 1, total: 1, unit: 'tasks' } });

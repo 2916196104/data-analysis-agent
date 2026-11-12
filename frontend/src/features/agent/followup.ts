@@ -61,9 +61,9 @@ export function sameScope(a: AnalysisParameters, b: AnalysisParameters) {
     && JSON.stringify([...a.product_ids].sort()) === JSON.stringify([...b.product_ids].sort());
 }
 
-export const sameScopeIdentity = (a: AnalysisParameters, b: AnalysisParameters) =>
-  ['source', 'dataset_version', 'model', 'base_url', 'prompt_version'].every(key =>
-    a[key as keyof AnalysisParameters] === b[key as keyof AnalysisParameters]);
+type ScopeIdentity = Pick<AnalysisParameters, 'source' | 'dataset_version' | 'model' | 'base_url' | 'prompt_version'>;
+export const sameScopeIdentity = (a: ScopeIdentity, b: ScopeIdentity) =>
+  (['source', 'dataset_version', 'model', 'base_url', 'prompt_version'] as const).every(key => a[key] === b[key]);
 
 function dateOnly(value: string) { return new Date(`${value}T00:00:00Z`); }
 function isoDate(value: Date) { return value.toISOString().slice(0, 10); }

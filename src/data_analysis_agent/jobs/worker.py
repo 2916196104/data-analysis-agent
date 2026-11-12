@@ -242,7 +242,9 @@ class TaskWorker:
                 question = parameters.pop("question", None)
                 if question is not None:
                     from data_analysis_agent.agents.reviews import run_review_agent
+                    from data_analysis_agent.agents.review_mvp_scope import validate_agent_scope
 
+                    validate_agent_scope({**parameters, 'selection_scope': selection_scope, 'question': question}, self.business_db)
                     settings, current_identity = configured_agent_identity(self.env_file)
                     if queued_identity != current_identity:
                         raise ConfigurationError("Agent 模型配置与入队时不同，请重新提交问答任务。")

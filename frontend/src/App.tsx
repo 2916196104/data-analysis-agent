@@ -12,7 +12,7 @@ import { navigate, routeUrl, taskRoute, useAppRoute } from './app/router';
 import DataManagement from './features/datasets/components/DataManagement';
 import { api, API_BASE, errorMessage } from './api';
 import Composer from './Composer';
-import { analysisDates, analysisParameters, datasetKey, defaultProfileId } from './analysis-draft';
+import { AGENT_DATASET, agentAnalysisParameters, analysisDates, analysisParameters, datasetKey, defaultProfileId, taskDataset } from './analysis-draft';
 import AnnotationPage from './features/annotations/AnnotationPage';
 import { AnnotationNextSteps, AnnotationProgress } from './features/annotations/AnnotationTaskContent';
 import ReviewWorkbenchPage from './features/annotations/review-workbench/ReviewWorkbenchPage';
@@ -108,7 +108,7 @@ export default function App() {
   const run = taskState.id === selectedTaskId ? taskState.run : null;
   const chat = useAgentChat(route.page === 'assistant' ? route.taskId : undefined,
     JSON.stringify([draft.dataset, [...draft.productIds].sort(), draft.profileId, draft.current, draft.baseline]),
-    analysisParameters(draft, options, quality));
+    agentAnalysisParameters(draft, options, quality), draft.dataset);
   const activeChatId = useRef(chat.activeSessionId);
   const inputSessionId = useRef(chat.activeSessionId);
   activeChatId.current = chat.activeSessionId;
@@ -161,7 +161,7 @@ export default function App() {
       setOptions(next);
       if (datasetRef.current && !next.products.some(product => datasetKey(product) === datasetRef.current)) {
         setDatasetNotice(next.products.length
-          ? '原数据集已不可用，已切换到第一个可用数据集并清空筛选。'
+          ? '原数据集已不可用，请重新确认数据集；AI 助手仅支持 reviews_csv / reviews-csv，不会切换其他来源。'
           : '暂无可用数据集，请导入数据或确认访问权限。');
         setDatasetPage(1);
         setPreviewOpen(false);
@@ -172,7 +172,7 @@ export default function App() {
         );
         const dataset = currentDatasetExists
           ? previous.dataset
-          : next.products[0] ? datasetKey(next.products[0]) : '';
+          : !previous.dataset && next.products.some(product => datasetKey(product) === AGENT_DATASET) ? AGENT_DATASET : '';
         const current = analysisDates({ ...previous, dataset },
           qualityResult.status === 'fulfilled' ? qualityResult.value : undefined, next).current;
         const profileExists = next.profiles.some(
@@ -183,6 +183,7 @@ export default function App() {
           dataset,
           current: currentDatasetExists ? previous.current ?? current : undefined,
           baseline: currentDatasetExists ? previous.baseline : undefined,
+          rangeConfirmed: currentDatasetExists ? previous.rangeConfirmed : false,
           agentQuestion: currentDatasetExists ? previous.agentQuestion : undefined,
           // 失效的单商品选择必须重新确认，不能过滤成“全部商品”。
           productIds: currentDatasetExists ? previous.productIds : [],
@@ -214,6 +215,13 @@ export default function App() {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    if (route.page !== 'assistant' || route.taskId || loading) return;
+    setDraft(previous => previous.dataset === AGENT_DATASET || !previous.dataset ? previous : {
+      ...previous, dataset: options.products.some(product => datasetKey(product) === AGENT_DATASET) ? AGENT_DATASET : '',
+      productIds: [], current: undefined, baseline: undefined, rangeConfirmed: false, agentQuestion: undefined,
+    });
+  }, [route.page, route.page === 'assistant' ? route.taskId : undefined, loading]);
   useEffect(() => {
     void fetchHistory();
     const timer = setInterval(() => {
@@ -354,13 +362,12 @@ export default function App() {
   }
 
 
-  const importResults = Array.isArray(task?.result?.imports) ? task.result.imports : [];
-  const taskSource = task?.parameters.source || importResults.find(item => item.kind === 'reviews')?.source || importResults[0]?.source;
+  const savedDataset = task ? taskDataset(task) : undefined;
   const currentProducts = options.products.filter(product => {
     if (task) {
       const ids = task.parameters.product_ids as string[] | undefined;
-      return (!taskSource || product.source === taskSource)
-        && (!task.parameters.dataset_version || product.dataset_version === task.parameters.dataset_version)
+      return !!savedDataset && product.source === savedDataset.source
+        && product.dataset_version === savedDataset.dataset_version
         && (!ids?.length || ids.includes(product.product_id));
     }
     const activeDataset = labelDefaults?.dataset ?? dataset;
@@ -375,18 +382,19 @@ export default function App() {
     if (route.page === 'annotation') return;
     if (loading) { navigate({ page: 'annotation' }); return; }
     const scoped = task?.kind === 'import' || task?.kind === 'label';
+    if (scoped && !savedDataset) {
+      setSubmitError('该历史任务缺少可确认的数据来源或版本，请先明确选择数据集。');
+      return;
+    }
     setSubmitError('');
     setPendingDelete(undefined);
     if (scoped) setDraft(previous => ({ ...previous,
-      dataset: JSON.stringify([taskSource || 'amazon_reviews_2023', task.parameters.dataset_version]),
+      dataset: datasetKey(savedDataset!),
       productIds: task.parameters.product_ids as string[] || [],
     }));
     navigate({ page: 'annotation', defaults: {
       dataset: scoped
-        ? JSON.stringify([
-          taskSource || 'amazon_reviews_2023',
-          task.parameters.dataset_version,
-        ])
+        ? datasetKey(savedDataset!)
         : dataset,
       products: scoped ? (task.parameters.product_ids as string[] || []) : productIds,
       limit: task?.kind === 'label' ? task.parameters.limit as number : undefined,
@@ -410,7 +418,7 @@ export default function App() {
       ? { current: [task.parameters.date_from, task.parameters.date_to] as [string, string], baseline: undefined }
       : {}),
     dataset: task?.kind === 'label'
-      ? JSON.stringify([task.parameters.source, task.parameters.dataset_version])
+      ? savedDataset ? datasetKey(savedDataset) : ''
       : dataset,
     productIds: task?.kind === 'label'
       ? (task.parameters.product_ids as string[] || [])
@@ -420,6 +428,7 @@ export default function App() {
   const preparedDates = analysisDates(preparedDraft, quality, options);
   const analyzeLabeled = (start: boolean) => {
     if (!task) return;
+    if (!savedDataset) { setSubmitError('该历史任务缺少可确认的数据来源或版本，请先明确选择数据集。'); return; }
     setDraft(preparedDraft);
     const parameters = analysisParameters(preparedDraft, options, quality);
     if (start && parameters) {
@@ -438,7 +447,8 @@ export default function App() {
     setDatasetPage(1);
     setPreviewOpen(false);
     setSubmitError('');
-    setDraft(previous => ({ ...previous, dataset: value, productIds: [], current: undefined, baseline: undefined, agentQuestion: undefined }));
+    setDraft(previous => ({ ...previous, dataset: value, productIds: [], current: undefined, baseline: undefined, rangeConfirmed: false, agentQuestion: undefined }));
+    if (route.page === 'assistant' && route.taskId) navigate({ page: 'assistant' });
     if (route.page === 'annotation') navigate({ page: 'annotation', defaults: { dataset: value, products: [] } }, true);
   };
   const prepareAgent = (result: AgentResult, products: string[]) => {
@@ -447,7 +457,7 @@ export default function App() {
     navigate({ page: 'annotation', defaults: { dataset: JSON.stringify([result.scope.source, result.scope.dataset_version]), products,
       scope: { date_from: result.scope.date_from, date_to: result.scope.date_to, as_of: result.scope.as_of }, retryFailed: true } });
   };
-  const chatParameters = analysisParameters(draft, options, quality);
+  const chatParameters = agentAnalysisParameters(draft, options, quality);
   const sendChat = async () => {
     const question = (chatMode === 'basic' ? basicInput : draft.agentQuestion)?.trim();
     if (!question || chat.pending || (chatMode === 'analysis' && !chatParameters)) return;
@@ -480,6 +490,7 @@ export default function App() {
           draft={draft} options={options} quality={quality} loading={loading} refreshKey={catalogRevision}
           onApplyScope={scope => {
             setPreviewOpen(false); setDatasetPage(1); setDatasetNotice(''); setSubmitError('');
+            if (scope.dataset !== draft.dataset && route.taskId) navigate({ page: 'assistant' });
             setDraft(previous => ({ ...previous, ...scope, rangeConfirmed: true }));
           }}
           mode={chatMode} onMode={setChatMode} input={chatMode === 'basic' ? basicInput : draft.agentQuestion || ''}

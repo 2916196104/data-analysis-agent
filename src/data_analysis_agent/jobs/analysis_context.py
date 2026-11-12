@@ -39,6 +39,9 @@ def load_analysis_context(task_db, parameters, *, max_turns=4):
         if task.get('progress', {}).get('analysis_integrity') is not None and not has_saved_integrity(task):
             break
         result = task.get('result') or {}
+        result_scope = result.get('scope') if isinstance(result, dict) else None
+        if isinstance(result_scope, dict) and any(parameters.get(key) != result_scope.get(key) for key in keys[:5]):
+            break
         valid = (isinstance(result, dict) and task['status'] == 'succeeded' and not task.get('error')
                  and result.get('status') == 'ok' and isinstance(result.get('validation'), dict)
                  and result['validation'].get('status') == 'passed')

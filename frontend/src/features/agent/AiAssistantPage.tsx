@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Drawer, Spin } from 'antd';
 import { HistoryOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
 import type { AgentResult, AnalysisParameters, Options, Quality } from '../../types';
-import type { AnalysisDraft } from '../../analysis-draft';
+import { AGENT_DATASET, datasetKey, type AnalysisDraft } from '../../analysis-draft';
 import type { AgentChat } from './useAgentChat';
 import type { ChatMode } from './chat-state';
 import ChatInput from './ChatInput';
@@ -28,6 +28,9 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
   const [historyOpen, setHistoryOpen] = useState(false);
   useEffect(() => { stickToBottom.current = true; setShowLatest(false); setScopeEditing(false); }, [chat.activeSessionId]);
   const analysis = mode === 'analysis';
+  const datasetWarning = !options.products.some(product => datasetKey(product) === AGENT_DATASET)
+    ? 'AI 助手数据集 reviews_csv / reviews-csv 当前不可用，请先确认数据集；不会自动切换到其他来源。'
+    : draft.dataset !== AGENT_DATASET ? 'AI 助手目前仅支持 reviews_csv / reviews-csv，请切换到该数据集；历史任务仍可按原范围查看。' : '';
   const suggestions = (analysis ? questions : basicQuestions).map(question => <Button key={question}
     disabled={chat.pending || (analysis && !parameters)} onClick={() => onInput(question)}>{question}</Button>);
   useEffect(() => {
@@ -75,6 +78,7 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
         const link = document.createElement('a'); link.href = url; link.download = 'chat-history-recovery.json'; link.click(); URL.revokeObjectURL(url);
       }}>导出原始记录</Button>} />}
     {chat.restoreError && <Alert className="chat-notice" type="error" showIcon message={chat.restoreError} action={<Button onClick={() => onNewQuestion()}>继续新提问</Button>} />}
+    {analysis && datasetWarning && <Alert className="chat-notice" type="warning" showIcon message={datasetWarning} />}
     {chat.activeState.error && <Button className="chat-recover" type="link" onClick={() => onNewQuestion()}>继续新提问</Button>}
     <div className="chat-messages" ref={messages} onScroll={onMessagesScroll} role="log" aria-label="聊天消息">
       <div className="chat-message-stack">

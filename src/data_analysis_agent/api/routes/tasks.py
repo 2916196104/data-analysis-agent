@@ -30,7 +30,8 @@ def create_router(task_db, business_db, *, import_root, env_file):
     @router.post("/tasks", response_model=Result, status_code=202, tags=["后台任务"])
     def submit_task(body: Annotated[TaskInput, Body(discriminator="kind")], response: Response,
                     idempotency_key: Annotated[str | None, Header(max_length=200)] = None):
-        parameters = prepare_parameters(body.kind, body.parameters.model_dump(), import_root=import_root, env_file=env_file)
+        parameters = prepare_parameters(body.kind, body.parameters.model_dump(), import_root=import_root, env_file=env_file,
+                                        business_db=business_db)
         result = enqueue(task_db, body.kind, parameters, idempotency_key=idempotency_key)
         logger.info("任务提交 task_id=%s kind=%s reused=%s 商品数=%s limit=%s workers=%s",
                     result["task"]["task_id"], body.kind, result["reused"],
@@ -108,7 +109,7 @@ def create_router(task_db, business_db, *, import_root, env_file):
     def retry(task_id: Annotated[str, Path(min_length=1, max_length=1000)], response: Response,
               idempotency_key: Annotated[str | None, Header(max_length=200)] = None):
         result = retry_task(task_db, task_id, import_root=import_root, env_file=env_file,
-                            idempotency_key=idempotency_key)
+                            idempotency_key=idempotency_key, business_db=business_db)
         logger.info("任务重试 task_id=%s parent_task_id=%s kind=%s reused=%s",
                     result["task"]["task_id"], result["task"]["parent_task_id"],
                     result["task"]["kind"], result["reused"])

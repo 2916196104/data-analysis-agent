@@ -9,7 +9,7 @@ import { readChatStore } from './useChatSessions';
 import { useAgentChat } from './useAgentChat';
 
 vi.mock('../../useTask', () => ({ useTask: vi.fn() }));
-const scope: AnalysisParameters = { model: 'fixture', base_url: 'offline', prompt_version: 'v1', product_ids: ['美的-ID'], source: 'reviews-csv', dataset_version: 'v1',
+const scope: AnalysisParameters = { model: 'fixture', base_url: 'offline', prompt_version: 'v1', product_ids: ['美的-ID'], source: 'reviews_csv', dataset_version: 'reviews-csv',
   date_from: '2023-02-01', date_to: '2023-02-28', baseline_from: '2023-01-01', baseline_to: '2023-01-31' };
 const tasks = new Map<string, Task>();
 function task(id: string, conversationId: string, parameters = scope): Task {

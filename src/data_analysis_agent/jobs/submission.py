@@ -32,7 +32,7 @@ def configured_agent_identity(env_file):
     return settings, {"model": settings.model, "base_url": settings.base_url, "prompt_version": AGENT_PROMPT_VERSION}
 
 
-def prepare_parameters(kind, parameters, *, import_root, env_file):
+def prepare_parameters(kind, parameters, *, import_root, env_file, business_db=None):
     values = PARAMETERS[kind].model_validate(parameters).model_dump()
     if kind == "import":
         for name in ("reviews_path", "meta_path"):
@@ -53,15 +53,20 @@ def prepare_parameters(kind, parameters, *, import_root, env_file):
             values.pop('context_task_id', None)
             values.pop('selection_scope', None)
         else:
+            from data_analysis_agent.agents.review_mvp_scope import validate_agent_scope
+            validate_agent_scope(values, business_db)
             _, values["model_identity"] = configured_agent_identity(env_file)
     return values
 
 
-def retry_task(task_db, task_id, *, import_root, env_file, idempotency_key=None):
+def retry_task(task_db, task_id, *, import_root, env_file, idempotency_key=None, business_db=None):
     task = get_task(task_db, task_id)
     if task["status"] not in ("failed", "partial"):
         raise TaskConflict("只能重试失败或部分完成的任务。")
     parameters = dict(task["parameters"])
+    if task['kind'] == 'analysis' and parameters.get('question'):
+        from data_analysis_agent.agents.review_mvp_scope import validate_agent_scope
+        validate_agent_scope(parameters, business_db)
     if task["kind"] == "label" or (task["kind"] == "analysis" and parameters.get("question")):
         configured = configured_identity if task["kind"] == "label" else configured_agent_identity
         _, identity = configured(env_file)

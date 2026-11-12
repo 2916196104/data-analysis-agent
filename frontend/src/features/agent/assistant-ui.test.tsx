@@ -40,10 +40,10 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 function seedAnalysis() {
   vi.mocked(api.options).mockResolvedValue({ ...emptyOptions, selected_profile_id: 1,
     profiles: [{ profile_id: 1, requested_model: 'fixture', base_url: 'offline', prompt_version: 'v1' }],
-    products: [{ key: 'A', source: 'fixture', dataset_version: 'reviews', product_id: 'A', product_title: '测试商品',
+    products: [{ key: 'A', source: 'reviews_csv', dataset_version: 'reviews-csv', product_id: 'A', product_title: '测试商品',
       review_count: 10, success_count: 10, pending_count: 0 }] });
   localStorage.setItem(`review-workbench:${API_BASE}`, JSON.stringify({ selected: null, notes: {}, draft: {
-    dataset: JSON.stringify(['fixture', 'reviews']), productIds: ['A'], profileId: 1, note: '',
+    dataset: JSON.stringify(['reviews_csv', 'reviews-csv']), productIds: ['A'], profileId: 1, note: '',
     current: ['2023-02-01', '2023-02-28'], baseline: ['2023-01-01', '2023-01-31'],
   } }));
 }
@@ -54,7 +54,7 @@ describe('助手界面模式接入', () => {
     vi.mocked(useTask).mockImplementation(id => ({ ...emptyTaskState, id, task: id ? { ...task, status: 'succeeded' } : null, refresh: vi.fn() }));
     localStorage.setItem(`review-agent-chat:${API_BASE}`, JSON.stringify({ turns: [{ kind: 'analysis', id: 'restored',
       question: '合成历史分析', requestKey: 'restored-key', taskId: 'analysis-task',
-      parameters: { source: 'fixture', dataset_version: 'reviews', product_ids: ['A'], model: 'fixture', base_url: 'offline', prompt_version: 'v1',
+      parameters: { source: 'reviews_csv', dataset_version: 'reviews-csv', product_ids: ['A'], model: 'fixture', base_url: 'offline', prompt_version: 'v1',
         date_from: '2023-02-01', date_to: '2023-02-28', baseline_from: '2023-01-01', baseline_to: '2023-01-31' } }], activeId: 'restored' }));
     render(<App />);
     await waitFor(() => expect((screen.getByRole('radio', { name: '评论分析' }) as HTMLInputElement).checked).toBe(true));
@@ -106,7 +106,7 @@ describe('助手界面模式接入', () => {
     fireEvent.click(screen.getByRole('button', { name: '提交问题' }));
     await waitFor(() => expect(api.submit).toHaveBeenCalled());
     expect(vi.mocked(api.submit).mock.calls[0][0]).toMatchObject({ kind: 'analysis', parameters: {
-      question: '你能做什么？', product_ids: ['A'], source: 'fixture', dataset_version: 'reviews',
+      question: '你能做什么？', product_ids: ['A'], source: 'reviews_csv', dataset_version: 'reviews-csv',
       date_from: '2023-02-01', date_to: '2023-02-28', baseline_from: '2023-01-01', baseline_to: '2023-01-31',
     } });
     expect(chat).not.toHaveBeenCalled();
