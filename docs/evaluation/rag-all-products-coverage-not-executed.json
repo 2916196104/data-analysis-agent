@@ -1,0 +1,10 @@
+{
+  "status": "NOT_EXECUTED",
+  "database_connections": 0,
+  "real_product_count": null,
+  "coverage_results": null,
+  "embedding_calls": 0,
+  "llm_calls": 0,
+  "agent_calls": 0,
+  "note": "Offline preparation only; not evidence of an empty database."
+}

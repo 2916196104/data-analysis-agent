@@ -45,12 +45,77 @@ def _generic_product(value):
     return bool(re.fullmatch(r'(?:这|那|该|所选|当前|本|上述|上轮|所有|全部)(?:两款|两台|款|个|台)?(?:商品|产品|空调|机器|机型|型号|设备)?|它|它们|两者|二者|两款商品|商品|产品', value))
 
 
+def _non_product_reference(value):
+    value = re.sub(r'^(?:商品|产品)\s*(?:ID\s*[:：=]?\s*)?', '', value.strip(), flags=re.I)
+    value = re.sub(r'^(?:参数|版本号?|日期)\s*', '', value)
+    if re.fullmatch(r'[A-Za-z]+|v\d+(?:[.\-][A-Za-z0-9]+)*|\d+(?:\.\d+)+(?:[-+][A-Za-z0-9.\-]+)?|(?:19|20)\d{2}', value, re.I):
+        return True
+    if re.fullmatch(r'[A-Za-z_]\w*\s*=\s*\S+', value):
+        return True
+    if re.fullmatch(r'\d{8}|\d{4}-\d{2}-\d{2}', value):
+        try:
+            date.fromisoformat(value)
+            return True
+        except ValueError:
+            pass
+    return False
+
+
+def _product_identifier(value):
+    return bool(re.fullmatch(r'[A-Za-z0-9]+(?:[-_/][A-Za-z0-9]+)*', value) and re.search(r'\d', value))
+
+
+def _explicit_product_identifiers(question, title_spans, products):
+    identifiers = []
+    starts = [(m.start(), m.end()) for m in re.finditer(
+        r'(?:商品|产品)\s*(?:ID)?|(?<![A-Za-z0-9_])SKU(?![A-Za-z_])|型号', question, re.I)]
+    # An ID joined directly to a catalog ID is also an explicit comparison target.
+    catalog_ids = {row['product_id'] for row in products}
+    token_pattern = r'[A-Za-z0-9_./+\-]+'
+    for group in re.finditer(token_pattern + r'(?:\s*(?:以及|还有|与|和|及|[、，,；;])\s*' + token_pattern + r')+', question):
+        if catalog_ids.intersection(re.findall(token_pattern, group[0])):
+            starts.append((group.start(), group.start()))
+    for row in products:
+        if row['title']:
+            for match in re.finditer(re.escape(row['title']) + r'\s*(?:与|和|以及|[、，,])\s*', question):
+                starts.append((match.end(), match.end()))
+            for match in re.finditer(token_pattern + r'\s*(?:与|和|以及|[、，,])\s*' + re.escape(row['title']), question):
+                starts.append((match.start(), match.start()))
+    for label_start, token_start in starts:
+        if any(start <= label_start < end for start, end in title_spans):
+            continue
+        rest = question[token_start:]
+        rest = re.sub(r'^\s*(?:为|是)?\s*[:：=]?\s*[“"\'「（(\[]?\s*', '', rest)
+        while token := re.match(r'[A-Za-z0-9_./+\-]+', rest):
+            value = token[0]
+            tail = rest[token.end():]
+            if (_product_identifier(value) and not _non_product_reference(value)
+                    and not re.match(r'\s*(?:=|协议|编码|接口)', tail)):
+                identifiers.append(value)
+            else:
+                break
+            separator = re.match(r'\s*[”"\'」）)\]]?\s*(?:以及|还有|与|和|及|[、，,；;])\s*[“"\'「（(\[]?\s*', tail)
+            if not separator:
+                break
+            rest = tail[separator.end():]
+    return identifiers
+
+
+def validate_product_identifiers(question, products):
+    title_spans = [(m.start(), m.end()) for row in products if row['title']
+                   for m in re.finditer(re.escape(row['title']), question)]
+    return match_product_mentions(_explicit_product_identifiers(question, title_spans, products),
+                                  products, identifiers_only=True)
+
+
 def product_mentions(question, products):
     """只提取用户明确写出的实体；不把页面默认商品当作用户指代。"""
     found = []
     # A conjunction inside an exact catalog title is part of the product name.
     title_spans = [(m.start(),m.end()) for row in products if row['title']
                    for m in re.finditer(re.escape(row['title']),question)]
+    # Scan the whole question before a known ID/title can short-circuit a clause.
+    identifiers = _explicit_product_identifiers(question, title_spans, products)
     breaks = [m for m in re.finditer(r'以及|还有|与|和|及|对比|比较|[，,；;、]',question)
               if not any(start <= m.start() < end for start,end in title_spans)]
     clauses = []; start = 0
@@ -62,7 +127,7 @@ def product_mentions(question, products):
         # catalog titles still take priority; unknown named products still fail closed.
         clause = re.sub(r'^(?:请问|想问|想知道|想了解)?(?:有没有|是否有|有无|是否存在)', '', clause.strip()).strip()
         explicit = [row['product_id'] for row in products if re.search(
-            r'(?<![A-Za-z0-9_])' + re.escape(row['product_id']) + r'(?![A-Za-z0-9_])', clause)]
+            r'(?<![A-Za-z0-9_.\-/])' + re.escape(row['product_id']) + r'(?![A-Za-z0-9_.\-/])', clause)]
         explicit += [row['title'] for row in products if row['title'] and row['title'] in clause]
         if explicit:
             found.extend(explicit)
@@ -89,20 +154,32 @@ def product_mentions(question, products):
             if subject:
                 name = subject[1].strip(' “ ”「」\"')
                 generic = re.fullmatch(r'(?:这|那|该|所选|当前|上述|上轮|所有|全部)(?:两款|款|个)?(?:商品|产品|空调|机器)?|它们|两者|二者|两款商品|商品|产品|用户|消费者|买家|大家|(?:商品|产品)?评论(?:中|里)?(?:具体|主要)?|整体|总体|具体|(?:商品)?(?:制冷|静音|安装|使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面)?', name)
-                if not generic and not _generic_product(name):
+                if not generic and not _generic_product(name) and not _non_product_reference(name):
                     found.append(name)
                     brands = [value for value in brands if not name.startswith(value.removesuffix('空调'))]
         found.extend(brands)
-    found.extend(value for value in re.findall(r'(?<!\d)\d{8,}(?!\d)', question) if value not in found)
+    found.extend(identifiers)
+    found.extend(value for value in re.findall(r'(?<![A-Za-z0-9_.\-/])\d{8,}(?![A-Za-z0-9_.\-/])', question)
+                 if value not in found and not _non_product_reference(value))
+    # Detect explicit ASIN-shaped identifiers even when absent from the current catalog,
+    # so a question about another dataset cannot silently use the selected product.
+    found.extend(value for value in re.findall(r'(?<![A-Za-z0-9_])B0[A-Za-z0-9]{8}(?![A-Za-z0-9_])', question, re.I)
+                 if value not in found)
     return list(dict.fromkeys(found))
 
 
-def match_product_mentions(mentions, products, *, selected_ids=(), strict=False):
+def match_product_mentions(mentions, products, *, selected_ids=(), strict=False, identifiers_only=False):
     """普通查询可沿用明确选中的型号；比较指代必须逐个消除型号歧义。"""
     selected, ambiguous = [], []
     for mention in mentions:
-        exact = [row for row in products if mention in (row['product_id'], row['title'])]
-        candidates = exact or [row for row in products if _title_matches(mention, row['title'])]
+        exact_ids = [row for row in products if mention == row['product_id']]
+        named = (not re.fullmatch(r'\d+|B0[A-Za-z0-9]{8}', mention, re.I)
+                 and any(mention in (row['title'], row.get('brand')) for row in products))
+        if identifiers_only or exact_ids or (_product_identifier(mention) and not named):
+            candidates = exact_ids
+        else:
+            exact = [row for row in products if mention in (row['product_id'], row['title'])]
+            candidates = exact or [row for row in products if _title_matches(mention, row['title'])]
         if not candidates:
             raise QuestionScopeError(f'当前数据集未找到“{mention}”对应的商品，请提供该数据集中的商品名称或 ID。')
         within_selection = [row for row in candidates if row['product_id'] in selected_ids]
@@ -165,10 +242,13 @@ def bind_product_ids(product_ids, scope, *, comparison=False):
 
 def resolve_question_scope(question, scope, products, *, product_groups=None):
     """默认绑定本轮选择；仅明确的多商品分析可扩展对象，日期仍受执行层校验。"""
+    validate_product_identifiers(question, products)
     if question.startswith('执行本轮已确认的只读查询'):
         return scope
     resolved = {**scope, 'product_ids': list(scope['product_ids'])}
     mentions = product_mentions(question, products)
+    # Balanced summaries may expand brand groups, but may never discard an unknown ID.
+    match_product_mentions([value for value in mentions if _product_identifier(value)], products)
     balanced = detect_sentiment_directions(question) == {"positive", "negative"}
     matches = []
     groups = []

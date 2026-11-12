@@ -11,6 +11,7 @@ from data_analysis_agent.agents.review_prompts import detect_sentiment_intent
 from data_analysis_agent.agents.review_semantics import (
     QuestionScopeError, bind_product_ids, match_product_mentions, opinion_request, product_mentions, resolve_question_scope,
     active_request, ASPECT_SWITCH,
+    validate_product_identifiers,
 )
 from data_analysis_agent.core.validation import Input
 from data_analysis_agent.reviews.opinions import Aspect
@@ -347,8 +348,12 @@ def _resolve_review_request(question, scope, products, *, settings, context=None
     diagnostics = diagnostics if diagnostics is not None else {}
     intent_state = intent_state if intent_state is not None else {}
     diagnostics.update(method='rules', model_calls=0, context_turns=(context or {}).get('turns_read', 0))
+    validate_product_identifiers(question, products)
     if question.startswith('执行本轮已确认的只读查询'):
         plan = build_query_plan(question, scope)
+        # The original question is decoded by the existing Planner, including JSON escapes.
+        if plan.answer_question:
+            resolve_question_scope(plan.answer_question, scope, products)
         if plan.requirements and not plan.unsupported_reason:
             params = plan.requirements[0]['parameters']
             intent_state.update(ReviewIntent(query_type=KIND_TYPES.get(plan.analysis_type), sentiment=plan.sentiment,
