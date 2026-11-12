@@ -1,6 +1,29 @@
 # 商品 055：首次完整 Agent 业务链路验收记录
 
-日期：2026-11-12（Asia/Taipei）。**状态：NOT_EXECUTED。** 本轮完成生产入口和调用计划核对，没有执行完整 Agent、连接数据库、生成 Embedding 或调用 LLM。按照用户要求，实际调用须先明确授权，再在已成功访问数据库的本机环境触发。本记录不能登记为首个已通过的真实业务闭环。
+## 本机下一步入口
+
+仓库已有 [一次性执行入口](../scripts/run_055_agent_e2e_once.py)，无需新建脚本。入口会调用生产 `run_review_agent()`；入口的 `--execute-authorized` 才触发真实调用，使用固定商品和范围、既有只读身份、一次本地查询编码和一次 Top-5，并阻断意外 LLM 与 Python 网络调用。完整限制和验收条件见下文。此次仅静态核对入口，**未执行脚本**；预期限制并不代替实际运行证据。
+
+仅在用户对该次实际操作另行明确授权后，由用户在本机 PowerShell 的项目目录执行一次：
+
+```powershell
+Set-Location -LiteralPath 'E:\AllProject\data-analysis-agent'
+& '.\.venv\Scripts\python.exe' '.\scripts\run_055_agent_e2e_once.py' --execute-authorized
+```
+
+失败时保留输出，不自动重试。该命令不启动持久 Worker，不能验收队列、跨进程 State 持久化、HTTP 或前端；也不解除 P6-E1B 阻断。
+
+日期：2026-11-12（Asia/Taipei）。**本机最近两次尝试：FAILED / FAIL。** 两次均成功进入 PostgreSQL 只读事务，范围、Router、Planner 和查询契约检查通过；均在本地 Embedding 调用前停止，未执行检索或得到最终回答。此前 Codex 受限环境的尝试则未执行 SQL；两种执行环境的记录不得混同。详见下述诊断。
+
+## 本机失败定位与离线修复
+
+[第一次本机记录](evaluation/agent-055-first-agent-e2e/run-20261112T061501923617Z.json)和[第二次本机记录](evaluation/agent-055-first-agent-e2e/run-20261112T061624539170Z.json)均显示：一次只读连接、6 条读取语句、Agent 1 次、Embedding 和 Top-5 均为 0，事务回滚和连接关闭成功，数据库修改及 LLM 调用为 0。原记录只保留 `business_error`，没有保留具体错误消息，因此不能从历史记录直接断言其完整异常链。
+
+静态检查发现，一次性入口的服务工厂把包含 `baseline_from` 和 `baseline_to` 的 Schema 兼容范围直接传给 `extra='forbid'` 的 `RetrievalScope`。使用纯合成范围独立验证：去掉这两个非检索字段的范围可解析，而包含它们时返回 `invalid_retrieval_scope`。这与两次本机记录在编码前失败一致，属于有证据支持的入口缺陷，但由于历史记录未保存异常消息，不能称为对历史异常的直接捕获。
+
+已在 `scripts/run_055_agent_e2e_once.py` 中仅移除比较输入中的两个基线字段，再进行同样严格的范围相等校验；商品、日期、来源、身份和其他范围字段仍须一致，不改变生产 Agent。现有合成测试夹具同时修复了重复关键字和不可迭代游标问题，未删改断言。**7/7 离线测试通过**，含原生业务链路配合合成数据库与固定编码器的测试；真实数据库和真实 Embedding 均未调用。该测试不证明修复后本机真实执行会成功。
+
+本次两条历史记录保留不变，未自动重跑。后续若用户决定再次执行，使用下方命令；新运行需要重新观察真实来源、Validator 与最终回答，不复用旧检索结果。P6-E1B 仍 BLOCKED。
 
 ## 已有真实前置证据
 
@@ -67,4 +90,31 @@
 
 脱敏记录应包含 State 的允许字段、Router/Planner 结果、工具 trace、实际编码/Top-K/各类模型调用次数、elapsed_seconds 与 performance、来源 ID/key/快照、原生最终回答和合法短引用。完整 result.results/compact_context 可能含全文或私有标注 endpoint，不能整包直接写公开报告；不保存密码、连接串或原始向量。
 
-本轮[未执行记录](evaluation/agent-055-first-agent-e2e/authorization-pending.json)中：完整 Agent、Embedding、Top-K、LLM 和数据库调用均为 0；最终回答/引用/真实耗时为 null。**这表示尚未执行，不表示业务失败，也不表示已通过。** P6-E1B 独立阻断保持原状。
+此前[未执行记录](evaluation/agent-055-first-agent-e2e/authorization-pending.json)中：完整 Agent、Embedding、Top-K、LLM 和数据库调用均为 0；最终回答/引用/真实耗时为 null。该历史准备记录不等于后续授权尝试的结果。P6-E1B 独立阻断保持原状。
+
+<!-- agent-055-once-runtime -->
+
+## 最新一次性入口记录
+
+状态：**COMPLETED / PASS**。真实 Agent 调用：1。
+
+[脱敏 JSON](evaluation/agent-055-first-agent-e2e/run-20261112T061904314027Z.json)。生产返回状态：ok；许可观点：3；不同评论：2。
+
+实际调用、逐项检查、清理及根因见 JSON；失败时禁止发布答案。
+
+生产最终回答（许可短引用）：
+
+在本次检索到的评论中，有买家明确报告了以下情况。
+
+评论 #9958（2022-07-13）写道：“送货很慢” [r1]
+
+评论 #9993（2022-07-27）写道：“物流太慢了” [r1]
+
+评论 #9993（2022-07-27）写道：“商品到货时间太长了，等了八天才到货” [r1]
+
+仅描述本次检索且可明确核验的买家自述，不代表客观性能、总体比例或全部评论。
+完整评论仅作上下文否决；相似度不代表事实支持。未识别表达属于语义覆盖不足。
+
+语义Top-K候选不作为统计样本或总体分母。
+
+结论仅限本次 Top-5 的合法买家自述；不代表全部评论或未索引观点。P6-E1B 阻断不变。

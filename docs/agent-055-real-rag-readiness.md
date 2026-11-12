@@ -1,5 +1,13 @@
 # 商品 055 真实 RAG 联调准入
 
+## 后续本机执行结果及范围（2026-11-12）
+
+本文下方的 BLOCKED 属于此前 Codex 受限环境观察，不是本机数据库或真实检索失败。后续本机 PowerShell 的[有效语料核验](evaluation/agent-055-effective-corpus/effective_corpus-20261112T035403365378Z.json)为 COMPLETED：1,091 条有效观点、200 条认证可用向量；[一次真实 RAG Top-5](evaluation/agent-055-first-real-rag/run-20261112T043912972154Z.json)为 COMPLETED / A，来源认证和 Validator 均 PASS。记录基线摘要一致；200/1,091 约 18.33%，不代表全部观点已检索，也不代表人工相关性已评审。
+
+该真实检索记录的完整 Agent 调用次数为 0，不能作为 State 至最终回答的完整链路通过。已有 [Agent 一次性入口与验收计划](agent-055-first-agent-e2e-acceptance.md)，实际执行仍需用户另外授权。P6-E1B 独立验收仍 BLOCKED；不与上述商品级结果合并。本次只核对现有文件，未重新连接或运行 Agent。
+
+---
+
 检查日期：2026-11-11，Asia/Taipei。**结论：BLOCKED，不具备执行一次真实端到端联调的条件。** 本轮只读检查本地文件与源码、运行无副作用的解析函数；没有连接数据库、启动 Agent 或 Worker、执行检索、加载 Embedding 或调用模型。
 
 ## 当前检查结果

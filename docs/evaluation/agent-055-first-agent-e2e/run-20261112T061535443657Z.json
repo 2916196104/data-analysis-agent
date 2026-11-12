@@ -1,0 +1,186 @@
+{
+  "version": "agent-055-agent-e2e-once-v1",
+  "run_id": "20261112T061535443657Z",
+  "started_at_utc": "2026-11-12T06:15:35.443657+00:00",
+  "authorized": true,
+  "status": "FAILED",
+  "stage": "acceptance",
+  "question": "商品100013588055有没有送货慢的反馈？",
+  "fixed_scope": {
+    "source": "reviews_csv",
+    "dataset_version": "reviews-csv",
+    "product_ids": [
+      "100013588055"
+    ],
+    "date_from": "2021-09-11",
+    "date_to": "2022-08-26",
+    "as_of": null,
+    "label_profile_key": "1b58dc189d7d3ea6a55713a989f4555837eb83492690afdc020d808a268a5304",
+    "embedding_space_id": "embedding-space-v1:11e6754662dbd13fc56c6e624bc9416c1c2766f962787267fd4a57b1fa8d622e",
+    "top_k": 5,
+    "aspect": null,
+    "sentiment": null
+  },
+  "query_encoder": {
+    "model": "BAAI/bge-m3",
+    "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+    "dimension": 1024,
+    "pooling": "cls",
+    "normalization": "l2",
+    "dtype": "float32",
+    "max_input_tokens": 512,
+    "embedding_space_id": "embedding-space-v1:11e6754662dbd13fc56c6e624bc9416c1c2766f962787267fd4a57b1fa8d622e",
+    "local_only": true
+  },
+  "baseline": {
+    "record": "docs/evaluation/agent-055-effective-corpus/effective_corpus-20261112T035403365378Z.json",
+    "scoped_reviews": 510,
+    "successful_reviews": 505,
+    "effective_opinions": 1091,
+    "usable_vectors_U": 200,
+    "uncovered_opinions": 891,
+    "opinion_coverage_percent": 18.33,
+    "reaudited_this_run": false,
+    "record_sha256": "507394aace62f8387198c5d9c2bf52e130c8e3f0e1e0378d76640dc70486b24e"
+  },
+  "calls": {
+    "connection_attempts": 1,
+    "database_read_statements": 0,
+    "query_embedding_attempts": 0,
+    "query_embedding_successes": 0,
+    "top_k_sql_attempts": 0,
+    "top_k_sql_completed": 0,
+    "agent_calls": 1,
+    "service_searches": 0,
+    "blocked_llm_attempts": 0,
+    "blocked_network_attempts": 0,
+    "connection_peak": 0
+  },
+  "cleanup": {
+    "rollback": null,
+    "connection_closed": null,
+    "encoder_closed": null,
+    "errors": []
+  },
+  "source_authentication": "NOT_EXECUTED",
+  "validator": "NOT_EXECUTED",
+  "retrieved_count": null,
+  "error": {
+    "code": "model_error",
+    "stage": "production_agent"
+  },
+  "publication_allowed": false,
+  "limitation": "结论仅限本次 Top-5 的合法买家自述；不代表全部评论或未索引观点。P6-E1B 阻断不变。",
+  "database_mutations": 0,
+  "runner_sha256": "7a0dca23adad3cc7ef523f980d8445ed5e2b7ff13af64821c25e7463d9640120",
+  "acceptance": "FAIL",
+  "preparation": {
+    "status": "READY",
+    "local_files_only": true,
+    "compatibility_baseline": "2021-09-10; Schema only, reads prohibited",
+    "expected_calls": {
+      "agent": 1,
+      "embedding": 1,
+      "top_k": 1,
+      "llm": 0
+    }
+  },
+  "state": {
+    "scope": {
+      "source": "reviews_csv",
+      "dataset_version": "reviews-csv",
+      "product_ids": [
+        "100013588055"
+      ],
+      "date_from": "2021-09-11",
+      "date_to": "2022-08-26",
+      "as_of": null
+    },
+    "resolved_product_ids": null,
+    "effective_time_range": null,
+    "analysis_state": {
+      "version": "review-analysis-state-v1",
+      "ranking_basis": null,
+      "pending_goal": null
+    }
+  },
+  "intent_router": {
+    "analysis_intent": null,
+    "method": "rules",
+    "model_calls": 0
+  },
+  "planner": {
+    "analysis_type": null,
+    "requirements": null,
+    "required_tools": null,
+    "required_facts": null,
+    "original_question": null,
+    "scope": {
+      "source": null,
+      "dataset_version": null,
+      "product_ids": null,
+      "date_from": null,
+      "date_to": null,
+      "as_of": null
+    },
+    "support_status": null
+  },
+  "validation": null,
+  "task_acceptance": "NOT_APPLICABLE",
+  "task_acceptance_reason": "本题旧式 request_goal/task_goal 不适用；使用 RuntimeQueryContract。",
+  "tools": [],
+  "answer_generation": {
+    "strategy": null,
+    "attempts": null,
+    "generation_status": null,
+    "external_model_input": null,
+    "answer_outcome": null
+  },
+  "model_calls": {
+    "intent_model_calls": 0,
+    "planning_model_calls": 0,
+    "answer_model_calls": 0,
+    "topic_model_calls": 0,
+    "total_model_calls": 0
+  },
+  "final_answer": null,
+  "public_answer": null,
+  "permitted_opinion_count": null,
+  "permitted_distinct_review_count": null,
+  "permitted_keys": null,
+  "sources": null,
+  "checks": {
+    "result_ok": false,
+    "state_scope": false,
+    "router": false,
+    "planner": false,
+    "query_contract": false,
+    "tools": false,
+    "validator": false,
+    "no_llm": true,
+    "legacy_not_applicable": true,
+    "one_semantic_result": false,
+    "once_budgets": false,
+    "readonly_snapshots": false,
+    "cleanup": false,
+    "no_unapproved_operations": true
+  },
+  "transactions": [],
+  "database_mutation_attempts": 0,
+  "result_status": "error",
+  "agent_elapsed_seconds": 0.473,
+  "performance": {
+    "scope_resolution_duration_ms": 0.0,
+    "intent_resolution_duration_ms": 0.0,
+    "planning_model_duration_ms": 0.0,
+    "planning_duration_ms": 0.0,
+    "query_duration_ms": 0,
+    "validation_duration_ms": 0.0,
+    "compression_duration_ms": 0.0,
+    "answer_duration_ms": 0.0,
+    "total_duration_ms": 472.667,
+    "answer_input_bytes": 0
+  },
+  "elapsed_seconds": 0.489917,
+  "finished_at_utc": "2026-11-12T06:15:35.934791+00:00"
+}
