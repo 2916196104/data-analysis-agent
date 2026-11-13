@@ -196,15 +196,17 @@ class InsightTests(answer_fixture.WorkbenchFixture, unittest.TestCase):
         catalog, _ = fact_catalog(CompactAnalysisContext.model_validate(changed))
         self.assertFalse(any(row['kind'] == 'contrast' for row in catalog))
 
-    def test_trends_cover_requested_dimensions_and_reviewer_rejects_stable_improvement(self):
+    def test_trends_cover_requested_dimensions_without_model_focus(self):
         _, context = self.context('按月查看包装和物流问题变化', date_to='2023-03-31')
         with self.model(transform=lambda draft: {**draft, 'insights': []}):
             answer, _ = self.generate(context)
         self.assertEqual({row['aspect_key'] for row in answer['highlights']}, {'packaging', 'logistics'})
         self.assertIn('暂不能判断稳定趋势', answer['summary'])
         with self.model(transform=lambda draft: {**draft, 'focus': draft['focus'][:1]}):
-            answer, _ = self.generate(context)
-        self.assertEqual(answer['generation_status'], 'fallback')
+            answer, diag = self.generate(context)
+        self.assertEqual(answer['generation_status'], 'template')
+        self.assertEqual(diag['attempts'], 0)
+        self.assertEqual(self.requests, [])
         self.assertEqual({row['aspect_key'] for row in answer['highlights']}, {'packaging', 'logistics'})
 
     def test_bad_focus_slots_sample_extrapolation_and_chinese_numbers_are_rejected(self):

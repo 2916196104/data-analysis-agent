@@ -144,6 +144,13 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
         expected = expected_scopes.get(result_id) if expected_scopes is not None else expected_scope
         if expected is not None:
             scope_ok &= _scope_matches(data.get("scope"), expected)
+        if item['kind'] in ('trend', 'aspect_trend'):
+            from data_analysis_agent.reviews.analytics import _buckets
+            try:
+                period = data['period']
+                additional_ok &= period in ('day', 'month') and [row['bucket'] for row in data['buckets']] == _buckets(data['scope'], period)
+            except (KeyError, TypeError, ValueError):
+                additional_ok = False
         if item['kind'] == 'semantic_evidence':
             from data_analysis_agent.agents.review_retrieval import validate_retrieval
             question = query_plan.answer_question if query_plan and query_plan.answer_question else data.get('retrieval',{}).get('query',{}).get('question')

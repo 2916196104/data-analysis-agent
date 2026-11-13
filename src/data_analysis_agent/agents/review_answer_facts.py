@@ -61,7 +61,7 @@ def build_answer_facts(context, *, detailed=False):
 
     def add(stat, kind, detail, statements, *, aspect=None, metrics=(), finding_ref=None):
         identity = [stat["source_result_id"], stat["scope_ref"], stat.get("group_id"), kind, aspect]
-        if advice and aspect:
+        if advice and aspect and kind != 'trend':
             statements = [*statements, f"建议优先复核{ASPECTS[aspect]}相关原文，再结合业务记录排查。"]
         facts.append(AnswerFact(finding_ref=finding_ref or stat.get("finding_ref") or "finding:" + content_sha256(identity)[:20], kind=kind,
             scope_ref=stat["scope_ref"], source_result_ids=[stat["source_result_id"]], aspect_key=aspect,
@@ -114,10 +114,10 @@ def build_answer_facts(context, *, detailed=False):
                 statement = (f"{label}可比较的标注样本不足，暂不能判断稳定趋势。" if limited else
                              f"{label}在已有标注样本中的负面占比{directions[finding['direction']]}。")
                 detail = ""
-                metrics = []
+                metrics = [{'bucket': point['bucket'], **point['metric'], 'sample_size': point['sample_size']}
+                           for point in series['points']]
                 if valid:
                     peak = points[finding["peak_bucket"]]
-                    metrics.append({"bucket": finding["peak_bucket"], **peak["metric"], "sample_size": peak["sample_size"]})
                     detail = f"{label}已标注样本的占比峰值在 {finding['peak_bucket']}，为 {ratio_text(peak['metric'])}。"
                     recent = finding.get("recent_adjacent_change")
                     if recent:
@@ -135,6 +135,22 @@ def build_answer_facts(context, *, detailed=False):
                             detail += f"最大相邻变化为 {largest['from']} 至 {largest['to']} 的 {largest['change_pp']:+.1f} 个百分点。"
                 else:
                     detail = f"{label}各时间桶均无成功标注，不能把空数据当作零负面占比。"
+                bucket_details = []
+                for point in series['points']:
+                    metric = point['metric']
+                    bucket_details.append(f"{point['bucket']}：负面评论 {metric['numerator']} 条，"
+                                          f"分母 {metric['denominator']} 条成功标注评论，占比 {percent(metric['value'])}")
+                if bucket_details:
+                    detail += '逐期数据（UTC）：' + '；'.join(bucket_details) + '。'
+                if series.get('omitted_point_count'):
+                    detail += (f"本次展示 {len(series['points'])}/{series['original_point_count']} 个时间桶，"
+                               f"省略 {series['omitted_point_count']} 个；完整时序见原始统计明细。")
+                recent = finding.get('recent_adjacent_change')
+                if recent:
+                    before = points[recent['from']]['metric']['numerator']
+                    after = points[recent['to']]['metric']['numerator']
+                    detail += (f"上述相邻时段的负面评论数为 {before} → {after} 条，数量变化 {after - before:+d} 条；"
+                               '数量变化与占比变化分别计算，各期分母可能不同。')
                 add(stat, "trend", detail, [statement], aspect=aspect, metrics=metrics,
                     finding_ref=finding.get("finding_ref"))
         elif kind == "quality":
@@ -302,7 +318,10 @@ def summary_options(context, facts):
     if all(fact.kind == "aspect" and fact.sentiment == "positive" for fact in facts):
         return [_aspect_ranking_summary(facts, positive=True)]
     if any(fact.kind == "trend" for fact in facts):
-        return ["".join(fact.statements[0] for fact in facts if fact.kind == "trend"),
+        windows = {(row.get('date_from'), row.get('date_to')) for row in context.scope_summary}
+        start, end = next(iter(windows)) if len(windows) == 1 else (None, None)
+        prefix = f'{start} 至 {end}（UTC）的已标注样本：' if start and end else ''
+        return [prefix + "".join(fact.statements[0] for fact in facts if fact.kind == "trend"),
                 "趋势需要结合各时段的样本量和覆盖率分别判断。"]
     if any(row["analysis_type"] == "comparison" for row in context.statistics):
         return ["各商品的主要负面问题如下，占比均以各自成功标注评论为分母。"]

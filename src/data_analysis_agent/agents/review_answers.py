@@ -66,6 +66,9 @@ class PublicAnswer(AnalysisModel):
 class AnswerGenerationStrategy:
     @staticmethod
     def choose(context, facts):
+        if context.analysis_type in ('trend', 'aspect_trend') and facts and all(
+                fact.kind in ('trend', 'empty') for fact in facts):
+            return 'template'
         if context.analysis_type == 'aspect_drilldown' and any(stat.get('filters', {}).get('aspect') is None
                 for stat in context.statistics if stat['analysis_type'] == 'aspect_drilldown'):
             # 整体好评保留各维度的全部已核验要点；单维度继续沿用既有回答与复核策略。

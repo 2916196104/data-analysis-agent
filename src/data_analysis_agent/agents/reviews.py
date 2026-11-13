@@ -291,7 +291,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                 raise ReviewDataError("无法读取当前评论范围，请检查标注表和数据集。")
             status, ids = None, []
             simple_dimensions = len(plan.requirements) == 1 and plan.required_tools[0] in {'get_top_issues', 'get_positive_aspects'}
-            direct_query = semantic_direct or simple_dimensions or question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'evidence', 'opinion_breakdown', 'aspect_drilldown', 'pros_cons'}
+            direct_query = semantic_direct or simple_dimensions or question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'evidence', 'opinion_breakdown', 'aspect_drilldown', 'pros_cons', 'trend', 'aspect_trend'}
             if direct_query:
                 # 已确认追问或确定的文本归组计划直接执行；仍走同一注册表、预算与发布校验。
                 for request in plan.requirements:
