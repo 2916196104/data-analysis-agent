@@ -33,6 +33,25 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('追问解析使用真实查询参数', () => {
+  it('P7-B 客服具体问题原样提交后端，保留父任务和范围，不编译成维度统计', () => {
+    const current = { ...scope, product_ids: ['100013588055'], date_from: '2021-09-11', date_to: '2022-08-26',
+      baseline_from: '2021-09-10', baseline_to: '2021-09-10' };
+    const issues = { result_id: 'r1', kind: 'issues', parameters: { product_ids: current.product_ids }, data: {} } as unknown as AgentToolResult;
+    const previous = { ...parent(issues), question: '商品100013588055的差评主要集中在哪些方面？', parameters: current };
+    const next = resolveQuery('客服方面具体有什么问题？', current, previous);
+    expect(next.clarification).toBeUndefined();
+    expect(next.query.effectiveQuestion).toBe('客服方面具体有什么问题？');
+    expect(next.query.parentTaskId).toBe(previous.taskId);
+    expect(next.query.queries).toBeUndefined();
+    expect(next.parameters).toEqual(current);
+  });
+  it('P7-B 明确修改日期后使用当前范围，不把旧日期写回追问', () => {
+    const current = { ...scope, date_from: '2023-02-15' };
+    const previous = parent(trend());
+    const next = resolveQuery('客服方面具体有什么问题？', current, previous);
+    expect(next.parameters?.date_from).toBe('2023-02-15');
+    expect(next.query.effectiveQuestion).toBe('客服方面具体有什么问题？');
+  });
   it('API 补齐的空截止时间不影响短追问继承单商品范围', () => {
     const current = { ...scope, product_ids: ['A', 'B'] };
     const previous = { ...parent(trend('logistics')), selection: { ...current, as_of: null },

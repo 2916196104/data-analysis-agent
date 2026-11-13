@@ -80,7 +80,7 @@ def build_request_goal(question, context=None):
             and not re.match(r'这些|那些|上述', text)))
     content = bool(topic or re.search(r'观点内容|具体内容|原始观点|观点文本|逐条观点|用起来.*(?:怎么样|如何)|效果.*(?:怎么样|如何)|'
         r'(?:说|讲|提到|反映|表达|说明).*(?:什么|哪些)|称赞|夸|好在哪里|差在哪里|好在哪|差在哪|往里挖', text)
-        or (aspect and re.search(r'里面|细分|关注|提及最多|哪些问题|哪些方面|哪些地方|主要集中|有什么问题|'
+        or (aspect and re.search(r'里面|细分|关注|提及最多|哪些问题|哪些方面|哪些地方|主要集中|有什么问题|具体有什么差评|'
                                 r'(?:抱怨|吐槽|投诉|不满意).*什么|负面评价.*有哪些', text)))
     levels = []
     if examples:

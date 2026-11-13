@@ -325,7 +325,7 @@ def opinion_request(question):
     theme_summary = bool(not positive_summary and not examples and not metric_manifestation and (
         theme_enumeration or re.search(r'体现|表现|归纳|总结|子主题|主题归类', text)))
     content_detail = positive_summary or theme_summary or bool(re.search(r'(?:说|讲|提到).*(?:什么|哪些)|具体内容|观点内容', text)) or bool(aspect and re.search(
-        r'有什么问题|(?:投诉|抱怨|吐槽|不满意).*什么|具体差在哪|具体表现.*(?:方面|地方)|'
+        r'有什么问题|具体有什么差评|(?:投诉|抱怨|吐槽|不满意).*什么|具体差在哪|具体表现.*(?:方面|地方)|'
         r'反映.*(?:什么|哪些).*问题|负面评价.*有哪些|好评.*具体体现|称赞.*(?:哪些|什么).*体验', text))
     return {"text": text, "topic": topic, "aspect": aspect,
             "positive_summary": positive_summary,

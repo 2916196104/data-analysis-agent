@@ -66,6 +66,9 @@ class PublicAnswer(AnalysisModel):
 class AnswerGenerationStrategy:
     @staticmethod
     def choose(context, facts):
+        if context.analysis_type == 'opinion_breakdown' and facts and all(
+                fact.kind in ('opinion_group', 'empty') for fact in facts):
+            return 'template'
         if context.analysis_type in ('trend', 'aspect_trend') and facts and all(
                 fact.kind in ('trend', 'empty') for fact in facts):
             return 'template'

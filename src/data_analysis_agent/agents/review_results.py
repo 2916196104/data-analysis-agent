@@ -218,7 +218,8 @@ def adapt_result(item, bound_scope):
             result.evidence_refs.append(EvidenceReference(
                 source_result_id=item["result_id"], **{key: row[key] for key in (
                     "review_id", "product_id", "published_at", "evidence_ref", "opinion_source")},
-                opinions=[EvidenceQuote(**{key: opinion[key] for key in ("aspect", "sentiment", "quote", "quote_start", "quote_end")})
+                opinions=[EvidenceQuote(**{key: opinion[key] for key in ("aspect", "sentiment", "quote", "quote_start", "quote_end")},
+                                        annotation_id=row.get('annotation_id'))
                           for opinion in row["opinions"]]))
     elif kind == 'semantic_evidence':
         from data_analysis_agent.agents.review_retrieval import permitted_references
