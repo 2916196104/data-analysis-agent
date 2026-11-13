@@ -382,6 +382,42 @@ class ReviewTopicTests(semantics_fixture.AssistantSemanticsFixture, unittest.Tes
             invalid['assignments'][0]['matches'][-1]['key'] = replacement
             self.assertFalse(validate_topic_result(invalid))
 
+    def test_negative_latency_budget_completes_agent_validation_and_public_answer(self):
+        clock = [0.0]
+        def slow(settings, prompt, payload, schema, timeout):
+            delay = 8.4 if schema is TopicCatalog else 25
+            clock[0] += min(delay, timeout)
+            if delay > timeout:
+                raise TimeoutError('fixed slow classification')
+            return semantic_response(settings, prompt, payload, schema, timeout)
+        with patch('data_analysis_agent.agents.review_topics.perf_counter', side_effect=lambda: clock[0]), topic_model(slow):
+            result = run_review_agent(self.db, '物流差评具体体现在哪里？', scope=self.scope(), settings=SETTINGS)
+        self.assertEqual(result['status'], 'ok', result.get('error'))
+        self.assertEqual(result['validation']['status'], 'passed')
+        self.assertEqual(result['task_acceptance']['status'], 'passed')
+        self.assertTrue(result['task_acceptance']['complete'])
+        self.assertEqual(result['public_answer']['status'], 'ok')
+        self.assertEqual(result['results']['r1']['data']['coverage']['not_evaluated_opinions'], 0)
+
+    def test_negative_timeout_cannot_publish_partial_classification_as_complete(self):
+        clock = [0.0]
+        def partial(settings, prompt, payload, schema, timeout):
+            if schema is TopicBatch and payload['opinions'][0]['opinion_id'] == 'u1':
+                clock[0] += timeout
+                raise TimeoutError('fixed first batch timeout')
+            return semantic_response(settings, prompt, payload, schema, timeout)
+        with patch('data_analysis_agent.agents.review_topics.perf_counter', side_effect=lambda: clock[0]), \
+                patch('data_analysis_agent.agents.review_topics.BATCH_SIZE', 1), topic_model(partial) as model:
+            result = run_review_agent(self.db, '物流差评具体体现在哪里？', scope=self.scope(), settings=SETTINGS)
+        self.assertEqual(model.call_count, 3)
+        self.assertEqual(result['status'], 'partial')
+        self.assertEqual(result['validation']['status'], 'passed')
+        self.assertEqual(result['task_acceptance']['status'], 'failed')
+        self.assertFalse(result['task_acceptance']['complete'])
+        self.assertEqual(result['public_answer']['status'], 'partial')
+        self.assertFalse(result['public_answer']['highlights'])
+        self.assertEqual(result['results']['r1']['data']['failures'][0]['code'], 'timeout')
+
     def test_topic_associations_remain_bounded_by_the_eight_candidate_limit(self):
         from pydantic import ValidationError
         from data_analysis_agent.agents.review_topics import TopicAssignment, TopicWireAssignment

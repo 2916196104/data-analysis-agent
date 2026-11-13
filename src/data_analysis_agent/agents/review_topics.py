@@ -21,6 +21,8 @@ MAX_POSITIVE_UNIQUE = 20
 POSITIVE_BATCH_SIZE = 10
 MAX_TOPICS = 8
 MAX_INPUT_BYTES, MAX_SECONDS = 16000, 60
+NEGATIVE_MAX_SECONDS = 120
+REQUEST_MAX_SECONDS, MAX_MODEL_CALLS = 30, 5
 
 
 class TopicAnalysisError(ReviewDataError):
@@ -329,6 +331,8 @@ def analyze_aspect_topics(extracted=None, *, settings, progress=None, frozen_inp
         opinions=rows, items=items, failures=[], model_calls=0, discovery_unit_ids=[])
 
     request_timeout = 0
+    bounded_negative = shared_budget is None and data['sentiment'] == 'negative'
+    total_seconds = NEGATIVE_MAX_SECONDS if bounded_negative else MAX_SECONDS
     def call(prompt, payload, schema):
         nonlocal request_timeout
         if shared_budget is not None:
@@ -340,14 +344,21 @@ def analyze_aspect_topics(extracted=None, *, settings, progress=None, frozen_inp
                     shared_budget=shared_budget, aspect=data['aspect'])
             finally:
                 data['model_calls'] += shared_budget.snapshot()['attempts'] - before
-        remaining = MAX_SECONDS - (perf_counter() - started)
+        remaining = total_seconds - (perf_counter() - started)
         request_timeout = 0
-        if remaining <= 0:
-            raise TimeoutError('主题总耗时预算已用完。')
+        request_limit = min(settings.timeout_seconds, REQUEST_MAX_SECONDS)
+        # Do not send a full classification batch with only a few seconds left.
+        if remaining <= 0 or (bounded_negative and remaining < request_limit):
+            raise TimeoutError('主题剩余预算不足一次完整请求。')
+        if bounded_negative and data['model_calls'] >= MAX_MODEL_CALLS:
+            raise TopicResponseError('request_budget_exceeded', '主题模型请求次数预算已用完')
         data['model_calls'] += 1
-        request_limit = 30 if extracted['sentiment'] == 'positive' else 20
-        request_timeout = min(settings.timeout_seconds, request_limit, remaining)
-        return _call(settings, prompt, payload, schema, request_timeout)
+        request_timeout = min(request_limit, remaining)
+        request_started = perf_counter()
+        response = _call(settings, prompt, payload, schema, request_timeout)
+        if bounded_negative and (perf_counter() - request_started > request_timeout or perf_counter() - started > total_seconds):
+            raise TimeoutError('主题响应超过本次请求或总耗时预算。')
+        return response
 
     def failure(exc, batch):
         stage = 'topic_classification' if batch else 'topic_discovery'
@@ -358,7 +369,7 @@ def analyze_aspect_topics(extracted=None, *, settings, progress=None, frozen_inp
             code, reason = exc.code, '共享预算或截止条件阻止继续执行'
         elif isinstance(exc, (TimeoutError, APITimeoutError)):
             code = 'timeout' if request_timeout else 'budget_exhausted'
-            reason = f'请求超时（单次上限 {round(request_timeout, 1):g} 秒）' if request_timeout else f'总耗时预算 {MAX_SECONDS} 秒已用完'
+            reason = f'请求超时（单次上限 {round(request_timeout, 1):g} 秒）' if request_timeout else f'总耗时预算 {total_seconds} 秒已耗尽或不足一次完整请求'
         elif isinstance(exc, APIStatusError):
             code = 'http_error'
             reason = {401: '模型服务鉴权失败', 402: '模型服务额度不足', 403: '模型服务拒绝访问',
@@ -400,6 +411,8 @@ def analyze_aspect_topics(extracted=None, *, settings, progress=None, frozen_inp
                     if progress_error is not None:
                         raise progress_error
                     data['failures'].append(failure(exc, offset // batch_size + 1))
+                    if bounded_negative and request_timeout == 0:
+                        break
         except Exception as exc:
             if progress_error is not None:
                 raise progress_error

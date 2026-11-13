@@ -286,9 +286,13 @@ class NaturalLanguageAnswerGenerator:
                         diagnostics['request_stages'].append(stage)
                         request_started = perf_counter()
                         try:
+                            options = {}
+                            if (settings.base_url.rstrip('/') == 'https://api.siliconflow.cn/v1'
+                                    and settings.model == 'Pro/deepseek-ai/DeepSeek-V3.2'):
+                                options['extra_body'] = {'enable_thinking': False}
                             with OpenAI(api_key=settings.api_key, base_url=settings.base_url, timeout=min(settings.answer_timeout_seconds, remaining), max_retries=0) as client:
                                 response = client.chat.completions.create(model=settings.model, messages=messages,
-                                    temperature=0, max_tokens=max_tokens, response_format={'type': 'json_object'})
+                                    temperature=0, max_tokens=max_tokens, response_format={'type': 'json_object'}, **options)
                         finally:
                             diagnostics['request_durations'].append({'stage': stage, 'elapsed_seconds': round(perf_counter()-request_started,3)})
                         if response.usage:
