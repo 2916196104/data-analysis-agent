@@ -21,20 +21,22 @@ CURRENT=threading.local()
 LOCK=threading.RLock()
 STARTED=None
 OBSERVATION_ERRORS=[]
+LEDGER=None
 
 def local_address(address):
     # Windows asyncio implements socketpair using an ephemeral loopback listener.
     return isinstance(address,tuple) and address[0] in ('127.0.0.1','::1','localhost')
 
-def event(kind,**data):
+def event(event_name,/,**data):
     # Losing the evidence makes the run fail closed before the next side effect.
     with LOCK:
-        row=dict(at=datetime.now(timezone.utc).isoformat(),pid=os.getpid(),thread=threading.current_thread().name,
-                 task_id=getattr(CURRENT,'task_id',None),event=kind,**data)
         try:
+            row=dict(data)
+            row.update(at=datetime.now(timezone.utc).isoformat(),pid=os.getpid(),thread=threading.current_thread().name,
+                       task_id=getattr(CURRENT,'task_id',None),event=event_name)
             with (OUT/'runtime-events.jsonl').open('a',encoding='utf-8') as f:f.write(json.dumps(row,ensure_ascii=False,default=str)+'\n')
         except Exception:
-            OBSERVATION_ERRORS.append(kind)
+            OBSERVATION_ERRORS.append(event_name)
             raise RuntimeError('p7c_observation_failed') from None
 
 def deny(kind):
@@ -46,16 +48,11 @@ def blocked(kind):
     return reject
 
 def take(kind):
-    global STARTED
     with LOCK:
-        if OBSERVATION_ERRORS or not (OUT/'execution-armed.json').is_file():return deny('unarmed_execution')
-        if STARTED is not None and monotonic()-STARTED>=900:return deny('observation_deadline')
-        if COUNTS[kind]>=LIMITS[kind]:return deny('duplicate_'+kind)
-        if kind=='submission':STARTED=monotonic()
-        COUNTS[kind]+=1
+        if OBSERVATION_ERRORS or LEDGER is None:return deny('unarmed_execution')
+        LEDGER.take(kind,task_id=getattr(CURRENT,'task_id',None))
+        COUNTS.update(LEDGER.counts())
         event('quota_consumed',operation=kind,count=COUNTS[kind],limit=LIMITS[kind])
-        state=OUT/'gate-state.json'
-        state.write_text(json.dumps(dict(counts=COUNTS,limits=LIMITS,started_monotonic=STARTED,observation_errors=OBSERVATION_ERRORS)),encoding='utf-8')
 
 def check_scope(p):
     from data_analysis_agent.reviews.scope import review_scope
@@ -97,14 +94,11 @@ def install():
         event('pg_open',namespace=self.namespace,backend_pid=self.raw.info.backend_pid,readonly=self.readonly)
 
     def execute(self,sql,parameters=None):
-        upper=sql.strip().upper()
-        tokens=re.sub(r"'(?:[^']|'')*'","''",upper)
-        if re.search(r'\b(INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|COPY|CALL|DO|GRANT|REVOKE)\b',tokens):return deny('business_write_sql')
-        if re.search(r'READ_ONLY\s*=\s*(OFF|FALSE|0)',upper):return deny('readonly_off')
-        if not upper.startswith(('SELECT','WITH','SHOW','SET','BEGIN','COMMIT','ROLLBACK')):return deny('unapproved_sql')
+        from f02_sql import validate_sql
+        is_vector=validate_sql(sql,parameters,task_id=getattr(CURRENT,'task_id',None),ledger=LEDGER)
         if not self.readonly:return deny('non_readonly_connection')
-        if '<=>' in sql:
-            if not getattr(CURRENT,'task_id',None) or not parameters or parameters[-1]!=5:return deny('unbound_vector_search')
+        if is_vector:
+            if not getattr(CURRENT,'retrieval_active',False):return deny('unbound_vector_call')
             take('vector_search')
         start=perf_counter()
         try:
@@ -114,7 +108,8 @@ def install():
                   parameter_sha256=hashlib.sha256(repr(parameters).encode()).hexdigest(),duration_ms=(perf_counter()-start)*1000,status='ok')
             return value
         except Exception as exc:
-            event('pg_sql_error',sql=sql,exception_type=type(exc).__name__)
+            try:event('pg_sql_error',sql=sql,exception_type=type(exc).__name__)
+            except Exception:pass  # Preserve the original SQL failure; event() latches observation failure.
             raise
 
     def close(self):
@@ -126,30 +121,51 @@ def install():
         check_scope(p)
         if kind!='analysis' or p.get('question')!=QUESTION or not p.get('conversation_id') or p.get('context_task_id') or parent_task_id or not idempotency_key:return deny('task_payload')
         check_scope(p.get('selection_scope') or {})
-        take('submission')
-        value=original_enqueue(path,kind,p,idempotency_key=idempotency_key,parent_task_id=parent_task_id)
-        if value.get('reused'):return deny('reused_task')
-        event('task_enqueued',new_task_id=value['task']['task_id'],conversation_id=p['conversation_id'],question=p['question'])
-        (OUT/'task-id.json').write_text(json.dumps(dict(task_id=value['task']['task_id'],conversation_id=p['conversation_id'])),encoding='utf-8')
-        return value
+        if LEDGER is None:return deny('unarmed_execution')
+        LEDGER.check_task_db(path)
+        if p['conversation_id']!=LEDGER.authorization['conversation_id']:return deny('conversation_identity')
+        with LOCK:
+            take('submission')
+            value=original_enqueue(path,kind,p,idempotency_key=idempotency_key,parent_task_id=parent_task_id)
+            if value.get('reused'):return deny('reused_task')
+            LEDGER.bind_task(value['task']['task_id'],p['conversation_id'])
+            event('task_enqueued',new_task_id=value['task']['task_id'],conversation_id=p['conversation_id'],question=p['question'])
+            return value
 
     def task(self,value):
         p=value['parameters'];check_scope(p)
-        if value['kind']!='analysis' or p.get('question')!=QUESTION or COUNTS['submission']!=1:return deny('worker_payload')
-        take('worker_task');CURRENT.task_id=value['task_id']
-        event('worker_task_start',question=p['question'],conversation_id=p['conversation_id'])
+        if value['kind']!='analysis' or p.get('question')!=QUESTION or LEDGER is None:return deny('worker_payload')
+        check_scope(p.get('selection_scope') or {})
+        with LOCK:
+            LEDGER.check_task_db(self.task_db);LEDGER.check_task(value['task_id'])
+            if p.get('conversation_id')!=LEDGER.authorization['conversation_id']:return deny('conversation_identity')
+            CURRENT.task_id=value['task_id']
+            try:take('worker_task')
+            except BaseException:CURRENT.task_id=None;raise
         start=perf_counter()
-        try:return original_task(self,value)
+        try:
+            event('worker_task_start',question=p['question'],conversation_id=p['conversation_id'])
+            return original_task(self,value)
         finally:
-            event('worker_task_end',duration_ms=(perf_counter()-start)*1000)
-            CURRENT.task_id=None
+            failed=sys.exc_info()[0] is not None
+            try:
+                try:event('worker_task_end',duration_ms=(perf_counter()-start)*1000)
+                except Exception:
+                    if not failed:raise
+            finally:CURRENT.task_id=None
 
     def tool(self,name,parameters):
         if name not in ('get_analysis_context','search_semantic_evidence') or not getattr(CURRENT,'task_id',None):return deny('unapproved_tool')
+        if LEDGER is None:return deny('unarmed_execution')
+        LEDGER.check_task(CURRENT.task_id)
         if name=='search_semantic_evidence' and parameters:return deny('semantic_parameters')
         event('tool_start',name=name,parameters=parameters)
         start=perf_counter()
-        result=original_tool(self,name,parameters)
+        try:result=original_tool(self,name,parameters)
+        except BaseException as exc:
+            try:event('tool_error',name=name,exception_type=type(exc).__name__)
+            except Exception:pass
+            raise
         event('tool_end',name=name,result_id=result.get('result_id'),kind=result.get('kind'),duration_ms=(perf_counter()-start)*1000)
         return result
 
@@ -166,6 +182,8 @@ def install():
         take('query_embedding');event('embedding_start',question=QUESTION)
         result=original_embedding(self,texts)
         vector=result[0]
+        from data_analysis_agent.reviews.embedding_store import validate_vector
+        validate_vector(vector);LEDGER.bind_vector(vector)
         event('embedding_end',metrics=self.last_metrics,dimension=len(vector),
               norm=sum(v*v for v in vector)**.5,vector_sha256=hashlib.sha256(json.dumps(vector).encode()).hexdigest())
         return result
@@ -173,7 +191,11 @@ def install():
     def rpc(self,payload,deadline):
         operation=payload.get('operation')
         if operation not in ('initialize','encode'):return deny('unapproved_model_rpc')
-        if operation=='encode' and (COUNTS['query_embedding']!=1 or payload.get('texts')!=[QUESTION]):return deny('unbound_model_rpc')
+        if LEDGER is None:return deny('unarmed_execution')
+        LEDGER.check_task(getattr(CURRENT,'task_id',None))
+        if self.process is not getattr(CURRENT,'model_process',None):return deny('unbound_model_process')
+        if operation=='initialize' and payload.get('cache_dir')!=str((Path(__file__).resolve().parents[2]/'.cache/embedding-eval/hf/hub').resolve()):return deny('model_cache')
+        if operation=='encode' and payload.get('texts')!=[QUESTION]:return deny('unbound_model_rpc')
         take('model_initialize' if operation=='initialize' else 'model_encode_rpc')
         event('model_rpc_start',operation=operation,process_id=self.process.pid if self.process else None)
         result=original_rpc(self,payload,deadline)
@@ -209,10 +231,11 @@ def install():
         done=threading.Event()
         def watch():
             while not done.wait(.2):
-                expired=STARTED is not None and monotonic()-STARTED>=900
+                import time
+                expired=LEDGER is not None and time.time()>=LEDGER.authorization['deadline']
                 if expired or (OUT/'stop-server').exists():
-                    event('shutdown_requested',deadline_expired=expired)
                     server.should_exit=True
+                    event('shutdown_requested',deadline_expired=expired)
                     return
         thread=threading.Thread(target=watch,name='p7c-deadline-control',daemon=True);thread.start()
         try:return original_run(server,*a,**kw)

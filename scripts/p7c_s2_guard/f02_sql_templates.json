@@ -1,0 +1,247 @@
+[
+  {
+    "sql": "SET default_transaction_read_only = on",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname='public'",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT version FROM review_database_schema WHERE namespace=%s",
+    "binding": "business_namespace",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT version FROM review_labeling_schema",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT version FROM review_workbench_schema",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT version FROM review_monitor_schema",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT pg_try_advisory_lock(%s)",
+    "binding": "worker_lock",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT current_user AS role,session_user AS login_role,current_database() AS database,current_setting('default_transaction_read_only') AS read_only,current_setting('transaction_read_only') AS transaction_read_only",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT 1",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT requested_model, base_url, prompt_version FROM review_annotations ORDER BY id DESC LIMIT 1",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": true
+  },
+  {
+    "sql": "SELECT MIN(id) profile_id, requested_model, base_url, prompt_version, MAX(id) newest_id FROM review_annotations GROUP BY requested_model, base_url, prompt_version ORDER BY newest_id DESC",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": true
+  },
+  {
+    "sql": "SELECT COUNT(*) AS review_count, COALESCE(SUM(CASE WHEN has_text=0 THEN 1 ELSE 0 END), 0) AS empty_text_count, COALESCE(SUM(CASE WHEN rating IS NULL THEN 1 ELSE 0 END), 0) AS missing_rating_count, COALESCE(SUM(CASE WHEN user_id='' THEN 1 ELSE 0 END), 0) AS missing_user_id_count, MIN(published_at) AS published_at_start, MAX(published_at) AS published_at_end FROM reviews",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": true
+  },
+  {
+    "sql": "SELECT COUNT(*) AS product_count, COALESCE(SUM(CASE WHEN raw_json IS NULL THEN 1 ELSE 0 END), 0) AS products_without_metadata, COALESCE(SUM(CASE WHEN raw_json IS NOT NULL AND length(trim(title))=0 THEN 1 ELSE 0 END), 0) AS metadata_without_title FROM products",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT COUNT(*) FROM reviews r JOIN products p ON (r.source=p.source AND r.dataset_version=p.dataset_version AND r.product_id=p.product_id) WHERE p.raw_json IS NULL",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": true
+  },
+  {
+    "sql": "SELECT COUNT(*) FROM import_runs",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT COUNT(*) FROM import_errors",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "WITH attempts AS ( SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.review_id ORDER BY (a.status='success') DESC, a.id DESC) rn FROM review_annotations a JOIN reviews r ON r.id=a.review_id AND r.content_sha256=a.content_sha256 WHERE a.requested_model=%s AND a.base_url=%s AND a.prompt_version=%s ), current AS ( SELECT r.id, r.source, r.dataset_version, r.product_id, r.title, r.text, r.has_text, r.rating, r.published_at, r.content_sha256, r.import_run_id, r.line_number, p.title product_title, a.id annotation_id, a.model_version, a.error_code, h.id revision_id, COALESCE(h.action,'unreviewed') human_status, CASE WHEN r.has_text=0 THEN 'empty' WHEN a.id IS NULL THEN 'pending' ELSE a.status END processing_status FROM reviews r LEFT JOIN products p ON p.source=r.source AND p.dataset_version=r.dataset_version AND p.product_id=r.product_id LEFT JOIN attempts a ON a.review_id=r.id AND a.rn=1 LEFT JOIN review_human_reviews h ON h.id=( SELECT MAX(id) FROM review_human_reviews WHERE annotation_id=a.id) ), effective_opinions AS ( SELECT c.id review_id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end FROM current c JOIN review_opinions o ON o.annotation_id=c.annotation_id WHERE c.processing_status='success' AND c.revision_id IS NULL UNION ALL SELECT c.id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end FROM current c JOIN review_human_opinions o ON o.human_review_id=c.revision_id ) SELECT source, dataset_version, product_id, product_title, COUNT(*) review_count, SUM(CASE WHEN has_text=1 THEN 1 ELSE 0 END) eligible_count, SUM(CASE WHEN processing_status='empty' THEN 1 ELSE 0 END) empty_count, SUM(CASE WHEN processing_status='pending' THEN 1 ELSE 0 END) pending_count, SUM(CASE WHEN processing_status='success' THEN 1 ELSE 0 END) success_count, SUM(CASE WHEN processing_status='failed' THEN 1 ELSE 0 END) failed_count, SUM(CASE WHEN human_status<>'unreviewed' THEN 1 ELSE 0 END) reviewed_count FROM current GROUP BY source, dataset_version, product_id, product_title ORDER BY product_id, source, dataset_version",
+    "binding": "identity",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": true
+  },
+  {
+    "sql": "SELECT p.source, p.dataset_version, p.product_id, p.title, CASE WHEN p.raw_json IS NOT NULL THEN 1 ELSE 0 END AS has_metadata, COUNT(r.id) AS review_count, MIN(r.published_at) AS published_at_start, MAX(r.published_at) AS published_at_end FROM products p LEFT JOIN reviews r ON (r.source=p.source AND r.dataset_version=p.dataset_version AND r.product_id=p.product_id) GROUP BY p.source, p.dataset_version, p.product_id ORDER BY review_count DESC, p.source, p.dataset_version, p.product_id LIMIT 20",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT p.source, p.dataset_version, COUNT(DISTINCT p.product_id) product_count, COUNT(r.id) review_count, COALESCE(SUM(CASE WHEN r.has_text=1 THEN 1 ELSE 0 END),0) eligible_text_reviews, MIN(r.published_at) published_at_start, MAX(r.published_at) published_at_end FROM products p LEFT JOIN reviews r ON p.source=r.source AND p.dataset_version=r.dataset_version AND p.product_id=r.product_id GROUP BY p.source,p.dataset_version ORDER BY p.source,p.dataset_version",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT r.source,r.dataset_version,a.requested_model,a.base_url,a.prompt_version, COUNT(DISTINCT r.id) successful_reviews FROM reviews r JOIN review_annotations a ON a.review_id=r.id AND a.content_sha256=r.content_sha256 WHERE r.has_text=1 AND a.status='success' GROUP BY r.source,r.dataset_version,a.requested_model,a.base_url,a.prompt_version",
+    "binding": "none",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": true
+  },
+  {
+    "sql": "WITH attempts AS ( SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.review_id ORDER BY (a.status='success') DESC, a.id DESC) rn FROM review_annotations a JOIN reviews r ON r.id=a.review_id AND r.content_sha256=a.content_sha256 WHERE a.requested_model=%s AND a.base_url=%s AND a.prompt_version=%s ), current AS ( SELECT r.id, r.source, r.dataset_version, r.product_id, r.title, r.text, r.has_text, r.rating, r.published_at, r.content_sha256, r.import_run_id, r.line_number, p.title product_title, a.id annotation_id, a.model_version, a.error_code, h.id revision_id, COALESCE(h.action,'unreviewed') human_status, CASE WHEN r.has_text=0 THEN 'empty' WHEN a.id IS NULL THEN 'pending' ELSE a.status END processing_status FROM reviews r LEFT JOIN products p ON p.source=r.source AND p.dataset_version=r.dataset_version AND p.product_id=r.product_id LEFT JOIN attempts a ON a.review_id=r.id AND a.rn=1 LEFT JOIN review_human_reviews h ON h.id=( SELECT MAX(id) FROM review_human_reviews WHERE annotation_id=a.id) ), effective_opinions AS ( SELECT c.id review_id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end FROM current c JOIN review_opinions o ON o.annotation_id=c.annotation_id WHERE c.processing_status='success' AND c.revision_id IS NULL UNION ALL SELECT c.id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end FROM current c JOIN review_human_opinions o ON o.human_review_id=c.revision_id ) SELECT COUNT(DISTINCT CASE WHEN TRUE THEN c.id END) review_count, COUNT(DISTINCT CASE WHEN c.has_text=1 THEN c.id END) eligible_text_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='success' THEN c.id END) successful_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='failed' THEN c.id END) failed_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='pending' THEN c.id END) unprocessed_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='empty' THEN c.id END) empty_text_reviews, COUNT(DISTINCT CASE WHEN c.revision_id IS NOT NULL THEN c.id END) reviewed_reviews, COUNT(DISTINCT CASE WHEN o.sentiment='negative' THEN c.id END) negative_review_count, COUNT(DISTINCT CASE WHEN o.sentiment='positive' THEN c.id END) positive_review_count, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='quality' THEN c.id END) negative_quality, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='effectiveness' THEN c.id END) negative_effectiveness, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='price' THEN c.id END) negative_price, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='packaging' THEN c.id END) negative_packaging, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='logistics' THEN c.id END) negative_logistics, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='service' THEN c.id END) negative_service, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='quality' THEN c.id END) positive_quality, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='effectiveness' THEN c.id END) positive_effectiveness, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='price' THEN c.id END) positive_price, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='packaging' THEN c.id END) positive_packaging, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='logistics' THEN c.id END) positive_logistics, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='service' THEN c.id END) positive_service FROM current c LEFT JOIN effective_opinions o ON o.review_id=c.id WHERE c.source=%s AND c.dataset_version=%s AND c.published_at >= %s AND c.published_at < %s",
+    "binding": "dataset_window",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": true
+  },
+  {
+    "sql": "WITH attempts AS ( SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.review_id ORDER BY (a.status='success') DESC, a.id DESC) rn FROM review_annotations a JOIN reviews r ON r.id=a.review_id AND r.content_sha256=a.content_sha256 WHERE a.requested_model=%s AND a.base_url=%s AND a.prompt_version=%s ), current AS ( SELECT r.id, r.source, r.dataset_version, r.product_id, r.title, r.text, r.has_text, r.rating, r.published_at, r.content_sha256, r.import_run_id, r.line_number, p.title product_title, a.id annotation_id, a.model_version, a.error_code, h.id revision_id, COALESCE(h.action,'unreviewed') human_status, CASE WHEN r.has_text=0 THEN 'empty' WHEN a.id IS NULL THEN 'pending' ELSE a.status END processing_status FROM reviews r LEFT JOIN products p ON p.source=r.source AND p.dataset_version=r.dataset_version AND p.product_id=r.product_id LEFT JOIN attempts a ON a.review_id=r.id AND a.rn=1 LEFT JOIN review_human_reviews h ON h.id=( SELECT MAX(id) FROM review_human_reviews WHERE annotation_id=a.id) ), effective_opinions AS ( SELECT c.id review_id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end FROM current c JOIN review_opinions o ON o.annotation_id=c.annotation_id WHERE c.processing_status='success' AND c.revision_id IS NULL UNION ALL SELECT c.id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end FROM current c JOIN review_human_opinions o ON o.human_review_id=c.revision_id ) SELECT substr(c.published_at,1,7) bucket, COUNT(DISTINCT CASE WHEN TRUE THEN c.id END) review_count, COUNT(DISTINCT CASE WHEN c.has_text=1 THEN c.id END) eligible_text_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='success' THEN c.id END) successful_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='failed' THEN c.id END) failed_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='pending' THEN c.id END) unprocessed_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='empty' THEN c.id END) empty_text_reviews, COUNT(DISTINCT CASE WHEN c.revision_id IS NOT NULL THEN c.id END) reviewed_reviews, COUNT(DISTINCT CASE WHEN o.sentiment='negative' THEN c.id END) negative_review_count, COUNT(DISTINCT CASE WHEN o.sentiment='positive' THEN c.id END) positive_review_count, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='quality' THEN c.id END) negative_quality, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='effectiveness' THEN c.id END) negative_effectiveness, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='price' THEN c.id END) negative_price, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='packaging' THEN c.id END) negative_packaging, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='logistics' THEN c.id END) negative_logistics, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='service' THEN c.id END) negative_service, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='quality' THEN c.id END) positive_quality, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='effectiveness' THEN c.id END) positive_effectiveness, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='price' THEN c.id END) positive_price, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='packaging' THEN c.id END) positive_packaging, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='logistics' THEN c.id END) positive_logistics, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='service' THEN c.id END) positive_service FROM current c LEFT JOIN effective_opinions o ON o.review_id=c.id WHERE c.source=%s AND c.dataset_version=%s AND c.published_at >= %s AND c.published_at < %s GROUP BY bucket ORDER BY bucket",
+    "binding": "dataset_window",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": true
+  },
+  {
+    "sql": "WITH attempts AS ( SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.review_id ORDER BY (a.status='success') DESC, a.id DESC) rn FROM review_annotations a JOIN reviews r ON r.id=a.review_id AND r.content_sha256=a.content_sha256 WHERE a.requested_model=%s AND a.base_url=%s AND a.prompt_version=%s ), current AS ( SELECT r.id, r.source, r.dataset_version, r.product_id, r.title, r.text, r.has_text, r.rating, r.published_at, r.content_sha256, r.import_run_id, r.line_number, p.title product_title, a.id annotation_id, a.model_version, a.error_code, h.id revision_id, COALESCE(h.action,'unreviewed') human_status, CASE WHEN r.has_text=0 THEN 'empty' WHEN a.id IS NULL THEN 'pending' ELSE a.status END processing_status FROM reviews r LEFT JOIN products p ON p.source=r.source AND p.dataset_version=r.dataset_version AND p.product_id=r.product_id LEFT JOIN attempts a ON a.review_id=r.id AND a.rn=1 LEFT JOIN review_human_reviews h ON h.id=( SELECT MAX(id) FROM review_human_reviews WHERE annotation_id=a.id) ), effective_opinions AS ( SELECT c.id review_id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end FROM current c JOIN review_opinions o ON o.annotation_id=c.annotation_id WHERE c.processing_status='success' AND c.revision_id IS NULL UNION ALL SELECT c.id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end FROM current c JOIN review_human_opinions o ON o.human_review_id=c.revision_id ) SELECT COUNT(DISTINCT CASE WHEN TRUE THEN c.id END) review_count, COUNT(DISTINCT CASE WHEN c.has_text=1 THEN c.id END) eligible_text_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='success' THEN c.id END) successful_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='failed' THEN c.id END) failed_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='pending' THEN c.id END) unprocessed_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='empty' THEN c.id END) empty_text_reviews, COUNT(DISTINCT CASE WHEN c.revision_id IS NOT NULL THEN c.id END) reviewed_reviews, COUNT(DISTINCT CASE WHEN o.sentiment='negative' THEN c.id END) negative_review_count, COUNT(DISTINCT CASE WHEN o.sentiment='positive' THEN c.id END) positive_review_count, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='quality' THEN c.id END) negative_quality, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='effectiveness' THEN c.id END) negative_effectiveness, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='price' THEN c.id END) negative_price, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='packaging' THEN c.id END) negative_packaging, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='logistics' THEN c.id END) negative_logistics, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='service' THEN c.id END) negative_service, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='quality' THEN c.id END) positive_quality, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='effectiveness' THEN c.id END) positive_effectiveness, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='price' THEN c.id END) positive_price, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='packaging' THEN c.id END) positive_packaging, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='logistics' THEN c.id END) positive_logistics, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='service' THEN c.id END) positive_service FROM current c LEFT JOIN effective_opinions o ON o.review_id=c.id WHERE c.product_id IN (%s) AND c.source=%s AND c.dataset_version=%s AND c.published_at >= %s AND c.published_at < %s",
+    "binding": "scoped_identity",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "WITH attempts AS ( SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.review_id ORDER BY (a.status='success') DESC, a.id DESC) rn FROM review_annotations a JOIN reviews r ON r.id=a.review_id AND r.content_sha256=a.content_sha256 WHERE a.requested_model=%s AND a.base_url=%s AND a.prompt_version=%s ), current AS ( SELECT r.id, r.source, r.dataset_version, r.product_id, r.title, r.text, r.has_text, r.rating, r.published_at, r.content_sha256, r.import_run_id, r.line_number, p.title product_title, a.id annotation_id, a.model_version, a.error_code, h.id revision_id, COALESCE(h.action,'unreviewed') human_status, CASE WHEN r.has_text=0 THEN 'empty' WHEN a.id IS NULL THEN 'pending' ELSE a.status END processing_status FROM reviews r LEFT JOIN products p ON p.source=r.source AND p.dataset_version=r.dataset_version AND p.product_id=r.product_id LEFT JOIN attempts a ON a.review_id=r.id AND a.rn=1 LEFT JOIN review_human_reviews h ON h.id=( SELECT MAX(id) FROM review_human_reviews WHERE annotation_id=a.id) ), effective_opinions AS ( SELECT c.id review_id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end FROM current c JOIN review_opinions o ON o.annotation_id=c.annotation_id WHERE c.processing_status='success' AND c.revision_id IS NULL UNION ALL SELECT c.id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end FROM current c JOIN review_human_opinions o ON o.human_review_id=c.revision_id ) SELECT substr(c.published_at,1,7) bucket, COUNT(DISTINCT CASE WHEN TRUE THEN c.id END) review_count, COUNT(DISTINCT CASE WHEN c.has_text=1 THEN c.id END) eligible_text_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='success' THEN c.id END) successful_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='failed' THEN c.id END) failed_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='pending' THEN c.id END) unprocessed_reviews, COUNT(DISTINCT CASE WHEN c.processing_status='empty' THEN c.id END) empty_text_reviews, COUNT(DISTINCT CASE WHEN c.revision_id IS NOT NULL THEN c.id END) reviewed_reviews, COUNT(DISTINCT CASE WHEN o.sentiment='negative' THEN c.id END) negative_review_count, COUNT(DISTINCT CASE WHEN o.sentiment='positive' THEN c.id END) positive_review_count, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='quality' THEN c.id END) negative_quality, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='effectiveness' THEN c.id END) negative_effectiveness, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='price' THEN c.id END) negative_price, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='packaging' THEN c.id END) negative_packaging, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='logistics' THEN c.id END) negative_logistics, COUNT(DISTINCT CASE WHEN o.sentiment='negative' AND o.aspect='service' THEN c.id END) negative_service, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='quality' THEN c.id END) positive_quality, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='effectiveness' THEN c.id END) positive_effectiveness, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='price' THEN c.id END) positive_price, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='packaging' THEN c.id END) positive_packaging, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='logistics' THEN c.id END) positive_logistics, COUNT(DISTINCT CASE WHEN o.sentiment='positive' AND o.aspect='service' THEN c.id END) positive_service FROM current c LEFT JOIN effective_opinions o ON o.review_id=c.id WHERE c.product_id IN (%s) AND c.source=%s AND c.dataset_version=%s AND c.published_at >= %s AND c.published_at < %s GROUP BY bucket ORDER BY bucket",
+    "binding": "scoped_identity",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT product_id FROM products WHERE source=%s AND dataset_version=%s",
+    "binding": "dataset",
+    "origin": "preserved-S2-native-SQL",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT product_id FROM products WHERE source=%s AND dataset_version=%s AND product_id IN (%s)",
+    "binding": "product",
+    "origin": "native-product-catalog",
+    "startup_only": false
+  },
+  {
+    "sql": "WITH attempts AS ( SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.review_id ORDER BY (a.status='success') DESC, a.id DESC) rn FROM review_annotations a JOIN reviews r ON r.id=a.review_id AND r.content_sha256=a.content_sha256 WHERE a.requested_model=%s AND a.base_url=%s AND a.prompt_version=%s ), current AS ( SELECT r.id, r.source, r.dataset_version, r.product_id, r.title, r.text, r.has_text, r.rating, r.published_at, r.content_sha256, r.import_run_id, r.line_number, p.title product_title, a.id annotation_id, a.model_version, a.error_code, h.id revision_id, COALESCE(h.action,'unreviewed') human_status, CASE WHEN r.has_text=0 THEN 'empty' WHEN a.id IS NULL THEN 'pending' ELSE a.status END processing_status FROM reviews r LEFT JOIN products p ON p.source=r.source AND p.dataset_version=r.dataset_version AND p.product_id=r.product_id LEFT JOIN attempts a ON a.review_id=r.id AND a.rn=1 LEFT JOIN review_human_reviews h ON h.id=( SELECT MAX(id) FROM review_human_reviews WHERE annotation_id=a.id) ), effective_opinions AS ( SELECT c.id review_id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end, 'model' opinion_source, o.id model_opinion_id, NULL human_opinion_id FROM current c JOIN review_opinions o ON o.annotation_id=c.annotation_id WHERE c.processing_status='success' AND c.revision_id IS NULL UNION ALL SELECT c.id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end, 'human', NULL, o.id FROM current c JOIN review_human_opinions o ON o.human_review_id=c.revision_id ) SELECT c.source, c.dataset_version, c.product_id, c.id review_id, c.annotation_id, c.revision_id human_revision_id, c.processing_status, c.human_status, c.error_code, c.content_sha256 review_content_sha256, c.text review_text, c.published_at, c.import_run_id, c.line_number, i.file_sha256, o.opinion_source, o.model_opinion_id, o.human_opinion_id, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end FROM current c JOIN import_runs i ON i.id=c.import_run_id LEFT JOIN effective_opinions o ON o.review_id=c.id WHERE c.product_id IN (%s) AND c.source=%s AND c.dataset_version=%s AND c.published_at >= %s AND c.published_at < %s ORDER BY c.id, o.quote_start, o.quote_end, o.aspect, o.sentiment, o.model_opinion_id, o.human_opinion_id",
+    "binding": "scoped_identity",
+    "origin": "preserved-R1A-effective-corpus",
+    "startup_only": false
+  },
+  {
+    "sql": "SHOW transaction_read_only",
+    "binding": "none",
+    "origin": "native-source",
+    "startup_only": false
+  },
+  {
+    "sql": "SHOW transaction_isolation",
+    "binding": "none",
+    "origin": "native-source",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT txid_current_snapshot(), transaction_timestamp()",
+    "binding": "none",
+    "origin": "native-source",
+    "startup_only": false
+  },
+  {
+    "sql": "ROLLBACK",
+    "binding": "none",
+    "origin": "native-source",
+    "startup_only": false
+  },
+  {
+    "sql": "COMMIT",
+    "binding": "none",
+    "origin": "native-source",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT product_id,title FROM products WHERE source=%s AND dataset_version=%s AND product_id IN (%s) ORDER BY product_id LIMIT 101",
+    "binding": "product",
+    "origin": "ReviewToolContext.__init__",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT r.*,r.embedding <=> %s::vector(1024) AS distance FROM review_opinion_embeddings r JOIN jsonb_to_recordset(%s::jsonb) v(key text,snapshot text) ON r.stable_versioned_opinion_key=v.key AND r.effective_snapshot_sha256=v.snapshot WHERE r.product_id IN (%s) AND r.source=%s AND r.dataset_version=%s AND r.published_at >= %s AND r.published_at < %s AND r.embedding_space_id=%s AND r.text_builder_version=%s AND r.label_profile_key=%s AND r.invalidated_at IS NULL AND (%s::text IS NULL OR r.aspect=%s) AND (%s::text IS NULL OR r.sentiment=%s) ORDER BY distance,r.id LIMIT %s",
+    "binding": "vector",
+    "origin": "current-native-AST-expression",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT r.id review_id,r.source,r.dataset_version, r.product_id,r.content_sha256,r.published_at,r.import_run_id,r.line_number,r.text,i.file_sha256 FROM reviews r JOIN import_runs i ON i.id=r.import_run_id WHERE r.source=%s AND r.dataset_version=%s AND r.product_id=%s AND r.published_at::timestamptz>=%s::date AND r.published_at::timestamptz<(%s::date+interval '1 day') AND r.id IN (%s)",
+    "binding": "review_context",
+    "ids": 1,
+    "origin": "current-native-AST-expression",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT r.id review_id,r.source,r.dataset_version, r.product_id,r.content_sha256,r.published_at,r.import_run_id,r.line_number,r.text,i.file_sha256 FROM reviews r JOIN import_runs i ON i.id=r.import_run_id WHERE r.source=%s AND r.dataset_version=%s AND r.product_id=%s AND r.published_at::timestamptz>=%s::date AND r.published_at::timestamptz<(%s::date+interval '1 day') AND r.id IN (%s,%s)",
+    "binding": "review_context",
+    "ids": 2,
+    "origin": "current-native-AST-expression",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT r.id review_id,r.source,r.dataset_version, r.product_id,r.content_sha256,r.published_at,r.import_run_id,r.line_number,r.text,i.file_sha256 FROM reviews r JOIN import_runs i ON i.id=r.import_run_id WHERE r.source=%s AND r.dataset_version=%s AND r.product_id=%s AND r.published_at::timestamptz>=%s::date AND r.published_at::timestamptz<(%s::date+interval '1 day') AND r.id IN (%s,%s,%s)",
+    "binding": "review_context",
+    "ids": 3,
+    "origin": "current-native-AST-expression",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT r.id review_id,r.source,r.dataset_version, r.product_id,r.content_sha256,r.published_at,r.import_run_id,r.line_number,r.text,i.file_sha256 FROM reviews r JOIN import_runs i ON i.id=r.import_run_id WHERE r.source=%s AND r.dataset_version=%s AND r.product_id=%s AND r.published_at::timestamptz>=%s::date AND r.published_at::timestamptz<(%s::date+interval '1 day') AND r.id IN (%s,%s,%s,%s)",
+    "binding": "review_context",
+    "ids": 4,
+    "origin": "current-native-AST-expression",
+    "startup_only": false
+  },
+  {
+    "sql": "SELECT r.id review_id,r.source,r.dataset_version, r.product_id,r.content_sha256,r.published_at,r.import_run_id,r.line_number,r.text,i.file_sha256 FROM reviews r JOIN import_runs i ON i.id=r.import_run_id WHERE r.source=%s AND r.dataset_version=%s AND r.product_id=%s AND r.published_at::timestamptz>=%s::date AND r.published_at::timestamptz<(%s::date+interval '1 day') AND r.id IN (%s,%s,%s,%s,%s)",
+    "binding": "review_context",
+    "ids": 5,
+    "origin": "current-native-AST-expression",
+    "startup_only": false
+  }
+]

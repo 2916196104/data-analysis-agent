@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 
 import p7c_real_guard as base
+from f02_network import audit as network_audit
 
 INSTALLED=False
 
@@ -11,11 +12,6 @@ def numeric_loopback(address):
     return (isinstance(address,tuple) and len(address) in (2,4)
             and address[0] in ('127.0.0.1','::1')
             and type(address[1]) is int and 1<=address[1]<=65535)
-
-def network_audit(event,args):
-    if event=='socket.connect' and not numeric_loopback(args[1]):base.deny('s1_external_connect')
-    if event=='socket.sendto' and not numeric_loopback(args[-1]):base.deny('s1_external_datagram')
-    if event=='socket.getaddrinfo' and args[0] not in (None,'127.0.0.1','::1'):base.deny('s1_external_dns')
 
 def validate_pg_target(target,overrides=None):
     from psycopg.conninfo import conninfo_to_dict
@@ -29,14 +25,9 @@ def validate_pg_target(target,overrides=None):
         base.deny('s1_pg_address')
     return info
 
-def readonly_command(sql):
-    tokens=re.sub(r"'(?:[^']|'')*'","''",sql.upper())
-    if re.search(r'\b(INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|COPY|CALL|DO|GRANT|REVOKE)\b',tokens):
-        base.deny('s1_business_write')
-    if re.search(r'READ_ONLY\s*=\s*(OFF|FALSE|0)',sql,re.I):base.deny('s1_readonly_override')
-    if (re.search(r'\bREAD\s+WRITE\b',sql,re.I)
-        or re.search(r"set_config\s*\(\s*'(?:default_)?transaction_read_only'\s*,\s*'(?:off|false|0)'",sql,re.I)):
-        base.deny('s1_readonly_override')
+def readonly_command(sql,parameters=None):
+    from f02_sql import validate_sql
+    if validate_sql(sql,parameters):base.deny('s1_vector_sql')
 
 def install():
     global INSTALLED
@@ -65,12 +56,10 @@ def install():
         kw['options']=(kw.get('options','')+' -c default_transaction_read_only=on').strip()
         return original_connect(conninfo,**kw)
     def execute(self,sql,parameters=None):
-        readonly_command(sql)
+        readonly_command(sql,parameters)
         if '<=>' in sql:base.deny('s1_vector_sql')
         return original_execute(self,sql,parameters)
     def public_execute(self,sql,parameters=None):
-        readonly_command(sql)
-        if '<=>' in sql:base.deny('s1_vector_sql')
         return original_public_execute(self,sql,parameters)
     psycopg.connect=connect;PostgresConnection._execute=execute;PostgresConnection.execute=public_execute
     http.client.HTTPConnection.request=base.blocked('s1_outbound_http')
