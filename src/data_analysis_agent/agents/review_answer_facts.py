@@ -11,6 +11,10 @@ from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.reviews.opinions import ASPECTS
 
 
+# 与现有 InsightDraft.focus 上限一致；不缩减可信主题目录。
+TOPIC_DISPLAY_LIMIT = 8
+
+
 class AnswerFact(AnalysisModel):
     finding_ref: str
     kind: str
@@ -170,7 +174,7 @@ def build_answer_facts(context, *, detailed=False):
             add(stat, "rating", detail, ["星级分布独立于观点情感标注。"], metrics=stat["metrics"])
         elif kind == 'aspect_drilldown':
             filters = stat['filters']
-            for topic in filters['topics']:
+            for topic in sorted(filters['topics'], key=lambda row: (-row['review_count'], row['topic_id'])):
                 basis = '该维度纳入样本评论' if filters['population_mode'] == 'sample' else '该维度该情感的匹配评论'
                 detail = (f"{ASPECTS[topic['aspect']]} · {topic['name']}：{topic['definition']}。"
                           f"{topic['review_count']} 条去重评论、{topic['opinion_count']} 条观点，"
@@ -216,7 +220,10 @@ def build_answer_facts(context, *, detailed=False):
             if not any(ref.source_result_id == stat["source_result_id"] for ref in context.evidence):
                 add(stat, "empty", "当前筛选条件没有匹配原文；没有证据不等于没有问题。", ["当前条件未找到匹配原文。"])
     # 普通回答优先主要发现；显式维度/商品组分别保留，较多分组提示详情。
-    limit = 15 if detailed or context.analysis_type in ('pros_cons', 'aspect_drilldown') else max(5, sum(fact.kind == "trend" for fact in facts))
+    if context.analysis_type == 'aspect_drilldown':
+        # 完整目录用于来源验证与全局审核；正文预算在组装时确定性应用。
+        return facts, False
+    limit = 15 if detailed or context.analysis_type == 'pros_cons' else max(5, sum(fact.kind == "trend" for fact in facts))
     return facts[:limit], len(facts) > limit
 
 
@@ -239,6 +246,16 @@ def answer_caveats(context, facts):
                 messages.append(f"这是受预算限制的非随机样本探索，总体有 {filters['total']} 条匹配评论、{filters['total_opinions']} 条观点；样本占比不能视为总体真实比例。")
             if filters['analysis_status'] == 'partial':
                 messages.append('部分归属批次失败，仅保留已通过来源与计算校验的事实，尚未形成完整分析结果。')
+    if context.analysis_type == 'aspect_drilldown':
+        if any(topic.get('aspect') == 'service' for stat in context.statistics
+               for topic in stat.get('filters', {}).get('topics', [])):
+            messages.append('本次“客服”维度沿用已有服务标注，可能包含安装、售后与客服沟通；'
+                            '请按二级主题理解，安装评价不等同于在线客服体验。')
+        total = sum(len(stat.get('filters', {}).get('topics', [])) for stat in context.statistics
+                    if stat['analysis_type'] == 'aspect_drilldown')
+        if total > TOPIC_DISPLAY_LIMIT:
+            messages.append(f'已复核有效候选主题 {total} 个；正文按可信排名展示前 {TOPIC_DISPLAY_LIMIT} 个，'
+                            f'未展示 {total - TOPIC_DISPLAY_LIMIT} 个，完整排名见统计详情。')
     if any(row['analysis_type'] == 'opinion_breakdown' for row in context.statistics):
         messages.append('现有标注只有六个上级维度；以上按观点原文和情感精确归组，同义表述未合并，不是完整细分主题排名。同一评论可有多条观点并进入多个组，评论数与观点数分别统计。')
     if "no_successful_annotations" in codes:

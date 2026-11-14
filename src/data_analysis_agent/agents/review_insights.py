@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from data_analysis_agent.agents.review_answer_facts import AnswerFact, answer_caveats, build_answer_facts, percent
+from data_analysis_agent.agents.review_answer_facts import AnswerFact, TOPIC_DISPLAY_LIMIT, answer_caveats, build_answer_facts, percent
 from data_analysis_agent.agents.review_results import AnalysisModel
 from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.reviews.opinions import ASPECTS
@@ -35,6 +35,9 @@ class SupportDecision(AnalysisModel):
     reason: Literal['supported', 'new_fact', 'causal_claim', 'scope_error', 'unsupported_interpretation',
                     'entity_error', 'evidence_error', 'contradiction', 'redundant']
     detail: str = Field(default='', max_length=180)
+    topic_claim_type: Literal['definition', 'future_check', 'distribution', 'exhaustiveness',
+                              'population', 'aggregation', 'other'] | None = None
+    checked_topic_groups: list[str] = Field(default_factory=list, max_length=8)
 
 
 class SupportReview(AnalysisModel):
@@ -106,11 +109,16 @@ def parse_draft(raw, catalog):
         row = by_id[key]
         return row['scope_ref'], row['aspect'] if row['kind'] == 'trend' else None, row['fact'].sentiment
     additions = []
-    for key in [ref for item in insights for ref in item.fact_ids] + default_focus(catalog):
-        if key not in focus and (key in [ref for item in insights for ref in item.fact_ids]
-            or group(key) not in {group(ref) for ref in focus}
-            or (key == catalog[0]['fact_id'] and catalog[0]['kind'] in ('topic', 'aspect', 'contrast'))):
-            focus.append(key); additions.append(key)
+    topic_focus = deterministic_topic_focus(catalog)
+    if topic_focus is not None:
+        additions = [key for key in topic_focus if key not in focus]
+        focus = topic_focus
+    else:
+        for key in [ref for item in insights for ref in item.fact_ids] + default_focus(catalog):
+            if key not in focus and (key in [ref for item in insights for ref in item.fact_ids]
+                or group(key) not in {group(ref) for ref in focus}
+                or (key == catalog[0]['fact_id'] and catalog[0]['kind'] in ('topic', 'aspect', 'contrast'))):
+                focus.append(key); additions.append(key)
     if len(focus) > 8:
         raise DraftValidationError('focus_budget', '必要重点超过回答预算。')
     for item in insights:
@@ -206,6 +214,7 @@ def fact_catalog(context):
                     and (group is None or (ref.review_id == group['review_id'] and ref.evidence_ref == group['evidence_ref']))]
         evidence_ids = ['evidence:' + content_sha256([ref.source_result_id, ref.review_id, ref.evidence_ref])[:20] for ref in evidence]
         entries.append({'fact_id': fact.finding_ref, 'result_ids': fact.source_result_ids, 'scope_ref': fact.scope_ref,
+            'answer_type': context.analysis_type,
             'scope': deepcopy(scopes[fact.scope_ref]), 'kind': fact.kind, 'aspect': aspect, 'label': label,
             'topic_id': topic['topic_id'] if topic else None, 'topic_definition': topic['definition'] if topic else None,
             'metrics': deepcopy(fact.metrics), 'evidence_ids': evidence_ids,
@@ -216,7 +225,59 @@ def fact_catalog(context):
     return entries, omitted
 
 
+def deterministic_topic_focus(catalog):
+    """只约束成功的主题回答；同组沿用 recompute_topics 的数量/topic_id 排名。"""
+    if not catalog or any(row.get('answer_type') != 'aspect_drilldown' or row['kind'] not in ('topic', 'empty')
+                          or row['analysis_status'] != 'complete' for row in catalog):
+        return None
+    groups = {}
+    for row in catalog:
+        if row['kind'] == 'topic':
+            group = topic_group(row)
+            groups.setdefault(group, []).append(row)
+    if not groups:
+        return None
+    ranked = [row for rows in groups.values() for row in sorted(rows,
+              key=lambda row: (-row['metrics'][0]['review_count'], row['topic_id']))]
+    return [row['fact_id'] for row in ranked[:TOPIC_DISPLAY_LIMIT]]
+
+
+def topic_group(row):
+    # result_ids 隔离不同查询；scope_ref 已绑定商品、日期和标注身份。
+    return row['scope_ref'], tuple(row['result_ids']), row['aspect'], row['fact'].sentiment
+
+
+def relevant_topic_rows(catalog, refs):
+    groups = {topic_group(row) for row in catalog if row['fact_id'] in refs and row['kind'] == 'topic'}
+    return [row for row in catalog if row['kind'] == 'topic' and topic_group(row) in groups]
+
+
+def validate_topic_claim(insight, catalog):
+    """自由解释不能证明分布/全集/互斥关系；这些判断只由可信统计正文给出。
+
+    引用合法只证明来源。先绑定完整同组目录再检查断言类型；描述性释义仍需
+    独立语义审核，不因其引用的是低频主题而拒绝。
+    """
+    rows = relevant_topic_rows(catalog, set(insight.fact_ids))
+    if not rows or program_supported(insight, catalog):
+        return
+    text = unicodedata.normalize('NFKC', SLOT.sub('', insight.text))
+    if re.search(r'(?:所有|全部|每位|每个|每一位|全体|整个|人人|无一例外|无不)|一概|均(?:关注|认可|认为)|都(?:关注|认可|认为)', text):
+        raise DraftValidationError('unproven_topic_exhaustiveness', '候选主题不能证明全部评论、用户或主题的全集判断。')
+    if re.search(r'合计|相加|加起来|总和|互斥|剩余.*(?:占|比例)|其余.*(?:占|比例)', text):
+        raise DraftValidationError('overlapping_topic_aggregation', '同组主题可能重叠，不能相加为互斥比例。')
+    if re.search(r'主要|集中|主导|最多|最高|最低|最少|首要|首位|领先|居首|为主|大部分|大多数|绝大|更受|更常|高于|低于|超过|多于|少于|排名|排在|最受|最常|普遍|压倒|热门|核心关注|重心', text):
+        cited = [row for row in rows if row['fact_id'] in insight.fact_ids]
+        minor = any(max(row['metrics'][0]['review_count'] for row in rows if topic_group(row) == topic_group(ref))
+                    > ref['metrics'][0]['review_count'] for ref in cited)
+        raise DraftValidationError('minority_topic_dominance' if minor else 'unverified_topic_distribution',
+                                   '自由解释的排名或分布断言未获程序证明；保留后端计算的可信排名。')
+
+
 def default_focus(catalog):
+    topic_focus = deterministic_topic_focus(catalog)
+    if topic_focus is not None:
+        return topic_focus
     selected, groups = [], set()
     # 先保留各维度/商品/情感的一个发现，避免前一组占满正文预算。
     for row in catalog:
@@ -240,6 +301,10 @@ def validate_draft(draft, catalog):
     by_id = {row['fact_id']: row for row in catalog}
     if len(set(draft.focus)) != len(draft.focus) or not set(draft.focus) <= set(by_id):
         raise DraftValidationError('unknown_or_duplicate_focus', '重点发现引用不存在或重复。')
+    topic_focus = deterministic_topic_focus(catalog)
+    if topic_focus is not None:
+        # 覆盖紧凑/旧协议、直接组装和历史读取；模型不能控制主题取舍与顺序。
+        draft.focus = topic_focus
     required = default_focus(catalog)
     required_groups = {(by_id[key]['scope_ref'], by_id[key]['aspect'] if by_id[key]['kind'] == 'trend' else None, by_id[key]['fact'].sentiment) for key in required}
     actual_groups = {(by_id[key]['scope_ref'], by_id[key]['aspect'] if by_id[key]['kind'] == 'trend' else None, by_id[key]['fact'].sentiment) for key in draft.focus}
@@ -252,6 +317,7 @@ def validate_draft(draft, catalog):
     for insight in draft.insights:
         if len(set(insight.fact_ids)) != len(insight.fact_ids) or not set(insight.fact_ids) <= set(draft.focus):
             raise DraftValidationError('unknown_insight_reference', '解释引用不属于重点发现。')
+        validate_topic_claim(insight, catalog)
         # 已知一级维度是目录实体，不是评论引文；精确匹配后重绑定，其他自由引文仍拒绝。
         for key in insight.fact_ids:
             name = ASPECTS.get(by_id[key]['aspect'])
@@ -384,7 +450,32 @@ def support_payload(question, candidate, catalog, indices, limitations):
     mapping = {key: alias for alias, key in aliases(catalog).items()}
     by_id = {row['fact_id']: row for row in catalog}
     refs = {ref for index in indices for ref in candidate.insights[index].fact_ids}
-    facts = [row for row in model_catalog(catalog) if row['fact_id'] in {mapping[key] for key in refs}]
+    related = relevant_topic_rows(catalog, refs)
+    review_ids = refs | {row['fact_id'] for row in related}
+    facts = [row for row in model_catalog(catalog) if row['fact_id'] in {mapping[key] for key in review_ids}]
+    groups = {}
+    for row in related:
+        key = topic_group(row)
+        if key not in groups:
+            groups[key] = {
+                'id': f'G{len(groups) + 1}',
+                'scope': {field: deepcopy(row['scope'][field]) for field in (
+                    'source', 'dataset_version', 'product_ids', 'date_from', 'date_to', 'as_of', 'timezone')
+                    if field in row['scope']},
+                'aspect': row['aspect'], 'sentiment': row['fact'].sentiment,
+                'population_mode': row['population_mode'], 'coverage': deepcopy(row['coverage']),
+                'candidate_status': 'model_reviewed_not_human_confirmed',
+                'topics_may_overlap': True, 'ranking': [],
+            }
+        groups[key]['ranking'].append(row)
+    for group in groups.values():
+        group['ranking'] = [mapping[row['fact_id']] for row in sorted(group['ranking'],
+                            key=lambda row: (-row['metrics'][0]['review_count'], row['topic_id']))]
+    if related:
+        # 全局 answer_caveats 可能含其他商品/时间窗的样本数；审核只带同组限制。
+        limitations = ['目录仅含当前同组已验证的模型候选主题，未经人工确认，未穷尽全部主题；主题可能重叠，不能相加。']
+        if any(row['population_mode'] == 'sample' for row in related):
+            limitations.append('非随机受限样本，主题占比不能外推到总体或全部消费者。')
     def render(match):
         row = by_id[match[1]]
         if match[2] == 'label': return row['label']
@@ -394,8 +485,13 @@ def support_payload(question, candidate, catalog, indices, limitations):
             return row['scope'].get('product_titles', {})[product] if match[2].startswith('title_') else product
         return '[本地已核验原文 ' + mapping[match[1]] + ']'
     return {'stage': 'answer_support_review', 'question': question, 'facts': facts, 'limitations': limitations,
+        'topic_groups': list(groups.values()),
+        'topic_claim_policy': '仅允许已有定义支持的描述性释义；自由排名、全集和互斥占比断言不能标为已验证。',
         'insights': [{'index': index, 'kind': candidate.insights[index].kind,
                       'refs': [mapping[ref] for ref in candidate.insights[index].fact_ids],
+                      'topic_group_ids': [group['id'] for key, group in groups.items()
+                                          if key in {topic_group(by_id[ref]) for ref in candidate.insights[index].fact_ids
+                                                     if by_id[ref]['kind'] == 'topic'}],
                       'text': SLOT.sub(render, candidate.insights[index].text)} for index in indices]}
 
 
@@ -421,6 +517,7 @@ REVIEW_PROMPT = '''你独立审核解释是否由给定事实支持，只输出 
 COMPACT_DRAFT_PROMPT = '''你根据可信事实回答本轮问题，只输出 JSON：
 {"focus":["F1","F2"],"insights":[{"kind":"interpretation","refs":["F1","F2"],"text":"简短描述这些评价关注的体验侧面。"}]}
 focus 选择相关事实短 ID，覆盖必需组。insights 通常只写一句、最多两句，每句最多六十字；kind 为 interpretation 或 suggestion。
+主题回答的完整列表、数量排名与展示预算由程序决定，focus 不能隐藏或重排主题。主题解释仅描述已有定义支持的具体含义，不另作主导性、排名、全集或占比加总判断。
 只有 refs 中至少一项 interpretation_basis=true 才生成 interpretation；否则 insights=[]。不因用户要求解释而猜内容。suggestion 仅在用户确实要求建议时考虑。
 正文的统计、名称、原文由后端绑定。解释可以用目录名称或代词，不必写占位符；禁止输出数字、日期、评论引文、新商品、虚构主题。
 只概括已有内容和有依据的联系，不复述数字或限制。主题名称已经清楚时，解释其具体含义或相互区别，不再只重复主题名单。主题定义/名称的合理释义可以写；新增原因、性能、用户画像或商业结论不能写。不用“源于”归因，不把一般数值差异说成统计显著。
@@ -431,6 +528,9 @@ sample 只代表纳入样本；主题为未经人工确认的候选；低样本�
 COMPACT_REVIEW_PROMPT = '''审核自由解释，只输出 JSON：
 {"decisions":[{"index":0,"supported":true,"reason":"supported","detail":"说明支持依据，或指出具体新增/矛盾的内容"}]}
 每个输入 index 审核一次。允许：主题名称/定义的描述性释义、已知统计关系的谨慎解释、明确属于未来核查的建议；不要求解释必须是统计句。
+topic_groups 提供同一查询范围、维度及情感的完整已验证候选排名；facts 中包含对应计数、分母和占比。insights.refs 只是局部来源，不能代表整体分布。必须结合完整同组目录审核，不得因局部引用合法就接受整体判断。
+主题解释仅允许定义支持的描述性释义。自由文本的主导性、比较排名、全部用户/全部主题或互斥占比断言不属于程序已验证结论，拒绝为 unsupported_interpretation；低频主题的准确释义可以通过，但仍须有增量价值。sample 不得外推到总体，候选主题不得称为人工确认。
+当 insight 带有 topic_group_ids 时，每个 decision 还必须返回 topic_claim_type 和 checked_topic_groups。checked_topic_groups 必须逐一列出实际审核的这些 G 编号；topic_claim_type 按整句语义选 definition（纯定义释义）、future_check（未来核查建议）、distribution（含比较/排名/集中判断）、exhaustiveness（全集）、population（总体外推）、aggregation（加总/互斥）或 other。一句话含多种断言时不可用 definition 掩盖其他断言。只有 definition 或与 suggestion 对应的 future_check 才可 supported=true；其他类型和不确定均拒绝。不得只看关键词判型。
 先检查增量价值：只重复主题名单、维度、变化方向或样本不足，虽可能正确，也用 supported=false、reason=redundant。泛化常识或换句话复述不算洞察。
 仅当解释增加了已有定义/独立统计关系支持的具体信息，或给出有事实基础的待核查建议，才考虑 supported=true。不要为了有解释而放宽支持条件。
 拒绝：数据没有支持的原因、用户群体、产品参数/真实性能差距、虚构主题或来源、样本外推、把低样本波动称稳定改善、把候选说成人工标签。

@@ -17,7 +17,7 @@ from data_analysis_agent.agents.review_semantics import opinion_request
 from data_analysis_agent.agents.review_evidence_semantics import apply_evidence_relations
 from data_analysis_agent.agents.review_insights import (
     COMPACT_DRAFT_PROMPT, COMPACT_REVIEW_PROMPT, DraftValidationError, InsightDraft, SupportReview, analysis_state, default_focus,
-    fact_catalog, lead_summary, model_catalog, render_insights, validate_draft,
+    deterministic_topic_focus, fact_catalog, lead_summary, model_catalog, render_insights, validate_draft,
     aliases, has_interpretation_basis, parse_draft, parse_json, parse_support_review, program_supported, support_payload,
 )
 
@@ -154,6 +154,14 @@ class AnswerAssembler:
         # 始终重建可信目录，不接受模型提交的数值、来源或范围对象。
         facts, omitted = build_answer_facts(context, detailed=detailed)
         AnswerValidator().validate(draft, context, facts)
+        catalog, _ = fact_catalog(context)
+        topic_focus = deterministic_topic_focus(catalog)
+        summary = draft.summary
+        if topic_focus is not None:
+            by_id = {row['fact_id']: row for row in catalog}
+            selected = [by_id[key] for key in topic_focus]
+            facts = [row['fact'] for row in selected]
+            summary = lead_summary(context, selected)
         explanations = {item.finding_ref: item.explanation for item in draft.items}
         highlights = []
         for fact in facts:
@@ -192,7 +200,7 @@ class AnswerAssembler:
             if "positive_review_count" in sample:
                 note += f"，其中 {sample['positive_review_count']} 条包含正向观点"
             note += "。"
-        answer=PublicAnswer(status="ok", summary=draft.summary, highlights=highlights,
+        answer=PublicAnswer(status="ok", summary=summary, highlights=highlights,
             metrics=[{"finding_ref": fact.finding_ref, "scope_ref": fact.scope_ref, "values": fact.metrics} for fact in facts],
             sample_note=note, evidence_refs=context.evidence, caveats=notes, generation_status=generation_status,
             source_result_ids=context.source_result_ids, scope_summary=context.scope_summary, details_available=True)
@@ -341,18 +349,28 @@ class NaturalLanguageAnswerGenerator:
                                 pending.append(index)
                         if pending:
                             diagnostics['support_attempted_insights'] = len(pending)
-                            review_messages = [{'role': 'system', 'content': COMPACT_REVIEW_PROMPT}, {'role': 'user', 'content': canonical_json(
-                                support_payload(question, candidate, catalog, pending, answer_caveats(context, facts)))}]
+                            review_payload = support_payload(question, candidate, catalog, pending, answer_caveats(context, facts))
+                            review_messages = [{'role': 'system', 'content': COMPACT_REVIEW_PROMPT}, {'role': 'user', 'content': canonical_json(review_payload)}]
                             review = parse_support_review(parse_json(call('support_review', review_messages, 280)))
                             if len(review.decisions) != len(pending) or {row.index for row in review.decisions} != set(pending):
                                 raise DraftValidationError('review_coverage', '支持性复核遗漏或重复解释。')
                             for row in review.decisions:
                                 supported = row.supported and row.reason == 'supported'
+                                topic_groups = next(item['topic_group_ids'] for item in review_payload['insights'] if item['index'] == row.index)
+                                allowed_type = 'definition' if candidate.insights[row.index].kind == 'interpretation' else 'future_check'
+                                structured_ok = not topic_groups or (row.topic_claim_type == allowed_type
+                                    and len(row.checked_topic_groups) == len(set(row.checked_topic_groups))
+                                    and set(row.checked_topic_groups) == set(topic_groups))
+                                supported &= structured_ok
                                 diagnostics['insight_decisions'].append({'index': row.index, 'accepted': supported,
-                                    'reason': row.reason, 'detail': row.detail, 'detail_supplied': bool(row.detail)})
+                                    'reason': row.reason if structured_ok else 'unsupported_interpretation',
+                                    'detail': row.detail, 'detail_supplied': bool(row.detail),
+                                    'topic_claim_type': row.topic_claim_type, 'checked_topic_groups': row.checked_topic_groups,
+                                    'structured_topic_review_passed': structured_ok})
                                 if supported:
                                     accepted.append(row.index)
-                            diagnostics['reviewed_insights'] = sum(row.supported and row.reason == 'supported' for row in review.decisions)
+                            diagnostics['reviewed_insights'] = sum(row['accepted'] for row in diagnostics['insight_decisions']
+                                                                 if row['index'] in pending)
                         candidate.insights = [item for index, item in enumerate(candidate.insights)
                                               if index in accepted and not program_supported(item, catalog)]
                         draft = candidate

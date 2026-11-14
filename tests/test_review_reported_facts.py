@@ -58,6 +58,18 @@ class ReportedFactsTests(unittest.TestCase):
         result=assess_retrieval(self.question,[evidence('制冷很差；外观不错。','外观不错')])
         self.assertEqual(result['permitted_keys'],[])
 
+    def test_full_review_retraction_or_irony_vetoes_exact_quote(self):
+        for ending in ('没有这回事。', '没这回事。', '此事并未发生。', '这是反讽。'):
+            with self.subTest(ending=ending):
+                result = assess_retrieval('有没有送货慢的反馈？',
+                    [evidence('送货很慢。' + ending, '送货很慢')])
+                self.assertEqual(result['status'], 'insufficient')
+                self.assertEqual(result['permitted_keys'], [])
+                self.assertEqual(result['candidate_judgments'][0]['reason'], 'context_unresolved')
+        positive = assess_retrieval('有没有送货慢的反馈？',
+            [evidence('送货很慢。外壳颜色很漂亮。', '送货很慢')])
+        self.assertEqual(positive['status'], 'sufficient')
+
     def test_service_role_and_subtopic_not_interchangeable(self):
         for question,quote in [('有没有客服态度差的反馈？','安装师傅态度差'),
                                ('有没有制热效果差的反馈？','制冷很差'),

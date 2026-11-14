@@ -57,7 +57,9 @@ class InsightTests(answer_fixture.WorkbenchFixture, unittest.TestCase):
                     draft = transform(draft)
             else:
                 draft = {'decisions': [{'index': index, 'supported': not reject,
-                    'reason': 'unsupported_interpretation' if reject else 'supported'} for index in range(len(payload['insights']))]}
+                    'reason': 'unsupported_interpretation' if reject else 'supported',
+                    'topic_claim_type': 'definition', 'checked_topic_groups': item.get('topic_group_ids', [])}
+                    for index, item in enumerate(payload['insights'])]}
             return completion({'role': 'assistant', 'content': json.dumps(draft)})
         def client(**kwargs):
             self.assertEqual(kwargs['max_retries'], 0)

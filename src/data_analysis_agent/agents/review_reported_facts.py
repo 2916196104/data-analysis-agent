@@ -75,7 +75,8 @@ def context_ok(row, facts):
             and re.search(r'退货|退回|退件|返修|寄回|换货', text)):
         return False
     if re.search(HAZARDS + r'|忽略.*规则|给AI|提示词|系统指令|不对|错了|不实|其实|实际上|然而|但是|不过|至于|上述|那是|那只是|这只是|才怪'
-                 r'|说|声称|表示|转述|传闻|假设|假定|倘若|否认|不.*(?:认为|觉得|认同|认可)|这话|此话|前一句',text):return False
+                 r'|说|声称|表示|转述|传闻|假设|假定|倘若|否认|不.*(?:认为|觉得|认同|认可)|这话|此话|前一句'
+                 r'|没(?:有)?这回事|此事并未发生|这是反讽',text):return False
     # A phrase cut out of a negated/reported/hypothetical clause is not an assertion.
     containing=[m for m in re.finditer(r'[^，,。！!；;\n]+',text) if m.start()<end and m.end()>start]
     if not containing:return False

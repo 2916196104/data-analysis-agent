@@ -153,6 +153,21 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
         result=self.run_question('有没有客服态度差的反馈？');self.assert_success(result)
         self.assertEqual(result['public_answer']['evidence_refs'],[])
 
+    def test_retracted_quote_reaches_only_insufficient_deterministic_answer(self):
+        for ending in ('没有这回事。', '此事并未发生。', '这是反讽。'):
+            with self.subTest(ending=ending):
+                self.sources = [source(self.scope(), '制冷不足。' + ending, '制冷不足'),
+                                source(self.scope(), '制热很快。', '制热很快', rid=2)]
+                self.matches = [OpinionMatch(self.sources[0].opinions[0], 0.001)]
+                result = self.run_question()
+                self.assert_success(result)
+                assessment = result['answer_generation']['evidence_assessment']
+                self.assertEqual(assessment['status'], 'insufficient')
+                self.assertEqual(assessment['permitted_keys'], [])
+                self.assertEqual(result['public_answer']['evidence_refs'], [])
+                self.assertIn('不能确认', result['answer'])
+                self.assertEqual(result['answer_generation']['attempts'], 0)
+
     def test_safe_retrieval_failure_does_not_publish_answer_or_secret(self):
         self.repository_error=RuntimeError('SECRET BACKEND CONTENT')
         result=self.run_question()

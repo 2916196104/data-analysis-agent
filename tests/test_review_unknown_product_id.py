@@ -2,6 +2,7 @@
 from copy import deepcopy
 from dataclasses import replace
 import json
+import sqlite3
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -105,6 +106,19 @@ def trace_question(question):
                  agent_status=result['status'], agent_answer=result.get('answer'),
                  agent_selection_scope=result.get('scope'), agent_query_plan=result.get('query_plan'))
     return trace
+
+
+class CatalogRowTests(unittest.TestCase):
+    def test_sqlite_catalog_rows_preserve_id_and_optional_brand_contract(self):
+        with sqlite3.connect(':memory:') as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute('SELECT ? AS product_id, ? AS title',
+                ('100013588055', '合成商品')).fetchall()
+            self.assertEqual(match_product_mentions(['100013588055'], rows), ['100013588055'])
+            with self.assertRaises(QuestionScopeError):
+                match_product_mentions(['XYZ-ABC123'], rows)
+            self.assertEqual(match_product_mentions(['合成商品'], rows), ['100013588055'])
+            self.assertEqual(product_mentions('合成商品的差评有哪些？', rows), ['合成商品'])
 
 
 class UnknownProductIdTests(unittest.TestCase):

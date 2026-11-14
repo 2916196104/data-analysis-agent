@@ -32,8 +32,12 @@ class AnswerStabilityTests(fixture.answer_fixture.WorkbenchFixture, unittest.Tes
                 content = draft if isinstance(draft, str) else json.dumps(draft, ensure_ascii=False)
                 if fence: content = '```json\n' + content + '\n```'
             else:
-                content = json.dumps({'decisions': review or [{'index': item['index'], 'supported': True,
-                    'reason': 'supported', 'detail': '对候选名称的描述性释义，未新增性能或因果事实。'} for item in payload['insights']]})
+                decisions = deepcopy(review) if review else [{'index': item['index'], 'supported': True,
+                    'reason': 'supported', 'detail': '对候选名称的描述性释义，未新增性能或因果事实。'} for item in payload['insights']]
+                for decision in decisions:
+                    item = next((item for item in payload['insights'] if item['index'] == decision['index']), {})
+                    decision.update(topic_claim_type='definition', checked_topic_groups=item.get('topic_group_ids', []))
+                content = json.dumps({'decisions': decisions})
             return completion({'role': 'assistant', 'content': content})
         def client(**kwargs):
             return OpenAI(**kwargs, http_client=httpx.Client(transport=httpx.MockTransport(handle)))

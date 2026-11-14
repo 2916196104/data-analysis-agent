@@ -135,7 +135,7 @@ def product_mentions(question, products):
         clause = _product_clause(clause)
         clause = re.sub(r'^(?:不是|并非|并不是)(?=(?:空调|商品|产品))', '', clause)
         brands = []
-        for brand in sorted({row.get('brand') for row in products if row.get('brand')}, key=len, reverse=True):
+        for brand in sorted({dict(row).get('brand') for row in products if dict(row).get('brand')}, key=len, reverse=True):
             if brand not in {'其他', '未知'} and brand in clause:
                 brands.append(brand + '空调' if brand + '空调' in clause else brand)
         head = re.split(r'好评|差评|优缺点|优点|缺点|评价|使用|用了|用过|运行|购买|买了|制热|耐用|寿命|使用效果|制冷|静音|安装|质量|效果|包装|物流|客服|服务|价格|趋势|问题|哪些|什么|怎么样|如何', clause, maxsplit=1)[0]
@@ -174,7 +174,7 @@ def match_product_mentions(mentions, products, *, selected_ids=(), strict=False,
     for mention in mentions:
         exact_ids = [row for row in products if mention == row['product_id']]
         named = (not re.fullmatch(r'\d+|B0[A-Za-z0-9]{8}', mention, re.I)
-                 and any(mention in (row['title'], row.get('brand')) for row in products))
+                 and any(mention in (row['title'], dict(row).get('brand')) for row in products))
         if identifiers_only or exact_ids or (_product_identifier(mention) and not named):
             candidates = exact_ids
         else:
@@ -222,7 +222,7 @@ def _pros_cons_products(question, products, *, selected_ids=()):
         if len(mentions) == 1 and within_selection:
             candidates = within_selection
         if len(candidates) > 1:
-            brands = {row.get('brand') for row in candidates}
+            brands = {dict(row).get('brand') for row in candidates}
             brand = next(iter(brands)) if len(brands) == 1 else None
             if not brand or mention not in {brand, brand + '空调', brand + '商品', brand + '产品'}:
                 ids = '、'.join(row['product_id'] for row in candidates[:5])
