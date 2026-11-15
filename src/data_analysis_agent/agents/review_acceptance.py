@@ -148,7 +148,11 @@ def build_request_goal(question, context=None):
             goal = replace(goal, levels=(prior_level,), statistic_families=())
         if count_reference:
             goal = replace(goal, levels=('statistics',), statistic_families=('summary',))
-        whole = bool(re.search(r'整体|总体|全部|所有|商品的?好评|评论中具体的好评', text))
+        subject = re.match(r'^(.{2,100}?)的(?:好评|差评|评价|优点|缺点)', text)
+        # 完整的新商品请求不继承旧维度；“这些/上述”等省略指代继续承接历史。
+        named_subject = (subject and not aspect and not topic
+                         and not re.match(r'这些|那些|上述|刚才|之前|前面|上面', subject[1]))
+        whole = bool(named_subject or re.search(r'整体|总体|全部|所有|商品的?好评|评论中具体的好评', text))
         count_target = count_reference and bool(last and params.get('aspect') and
             (params.get('sentiment') or previous.get('sentiment')) in ('positive', 'negative'))
         inherit_aspect = not whole and (reference or count_target or bool(re.search(r'具体|体现|表现|抱怨|吐槽|往里挖', text)))

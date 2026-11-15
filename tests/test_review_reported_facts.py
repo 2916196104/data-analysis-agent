@@ -15,6 +15,35 @@ def evidence(text, quote=None, rid=1, key='synthetic-1'):
 class ReportedFactsTests(unittest.TestCase):
     question='有没有制冷不足的反馈？'
 
+    def test_explicit_positive_experiences_include_degree_and_additive_words(self):
+        for quote in ('制冷效果很不错', '制冷效果也很好', '制冷也不错',
+                      '制冷效果很不错，诺大的空间很快就打凉了', '制冷很快，制冷效果也很好，棒棒的'):
+            with self.subTest(quote=quote):
+                row = evidence('冷暖效果：' + quote + '。外观漂亮。', quote)
+                result = assess_retrieval('有没有制冷效果好的反馈？', [row])
+                self.assertEqual(result['status'], 'sufficient')
+                self.assertEqual(result['permitted_keys'], [row['key']])
+                self.assertEqual(result['fact_bindings'][0]['fact_ids'], ['cooling_good'])
+                self.assertFalse(result['general_entailment'])
+
+    def test_positive_variants_keep_negation_report_conflict_and_speed_boundaries(self):
+        for text, quote in (
+                ('并非制冷效果很不错。', '制冷效果很不错'),
+                ('朋友说制冷效果也很好。', '制冷效果也很好'),
+                ('如果制冷效果很不错，就留下。', '制冷效果很不错'),
+                ('制冷效果很不错？', '制冷效果很不错'),
+                ('制冷效果很不错；制冷很差。', '制冷效果很不错'),
+                ('制冷效果也很好；后来完全不制冷。', '制冷效果也很好'),
+                ('制冷效果不是很好。', '制冷效果不是很好'),
+                ('制冷效果也不太好。', '制冷效果也不太好'),
+                ('制热效果很不错。', '制热效果很不错'),
+                ('制冷速度很快。', '制冷速度很快')):
+            with self.subTest(text=text):
+                result = assess_retrieval('有没有制冷效果好的反馈？', [evidence(text, quote)])
+                self.assertEqual(result['permitted_keys'], [])
+        result = assess_retrieval('有没有制冷很快的反馈？', [evidence('制冷效果很不错。')])
+        self.assertEqual(result['permitted_keys'], [])
+
     def test_equivalent_and_directional_entailment_with_exact_bindings(self):
         for quote in ('制冷不佳','空调制冷不给力','我觉得制冷很差','根本降不下温','空调完全不制冷'):
             with self.subTest(quote=quote):

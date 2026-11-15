@@ -118,6 +118,19 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(result['answer_generation']['evidence_assessment']['reason'],'no_candidates')
         self.assertFalse(any(row.get('tool')=='get_evidence' for row in result['trace']))
 
+    def test_positive_experience_variant_passes_native_source_validation_and_public_answer(self):
+        quote = '制冷效果很不错，诺大的空间很快就打凉了'
+        self.sources = [source(self.scope(), '冷暖效果：' + quote + '。外观漂亮。', quote, sentiment='positive'),
+                        source(self.scope(), '制热很快。', '制热很快', rid=2, sentiment='positive')]
+        self.matches = [OpinionMatch(self.sources[0].opinions[0], 0.001)]
+        result = self.run_question('有没有制冷效果好的反馈？')
+        self.assert_success(result)
+        self.assertEqual(result['answer_generation']['evidence_assessment']['status'], 'sufficient')
+        self.assertEqual(result['public_answer']['evidence_refs'][0]['opinions'][0]['quote'], quote)
+        self.assertTrue(validate_retrieval(result['results']['r1']['data'], result['question']))
+        self.assertEqual(read_public_answer({'status': 'succeeded', 'result': result}), result['public_answer'])
+        self.assertEqual(result['total_model_calls'], 0)
+
     def test_opposite_topic_and_small_distance_are_not_support(self):
         self.sources=[source(self.scope(),'制热很快。','制热很快',sentiment='positive'),
                       source(self.scope(),'制冷效果好。','制冷效果好',rid=2,sentiment='positive')]
