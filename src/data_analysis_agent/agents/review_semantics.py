@@ -311,9 +311,11 @@ def opinion_request(question):
     detail = bool(re.search(r"里面|细分|关注|提及最多|哪些问题|哪些方面|主要集中|具体.*(?:好|差|优点|缺点)|好在哪里|差在哪里", text))
     experience = bool(re.search(r"用起来.*(?:怎么样|如何)|效果.*(?:怎么样|如何)", text))
     # 好评内容总结与数量排名、逐条原文是不同目标；整体总结允许省略维度。
+    positive_enumeration = aspect and not re.search(r'维度|排名', text) and re.search(
+        r'好评(?:主要)?有哪些|(?:有哪些|哪些)好评', text)
     positive_summary = detect_sentiment_directions(text) == {'positive'} and bool(re.search(
-        r'具体|体现|表现|好在(?:哪里|哪)|称赞|夸|总结|概括|归纳', text)) and not re.search(
-        r'原文|证据|\d+\s*条|[条则].*好评|多少|占比|比例|数量|几条', text)
+        r'具体|体现|表现|好在(?:哪里|哪)|称赞|夸|总结|概括|归纳', text) or positive_enumeration) and not re.search(
+        r'原文|证据|\d+\s*条|[条则].*好评|多少|占比|比例|数量|评论数|观点数|几条', text)
     # 一级维度内询问内容，与只问数量/占比不同；所有合法维度共用这一判据。
     metric_manifestation = re.search(r'(?:数量|占比|比例|评论数|观点数)(?:的|上|方面|具体|主要|整体|总体|近期)*(?:体现|表现)', text)
     examples = bool(re.search(r'原文|证据|举例|例子|\d+\s*条', text))

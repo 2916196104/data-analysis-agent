@@ -76,6 +76,8 @@ def build_request_goal(question, context=None):
     themes = not examples and not metric_manifestation and bool(re.search(
         r'体现|表现|归纳|总结|子主题|主题归类|具体(?:在)?抱怨什么|(?:抱怨|吐槽|投诉).*(?:哪些事情|哪些问题|些什么)|有哪些不满意的(?:地方|方面)', text)
         or (aspect and re.search(r'(?:具体(?:涉及|有)?|主要有)哪些问题|主要问题集中.*环节', text))
+        or (sentiment == 'positive' and aspect and not metrics and not re.search(r'维度|评论数|观点数', text)
+            and re.search(r'好评(?:主要)?有哪些|(?:有哪些|哪些)好评', text))
         or (sentiment == 'positive' and re.search(r'具体.*好评|好评.*具体', text) and not metrics
             and not re.match(r'这些|那些|上述', text)))
     content = bool(topic or re.search(r'观点内容|具体内容|原始观点|观点文本|逐条观点|用起来.*(?:怎么样|如何)|效果.*(?:怎么样|如何)|'
