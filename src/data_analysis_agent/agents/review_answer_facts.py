@@ -56,10 +56,19 @@ def confirmed_aspects(context):
             if row.get('filters', {}).get('aspect') in ASPECTS}
 
 
+def is_mixed_overview(context):
+    kinds = {row['analysis_type'] for row in context.statistics}
+    return (context.analysis_type == 'composite' and {'evidence', 'issues'} <= kinds
+            and bool(kinds & {'trend', 'aspect_trend'})
+            and all({row['aspect'] for row in stat['aspects']} == set(ASPECTS)
+                    for stat in context.statistics if stat['analysis_type'] == 'issues'))
+
+
 def build_answer_facts(context, *, detailed=False):
     scopes = {row["scope_ref"]: row for row in context.scope_summary}
     samples = {row["sample_ref"]: row for row in context.sample_summary}
     facts = []
+    mixed = is_mixed_overview(context)
     comparison = any(row["analysis_type"] == "comparison" for row in context.statistics)
     advice = bool(re.search(r"建议|改进|改善|优化", context.question))
 
@@ -85,6 +94,13 @@ def build_answer_facts(context, *, detailed=False):
             sentiment_name = "正面" if positive else "负面"
             count_name = "positive_review_count" if positive else "negative_review_count"
             rows = stat['aspects']
+            if mixed and kind == 'issues':
+                detail = '六维度主要问题（按负面提及评论数排序）：' + '；'.join(
+                    f"{row['aspect_label']}：{metric_map(row['metrics'])['negative_review_count']['value']} 条，"
+                    f"{ratio_text(metric_map(row['metrics'])['negative_rate'])}" for row in rows) + '。'
+                add(stat, 'aspect', detail, ['以下列出六维度的负面提及，同一评论可命中多个维度，不能相加。'],
+                    metrics=[{'aspect': row['aspect'], **metric} for row in rows for metric in row['metrics']])
+                continue
             mentioned = [row for row in rows if metric_map(row["metrics"])[count_name]["value"] > 0]
             for row in mentioned[:(3 if detailed or not comparison else 1)]:
                 metrics = metric_map(row["metrics"])
@@ -117,6 +133,8 @@ def build_answer_facts(context, *, detailed=False):
                               "insufficient_data": "暂无法判断变化"}
                 statement = (f"{label}可比较的标注样本不足，暂不能判断稳定趋势。" if limited else
                              f"{label}在已有标注样本中的负面占比{directions[finding['direction']]}。")
+                if mixed and finding['empty_buckets']:
+                    statement = f"{label}部分时段缺少成功标注，暂不能判断完整区间的稳定趋势。"
                 detail = ""
                 metrics = [{'bucket': point['bucket'], **point['metric'], 'sample_size': point['sample_size']}
                            for point in series['points']]
@@ -125,7 +143,8 @@ def build_answer_facts(context, *, detailed=False):
                     detail = f"{label}已标注样本的占比峰值在 {finding['peak_bucket']}，为 {ratio_text(peak['metric'])}。"
                     recent = finding.get("recent_adjacent_change")
                     if recent:
-                        detail += f"最近可比较的相邻时段 {recent['from']} 至 {recent['to']} 变化 {recent['change_pp']:+.1f} 个百分点。"
+                        recent_label = '最近两个有标注的相邻时段' if mixed else '最近可比较的相邻时段'
+                        detail += f"{recent_label} {recent['from']} 至 {recent['to']} 变化 {recent['change_pp']:+.1f} 个百分点。"
                         metrics.append({"name": "recent_change_pp", "value": recent["change_pp"], "unit": "percentage_points",
                                         "from": recent["from"], "to": recent["to"],
                                         "from_metric": points[recent["from"]]["metric"], "to_metric": points[recent["to"]]["metric"]})
@@ -135,18 +154,25 @@ def build_answer_facts(context, *, detailed=False):
                     if largest:
                         metrics.append({"name": "largest_adjacent_change_pp", "value": largest["change_pp"],
                                         "unit": "percentage_points", "from": largest["from"], "to": largest["to"]})
-                        if detailed and largest != recent:
+                        if detailed and not mixed and largest != recent:
                             detail += f"最大相邻变化为 {largest['from']} 至 {largest['to']} 的 {largest['change_pp']:+.1f} 个百分点。"
                 else:
                     detail = f"{label}各时间桶均无成功标注，不能把空数据当作零负面占比。"
                 bucket_details = []
-                for point in series['points']:
+                recent = finding.get('recent_adjacent_change')
+                displayed = series['points']
+                if mixed:
+                    displayed = ([points[recent['from']], points[recent['to']]] if recent else
+                                 [point for point in series['points'] if point['metric']['value'] is not None][-1:])
+                for point in displayed:
                     metric = point['metric']
                     bucket_details.append(f"{point['bucket']}：负面评论 {metric['numerator']} 条，"
                                           f"分母 {metric['denominator']} 条成功标注评论，占比 {percent(metric['value'])}")
                 if bucket_details:
-                    detail += '逐期数据（UTC）：' + '；'.join(bucket_details) + '。'
-                if series.get('omitted_point_count'):
+                    detail += ('最近时段（UTC）：' if mixed else '逐期数据（UTC）：') + '；'.join(bucket_details) + '。'
+                if mixed:
+                    detail += '完整逐期数据见统计详情；空数据不按零占比处理。'
+                elif series.get('omitted_point_count'):
                     detail += (f"本次展示 {len(series['points'])}/{series['original_point_count']} 个时间桶，"
                                f"省略 {series['omitted_point_count']} 个；完整时序见原始统计明细。")
                 recent = finding.get('recent_adjacent_change')
@@ -155,7 +181,7 @@ def build_answer_facts(context, *, detailed=False):
                     after = points[recent['to']]['metric']['numerator']
                     detail += (f"上述相邻时段的负面评论数为 {before} → {after} 条，数量变化 {after - before:+d} 条；"
                                '数量变化与占比变化分别计算，各期分母可能不同。')
-                add(stat, "trend", detail, [statement], aspect=aspect, metrics=metrics,
+                add(stat, "trend", detail, [('趋势：' if mixed else '') + statement], aspect=aspect, metrics=metrics,
                     finding_ref=finding.get("finding_ref"))
         elif kind == "quality":
             detail = (f"当前范围共 {sample['review_count']} 条评论，{sample['eligible_text_reviews']} 条有有效正文，"
@@ -215,6 +241,8 @@ def build_answer_facts(context, *, detailed=False):
                 if ref.source_result_id != stat["source_result_id"]:
                     continue
                 detail = "；".join(f"{ASPECTS[q.aspect]}相关原文：“{q.quote}”{'（片段）' if q.truncated else ''}" for q in ref.opinions)
+                if mixed:
+                    detail = f"原文证据（评论 #{ref.review_id}）：" + detail
                 add(stat, "evidence", detail, ["以下原文仅为匹配样本，不能单独确认根因。"],
                     finding_ref="finding:" + content_sha256([ref.source_result_id, ref.review_id])[:20])
             if not any(ref.source_result_id == stat["source_result_id"] for ref in context.evidence):
@@ -270,7 +298,7 @@ def answer_caveats(context, facts):
             messages.append('部分范围或时间段标注覆盖率不足，结论仅描述已标注样本。')
     if "missing_time_buckets" in codes:
         messages.append("存在无成功标注的时段，空数据不代表负面占比为零。")
-    if sum(fact.kind == "aspect" for fact in facts) > 1:
+    if sum(fact.kind == "aspect" for fact in facts) > 1 or is_mixed_overview(context):
         messages.append("同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。")
     if any(fact.kind == "trend" for fact in facts):
         scopes = {row['scope_ref']:row for row in context.scope_summary}
@@ -292,6 +320,8 @@ def answer_caveats(context, facts):
 def summary_options(context, facts):
     from data_analysis_agent.agents.review_semantics import opinion_request
     content_detail = opinion_request(context.question)['content_detail']
+    if is_mixed_overview(context):
+        return ['以下分别回答趋势、原文证据和六维度主要问题；统计仅描述当前范围的已标注评论。']
     if context.analysis_type == 'aspect_drilldown':
         return [topic_summary(context, [row for stat in context.statistics for row in stat.get('filters', {}).get('topics', [])])]
     if context.analysis_type == "pros_cons":

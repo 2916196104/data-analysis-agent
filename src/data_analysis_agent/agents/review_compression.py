@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from decimal import Decimal
+import re
 from typing import Literal
 
 from pydantic import Field
@@ -190,8 +191,10 @@ class AnalysisResultCompressor:
                 aspect = result.filters.get('aspect')
                 candidates = [row for row in group.aspects if not aspect or row.aspect == aspect]
                 mentioned = [row for row in candidates if row.metrics[0].value > 0]
+                full_aspects = (plan.analysis_type == 'composite' and result.kind == 'issues'
+                                and re.search(r'六\s*(?:个)?维', question))
                 rows = [{**row.model_dump(), "metrics": [_metric_payload(metric) for metric in row.metrics]}
-                        for row in (mentioned or candidates)[:self.options.top_aspects]]
+                        for row in (candidates if full_aspects else (mentioned or candidates)[:self.options.top_aspects])]
                 trends = []
                 for series in group.trends:
                     compressed, trend_finding = compress_trend(series, self.options)

@@ -66,6 +66,10 @@ class PublicAnswer(AnalysisModel):
 class AnswerGenerationStrategy:
     @staticmethod
     def choose(context, facts):
+        from data_analysis_agent.agents.review_answer_facts import is_mixed_overview
+        if is_mixed_overview(context):
+            # 三项请求都有固定产物，完整发布已核验事实，避免模型重点选择遗漏原文。
+            return 'template'
         if context.analysis_type == 'opinion_breakdown' and facts and all(
                 fact.kind in ('opinion_group', 'empty') for fact in facts):
             return 'template'
