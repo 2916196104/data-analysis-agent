@@ -1,6 +1,7 @@
 """六维度内容下钻、正负隔离、一次补查和失败发布保护；全程合成数据。"""
 from dataclasses import replace
 from datetime import datetime, timezone
+import csv
 import hashlib
 import json
 import unittest
@@ -48,7 +49,7 @@ class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
     work = intent_fixture.ReviewIntentTests.work
 
     def scope(self, **changes):
-        return {**IDENTITY, 'source': 'amazon_reviews_2023', 'dataset_version': 'dimension-fixture',
+        return {**IDENTITY, 'source': 'reviews_csv', 'dataset_version': 'reviews-csv',
                 'product_ids': ['DIM-A'], 'date_from': '2023-02-01', 'date_to': '2023-02-28',
                 'baseline_from': '2023-01-01', 'baseline_to': '2023-01-31', **changes}
 
@@ -63,12 +64,13 @@ class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
                 text = '。'.join(pair[index % 2] for pair in self.quotes.values())
                 if product == 'DIM-B':
                     text = '另一商品' + text
-                rows.append({'parent_asin': product, 'user_id': str(index), 'text': text, 'rating': 3,
-                             'timestamp': int(datetime(2023, 2, 10, tzinfo=timezone.utc).timestamp() * 1000)})
-        source = self.root / 'dimensions.jsonl'
-        source.write_text('\n'.join(json.dumps(row, ensure_ascii=False) for row in rows), encoding='utf-8')
-        import_amazon_jsonl(self.db, reviews_path=source, dataset_version='dimension-fixture')
-        for review in pending_reviews(self.db, **IDENTITY, dataset_version='dimension-fixture', limit=100):
+                rows.append({'product_id': product, 'product_name': product, 'user_id': str(index), 'text': text,
+                             'rating': 3, 'published_at': datetime(2023, 2, 10, tzinfo=timezone.utc).isoformat()})
+        source = self.root / 'dimensions.csv'
+        with source.open('w', newline='', encoding='utf-8') as handle:
+            writer = csv.DictWriter(handle, fieldnames=rows[0].keys()); writer.writeheader(); writer.writerows(rows)
+        import_amazon_jsonl(self.db, reviews_path=source, dataset_version='reviews-csv')
+        for review in pending_reviews(self.db, **IDENTITY, source='reviews_csv', dataset_version='reviews-csv', limit=100):
             opinions = [{'aspect': aspect, 'sentiment': 'positive' if pair[1] in review['text'] else 'negative',
                          'quote': pair[1] if pair[1] in review['text'] else pair[0]} for aspect, pair in self.quotes.items()]
             save_annotation(self.db, review, **IDENTITY, status='success', opinions=validate_opinions(json.dumps({'opinions': opinions}), review['text']))

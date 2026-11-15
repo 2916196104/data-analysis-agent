@@ -3,11 +3,13 @@ from contextlib import closing
 from copy import deepcopy
 from dataclasses import asdict, replace, FrozenInstanceError
 from types import SimpleNamespace
+import csv
 import json
 import unittest
 from unittest.mock import patch
 
 import test_p1a_independent_validation as independent
+from p6a_csv_fixture import csv_fixture_setup
 from data_analysis_agent.jobs.analysis_context import load_analysis_context
 from data_analysis_agent.reviews import analytics
 from data_analysis_agent.reviews.store import connect_review_database
@@ -20,8 +22,8 @@ from data_analysis_agent.core.errors import ReviewDataError
 class P6BPlannerSnapshotTests(unittest.TestCase):
     def setUp(self):
         self.fixture = independent.IndependentStateValidation()
-        self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
+        csv_fixture_setup(self.fixture)
         settings = SimpleNamespace(**{**asdict(independent.SETTINGS), 'p6_preparation_enabled': True})
         self.enterContext(patch('data_analysis_agent.jobs.worker.configured_agent_identity',
             return_value=(settings, self.fixture.agent_identity)))
@@ -54,15 +56,21 @@ class P6BPlannerSnapshotTests(unittest.TestCase):
         return task, prepared
 
     def add_review(self):
-        path = self.fixture.root / 'new-review.jsonl'
-        path.write_text(json.dumps({'parent_asin': independent.A, 'user_id': 'new',
-            'text': '包装破损', 'timestamp': 1676073600000}, ensure_ascii=False), encoding='utf-8')
-        independent.import_amazon_jsonl(self.fixture.db, reviews_path=path, dataset_version='independent-state')
+        self.import_reviews('new-review.csv', [dict(product_id=independent.A, product_name='合成商品A',
+                            user_id='new', text='包装破损', published_at='2023-02-11')])
         review = next(r for r in independent.pending_reviews(self.fixture.db, **self.fixture.identity,
-            dataset_version='independent-state', limit=100) if r['text'] == '包装破损')
+            source='reviews_csv', dataset_version='reviews-csv', limit=100) if r['text'] == '包装破损')
         independent.save_annotation(self.fixture.db, review, **self.fixture.identity, status='success',
             opinions=independent.validate_opinions(json.dumps({'opinions': [dict(aspect='packaging',
                 sentiment='negative', quote='包装破损')]}), review['text']))
+
+    def import_reviews(self, filename, records):
+        path = self.fixture.root / filename
+        with path.open('w', newline='', encoding='utf-8') as handle:
+            writer = csv.DictWriter(handle, fieldnames=records[0].keys())
+            writer.writeheader()
+            writer.writerows(records)
+        independent.import_amazon_jsonl(self.fixture.db, reviews_path=path, dataset_version='reviews-csv')
 
     def wal(self):
         with closing(connect_review_database(self.fixture.db)) as connection:
@@ -206,6 +214,23 @@ class P6BPlannerSnapshotTests(unittest.TestCase):
         prepared = values[0]
         self.assertNotIn(independent.QUOTES['service'], repr(prepared))
         before = prepared.get_input('service')
+        with closing(connect_review_database(self.fixture.db, readonly=True)) as connection:
+            for item in before['items']:
+                self.assertEqual((item['source'], item['dataset_version'], item['product_id']),
+                                 ('reviews_csv', 'reviews-csv', independent.A))
+                row = connection.execute('SELECT r.source,r.dataset_version,r.product_id,r.text,r.content_sha256 '
+                    'FROM reviews r JOIN review_annotations a ON a.review_id=r.id '
+                    'WHERE r.id=? AND a.id=?', (item['review_id'], item['annotation_id'])).fetchone()
+                self.assertIsNotNone(row)
+                self.assertEqual(tuple(row), (item['source'], item['dataset_version'], item['product_id'],
+                                              item['text'], item['content_sha256']))
+                self.assertEqual(item['evidence_ref'], f"sha256:{item['file_sha256']}#line={item['line_number']}")
+                for opinion in item['opinions']:
+                    self.assertEqual(item['text'][opinion['quote_start']:opinion['quote_end']], opinion['quote'])
+        for opinion in before['opinions']:
+            self.assertTrue(any(item['review_id'] == opinion['review_id'] and any(
+                original['opinion_id'] == opinion['opinion_id'] for original in item['opinions'])
+                for item in before['items']))
         self.add_review()
         self.assertEqual(prepared.get_input('service'), before)
         before['items'][0]['text'] = 'modified returned copy'
@@ -398,11 +423,10 @@ class P6BPlannerSnapshotTests(unittest.TestCase):
         connection.close()
 
     def test_truncation_is_explicit_and_candidate_ids_are_stable(self):
-        records=[{'parent_asin':independent.A,'user_id':f'extra{i}','text':f'客服反馈{i}',
-                  'timestamp':1676073600000} for i in range(25)]
-        path=self.fixture.root/'many.jsonl';path.write_text('\n'.join(json.dumps(r,ensure_ascii=False) for r in records),encoding='utf-8')
-        independent.import_amazon_jsonl(self.fixture.db,reviews_path=path,dataset_version='independent-state')
-        for review in independent.pending_reviews(self.fixture.db,**self.fixture.identity,dataset_version='independent-state',limit=100):
+        records=[{'product_id':independent.A,'product_name':'合成商品A','user_id':f'extra{i}',
+                  'text':f'客服反馈{i}','published_at':'2023-02-11'} for i in range(25)]
+        self.import_reviews('many.csv', records)
+        for review in independent.pending_reviews(self.fixture.db,**self.fixture.identity,source='reviews_csv',dataset_version='reviews-csv',limit=100):
             independent.save_annotation(self.fixture.db,review,**self.fixture.identity,status='success',
                 opinions=independent.validate_opinions(json.dumps({'opinions':[dict(aspect='service',sentiment='negative',quote=review['text'])]}),review['text']))
         self.fixture.first=self.fixture.work(independent.A+'的差评主要集中在哪些方面？')

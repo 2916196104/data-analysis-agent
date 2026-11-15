@@ -1,4 +1,5 @@
 """真实离线 P6-B/C 与 Worker 产物；只模拟供应商，不手写公开卡片数据。"""
+from contextlib import closing
 from copy import deepcopy
 from dataclasses import replace
 from decimal import Decimal
@@ -62,6 +63,7 @@ class P6DPublicationTests(unittest.TestCase):
         self.c = self.fixture.case
 
     def test_complete_keeps_three_dimensions_all_denominators_and_true_evidence(self):
+        from data_analysis_agent.reviews.store import connect_review_database
         result = self.fixture.publish()
         p = result['p6_publication']
         self.assertEqual((p['status'], p['parent_status'], p['complete']), ('ok', 'complete', True))
@@ -73,6 +75,24 @@ class P6DPublicationTests(unittest.TestCase):
             self.assertEqual(t['N_a_t'], d['S_a'])
             self.assertEqual(ref['text'][ref['quote_start']:ref['quote_end']], ref['quote'])
             self.assertEqual(ref['aspect'], d['aspect'])
+            self.assertEqual((ref['source'], ref['dataset_version'], ref['product_id']),
+                             ('reviews_csv', 'reviews-csv', cfixtures.independent.A))
+            self.assertIsInstance(ref['review_id'], int)
+            self.assertIsInstance(ref['annotation_id'], int)
+            self.assertEqual(ref['evidence_ref'], f"sha256:{ref['file_sha256']}#line={ref['line_number']}")
+            with closing(connect_review_database(self.c.fixture.db, readonly=True)) as connection:
+                row = connection.execute('SELECT r.source,r.dataset_version,r.product_id,r.text,'
+                    'a.requested_model,a.base_url,a.prompt_version FROM reviews r '
+                    'JOIN review_annotations a ON a.review_id=r.id WHERE r.id=? AND a.id=?',
+                    (ref['review_id'], ref['annotation_id'])).fetchone()
+                self.assertIsNotNone(row)
+                self.assertEqual(tuple(row), (ref['source'], ref['dataset_version'], ref['product_id'], ref['text'],
+                    self.c.fixture.identity['model'], self.c.fixture.identity['base_url'],
+                    self.c.fixture.identity['prompt_version']))
+                count = connection.execute('SELECT COUNT(*) FROM review_opinions WHERE annotation_id=? AND aspect=? '
+                    'AND sentiment=? AND quote_start<=? AND quote_end>=?',
+                    (ref['annotation_id'], ref['aspect'], 'negative', ref['quote_start'], ref['quote_end'])).fetchone()[0]
+                self.assertGreater(count, 0)
         self.assertEqual(result['answer_generation']['attempts'], 0)
 
     def test_first_middle_last_failure_keeps_full_target_and_only_valid_success(self):
@@ -139,6 +159,10 @@ class P6DPublicationTests(unittest.TestCase):
     def test_scope_source_count_reference_and_frozen_inputs_cannot_be_resealed_to_publish(self):
         mutations = [
             lambda v: v['outcomes'][1]['results'][0]['data']['scope'].update(source='forged'),
+            lambda v: v['outcomes'][1]['results'][0]['data']['scope'].update(product_ids=[cfixtures.independent.B]),
+            lambda v: v['outcomes'][1]['results'][0]['data']['items'][0].update(product_id=cfixtures.independent.B),
+            lambda v: v['outcomes'][1]['results'][0]['data']['items'][0].update(annotation_id=999999),
+            lambda v: v['outcomes'][1]['results'][0]['data']['topics'][0].update(evidence_opinion_ids=[]),
             lambda v: v['outcomes'][1]['results'][0]['data']['items'][0].update(file_sha256='f'*64),
             lambda v: v['outcomes'][1]['results'][0]['data']['opinions'][0].update(quote_start=1),
             lambda v: v['outcomes'][1]['results'][0]['data']['topics'][0].update(review_count=999),
@@ -201,8 +225,11 @@ class P6DPublicationTests(unittest.TestCase):
 
     def test_readback_requires_server_task_seal_and_never_trusts_saved_text_alone(self):
         task = self.fixture.worker(); self.assertIsNotNone(read_p6_publication(task))
+        saved = deepcopy(task)
         task['result']['p6_publication']['dimensions'][0]['topics'][0]['name'] = 'forged'
         self.assertIsNone(read_p6_publication(task))
+        saved['status'] = 'failed'
+        self.assertIsNone(read_p6_publication(saved))
 
     def test_global_publication_failure_worker_does_not_publish_any_successful_subset(self):
         original = P6ExecutedAnalysis.revalidate_for_publication
@@ -219,6 +246,7 @@ class P6DPublicationTests(unittest.TestCase):
 
     def test_public_read_route_revalidates_complete_partial_and_unsupported_without_IO(self):
         from data_analysis_agent.api.routes.public_analysis import create_router
+        from data_analysis_agent.jobs.store import connect_task_database
         # 直接执行真实路由处理器；此套件禁止 socket，真实 HTTP 另由浏览器 E2E 验证。
         endpoint = create_router(self.c.fixture.tasks).routes[0].endpoint
         for mode in ('complete', 'fail_effectiveness', 'empty', 'budget'):
@@ -226,6 +254,15 @@ class P6DPublicationTests(unittest.TestCase):
             view = endpoint(task['task_id'])['result']
             self.assertEqual(view['p6_publication'], task['result']['p6_publication'])
             self.assertEqual(view['public_answer']['status'], task['result']['status'])
+        task = self.fixture.worker()
+        corrupt = deepcopy(task['result'])
+        corrupt['p6_publication']['dimensions'][0]['topics'][0]['name'] = 'forged'
+        with closing(connect_task_database(self.c.fixture.tasks)) as connection, connection:
+            connection.execute('UPDATE tasks SET result_json=? WHERE task_id=?',
+                               (canonical_json(corrupt), task['task_id']))
+        view = endpoint(task['task_id'])['result']
+        self.assertIsNone(view['p6_publication'])
+        self.assertEqual(view['public_answer']['status'], 'failed')
 
     def test_publication_flag_alone_does_not_authorize_real_model_costs(self):
         from data_analysis_agent.agents import review_budget

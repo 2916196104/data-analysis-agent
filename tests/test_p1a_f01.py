@@ -32,8 +32,8 @@ def fixed_positive_topics(settings, prompt, payload, schema, timeout):
 class F01WorkerTests(unittest.TestCase):
     def setUp(self):
         self.fixture = independent.IndependentStateValidation()
-        self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
+        self.fixture.setUp()
         self.pending = self.fixture.pending_task()
         self.unauthorized_calls = []
         execute = ReviewToolContext.execute

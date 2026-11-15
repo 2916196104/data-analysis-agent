@@ -1,13 +1,16 @@
 """真实 P6-B 冻结输入、固定供应商响应和假时钟；不访问收费服务。"""
 from contextlib import closing
 from dataclasses import replace
+from datetime import datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
+import csv
 import json
 import unittest
 from unittest.mock import patch
 
 import test_p1a_independent_validation as independent
+from p6a_csv_fixture import csv_fixture_setup
 from data_analysis_agent.agents.review_multi_aspect import freeze_p6_goal
 from data_analysis_agent.agents.review_plan import build_p6_query_plan
 from data_analysis_agent.agents.review_preparation import prepare_p6_analysis
@@ -29,8 +32,8 @@ class FakeClock:
 class P6CBudgetExecutionTests(unittest.TestCase):
     def setUp(self):
         self.fixture = independent.IndependentStateValidation()
-        self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
+        csv_fixture_setup(self.fixture)
         # 独立来源夹具默认禁止主题入口；C 测试恢复真实 wire/预算路径，只替换供应商响应。
         self.enterContext(patch.object(review_topics, '_call', ORIGINAL_TOPIC_CALL))
         self.settings = replace(independent.SETTINGS, p6_execution_enabled=True)
@@ -297,10 +300,14 @@ class P6CBudgetExecutionTests(unittest.TestCase):
         self.assertTrue(all(len(r['messages'][1]['content'].encode('utf-8'))<=16000 for r in self.calls))
 
     def add_rows(self, rows, opinions=None):
-        path=self.fixture.root/'c-extra.jsonl'
-        path.write_text('\n'.join(json.dumps(r,ensure_ascii=False) for r in rows),encoding='utf-8')
-        independent.import_amazon_jsonl(self.fixture.db,reviews_path=path,dataset_version='independent-state')
-        for review in independent.pending_reviews(self.fixture.db,**self.fixture.identity,dataset_version='independent-state',limit=100):
+        path=self.fixture.root/'c-extra.csv'
+        records=[dict(product_id=row['parent_asin'], product_name='合成商品A', user_id=row['user_id'],
+                      text=row['text'], published_at=datetime.fromtimestamp(row['timestamp']/1000, timezone.utc).isoformat())
+                 for row in rows]
+        with path.open('w', newline='', encoding='utf-8') as handle:
+            writer=csv.DictWriter(handle,fieldnames=records[0].keys());writer.writeheader();writer.writerows(records)
+        independent.import_amazon_jsonl(self.fixture.db,reviews_path=path,dataset_version='reviews-csv')
+        for review in independent.pending_reviews(self.fixture.db,**self.fixture.identity,source='reviews_csv',dataset_version='reviews-csv',limit=100):
             values=opinions or [dict(aspect='service',sentiment='negative',quote=review['text'])]
             independent.save_annotation(self.fixture.db,review,**self.fixture.identity,status='success',
                 opinions=independent.validate_opinions(json.dumps({'opinions':values}),review['text']))

@@ -184,7 +184,22 @@ class ReviewTopicTests(semantics_fixture.AssistantSemanticsFixture, unittest.Tes
             self.assertNotIn('tools', body)
             self.assertLessEqual(len(body['messages'][-1]['content'].encode()), 16000)
 
-    def test_worker_followup_reaches_positive_topics_and_partial_is_not_trusted_context(self):
+    @patch('platform.platform', return_value='Windows-test')
+    @patch('platform.system', return_value='Windows')
+    @patch('platform.machine', return_value='AMD64')
+    @patch('openai.OpenAI')
+    def test_worker_followup_reaches_positive_topics_and_partial_is_not_trusted_context(self, answer_client, _machine, _system, _platform):
+        answer_requests = []
+
+        def answer_transport(request):
+            payload = json.loads(json.loads(request.content)['messages'][-1]['content'])
+            answer_requests.append(payload['stage'])
+            self.assertEqual(payload['stage'], 'answer_draft')
+            return completion({'role': 'assistant', 'content': json.dumps({
+                'focus': payload['required_focus'], 'insights': []})})
+
+        answer_client.side_effect = lambda **kwargs: OpenAI(
+            **kwargs, http_client=httpx.Client(transport=httpx.MockTransport(answer_transport)))
         self.queue()
         first = self.run_sync('这款商品好评主要集中在哪些方面？')
         parent = self.save(first['question'], first)
@@ -198,6 +213,7 @@ class ReviewTopicTests(semantics_fixture.AssistantSemanticsFixture, unittest.Tes
             standalone = run_review_agent(self.db, '使用效果具体好在哪里？', scope=self.scope(), settings=SETTINGS)
         self.assertEqual(standalone['analysis_intent'], 'aspect_drilldown')
         self.assertEqual(standalone['status'], 'ok')
+        self.assertIn('answer_draft', answer_requests)
         def partial(settings, prompt, payload, schema, timeout):
             if schema is TopicBatch and payload['opinions'][0]['opinion_id'] == 'u3':
                 raise TimeoutError('fixture')

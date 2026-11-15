@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import patch
 
 import test_p1a_independent_validation as independent
+from p6a_csv_fixture import csv_fixture_setup
 from data_analysis_agent.agents.review_acceptance import build_request_goal, build_task_goal
 from data_analysis_agent.agents.review_multi_aspect import (
     GOAL_VERSION, SELECTION_RULE, P6RequestGoal, freeze_p6_goal, select_required_aspects,
@@ -23,8 +24,8 @@ from data_analysis_agent.jobs.store import analysis_result_integrity
 class P6AContractTests(unittest.TestCase):
     def setUp(self):
         self.fixture = independent.IndependentStateValidation()
-        self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
+        csv_fixture_setup(self.fixture)
         self.task = self.fixture.first
         self.scope = self.task['result']['scope']
         self.context = self.fixture.load()
@@ -179,10 +180,11 @@ class P6AContractTests(unittest.TestCase):
         self.assertEqual(self.freeze(conversation_id='different').route, 'reject')
         self.assertEqual(self.freeze(agent_identity={**self.fixture.agent_identity, 'model': 'different'}).route, 'reject')
         for key, value in [('product_ids', [independent.B]), ('date_from', '2023-02-02'),
-                ('source', 'reviews_csv'), ('dataset_version', 'different'), ('model', 'different'),
+                ('source', 'amazon_reviews_2023'), ('dataset_version', 'different'), ('model', 'different'),
                 ('base_url', 'https://different.invalid'), ('prompt_version', 'different'),
                 ('baseline_from', '2023-01-02'), ('as_of', '2023-03-01T00:00:00+00:00')]:
             with self.subTest(key=key):
+                self.assertNotEqual(self.scope[key], value)
                 self.assertIsNone(self.freeze(scope={**self.scope, key: value}).goal)
         self.assertEqual(self.freeze(ranking_task=None).route, 'clarify')
 

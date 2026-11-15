@@ -2,7 +2,9 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from decimal import Decimal
+from functools import wraps
 import math
+from threading import RLock
 from time import perf_counter
 from typing import Callable
 
@@ -45,12 +47,21 @@ class P6OfflineTransport:
     respond: Callable = field(repr=False)
 
 
+def _synchronized(method):
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapped
+
+
 class P6SharedBudget:
     def __init__(self, authorization=None, *, offline_transport=None, clock=perf_counter):
         if authorization is not None and type(authorization) is not P6CostAuthorization:
             raise TypeError('预算授权必须由服务端提供。')
         if offline_transport is not None and type(offline_transport) is not P6OfflineTransport:
             raise TypeError('离线响应必须显式标记。')
+        self._lock = RLock()
         self._authorization = authorization
         self._offline_transport = offline_transport
         self.clock = clock
@@ -73,9 +84,11 @@ class P6SharedBudget:
         return self._offline_transport
 
     @property
+    @_synchronized
     def halted_reason(self):
         return self._halted_reason
 
+    @_synchronized
     def _now(self):
         now = self.clock()
         if not math.isfinite(now) or (self._last_time is not None and now < self._last_time):
@@ -84,6 +97,7 @@ class P6SharedBudget:
         self._last_time = now
         return now
 
+    @_synchronized
     def start(self, required_aspects, verify, *, input_hashes):
         if self._started is not None or not 1 <= len(required_aspects) <= 3 or len(set(required_aspects)) != len(required_aspects):
             raise P6BudgetBlocked('invalid_or_restarted_budget')
@@ -94,10 +108,12 @@ class P6SharedBudget:
             raise P6InputIntegrityError('冻结输入集合缺失。')
         self._started = self._now()
 
+    @_synchronized
     def verify_input(self, aspect, value):
         if content_sha256(value) != self._input_hashes.get(aspect):
             raise P6InputIntegrityError('冻结维度输入摘要失配。')
 
+    @_synchronized
     def begin_aspect(self, aspect):
         if self._in_flight or self._index >= len(self._targets) or self._targets[self._index] != aspect:
             raise P6BudgetBlocked('aspect_order_or_reentrancy')
@@ -105,12 +121,14 @@ class P6SharedBudget:
         self._index += 1
         self._deadline = self._now() + 40
 
+    @_synchronized
     def check_time(self):
         now = self._now()
         if self._started is None or self._deadline is None or now >= min(self._started + 120, self._deadline):
             raise P6BudgetBlocked('deadline_exceeded')
         return now
 
+    @_synchronized
     def ensure_authorized(self, settings):
         if not getattr(settings, 'p6_execution_enabled', False):
             raise P6BudgetBlocked('execution_not_enabled')
@@ -137,86 +155,114 @@ class P6SharedBudget:
         self.check_time()
 
     def request(self, settings, *, aspect, stage, prompt, body, max_tokens, provider, options=None):
-        if self._in_flight or aspect != self._active or stage not in STAGES or max_tokens != STAGES[stage]:
-            raise P6BudgetBlocked('invalid_stage_or_reentrancy')
-        self._verify()
-        self.ensure_authorized(settings)
-        records = [row for row in self._records if row['aspect'] == aspect]
-        if (len(self._records) >= 6 or len(records) >= 2 or any(row['stage'] == stage for row in records)
-                or (stage == 'topic_classification' and not any(
-                    row['stage'] == 'topic_discovery' and row['status'] == 'accepted' for row in records))):
-            raise P6BudgetBlocked('attempt_or_stage_limit')
-        body_bytes = len(body.encode('utf-8'))
-        if body_bytes > 16000:
-            raise P6BudgetBlocked('input_body_limit')
-        policy = self.authorization
+        with self._lock:
+            if self._in_flight or aspect != self._active or stage not in STAGES or max_tokens != STAGES[stage]:
+                raise P6BudgetBlocked('invalid_stage_or_reentrancy')
+            self._in_flight = True
         try:
-            upper = policy.token_upper_bound(prompt, body)
-        except Exception as exc:
-            raise P6BudgetBlocked('unknown_token_bound') from exc
-        if type(upper) is not int or upper <= 0:
-            raise P6BudgetBlocked('unknown_token_bound')
-        reserve = upper * policy.input_price + max_tokens * policy.output_price
-        if self._reserved + reserve > policy.amount_limit:
-            raise P6BudgetBlocked('cost_limit')
-        now = self.check_time()
-        timeout = min(settings.timeout_seconds, 20, self._deadline - now, self._started + 120 - now)
-        if not math.isfinite(timeout) or timeout <= 0:
-            raise P6BudgetBlocked('invalid_timeout')
-        row = {'attempt': len(self._records) + 1, 'aspect': aspect, 'stage': stage,
-            'started_at': now, 'timeout_seconds': timeout, 'max_output_tokens': max_tokens,
-            'input_token_upper_bound': upper, 'body_bytes': body_bytes, 'reserved_cost': str(reserve),
-            'actual_cost': None, 'usage': None, 'usage_status': 'missing', 'status': 'started', 'error_code': None}
-        self._reserved += reserve
-        self._records.append(row)
-        self._in_flight = True
+            self._verify()
+            self.ensure_authorized(settings)
+            with self._lock:
+                records = [row for row in self._records if row['aspect'] == aspect]
+                if (len(self._records) >= 6 or len(records) >= 2 or any(row['stage'] == stage for row in records)
+                        or (stage == 'topic_classification' and not any(
+                            row['stage'] == 'topic_discovery' and row['status'] == 'accepted' for row in records))):
+                    raise P6BudgetBlocked('attempt_or_stage_limit')
+                body_bytes = len(body.encode('utf-8'))
+                if body_bytes > 16000:
+                    raise P6BudgetBlocked('input_body_limit')
+                policy = self.authorization
+            try:
+                upper = policy.token_upper_bound(prompt, body)
+            except Exception as exc:
+                raise P6BudgetBlocked('unknown_token_bound') from exc
+            if type(upper) is not int or upper <= 0:
+                raise P6BudgetBlocked('unknown_token_bound')
+            reserve = upper * policy.input_price + max_tokens * policy.output_price
+            with self._lock:
+                self.ensure_authorized(settings)
+                if self._reserved + reserve > policy.amount_limit:
+                    raise P6BudgetBlocked('cost_limit')
+                now = self.check_time()
+                timeout = min(settings.timeout_seconds, 20, self._deadline - now, self._started + 120 - now)
+                if not math.isfinite(timeout) or timeout <= 0:
+                    raise P6BudgetBlocked('invalid_timeout')
+                row = {'attempt': len(self._records) + 1, 'aspect': aspect, 'stage': stage,
+                    'started_at': now, 'timeout_seconds': timeout, 'max_output_tokens': max_tokens,
+                    'input_token_upper_bound': upper, 'body_bytes': body_bytes, 'reserved_cost': str(reserve),
+                    'actual_cost': None, 'usage': None, 'usage_status': 'missing', 'status': 'started', 'error_code': None}
+                self._reserved += reserve
+                self._records.append(row)
+        except BaseException:
+            with self._lock:
+                self._in_flight = False
+            raise
         try:
             request = {'model': settings.model, 'messages': [{'role':'system','content':prompt}, {'role':'user','content':body}],
                 'temperature':0, 'response_format':{'type':'json_object'}, 'max_tokens':max_tokens,
                 'timeout':timeout, 'max_retries':0, 'aspect':aspect, 'stage':stage, 'options':options or {}}
             response = (self.offline_transport.respond(request) if self.offline_transport else provider(timeout))
-            row.update(inspect_provider_response(response, policy, upper=upper, max_tokens=max_tokens,
-                offline_model=settings.model if self.offline_transport is not None else None))
-            if row['provider_halt_reason']:
-                self._halted_reason = row['provider_halt_reason']
-                if self._halted_reason == 'response_model_unverified':
-                    raise P6InputIntegrityError(self._halted_reason)
-                raise P6BudgetBlocked(self._halted_reason)
-            self._halted_reason = self.halted_reason or row['stop_after_response_reason']
-            row['finished_at'] = self._now()
-            if row['finished_at'] >= row['started_at'] + timeout:
-                raise P6BudgetBlocked('request_deadline_exceeded')
-            self.check_time()
+            audit = inspect_provider_response(response, policy, upper=upper, max_tokens=max_tokens,
+                offline_model=settings.model if self.offline_transport is not None else None)
+            with self._lock:
+                row.update(audit)
+                if row['provider_halt_reason']:
+                    self._halted_reason = row['provider_halt_reason']
+                    if self._halted_reason == 'response_model_unverified':
+                        raise P6InputIntegrityError(self._halted_reason)
+                    raise P6BudgetBlocked(self._halted_reason)
+                self._halted_reason = self.halted_reason or row['stop_after_response_reason']
+                row['finished_at'] = self._now()
+                if row['finished_at'] >= row['started_at'] + timeout:
+                    raise P6BudgetBlocked('request_deadline_exceeded')
+                self.check_time()
             self._verify()
-            row['status'] = 'received'
-            return response
+            with self._lock:
+                row['status'] = 'received'
+                return response
         except Exception as exc:
-            if not isinstance(exc, (P6BudgetBlocked, P6InputIntegrityError)):
-                audit = provider_error_audit(exc, offline=self.offline_transport is not None)
-                row.update(audit, actual_cost=None, cost_status='unknown', cost_reason='provider_request_failed')
-                self._halted_reason = self.halted_reason or audit['provider_halt_reason']
-            row.update(status='failed', error_code=getattr(exc, 'code', None) or self.halted_reason or type(exc).__name__,
-                       finished_at=self._now())
+            audit = (provider_error_audit(exc, offline=self.offline_transport is not None)
+                     if not isinstance(exc, (P6BudgetBlocked, P6InputIntegrityError)) else None)
+            with self._lock:
+                if audit is not None:
+                    row.update(audit, actual_cost=None, cost_status='unknown', cost_reason='provider_request_failed')
+                    self._halted_reason = self.halted_reason or audit['provider_halt_reason']
+                row.update(status='failed', error_code=getattr(exc, 'code', None) or self.halted_reason or type(exc).__name__,
+                           finished_at=self._now())
             raise
         finally:
-            self._in_flight = False
+            with self._lock:
+                self._in_flight = False
 
     def accept(self, aspect, stage):
-        self.check_time()
-        self._verify()
-        row = next(row for row in reversed(self._records) if row['aspect'] == aspect and row['stage'] == stage)
-        if self._now() >= row['started_at'] + row['timeout_seconds']:
-            raise P6BudgetBlocked('request_deadline_exceeded')
-        if row['status'] != 'received':
-            raise P6BudgetBlocked('response_not_pending')
-        row['status'] = 'accepted'
+        with self._lock:
+            if self._in_flight:
+                raise P6BudgetBlocked('invalid_stage_or_reentrancy')
+            self._in_flight = True
+        try:
+            self.check_time()
+            self._verify()
+            with self._lock:
+                row = next(row for row in reversed(self._records) if row['aspect'] == aspect and row['stage'] == stage)
+                if self._now() >= row['started_at'] + row['timeout_seconds']:
+                    raise P6BudgetBlocked('request_deadline_exceeded')
+                if row['status'] != 'received':
+                    raise P6BudgetBlocked('response_not_pending')
+                row['status'] = 'accepted'
+        finally:
+            with self._lock:
+                self._in_flight = False
 
+    @_synchronized
     def reject(self, aspect, stage, code):
+        if self._in_flight:
+            raise P6BudgetBlocked('invalid_stage_or_reentrancy')
         for row in reversed(self._records):
             if row['aspect'] == aspect and row['stage'] == stage:
                 row.update(status='failed', error_code=code)
                 break
 
+    @_synchronized
     def snapshot(self):
         reported = [Decimal(row['actual_cost']) for row in self._records if row['actual_cost'] is not None]
         complete = bool(self._records) and len(reported) == len(self._records)

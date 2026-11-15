@@ -89,7 +89,10 @@ class SelectedProductTests(fixture.AssistantSemanticsFixture, unittest.TestCase)
         self.assertEqual(selection['product_ids'], ['A', 'B'])
 
     def test_explicit_comparison_enters_comparison_instead_of_current_product(self):
-        result = run_review_agent(self.db, '对比美的空调与小米空调的差评', scope=self.scope(), settings=SETTINGS)
+        with patch('httpx.HTTPTransport.handle_request', side_effect=AssertionError('offline test cannot use HTTP')) as transport, \
+             patch('openai.OpenAI', side_effect=RuntimeError('offline comparison fixture: no model transport')):
+            result = run_review_agent(self.db, '对比美的空调与小米空调的差评', scope=self.scope(), settings=SETTINGS)
+        transport.assert_not_called()
         self.assertEqual(result['status'], 'ok', result.get('error'))
         self.assertEqual(result['scope']['product_ids'], ['100013588053', 'XIAOMI-TEST'])
         self.assertEqual(result['query_plan']['required_tools'], ['compare_products'])

@@ -229,19 +229,28 @@ class QueryPlanTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(self.run_sync("比较当前与基线窗口")["status"], "ok")
 
     def test_timeout_after_query_is_failed_and_diagnostics_preserved(self):
-        result = self.run_sync("比较当前与基线窗口", timeout=True)
+        from data_analysis_agent.jobs.submission import configured_agent_identity
+        from p8c5_csv_fixture import install_csv_copy
+        install_csv_copy(self)
+        scope = self.scope(source='reviews_csv', dataset_version='reviews-csv', product_ids=['P1'])
+        question = "商品P1差评主要集中在哪些方面？"
+        with patch("data_analysis_agent.agents.review_evidence_loop.complete_evidence",
+                   side_effect=TimeoutError('synthetic post-query timeout')):
+            result = run_review_agent(self.db, question, scope=scope, settings=SETTINGS)
         self.assertEqual(result["status"], "error")
         self.assertEqual(result["error"]["code"], "timeout")
         self.assertIn("r1", result["results"])
         self.assertNotIn("answer", result)
         tasks = self.root / "tasks.db"
         init_tasks(tasks, self.db)
-        worker = TaskWorker(self.db, tasks, import_root=self.root, env_file=self.root / "unused")
-        identity = {**IDENTITY, "prompt_version": "agent-test"}
-        submitted = enqueue(tasks, "analysis", {**self.scope(), "question": "比较当前与基线窗口", "model_identity": identity})
+        env_file = self.root / 'offline-agent.env'
+        env_file.write_text(f'LLM_MODEL_ID={SETTINGS.model}\nLLM_API_KEY={SETTINGS.api_key}\n'
+                            f'LLM_BASE_URL={SETTINGS.base_url}\n', encoding='utf-8')
+        _, identity = configured_agent_identity(env_file)
+        worker = TaskWorker(self.db, tasks, import_root=self.root, env_file=env_file)
+        submitted = enqueue(tasks, "analysis", {**scope, "question": question, "model_identity": identity})
         worker_started(tasks, worker.worker_id)
-        with patch("data_analysis_agent.jobs.worker.configured_agent_identity", return_value=(SETTINGS, identity)), \
-             patch("data_analysis_agent.agents.reviews.run_review_agent", return_value=result):
+        with patch("data_analysis_agent.agents.review_evidence_loop.complete_evidence", side_effect=TimeoutError('synthetic post-query timeout')):
             worker._execute(claim_task(tasks, worker.worker_id))
         task = get_task(tasks, submitted["task"]["task_id"])
         self.assertEqual(task["status"], "failed")

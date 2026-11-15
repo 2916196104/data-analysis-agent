@@ -433,6 +433,10 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
         self.assertIn('embedding_preparation_duration_ms',result['performance'])
 
     def test_p3b_worker_executes_two_tasks_using_default_service_factory(self):
+        from p8c5_csv_fixture import install_csv_copy
+        install_csv_copy(self)
+        old_scope = self.scope
+        self.scope = lambda **changes: {**old_scope(**changes), 'source':'reviews_csv', 'dataset_version':'reviews-csv'}
         from data_analysis_agent.jobs.store import init_tasks,enqueue,worker_started,claim_task,get_task
         from data_analysis_agent.jobs.worker import TaskWorker
         from data_analysis_agent.jobs.submission import configured_agent_identity

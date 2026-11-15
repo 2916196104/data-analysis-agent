@@ -129,6 +129,15 @@ def _build_query_plan(question, scope, *, product_groups=None):
         if re.search(r'最近|上周|上月|去年|半年|基线|第\s*\d+\s*页', question):
             plan.unsupported_reason = '语义检索沿用当前明确日期，暂不支持相对时间、基线或分页；请先明确范围。'
         return plan
+    from data_analysis_agent.agents.review_mixed_goals import mixed_subgoals, tool_request
+    mixed = mixed_subgoals(question, scope)
+    if mixed is not None:
+        if not mixed:
+            return ReviewQueryPlan('unsupported', None, scope,
+                unsupported_reason='混合问题的维度或子句归属不明确，请分别说明趋势、原文及六维统计。')
+        return ReviewQueryPlan('composite', 'negative', scope,
+            requirements=[tool_request(goal) for goal in mixed], requires_evidence=True,
+            max_evidence_pages=1, max_evidence_items=3)
     question = normalize_question(question)
     sentiment = detect_sentiment_intent(question)
     plan = ReviewQueryPlan("analysis", sentiment, scope)

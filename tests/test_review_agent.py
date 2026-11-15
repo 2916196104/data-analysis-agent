@@ -137,9 +137,13 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
             self.assertEqual(final_value, {"status": "ok", "result_ids": [response["data"]["result_id"]]})
 
     def test_query_is_separate_from_bound_business_context(self):
-        question = "按日查看包装趋势"
-        result, requests = self.run_script([tools(("get_aspect_trend", {"aspect": "packaging", "period": "day"})),
-                                           final("ok", "r1")], question=question)
+        simple, direct_requests = self.run_script([], question="按日查看包装趋势")
+        self.assertEqual(simple['status'], 'ok')
+        self.assertEqual(direct_requests, [])
+        question = "按日查看整体趋势、包装原文、六维度主要问题"
+        result, requests = self.run_script([tools(("get_trend", {"period": "day"}),
+            ("get_evidence", {"aspect": "packaging"}), ("get_top_issues", {})),
+            final("ok", "r1", "r2", "r3")], question=question)
         self.assertEqual(result["status"], "ok")
         prompt = next(item["content"] for item in requests[0]["messages"] if item["role"] == "user")
         self.assertEqual(prompt.split("\n\n<bound_context>")[0], question)
@@ -179,15 +183,17 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
 
     def test_model_timeout_after_successful_tools_preserves_only_diagnostics(self):
         result, requests = self.run_script(
-            [tools(("get_aspect_trend", {"aspect": "packaging", "period": "month"})), httpx.ReadTimeout("simulated timeout")],
-            question="按月查看包装问题趋势", settings=replace(SETTINGS, max_retries=0),
+            [tools(("get_trend", {"period": "month"}), ("get_evidence", {"aspect": "packaging"}),
+                   ("get_top_issues", {})), httpx.ReadTimeout("simulated timeout")],
+            question="查看整体趋势、包装原文、六维度主要问题", settings=replace(SETTINGS, max_retries=0),
         )
         self.assertEqual(result["status"], "error", result)
         self.assertEqual(result["error"]["code"], "timeout")
         self.assertIn("r1", result["results"])
         self.assertNotIn("answer", result)
-        self.assertEqual(result["query_executions"], 2)
-        self.assertEqual(result["model_tool_attempts"], 1)
+        self.assertEqual(result["query_executions"], 3)  # 趋势复用自动上下文的缓存。
+        self.assertEqual(result["cache_hits"], 1)
+        self.assertEqual(result["model_tool_attempts"], 3)
         self.assertEqual(len(requests), 2)
 
     def test_unlabeled_failed_empty_and_zero_negative_are_distinct(self):
@@ -273,6 +279,8 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(result["tool_calls"], 2)
 
     def test_http_queue_worker_restore_and_frozen_engine_identity(self):
+        from p8c5_csv_fixture import install_csv_copy
+        install_csv_copy(self)
         init_monitoring(self.db)
         task_db = self.root / "tasks.db"
         init_tasks(task_db, self.db)
@@ -283,7 +291,7 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
         requests = []
         with patch("data_analysis_agent.jobs.submission.read_settings", return_value=configuration), \
              TestClient(app, base_url="http://127.0.0.1") as client:
-            body = {"kind": "analysis", "parameters": {**self.scope(), "question": "查询包装原文"}}
+            body = {"kind": "analysis", "parameters": {**self.scope(source='reviews_csv', dataset_version='reviews-csv'), "question": "查询包装原文"}}
             response = client.post("/api/v1/tasks", json=body, headers={"Idempotency-Key": "agent-question"})
             self.assertEqual(response.status_code, 202, response.text)
             task = response.json()["result"]["task"]

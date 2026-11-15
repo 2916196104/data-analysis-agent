@@ -162,11 +162,41 @@ def build_task_goal(question, scope, plan, resolution, *, request_goal=None):
     request = request_goal if request_goal is not None else build_request_goal(question)
     if request is None:
         return None
-    return {**asdict(request), 'levels': list(request.levels), 'version': 'review-request-goal-v1',
+    goal = {**asdict(request), 'levels': list(request.levels), 'version': 'review-request-goal-v1',
             'expected_scope': deepcopy(scope), 'scope_resolution': deepcopy(resolution or {})}
+    from data_analysis_agent.agents.review_mixed_goals import mixed_subgoals, VERSION
+    subgoals = mixed_subgoals(question, scope)
+    if subgoals:
+        goal.update(version=VERSION, subgoals=subgoals)
+    return goal
 
 
 def validate_goal_plan(goal, plan):
+    from data_analysis_agent.agents.review_mixed_goals import mixed_subgoals, tool_request, VERSION
+    if goal.get('version') == VERSION:
+        expected = mixed_subgoals(goal.get('original_question', ''), goal.get('expected_scope', {}))
+        subgoals = goal.get('subgoals')
+        valid = bool(expected and subgoals == expected and plan.scope == goal.get('expected_scope')
+                     and not plan.unsupported_reason and not plan.optional_tools
+                     and plan.analysis_type == 'composite' and plan.sentiment == 'negative'
+                     and goal.get('levels') == ['evidence', 'statistics']
+                     and list(goal.get('statistic_families', ())) == ['trend']
+                     and len(plan.requirements) == len(expected))
+        if valid:
+            remaining = list(plan.requirements)
+            for subgoal in expected:
+                required = tool_request(subgoal)
+                match = next((row for row in remaining if row['tool'] == required['tool']
+                    and not row.get('execution_scope')
+                    and plan.parameters_match(row['tool'], row['parameters'], required['parameters'])), None)
+                if match is None:
+                    valid = False
+                    break
+                remaining.remove(match)
+        return {'passed': bool(valid), 'checks': [{'name': 'mixed_subgoals', 'passed': bool(valid)}]}
+    if (goal.get('version') != 'review-request-goal-v1' or 'subgoals' in goal
+            or mixed_subgoals(goal.get('original_question', ''), goal.get('expected_scope', {}))):
+        return {'passed': False, 'checks': [{'name': 'goal_version', 'passed': False}]}
     checks = []
     for level in goal['levels']:
         tools = CAPABILITIES[level]
@@ -205,6 +235,11 @@ def validate_task_completion(goal, scope, plan, selected):
     check('继承范围', inherited_ok, '未明确修改的继承字段须保持一致，显式选择优先。')
     check('所需查询', plan.satisfied(selected), '计划中的查询及完整筛选条件须已执行。')
     rows = [row for row in selected if row['kind'] != 'context']
+    from data_analysis_agent.agents.review_mixed_goals import VERSION as MIXED_GOAL_VERSION
+    if goal.get('version') == MIXED_GOAL_VERSION:
+        check('混合目标实际结果一一对应', len(rows) == len(plan.requirements)
+              and len({row.get('result_id') for row in rows}) == len(rows),
+              '每个混合子目标必须且只能对应一条有独立身份的计划结果。')
     from data_analysis_agent.agents.review_plan import TOOL_KINDS
     for level in goal['levels']:
         kinds = {TOOL_KINDS[tool] for tool in CAPABILITIES[level]}
@@ -251,7 +286,9 @@ def validate_task_completion(goal, scope, plan, selected):
     if set(goal['levels']) & {'evidence', 'themes', 'opinion_content'}:
         content = [row for row in rows if row['kind'] in ('evidence', 'opinion_breakdown', 'aspect_drilldown')]
         check('观点查询', bool(content), '内容任务须执行观点、主题或原文查询。')
-        check('观点筛选', all((not goal['aspect'] or row['data'].get('aspect') == goal['aspect'])
+        content_aspect = (next((g['aspect'] for g in goal['subgoals'] if g['family'] == 'evidence'), None)
+                          if plan_check['passed'] and 'subgoals' in goal else goal.get('aspect'))
+        check('观点筛选', all((not content_aspect or row['data'].get('aspect') == content_aspect)
             and (not goal['sentiment'] or row['data'].get('sentiment') in (goal['sentiment'], None))
             and (not goal.get('topic') or row['data'].get('topic') == goal['topic']) for row in content),
             '观点查询须保留本轮维度和情感。')
