@@ -118,6 +118,45 @@ class ManualSequenceTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
                                         for op in row['opinions']))
         self.assertEqual(hashlib.sha256(self.db.read_bytes()).hexdigest(), before)
 
+    def test_confirmed_next_page_keeps_positive_logistics_goal_and_changes_only_page(self):
+        first_question = '给我1条物流好评原文'
+        first = self.run_local(first_question)
+        self.assertEqual(first['status'], 'ok', first.get('error'))
+        previous = first['results'][first['result_ids'][0]]
+        context = {'user': {'task_id': 'first-page', 'question': first_question},
+            'users': [{'task_id': 'first-page', 'question': first_question}], 'turns_read': 1,
+            'validated': {'task_id': 'first-page', 'scope': first['scope'], 'sentiment': 'positive',
+                'queries': [{'kind': 'evidence', 'parameters': deepcopy(previous['parameters'])}]}}
+        params = {**previous['parameters'], 'page': 2}
+        question = '执行本轮已确认的只读查询\n' + json.dumps(
+            {'tool': 'get_evidence', 'parameters': params, 'question': '下一页。'}, ensure_ascii=False)
+        result = self.run_local(question, context=context)
+        self.assertEqual(result['status'], 'ok', result.get('error'))
+        self.assertEqual(result['request_goal']['levels'], ['evidence'])
+        self.assertEqual(result['request_goal']['aspect'], 'logistics')
+        self.assertEqual(result['request_goal']['sentiment'], 'positive')
+        current = result['results'][result['result_ids'][0]]
+        self.assertEqual(current['parameters'], params)
+        self.assertEqual(current['data']['page'], 2)
+        self.assertTrue({row['review_id'] for row in previous['data']['items']}.isdisjoint(
+            row['review_id'] for row in current['data']['items']))
+        tampered = '执行本轮已确认的只读查询\n' + json.dumps(
+            {'tool': 'get_evidence', 'parameters': {**params, 'sentiment': 'negative'}, 'question': '下一页。'})
+        rejected = self.run_local(tampered, context=context)
+        self.assertNotEqual(rejected['status'], 'ok')
+        self.assertEqual(rejected['query_executions'], 0)
+
+    def test_first_evidence_from_trend_is_not_mistaken_for_next_page(self):
+        context = {'validated': {'scope': self.scope(), 'sentiment': 'negative', 'queries': [
+            {'kind': 'aspect_trend', 'parameters': {'aspect': 'logistics', 'period': 'month'}}]}}
+        question = '执行本轮已确认的只读查询\n' + json.dumps({'tool': 'get_evidence',
+            'parameters': {'aspect': 'logistics', 'sentiment': 'negative', 'page': 1, 'page_size': 3},
+            'question': '继续查原文'})
+        goal = build_request_goal(question, context)
+        self.assertEqual(goal.levels, ('evidence',))
+        self.assertEqual(goal.sentiment, 'negative')
+        self.assertEqual(build_request_goal('下一页。').levels, ('evidence',))
+
 
 if __name__ == '__main__':
     unittest.main()

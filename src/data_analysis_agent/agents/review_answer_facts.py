@@ -64,6 +64,24 @@ def is_mixed_overview(context):
                     for stat in context.statistics if stat['analysis_type'] == 'issues'))
 
 
+def ranked_feedback(context, fact):
+    """只摘录本维度已核验样例；不把少量原文改写成全量子主题结论。"""
+    examples, seen = [], set()
+    for ref in context.evidence:
+        if ref.source_result_id not in fact.source_result_ids:
+            continue
+        for quote in ref.opinions:
+            if quote.aspect != fact.aspect_key or quote.sentiment != 'negative' or quote.quote in seen:
+                continue
+            seen.add(quote.quote)
+            excerpt = quote.quote[:80]
+            partial = quote.truncated or len(quote.quote) > 80
+            examples.append(f'“{excerpt}{"…" if partial else ""}”（评论 #{ref.review_id}{"，节选" if partial else ""}）')
+            if len(examples) == 2:
+                return examples
+    return examples
+
+
 def build_answer_facts(context, *, detailed=False):
     scopes = {row["scope_ref"]: row for row in context.scope_summary}
     samples = {row["sample_ref"]: row for row in context.sample_summary}
@@ -300,6 +318,8 @@ def answer_caveats(context, facts):
         messages.append("存在无成功标注的时段，空数据不代表负面占比为零。")
     if sum(fact.kind == "aspect" for fact in facts) > 1 or is_mixed_overview(context):
         messages.append("同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。")
+    if any(fact.kind == 'aspect' and ranked_feedback(context, fact) for fact in facts):
+        messages.append('所列内容是已核验的买家反馈样例，不是完整子主题排名或总体原因。')
     if any(fact.kind == "trend" for fact in facts):
         scopes = {row['scope_ref']:row for row in context.scope_summary}
         partial = False
@@ -373,7 +393,7 @@ def summary_options(context, facts):
     if any(row["analysis_type"] == "comparison" for row in context.statistics):
         return ["各商品的主要负面问题如下，占比均以各自成功标注评论为分母。"]
     if all(fact.kind == "aspect" for fact in facts):
-        return [_aspect_ranking_summary(facts, positive=False)]
+        return [_aspect_ranking_summary(facts, positive=False, context=context)]
     return ["以下是当前范围内已核验的分析结果。"]
 
 
@@ -393,7 +413,7 @@ def topic_summary(context, topics):
     return f'{basis}，{direction}的具体内容如下：{points}。这些是依据真实观点归并的候选主题。'
 
 
-def _aspect_ranking_summary(facts, *, positive):
+def _aspect_ranking_summary(facts, *, positive, context=None):
     metric_name = 'positive_rate' if positive else 'negative_rate'
     direction = '好评' if positive else '差评'
     denominator_name = '含正向观点评论' if positive else '成功标注评论'
@@ -406,4 +426,7 @@ def _aspect_ranking_summary(facts, *, positive):
         others = '、'.join(f'{ASPECTS[fact.aspect_key]} {row["numerator"]} 条（{percent(row["value"])}）'
                           for fact, row in rows[1:3])
         lead += f'其他较多的维度是{others}。'
+    if context is not None and any(ranked_feedback(context, fact) for fact in facts):
+        labels = '、'.join(ASPECTS[fact.aspect_key] for fact, _ in rows[:3])
+        return f'当前已标注评论中，差评提及较多的维度依次为{labels}。下面结合已核验的买家反馈说明具体内容。'
     return lead + '这些数字说明评价涉及哪些维度，具体内容仍需查看对应观点。'

@@ -305,4 +305,9 @@ def _build_query_plan(question, scope, *, product_groups=None):
     plan.requirements = requests
     kinds = list(dict.fromkeys(TOOL_KINDS[item["tool"]] for item in requests))
     plan.analysis_type = kinds[0] if len(kinds) == 1 else "composite"
+    if (not explicit and plan.required_tools == ['get_top_issues'] and len(scope['product_ids']) == 1
+            and not requests[0]['parameters'].get('aspect') and ranking
+            and not re.search(r'只(?:看|要|需|统计)|仅(?:看|要|需|统计)|数量|多少|几条|占比|比例|排名', question)):
+        plan.requires_evidence, plan.max_evidence_items = True, 6
+        plan.max_evidence_pages, plan.evidence_page_size = 3, 2
     return plan

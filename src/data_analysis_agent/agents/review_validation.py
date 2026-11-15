@@ -103,6 +103,35 @@ def _validate_positive_aspects(data):
     return True
 
 
+def _validate_rank_examples(data):
+    """复用原文校验；样例必须对应同快照排名前三个非零维度。"""
+    try:
+        counts = data['current']['aspects']
+        expected = [aspect for aspect in sorted(counts, key=lambda key: (-counts[key]['negative_review_count'], key))
+                    if counts[aspect]['negative_review_count'] > 0][:3]
+        examples = data['rank_examples']
+        if not isinstance(examples, list) or [row['aspect'] for row in examples] != expected:
+            return False, 0
+        quotes = 0
+        for row in examples:
+            aspect = row['aspect']
+            if (row['scope'] != data['scope'] or row['sentiment'] != 'negative'
+                    or row['page'] != 1 or row['page_size'] != 2
+                    or row['total'] != counts[aspect]['negative_review_count']
+                    or len(row['items']) != min(2, row['total'])
+                    or len({item['review_id'] for item in row['items']}) != len(row['items'])):
+                return False, 0
+            child = {'result_id': 'example', 'kind': 'evidence', 'parameters': {
+                'aspect': aspect, 'sentiment': 'negative'}, 'data': row}
+            checked = validate_report({'example': child}, ['example'], sentiment_intent='negative', expected_scope=data['scope'])
+            if checked['status'] != 'passed':
+                return False, 0
+            quotes += sum(len(item['opinions']) for item in row['items'])
+        return True, quotes
+    except (KeyError, TypeError, ValueError, IndexError):
+        return False, 0
+
+
 def validate_report(results, result_ids, *, sentiment_intent=None, expected_scope=None,
                     query_plan=None, expected_scopes=None):
     """校验快照中所有统计行，零分母必须保留 null；失败时禁止发布成功回答。"""
@@ -177,6 +206,10 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
                 from data_analysis_agent.agents.review_topics import validate_topic_result
                 additional_ok &= validate_topic_result(data)
         elif item["kind"] in ("issues", "window_comparison"):
+            if 'rank_examples' in data:
+                examples_ok, example_quotes = _validate_rank_examples(data)
+                quotes_ok &= examples_ok
+                quote_count += example_quotes
             current, baseline = data["current"], data.get("baseline")
             for issue in data["issues"]:
                 now = current["aspects"][issue["aspect"]]

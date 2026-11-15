@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import Field
 from pydantic import ValidationError
 
-from data_analysis_agent.agents.review_answer_facts import answer_caveats, build_answer_facts, confirmed_aspects, percent, summary_options
+from data_analysis_agent.agents.review_answer_facts import answer_caveats, build_answer_facts, confirmed_aspects, percent, ranked_feedback, summary_options
 from data_analysis_agent.agents.review_compression import CompactAnalysisContext
 from data_analysis_agent.agents.review_results import AnalysisModel, EvidenceReference
 from data_analysis_agent.core.serialization import canonical_json
@@ -175,6 +175,8 @@ class AnswerAssembler:
             # 排名/质量的数字行已清楚表达事实，避免重复相同维度句式。
             text = (explanation if fact.kind in ("trend", "window") or generation_status == "llm"
                     or re.search(r"建议|改进|改善|优化", context.question) else "") + fact.detail
+            if fact.kind == 'aspect' and (feedback := ranked_feedback(context, fact)):
+                text += '核验的买家反馈包括' + '、'.join(feedback) + '。'
             highlights.append(AnswerHighlight(finding_ref=fact.finding_ref, aspect_key=fact.aspect_key,
                 scope_ref=fact.scope_ref, source_result_ids=fact.source_result_ids, text=text))
         if len(facts) == 1 and facts[0].kind == 'aspect' and confirmed_aspects(context):
@@ -184,7 +186,7 @@ class AnswerAssembler:
         assessment = assess_evidence(context)
         if assessment['note'] and assessment['status'] not in ('facts_sufficient','descriptive_evidence_available','sample_descriptive_only'):
             notes.append(assessment['note'])
-        if facts and all(fact.kind in ('aspect', 'empty') for fact in facts) and (opinion_request(context.question)['content_detail'] or re.search(r'具体|反映|解释|为什么', context.question)):
+        if facts and not context.evidence and all(fact.kind in ('aspect', 'empty') for fact in facts) and (opinion_request(context.question)['content_detail'] or re.search(r'具体|反映|解释|为什么', context.question)):
             notes.append('目前只能确认已有维度的提及数量和占比；未查询对应观点原文或二级主题，不能判断具体问题类型或原因。')
         if omitted:
             notes.append("正文仅列出主要发现，完整分组和统计保留在详情中。")

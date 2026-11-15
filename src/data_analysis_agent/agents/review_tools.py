@@ -229,6 +229,18 @@ class ReviewToolContext:
         elif name == "get_top_issues":
             baseline = {key: self.scope[key] for key in ('baseline_from', 'baseline_to')} if values.pop('include_baseline', False) else {}
             kind, data = "issues", self.query("get_top_issues", **scope, **baseline)
+            if (self.query_plan and self.query_plan.required_tools == ['get_top_issues']
+                    and self.query_plan.requires_evidence and not parameters.get('aspect') and not baseline):
+                data['rank_examples'] = []
+                # 同一只读快照内最多三个维度、每维两条评论，不启动主题模型或跨范围补查。
+                for issue in [row for row in data['issues'] if row['negative_review_count'] > 0][:3]:
+                    examples = self.query('get_evidence', **scope, aspect=issue['aspect'],
+                                          sentiment='negative', page=1, page_size=2)
+                    self.evidence_queries += 1
+                    self.evidence_items += len(examples['items'])
+                    for item in examples['items']:
+                        item.pop('file_path', None)
+                    data['rank_examples'].append(examples)
         elif name == "get_opinion_breakdown":
             kind, data = "opinion_breakdown", self.query("get_opinion_breakdown", **scope, **values)
         elif name == 'get_aspect_drilldown':

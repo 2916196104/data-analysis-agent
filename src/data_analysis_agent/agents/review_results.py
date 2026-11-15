@@ -182,6 +182,11 @@ def adapt_result(item, bound_scope):
             change = changes.get(aspect.aspect)
             if change:
                 aspect.metrics.append(Metric(name="negative_rate_change_pp", value=change["negative_rate_change_pp"], unit="percentage_points"))
+        if kind == 'issues':
+            for examples in data.get('rank_examples', []):
+                evidence = adapt_result({'result_id': item['result_id'], 'kind': 'evidence', 'parameters': {
+                    'aspect': examples['aspect'], 'sentiment': 'negative'}, 'data': examples}, scope)
+                result.evidence_refs.extend(evidence.evidence_refs)
         if kind == "window_comparison":
             result.statistics[0].metrics.extend(Metric(name=key, value=value, unit="percentage_points" if key.endswith("_pp") else "reviews")
                                                  for key, value in data["changes"].items())

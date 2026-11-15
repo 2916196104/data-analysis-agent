@@ -36,16 +36,49 @@ REFERENCE = re.compile(
     r'(?:那|那么|再|也|只看|仅看)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面|问题)?(?:呢|怎么样)?[？?。]*|'
     r'(?:那|那么)?(?:主要)?集中在(?:哪些|什么)(?:地方|方面)(?:呢)?[？?。]*|'
     r'(?:那|那么)?(?:好评|差评|正面|负面|优点|缺点)(?:呢|吧)?[？?。]*')
+EVIDENCE_PAGE = re.compile(r'(?:下一页|(?:原文|证据)下一页|继续(?:查|查看)?(?:原文|证据|下一页)|'
+                           r'(?:查|查看)(?:原文|证据))[？?。！!]*')
+
+
+def _evidence_page_goal(question, context, parameters=None):
+    from data_analysis_agent.agents.review_semantics import QuestionScopeError
+    previous = (context or {}).get('validated') or {}
+    queries = [row for row in previous.get('queries', []) if row['kind'] == 'evidence']
+    if parameters is not None:
+        defaults = {'aspect': None, 'sentiment': 'negative', 'window': 'current', 'page_size': 3}
+        def matches(row):
+            old = row['parameters']
+            if any(parameters.get(key, default) != old.get(key, default) for key, default in defaults.items()):
+                return False
+            changed = bool((context or {}).get('selection_changes'))
+            if parameters.get('page', 1) != (1 if changed else old.get('page', 1) + 1):
+                return False
+            if not changed:
+                bound = previous.get('scope', {}).get('product_ids', [])
+                if sorted(parameters.get('product_ids') or bound) != sorted(old.get('product_ids') or bound):
+                    return False
+            return True
+        queries = [row for row in queries if matches(row)]
+    if len(queries) != 1:
+        raise QuestionScopeError('下一页需要唯一且已核验的原文查询，并沿用其商品、维度、情感及每页条数；请先明确原文查询。')
+    params = queries[0]['parameters']
+    sentiment = params.get('sentiment', 'negative')
+    return RequestGoal(question, ('evidence',), params.get('aspect'),
+                       None if sentiment == 'all' else sentiment)
 
 
 def build_request_goal(question, context=None):
     """在编译前冻结请求产物；不调用 opinion_request、Router、Planner 或模型。"""
-    from data_analysis_agent.agents.review_semantics import active_request, ASPECT_SWITCH
+    from data_analysis_agent.agents.review_semantics import active_request, ASPECT_SWITCH, QuestionScopeError
     text = active_request(question)
     if question.startswith('执行本轮已确认的只读查询'):
         try:
             declared = json.loads(question.split('\n', 1)[1])
             if declared.get('question'):
+                if EVIDENCE_PAGE.fullmatch(declared['question'].strip()) and declared.get('tool') == 'get_evidence':
+                    if '下一页' in declared['question'] or any(row['kind'] == 'evidence'
+                            for row in ((context or {}).get('validated') or {}).get('queries', [])):
+                        return _evidence_page_goal(declared['question'], context, declared['parameters'])
                 return build_request_goal(declared['question'], context)
             tool = declared['tool']
             level = next((level for level, tools in CAPABILITIES.items() if tool in tools), None)
@@ -57,8 +90,16 @@ def build_request_goal(question, context=None):
             families = tuple(family for family, tools in STATISTIC_FAMILIES.items() if tool in tools)
             return RequestGoal(question, (level,), params.get('aspect'), direction,
                                params.get('topic'), families, source='confirmed_request')
+        except QuestionScopeError:
+            raise
         except (ValueError, KeyError, IndexError, TypeError):
             return None
+    if EVIDENCE_PAGE.fullmatch(text.strip()):
+        if context and ('下一页' in text or any(row['kind'] == 'evidence'
+                for row in (context.get('validated') or {}).get('queries', []))):
+            return _evidence_page_goal(question, context)
+        if '下一页' in text:
+            return RequestGoal(question, ('evidence',))
     from data_analysis_agent.agents.review_retrieval import wants_semantic_search
     if wants_semantic_search(text) or detect_sentiment_directions(text) == {'positive', 'negative'} or re.search(r'好的.*坏的', text):
         # 既有 RAG / 双向比较使用各自的严格契约，本轮不替换它们。
