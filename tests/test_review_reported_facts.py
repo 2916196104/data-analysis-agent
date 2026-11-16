@@ -119,7 +119,7 @@ class ReportedFactsTests(unittest.TestCase):
         self.assertIsNone(query.aspect);self.assertIsNone(query.sentiment)
 
     def test_unknown_relations_and_temporal_queries_remain_unknown(self):
-        for question in ('有没有先制冷好后噪音大的反馈？','有没有制冷好但是噪音大的反馈？',
+        for question in ('有没有先制冷好后噪音大的反馈？','有没有制冷好或者物流很快并且噪音大的反馈？',
                          '有没有不是制冷快而是无法降温的反馈？'):
             result=assess_retrieval(question,[evidence('制冷好；噪音大；无法降温。')])
             self.assertEqual(result['reason'],'query_semantics_uncovered')

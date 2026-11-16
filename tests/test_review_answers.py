@@ -144,7 +144,7 @@ class AnswerTests(WorkbenchFixture, unittest.TestCase):
         self.assertIn('分母 0 条成功标注评论，占比 暂无占比', answer['highlights'][0]['text'])
 
     def test_product_comparison_binds_each_product_scope(self):
-        _, context = self.context("比较两个商品的主要负面问题", product_ids=["P1", "P2"])
+        _, context = self.context("比较两个商品的主要负面问题并解读", product_ids=["P1", "P2"])
         with self.model():
             answer, _ = self.generate(context)
         self.assertEqual(answer["generation_status"], "llm")
@@ -165,14 +165,14 @@ class AnswerTests(WorkbenchFixture, unittest.TestCase):
         self.assertNotIn("暂不能判断", packaging["text"])
 
     def test_generation_retries_only_transport_with_fixed_limit(self):
-        _, context = self.context("比较两个商品的主要负面问题", product_ids=['P1', 'P2'])
+        _, context = self.context("比较两个商品的主要负面问题并解读", product_ids=['P1', 'P2'])
         with self.model(error=httpx.ReadTimeout("simulated")):
             answer, diag = self.generate(context, replace(SETTINGS, answer_max_retries=1))
         self.assertEqual(diag["attempts"], 2)
         self.assertEqual(answer["generation_status"], "fallback")
 
     def test_timeout_uses_template_without_querying_again_or_modifying_data(self):
-        _, context = self.context("比较两个商品的主要负面问题", product_ids=['P1', 'P2'])
+        _, context = self.context("比较两个商品的主要负面问题并解读", product_ids=['P1', 'P2'])
         before = hashlib.sha256(self.db.read_bytes()).hexdigest()
         with self.model(error=httpx.ReadTimeout("secret-provider-error")):
             answer, diag = self.generate(context)
@@ -183,7 +183,7 @@ class AnswerTests(WorkbenchFixture, unittest.TestCase):
         self.assertNotIn("secret-provider", canonical_json(answer))
 
     def test_illegal_json_missing_fields_numbers_and_unsupported_claims_fall_back(self):
-        _, context = self.context("比较两个商品的主要负面问题", product_ids=['P1', 'P2'])
+        _, context = self.context("比较两个商品的主要负面问题并解读", product_ids=['P1', 'P2'])
         transforms = [lambda draft: "not-json", lambda draft: {"summary": "缺少字段"},
             lambda draft: {**draft, "count": 999},
             lambda draft: {**draft, "summary": "包装投诉999条，制冷问题最多。"},
@@ -203,7 +203,7 @@ class AnswerTests(WorkbenchFixture, unittest.TestCase):
                 self.assertNotIn("cooling", canonical_json(answer))
 
     def test_input_budget_falls_back_before_client_creation(self):
-        _, context = self.context("比较两个商品的主要负面问题", product_ids=['P1', 'P2'])
+        _, context = self.context("比较两个商品的主要负面问题并解读", product_ids=['P1', 'P2'])
         with patch("openai.OpenAI") as client:
             answer, diag = self.generate(context, replace(SETTINGS, answer_input_max_bytes=1024))
             client.assert_not_called()

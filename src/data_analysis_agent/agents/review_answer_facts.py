@@ -105,7 +105,22 @@ def build_answer_facts(context, *, detailed=False):
         if comparison and kind == "issues":
             continue  # 比较商品时，额外汇总问题不替代逐商品结论。
         prefix = f"商品 {stat['group_id']}：" if kind == "comparison" else ""
-        if kind in ("positive_aspects", "issues", "comparison"):
+        if kind in ('comparison', 'window_comparison') and stat.get('sentiment') == 'positive':
+            metrics = metric_map(stat['metrics'])
+            rate = metrics.get('positive_comparison_rate')
+            aspect = stat['filters'].get('aspect')
+            label = ASPECTS[aspect] if aspect else '整体'
+            if kind == 'window_comparison':
+                prefix = ('当前窗口' if stat['group_id'] == 'current' else '基线窗口') + f" {scope['date_from']} 至 {scope['date_to']}："
+            detail = prefix + (f"{label}好评占比 {ratio_text(rate)}。" if rate else '当前范围没有评论，暂无可用好评占比。')
+            change = metrics.get('comparison_rate_change_pp')
+            if change:
+                detail += ('当前窗口较基线变化 ' + f"{change['value']:+.1f} 个百分点。" if change['value'] is not None
+                           else '至少一个窗口没有可用分母，无法计算占比变化。')
+            add(stat, 'window' if kind == 'window_comparison' else 'comparison', detail,
+                ['各组分别按同一分母口径计算好评占比，需结合样本量和标注覆盖率判断。'],
+                aspect=aspect, metrics=stat['metrics'])
+        elif kind in ("positive_aspects", "issues", "comparison"):
             if stat["group_id"] == "baseline":
                 continue
             positive = stat.get("sentiment") == "positive"
@@ -125,6 +140,12 @@ def build_answer_facts(context, *, detailed=False):
                 label = row["aspect_label"]
                 rate = metrics["positive_rate" if positive else "negative_rate"]
                 detail = f"{prefix}{label}：{metrics[count_name]['value']} 条，{ratio_text(rate)}。"
+                classified=stat.get('filters',{}).get('topic_statistics')
+                if classified:
+                    topics=[topic for topic in classified['topics'] if topic['aspect']==row['aspect'] and topic['review_count']>0]
+                    if topics:
+                        detail+=' 按固定版本规则已确认的具体反馈包括：'+'；'.join(
+                            f"{topic['name']}（{topic['review_count']} 条评论）" for topic in topics[:2])+'。'
                 if detailed and positive:
                     detail += f"占成功标注评论 {ratio_text(metrics['positive_success_rate'])}。"
                 statement = f"{label}是已有{sentiment_name}提及的评价维度。"
@@ -208,6 +229,7 @@ def build_answer_facts(context, *, detailed=False):
                     finding_ref=finding.get("finding_ref"))
         elif kind == "quality":
             detail = (f"当前范围共 {sample['review_count']} 条评论，{sample['eligible_text_reviews']} 条有有效正文，"
+                      f"缺失正文 {sample['empty_text_reviews']} 条，"
                       f"成功标注 {sample['successful_reviews']} 条，覆盖率 {percent(sample['labeling_coverage'])}；"
                       f"失败 {sample['failed_reviews']} 条，待处理 {sample['unprocessed_reviews']} 条。")
             add(stat, "quality", detail, ["数据质量应结合有效正文、成功标注与覆盖率判断。"], metrics=stat["metrics"])
@@ -234,6 +256,24 @@ def build_answer_facts(context, *, detailed=False):
                     finding_ref='finding:' + content_sha256([stat['source_result_id'], topic['topic_id']])[:20])
             if not filters['topics']:
                 add(stat, 'empty', '当前没有获得真实观点及归属复核共同支持的二级主题；不据此编造主题排名。', ['当前没有可发布的二级主题。'])
+        elif kind=='topic_statistics':
+            filters=stat['filters'];coverage=filters['coverage']
+            for topic in filters['topics'][:3]:
+                bound='至少' if topic['rate_state']=='lower_bound' else ''
+                denominator='全部评论' if topic['denominator_name']=='review_count' else '成功标注评论'
+                detail=(f"{topic['name']}：已确认 {topic['review_count']} 条评论，占{denominator}{bound} {percent(topic['rate'])}"
+                        f"（{topic['review_count']}/{topic['denominator']}）；同义表述已按该规则版本归并。")
+                metrics=[dict(name='confirmed_review_count',value=topic['review_count'],unit='reviews'),
+                    dict(name='topic_rate_lower_bound' if topic['rate_state']=='lower_bound' else 'topic_rate',value=topic['rate'],
+                         unit='fraction_0_to_1',numerator=topic['review_count'],denominator=topic['denominator'],denominator_name=topic['denominator_name'])]
+                add(stat,'topic_statistic',detail,['以下是当前规则版本确认的具体反馈。'],aspect=topic['aspect'],metrics=metrics,
+                    finding_ref='finding:'+content_sha256([stat['source_result_id'],topic['topic_id']])[:20])
+            detail=(f"本次完整扫描 {coverage['processed_opinions']} 条已标注观点，完整归类 {coverage['classified_opinions']} 条，"
+                    f"未判定或仅部分归类 {coverage['unresolved_opinions']} 条，归类覆盖率 {percent(coverage['classification_coverage'])}。"
+                    f"另有 {coverage['unlabelled_reviews']} 条评论未成功标注。规则版本：{filters['version']}。")
+            add(stat,'topic_coverage',detail,['归类覆盖率与标注覆盖率分别统计，未判定内容单独保留。'],
+                metrics=[dict(name=key,value=coverage[key],unit='fraction_0_to_1' if key=='classification_coverage' else 'opinions')
+                         for key in ('processed_opinions','classified_opinions','unresolved_opinions','classification_coverage')])
         elif kind == 'opinion_breakdown':
             groups = stat['filters']['groups']
             balanced = context.analysis_type == "pros_cons"
@@ -331,7 +371,9 @@ def answer_caveats(context, facts):
     if sum(fact.kind == "aspect" for fact in facts) > 1 or is_mixed_overview(context):
         messages.append("同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。")
     if any(fact.kind == 'aspect' and ranked_feedback(context, fact) for fact in facts):
-        messages.append('所列内容是已核验的买家反馈样例，不是完整子主题排名或总体原因。')
+        if any(stat.get('filters',{}).get('topic_statistics') for stat in context.statistics):
+            messages.append('具体问题计数已按固定版本规则归并；未判定内容不代表没有反馈，可能影响主题排名。原文样例不能证明总体原因。')
+        else:messages.append('所列内容是已核验的买家反馈样例，不是完整子主题排名或总体原因。')
     if any(fact.kind == "trend" for fact in facts):
         scopes = {row['scope_ref']:row for row in context.scope_summary}
         partial = False
@@ -352,6 +394,8 @@ def answer_caveats(context, facts):
 def summary_options(context, facts):
     from data_analysis_agent.agents.review_semantics import opinion_request
     content_detail = opinion_request(context.question)['content_detail']
+    if context.analysis_type=='topic_statistics':
+        return ['以下按固定版本规则统计已确认的具体反馈；存在未判定或未标注内容时，比例为已确认下限，不能视为完整主题排名。']
     if is_mixed_overview(context):
         return ['以下分别回答趋势、原文证据和六维度主要问题；统计仅描述当前范围的已标注评论。']
     if context.analysis_type == 'aspect_drilldown':
@@ -402,6 +446,8 @@ def summary_options(context, facts):
         prefix = f'{start} 至 {end}（UTC）的已标注样本：' if start and end else ''
         return [prefix + "".join(fact.statements[0] for fact in facts if fact.kind == "trend"),
                 "趋势需要结合各时段的样本量和覆盖率分别判断。"]
+    if any(fact.kind in ('comparison', 'window') and fact.sentiment == 'positive' for fact in facts):
+        return ['以下比较已标注样本的好评占比，分母随每组结果明确列出；空数据保留为空值。']
     if any(row["analysis_type"] == "comparison" for row in context.statistics):
         return ["各商品的主要负面问题如下，占比均以各自成功标注评论为分母。"]
     if all(fact.kind == "aspect" for fact in facts):

@@ -16,6 +16,7 @@ from openai import OpenAI
 from test_agent import SETTINGS, completion, final, tools
 from test_review_workbench import IDENTITY, WorkbenchFixture
 from data_analysis_agent.agents.reviews import run_review_agent
+from data_analysis_agent.agents.review_answers import public_answer_text
 from data_analysis_agent.agents.review_prompts import PROMPT_VERSION, detect_sentiment_intent
 from data_analysis_agent.agents.review_validation import validate_report
 from data_analysis_agent.agents.review_tools import ReviewToolContext, create_review_registry
@@ -75,14 +76,15 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
             final("ok", "r1", "r2", "r3"),
         ], question="按日查看整体趋势、商品对比、包装原文")
         self.assertEqual(result["status"], "ok", result)
-        self.assertEqual(len(requests), 3)  # 两次原规划请求 + 一次无工具的解释请求。
-        self.assertEqual(result["results"]["r1"]["data"]["summary"]["review_count"], 6)
-        self.assertEqual(len(result["results"]["r2"]["data"]["products"]), 3)
-        evidence = result["results"]["r3"]["data"]["items"][0]
+        self.assertEqual(len(requests), 0)  # 固定 SQL 计划和普通正文均不调用模型。
+        by_kind = {row['kind']: row for row in result['results'].values()}
+        self.assertEqual(by_kind['trend']["data"]["summary"]["review_count"], 6)
+        self.assertEqual(len(by_kind['comparison']["data"]["products"]), 3)
+        evidence = by_kind['evidence']["data"]["items"][0]
         self.assertEqual(evidence["opinions"][0]["quote"], "包装破了")
         self.assertIn("sha256:", evidence["evidence_ref"])
         self.assertNotIn("file_path", evidence)
-        self.assertIn("6 条评论", result["answer"])
+        self.assertEqual(result['answer'], public_answer_text(result['public_answer']))
         self.assertIn("包装破了", result["answer"])
         self.assertNotIn(SETTINGS.api_key, json.dumps(result))
         self.assertEqual(before, hashlib.sha256(self.db.read_bytes()).hexdigest())
@@ -136,7 +138,8 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
             final_value = json.loads(response["text"].split("直接返回 ", 1)[1])
             self.assertEqual(final_value, {"status": "ok", "result_ids": [response["data"]["result_id"]]})
 
-    def test_query_is_separate_from_bound_business_context(self):
+    @patch('data_analysis_agent.agents.review_plan.ReviewQueryPlan.deterministic', return_value=False)
+    def test_query_is_separate_from_bound_business_context(self, _direct):
         simple, direct_requests = self.run_script([], question="按日查看包装趋势")
         self.assertEqual(simple['status'], 'ok')
         self.assertEqual(direct_requests, [])
@@ -168,20 +171,23 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(result["structured_analysis"][0]["result_id"], "r1")
         self.assertEqual(result["compact_context"]["source_result_ids"], ["r1"])
         self.assertEqual(result["public_analysis"]["status"], "ok")
-        self.assertIn("正向维度统计", result["answer"])
+        self.assertIn("好评提及最多的维度", result["answer"])
         self.assertNotIn("负面占比", result["answer"])
         self.assertEqual(len(requests), 0)
         self.assertEqual(result["planning_model_calls"], 0)
 
-    def test_positive_question_rejects_negative_tool_result(self):
-        result, _ = self.run_script(
+    def test_positive_question_does_not_consume_unused_negative_model_script(self):
+        result, requests = self.run_script(
             [tools(("get_trend", {"period": "month"})), final("ok", "r1")],
             question="查看好评主要维度，并看一条好评原文",
         )
-        self.assertEqual(result["status"], "error", result)
-        self.assertNotIn("answer", result)
+        self.assertEqual(result["status"], "ok", result.get('error'))
+        self.assertEqual(requests, [])
+        self.assertTrue(all(row['data'].get('sentiment') == 'positive'
+            for row in result['results'].values() if row['kind'] != 'context'))
 
-    def test_model_timeout_after_successful_tools_preserves_only_diagnostics(self):
+    @patch('data_analysis_agent.agents.review_plan.ReviewQueryPlan.deterministic', return_value=False)
+    def test_model_timeout_after_successful_tools_preserves_only_diagnostics(self, _direct):
         result, requests = self.run_script(
             [tools(("get_trend", {"period": "month"}), ("get_evidence", {"aspect": "packaging"}),
                    ("get_top_issues", {})), httpx.ReadTimeout("simulated timeout")],
@@ -211,15 +217,16 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
         result, _ = self.run_script([tools(("compare_products", {})), final("ok", "r1")],
                                    scope=self.scope(product_ids=["P3"]), question="商品对比")
         self.assertEqual(result["results"]["r1"]["data"]["products"][0]["negative_rate"], 0)
-        self.assertIn("1 款可计算", result["answer"])
-        self.assertLess(len(result["answer"]), 200)
+        self.assertIn('暂无匹配的有效负面观点', result['answer'])
+        self.assertEqual(result['answer'], public_answer_text(result['public_answer']))
 
     def test_annotation_version_and_no_reviews_are_not_silently_omitted(self):
         result, _ = self.run_script([tools(("compare_products", {})), final("ok", "r1")],
                                    scope=self.scope(model="another-annotation-version"), question="商品对比")
         self.assertEqual(result["results"]["overview"]["data"]["summary"]["successful_reviews"], 0)
         self.assertEqual(result["validation"]["status"], "passed", result)
-        self.assertIn("3 款暂无成功标注", result["answer"])
+        self.assertEqual(len(result['public_answer']['highlights']), 3)
+        self.assertTrue(all('暂无成功标注' in row['text'] for row in result['public_answer']['highlights']))
         result, _ = self.run_script([tools(("compare_products", {})), final("ok", "r1")],
                                    scope=self.scope(date_from="2024-01-01", date_to="2024-01-02"), question="商品对比")
         self.assertEqual(result["results"]["r1"]["data"]["no_reviews_product_ids"], ["P1", "P2", "P3"])
@@ -254,7 +261,8 @@ class ReviewAgentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(result['task_acceptance']['status'], 'insufficient_evidence')
         self.assertTrue(result["warnings"])
 
-    def test_invalid_final_missing_results_and_exhausted_budget_do_not_claim_success(self):
+    @patch('data_analysis_agent.agents.review_plan.ReviewQueryPlan.deterministic', return_value=False)
+    def test_invalid_final_missing_results_and_exhausted_budget_do_not_claim_success(self, _direct):
         cases = [
             ([final("ok", "invented")], SETTINGS),
             ([tools(("get_trend", {}), ("compare_products", {})), final("ok", "r1")], SETTINGS),

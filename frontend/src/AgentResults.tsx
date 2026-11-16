@@ -3,8 +3,8 @@ import { Alert, Button, Card, Input, Select, Space, Table, Tag, Tooltip } from '
 import { DownloadOutlined } from '@ant-design/icons';
 import { exportResult } from './local-history';
 import { rate } from './ResultCards';
-import { aspectRows, comparisonRows, sampleState, sectionSummary } from './agent-report';
-import type { AgentResult, AgentToolResult, Summary } from './types';
+import { aspectRows, comparisonBasis, comparisonRows, sampleState, sectionSummary } from './agent-report';
+import type { AgentResult, AgentToolResult, ComparisonSummary, Summary } from './types';
 import ExtendedResults from './features/agent/ExtendedResults';
 import { exportAgentReport } from './features/agent/report-export';
 import P6Results from './features/agent/P6Results';
@@ -16,7 +16,7 @@ const toolNames: Record<string, string> = {
   get_data_quality: '查看数据质量', get_aspect_trend: '查询维度趋势', get_positive_aspects: '查询正向维度',
   get_rating_distribution: '查询星级分布', compare_time_windows: '比较时间窗口',
 };
-const sectionNames = { semantic_evidence: '语义检索证据', aspect_drilldown: '二级主题分析', opinion_breakdown: '观点文本分析', context: '分析范围', trend: '评论趋势', comparison: '商品对比', issues: '六维度问题', evidence: '原文证据',
+const sectionNames = { topic_statistics: '细分主题统计', semantic_evidence: '语义检索证据', aspect_drilldown: '二级主题分析', opinion_breakdown: '观点文本分析', context: '分析范围', trend: '评论趋势', comparison: '商品对比', issues: '六维度问题', evidence: '原文证据',
   quality: '数据质量', aspect_trend: '维度趋势', ratings: '星级分布', window_comparison: '时间窗口对比', positive_aspects: '正向维度' };
 const countColumns = [
   { title: '评论数', dataIndex: 'review_count', width: 85 },
@@ -40,23 +40,30 @@ function ProductComparison({ item, titles, onPrepare }: {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const rows = comparisonRows(item);
+  const positive = item.data.sentiment === 'positive';
+  const available = (row: ComparisonSummary) => (positive ? row.comparison_denominator ?? 0 : row.successful_reviews) > 0;
   const needsLabels = rows.filter(row => row.unprocessed_reviews + row.failed_reviews > 0);
   const filtered = rows.filter(row => `${row.product_id} ${titles.get(row.product_id) || ''}`.toLowerCase().includes(search.trim().toLowerCase())
-    && (filter === 'all' || (filter === 'ready' ? row.successful_reviews > 0 : row.successful_reviews === 0)));
+    && (filter === 'all' || (filter === 'ready' ? available(row) : !available(row))));
   return <>
     <p>{sectionSummary(item)}</p>
     <Space wrap className="spaced-bottom agent-table-controls">
       <Input aria-label="搜索对比商品" placeholder="搜索商品名称或 ID" allowClear value={search} onChange={event => setSearch(event.target.value)} />
       <Select aria-label="筛选商品数据状态" value={filter} onChange={setFilter} options={[
         { value: 'all', label: `全部商品（${rows.length}）` },
-        { value: 'ready', label: `可计算占比（${rows.filter(row => row.successful_reviews > 0).length}）` },
-        { value: 'missing', label: `暂无占比（${rows.filter(row => !row.successful_reviews).length}）` },
+        { value: 'ready', label: `可计算占比（${rows.filter(available).length}）` },
+        { value: 'missing', label: `暂无占比（${rows.filter(row => !available(row)).length}）` },
       ]} />
       {onPrepare && needsLabels.length > 0 && <Button onClick={() => onPrepare(needsLabels.map(row => row.product_id))}>准备待处理商品（{needsLabels.length}）</Button>}
     </Space>
     <Table size="small" rowKey="product_id" dataSource={filtered} pagination={{ pageSize: 8, hideOnSinglePage: true, showSizeChanger: false }} scroll={{ x: 930 }} columns={[
       { title: '商品', dataIndex: 'product_id', width: 220, render: (id: string) => <><strong>{titles.get(id) || id}</strong>{titles.get(id) && <div className="muted">{id}</div>}</> },
-      ...countColumns,
+      ...(positive ? [countColumns[0],
+        { title: '正向评论数', dataIndex: 'comparison_count', width: 100 },
+        { title: `${comparisonBasis(item.data)}（分母）`, dataIndex: 'comparison_denominator', width: 170 },
+        { title: '好评占比', key: 'comparison_rate', width: 140, render: (_: unknown, row: ComparisonSummary) => <>
+          <strong>{rate(row.comparison_rate ?? null)}</strong><div className="muted">{row.comparison_count ?? 0} / {row.comparison_denominator ?? 0}</div></> },
+        ...countColumns.slice(4)] : countColumns),
     ]} />
     {needsLabels.length > 0 && <p className="muted">待标注 {needsLabels.reduce((total, row) => total + row.unprocessed_reviews, 0)} 条，标注失败 {needsLabels.reduce((total, row) => total + row.failed_reviews, 0)} 条。状态按本次选用的标注版本统计；其他版本的标注不计入分母。</p>}
   </>;
@@ -91,7 +98,7 @@ export default function AgentResults({ result, onDetail, onPrepare, onEvidenceNe
         <span>标注失败 <strong>{summary.failed_reviews}</strong></span>
       </div>}
       {summary && !summary.successful_reviews && <Alert className="spaced" type="warning" showIcon message={sampleState(summary).reason}
-        description="暂无可用于负面占比的成功标注样本。可检查选用的标注版本，或准备数据后重新分析；这不表示负面占比为 0%。" />}
+        description="暂无可用于情感占比的成功标注样本。可检查选用的标注版本，或准备数据后重新分析；空数据不表示占比为 0%。" />}
       {onPrepare && summary && summary.failed_reviews + summary.unprocessed_reviews > 0 && <Button className="spaced" onClick={() => onPrepare(result.scope.product_ids)}>补齐当前范围标注</Button>}
       <p className="muted spaced">{result.sentiment_intent === 'positive' ? '好评占比的分母见各统计明细；' : '负面占比 = 负面评论数 / 成功标注数；'}覆盖率 = 成功标注数 / 有效正文数。未标注评论不用于判断正负面。成功标注不足 20 条或覆盖率低于 80% 时标记为“样本有限”。</p>
     </Card>}

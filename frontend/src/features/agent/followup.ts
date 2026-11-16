@@ -16,8 +16,10 @@ export interface QueryParent { id: string; taskId?: string; question?: string; p
 
 const aspects: Record<string, string> = { 质量: 'quality', 效果: 'effectiveness', 包装: 'packaging', 物流: 'logistics', 客服: 'service', 服务: 'service', 价格: 'price' };
 const names: Record<QueryIntent['kind'], string> = { semantic_evidence: '语义检索证据', trend: '评论趋势', aspect_trend: '维度趋势', evidence: '原文证据',
+  topic_statistics: '细分主题统计',
   comparison: '商品对比', issues: '问题分布', quality: '数据质量', ratings: '星级分布', window_comparison: '时间窗口对比', positive_aspects: '正向维度', opinion_breakdown: '观点文本分析', aspect_drilldown: '二级主题分析' };
 const tools: Record<QueryIntent['kind'], string> = { semantic_evidence: 'search_semantic_evidence', trend: 'get_trend', aspect_trend: 'get_aspect_trend', evidence: 'get_evidence',
+  topic_statistics: 'get_topic_statistics',
   comparison: 'compare_products', issues: 'get_top_issues', quality: 'get_data_quality', ratings: 'get_rating_distribution', window_comparison: 'compare_time_windows', positive_aspects: 'get_positive_aspects', opinion_breakdown: 'get_opinion_breakdown', aspect_drilldown: 'get_aspect_drilldown' };
 const scopeKeys = ['source', 'dataset_version', 'model', 'base_url', 'prompt_version', 'date_from', 'date_to', 'baseline_from', 'baseline_to', 'as_of'] as const;
 
@@ -138,16 +140,22 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
   query.parentTaskId = parent.taskId;
   if (op.type === 'ambiguous') return clarify('这次追问的对象或范围不明确。请写明要分析的商品、维度或统计方式；商品和日期请在下方“切换范围”中确认。');
   const results = Object.values(parent.result.results).filter(item => item.kind !== 'context');
+  if (results.length === 1 && results[0].kind === 'topic_statistics' && ['aspect', 'sentiment'].includes(op.type)) {
+    // 服务端从已校验任务恢复主题版本和筛选，不让客户端改写历史结论。
+    return { query, parameters: copyScope(parent.parameters) };
+  }
   let candidates: QueryIntent[] = [];
   let multipleEvidenceTargets = false;
   const inheritedParameters = parent.parameters;
   if (op.type === 'sentiment') {
+    if (op.value === 'negative' && results.some(item => ['comparison', 'window_comparison'].includes(item.kind) && item.parameters.aspect))
+      return clarify('负向对比目前按整体统计。要比较整体差评，还是分别查看该维度的差评趋势？');
     const kind = op.value === 'positive' ? 'positive_aspects' : 'issues';
-    const targets = results.filter(item => ['positive_aspects', 'issues', 'evidence', 'opinion_breakdown', 'aspect_drilldown', 'trend', 'aspect_trend'].includes(item.kind));
+    const targets = results.filter(item => ['positive_aspects', 'issues', 'evidence', 'opinion_breakdown', 'aspect_drilldown', 'trend', 'aspect_trend', 'comparison', 'window_comparison'].includes(item.kind));
     candidates = targets.map(previous => {
       const params: Record<string, unknown> = { ...previous.parameters, sentiment: op.value };
       if (op.value === 'negative' && params.denominator === 'positive_review_count') delete params.denominator;
-      if (['opinion_breakdown', 'aspect_drilldown', 'trend', 'aspect_trend'].includes(previous.kind))
+      if (['opinion_breakdown', 'aspect_drilldown', 'trend', 'aspect_trend', 'comparison', 'window_comparison'].includes(previous.kind))
         return { kind: previous.kind as QueryIntent['kind'], parameters: params };
       if (previous.kind === 'evidence') return { kind: 'evidence', parameters: { ...params, page: 1 } };
       return { kind, parameters: { product_ids: parent.parameters.product_ids,

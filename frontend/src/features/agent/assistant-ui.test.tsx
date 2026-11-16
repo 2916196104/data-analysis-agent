@@ -72,7 +72,7 @@ describe('助手界面模式接入', () => {
     fireEvent.change(input, { target: { value: '差评率是多少？' } });
     fireEvent.click(screen.getByRole('button', { name: '提交问题' }));
     await screen.findByText('当前模式');
-    expect(chat).toHaveBeenCalledWith('差评率是多少？');
+    expect(chat).toHaveBeenCalledWith('差评率是多少？', []);
     expect(api.submit).not.toHaveBeenCalled();
     expect(vi.mocked(useTask).mock.calls.every(([id]) => id === null)).toBe(true);
     expect(document.querySelector('.chat-report')).toBeNull();
@@ -123,7 +123,7 @@ describe('助手界面模式接入', () => {
     expect(screen.queryByText('问题尚未确认提交')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '重新发送' }));
     await screen.findByText('恢复后的回答');
-    expect(chat.mock.calls).toEqual([['原问题'], ['原问题']]);
+    expect(chat.mock.calls).toEqual([['原问题', []], ['原问题', []]]);
     expect(api.retry).not.toHaveBeenCalled();
     expect(api.submit).not.toHaveBeenCalled();
   });

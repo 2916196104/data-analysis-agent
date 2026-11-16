@@ -84,6 +84,10 @@ class AnswerGenerationStrategy:
             return 'template'
         complex_types = {"trend", "aspect_trend", "comparison", "window_comparison", "composite", 'aspect_drilldown'}
         requested = bool(re.search(r"原因|为什么|解释|解读|建议|改进|改善|综合|详细分析", context.question))
+        if not requested and context.statistics and all(row['analysis_type'] in (
+                'quality', 'ratings', 'comparison', 'window_comparison', 'trend', 'aspect_trend',
+                'positive_aspects', 'issues', 'evidence', 'opinion_breakdown') for row in context.statistics):
+            return 'template'
         if facts and all(fact.kind in ('aspect', 'empty') for fact in facts) and context.analysis_type not in ('comparison', 'composite'):
             # 只有一级计数，模型没有可用于具体问题解释的观点内容；直接说清证据缺口。
             return 'template'
@@ -262,7 +266,7 @@ class NaturalLanguageAnswerGenerator:
         facts, _ = build_answer_facts(context, detailed=detailed)
         if not facts:
             raise ValueError("没有可用于回答的统计事实。")
-        mode = AnswerGenerationStrategy.choose(context, facts)
+        mode = 'template' if context.analysis_type=='topic_statistics' else AnswerGenerationStrategy.choose(context, facts)
         draft = template_draft(context, facts)
         catalog, _ = fact_catalog(context)
         if mode == 'llm':
@@ -448,12 +452,12 @@ def unavailable_answer(status="failed", reason=None, *, question=None):
 
 def semantic_answer(context):
     """Reuse PublicAnswer; publish only licensed verbatim reports, never raw candidates."""
-    from data_analysis_agent.agents.review_retrieval import POLICY, LEGACY_POLICY
+    from data_analysis_agent.agents.review_retrieval import POLICY, LEGACY_POLICY, FACT_POLICIES
     from data_analysis_agent.agents.review_reported_facts import validate_answer_bindings
     if len(context.statistics) != 1 or context.statistics[0]['analysis_type'] != 'semantic_evidence':
         raise ValueError('语义回答上下文不一致。')
     stat = context.statistics[0]; filters = stat['filters']; assessment = filters['assessment']
-    if (filters['question'] != context.question or assessment['policy'] not in (POLICY, LEGACY_POLICY)
+    if (filters['question'] != context.question or assessment['policy'] not in (*FACT_POLICIES, LEGACY_POLICY)
             or (filters['context_policy'],filters['context_version']) != ('quote_full_review_veto','1')):
         raise ValueError('语义回答许可版本不一致。')
     scope = next((row for row in context.scope_summary if row['scope_ref']==stat['scope_ref']),None)
@@ -468,8 +472,11 @@ def semantic_answer(context):
     fact_question=filters.get('assessment_question',context.question)
     if fact_question not in (context.question,evidence_question(context.question, scope)):
         raise ValueError('事实目标与原问题不一致。')
-    if assessment['policy'] == POLICY and not validate_answer_bindings(fact_question,assessment,context.evidence):
-        raise ValueError('语义回答事实、关系或引用绑定不一致。')
+    if assessment['policy'] in FACT_POLICIES:
+        if assessment['policy'] != POLICY:
+            from data_analysis_agent.agents.review_reported_facts_v2 import validate_answer_bindings
+        if not validate_answer_bindings(fact_question,assessment,context.evidence):
+            raise ValueError('语义回答事实、关系或引用绑定不一致。')
     highlights = []
     for ref in context.evidence:
         if (ref.source_result_id != stat['source_result_id'] or ref.product_id not in scope['product_ids']
@@ -485,11 +492,45 @@ def semantic_answer(context):
     summary = ('在本次检索到的评论中，有买家明确报告了以下情况。' if keys else
         '本次检索没有返回候选证据，暂时无法回答；这不表示全量评论不存在相关反馈。' if filters['candidate_count']==0 else
         '已检索到候选观点，但当前本地校验不能确认其直接支持所问结论；暂不作确定判断。')
+    if keys and assessment['policy'] == POLICY and assessment.get('operator') == 'any_of':
+        summary = '以下买家反馈满足所问条件中的至少一项；每条引文只支持其明确提到的内容。'
+    elif keys and assessment['policy'] == POLICY and (assessment.get('relation') or {}).get('type') == 'same_review':
+        summary = '以下反馈在同一条评论内明确提到了所问的全部情况；不同评论未拼接为一条反馈。'
+    elif (not keys and assessment['policy'] == POLICY and filters['candidate_count']
+            and (assessment.get('relation') or {}).get('type') == 'same_review'):
+        summary = '本次候选中，尚未找到同一条评论内同时支持全部条件的完整原文；不能把不同评论拼接成一条反馈。'
     return PublicAnswer(status='ok', summary=summary, highlights=highlights, evidence_refs=context.evidence,
         caveats=['仅描述本次检索且可明确核验的买家自述，不代表客观性能、总体比例或全部评论。',
                  '完整评论仅作上下文否决；相似度不代表事实支持。未识别表达属于语义覆盖不足。'],
         sample_note='语义Top-K候选不作为统计样本或总体分母。', generation_status='template',
         source_result_ids=context.source_result_ids, scope_summary=context.scope_summary, details_available=True).model_dump()
+
+
+def public_answer_text(answer, *, result_id=None):
+    """兼容文字出口只投影已经校验的公开回答，不再独立生成另一份结论。"""
+    PublicAnswer.model_validate(answer)
+    highlights = [row['text'] for row in answer['highlights'] if result_id is None or result_id in row['source_result_ids']]
+    if result_id is not None:
+        return '\n'.join(highlights) or answer['summary']
+    insights = [f"{'可能的解释' if row['kind'] == 'interpretation' else '分析建议'}：{row['text']}"
+                for row in answer.get('insights', [])] if answer['status'] == 'ok' else []
+    return '\n\n'.join(part for part in [answer['summary'],
+        *(f'{index + 1}. {text}' for index, text in enumerate(highlights)), *insights,
+        answer['sample_note'], *answer['caveats']] if part)
+
+
+def synchronize_answer(result):
+    answer = result['public_answer']
+    opposite = {'positive': 'negative_', 'negative': 'positive_'}.get(result.get('sentiment_intent'))
+    if opposite and any(
+            str(metric.get('name', '')).startswith(opposite)
+            for row in answer['metrics'] for metric in row['values']):
+        raise ValueError('回答主指标与查询情感方向冲突。')
+    result['answer'] = public_answer_text(answer)
+    for section in result.get('answer_sections', []):
+        section['text'] = public_answer_text(answer, result_id=section['result_id'])
+    return result['answer'] == public_answer_text(answer) and all(
+        section['text'] == public_answer_text(answer, result_id=section['result_id']) for section in result.get('answer_sections', []))
 
 
 def read_public_answer(task, *, public_analysis=None):

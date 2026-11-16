@@ -165,7 +165,9 @@ class CapabilityTests(WorkbenchFixture, unittest.TestCase):
             ))
             rejected = registry.execute_tool("get_trend", json.dumps({"period": "month"})).to_dict()
             self.assertEqual(rejected["status"], "error")
-            self.assertIn("get_positive_aspects", rejected["error"]["message"])
+            self.assertIn("趋势情感", rejected["error"]["message"])
+            positive_trend=registry.execute_tool('get_trend',json.dumps({'period':'month','sentiment':'positive'})).to_dict()
+            self.assertEqual(positive_trend['status'],'success')
             accepted = registry.execute_tool("get_positive_aspects", json.dumps({})).to_dict()
             self.assertEqual(accepted["status"], "success")
             self.assertEqual(accepted["data"]["kind"], "positive_aspects")
@@ -191,19 +193,20 @@ class AgentCapabilityTests(WorkbenchFixture, unittest.TestCase):
 
     def test_all_new_tools_are_validated_grounded_and_readonly(self):
         before = hashlib.sha256(self.db.read_bytes()).hexdigest()
-        result, _ = self.run_script([tools(("get_data_quality", {}), ("get_aspect_trend", {"aspect": "packaging"}),
+        result, _ = self.run_script([tools(("get_data_quality", {}), ("get_aspect_trend", {"aspect": "packaging", "period":"month"}),
                                           ("get_rating_distribution", {"group_by": "product"}), ("compare_time_windows", {})),
                                      final("ok", "r1", "r2", "r3", "r4")],
                                     question="数据质量、包装按月趋势、星级分布、比较当前窗口与基线")
         self.assertEqual(result["status"], "ok", result)
         self.assertEqual(result["validation"]["status"], "passed")
         self.assertIn("缺失正文 1 条", result["answer"])
-        self.assertIn("原始星级分布", result["answer"])
+        self.assertIn("星级分布", result["answer"])
         self.assertEqual(before, hashlib.sha256(self.db.read_bytes()).hexdigest())
-        for path, value in [(("r1", "data", "failed_rate"), 0.99),
-                            (("r2", "data", "buckets", 0, "aspects", "packaging", "negative_rate"), 0.9),
-                            (("r3", "data", "groups", 0, "stars", 0, "rate"), 0.9),
-                            (("r4", "data", "changes", "negative_rate_pp"), 0)]:
+        ids = {row['kind']: rid for rid, row in result['results'].items()}
+        for path, value in [((ids['quality'], "data", "failed_rate"), 0.99),
+                            ((ids['aspect_trend'], "data", "buckets", 0, "aspects", "packaging", "negative_rate"), 0.9),
+                            ((ids['ratings'], "data", "groups", 0, "stars", 0, "rate"), 0.9),
+                            ((ids['window_comparison'], "data", "changes", "negative_rate_pp"), 0)]:
             changed = deepcopy(result["results"])
             target = changed
             for key in path[:-1]:

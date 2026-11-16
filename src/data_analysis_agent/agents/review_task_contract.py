@@ -8,14 +8,14 @@ from data_analysis_agent.core.serialization import canonical_json, content_sha25
 from data_analysis_agent.core.validation import Text
 from data_analysis_agent.reviews.parameters import AnalysisScope, BaselineScope
 from data_analysis_agent.reviews.query_contract import ContractModel, TaskType, RequiredFact, RequiredFacts, FactRelation, Digest, SentimentIntent
-from data_analysis_agent.agents.review_reported_facts import target
+from data_analysis_agent.agents.review_reported_facts import POLICY, target
 
 VERSION = 'review-runtime-contract-v1'
 DATE_PREFIX = re.compile(r'^\s*(?:(?:请问|在|从)\s*)?(\d{4}-\d{2}-\d{2})\s*(?:至|到|~|～|—)\s*'
                          r'(\d{4}-\d{2}-\d{2})\s*(?:期间|之间|内)?\s*[，,:：]?\s*(.+)$', re.S)
 
 
-def evidence_question(question, scope=None):
+def evidence_question(question, scope=None, *, fact_policy=POLICY):
     """Separate redundant prefixes using an independently catalog-bound server scope, never text-inferred IDs."""
     match = DATE_PREFIX.fullmatch(question)
     text = match[3] if match else question
@@ -28,11 +28,18 @@ def evidence_question(question, scope=None):
                 if prefix:
                     remainder = text[prefix.end():]
                     # Only the existing complete proposition grammar qualifies; no numeric/clause deletion.
-                    if target(remainder) is not None:
+                    if fact_target(remainder, fact_policy) is not None:
                         return remainder
         except (KeyError, TypeError, AttributeError):
             pass
     return text
+
+
+def fact_target(question, policy):
+    if policy == 'reported_experience_v2':
+        from data_analysis_agent.agents.review_reported_facts_v2 import target as old_target
+        return old_target(question)
+    return target(question)
 
 
 def evidence_scope_matches(question, scope):
@@ -44,6 +51,8 @@ def task_limit(question):
     """Unsupported goals must not fall through to an unrelated successful SQL tool."""
     if question.startswith('执行本轮已确认的只读查询'):
         return None
+    from data_analysis_agent.agents.review_topic_statistics import topic_request
+    if topic_request(question):return None
     if re.fullmatch(r'\s*(?:请)?(?:指定|选择|输入)(?:一个|一款)(?:当前)?数据集(?:中|内)?不存在的(?:商品|产品)\s*(?:ID|编号)\s*'
                     r'(?:再提问|重新提问|进行提问)?[。！？?!]*\s*', question, re.I):
         return ('missing_product', '这条测试说明尚未给出具体商品 ID 和查询内容。请填写要测试的商品 ID，再提出物流好评等具体问题。')
@@ -121,6 +130,7 @@ class RuntimeQueryContract(ContractModel):
 
 # Paths and denominators are the existing analytics payload contract, not model choices.
 METRICS = {
+    'get_topic_statistics': [('topic_rate','topics[].rate','topics[].review_count','review_count',None)],
     'get_positive_aspects': [('positive_rate','aspects[].positive_rate','aspects[].positive_review_count','positive_review_count','positive_aspect_rate_denominator'),
                              ('positive_success_rate','aspects[].positive_success_rate','aspects[].positive_review_count','successful_reviews','positive_success_rate_denominator')],
     'get_top_issues': [('negative_rate','issues[].negative_rate','issues[].negative_review_count','successful_reviews','negative_rate_denominator')],
@@ -137,20 +147,22 @@ METRICS = {
 }
 
 
-def build_task_contract(question, scope, plan):
+def build_task_contract(question, scope, plan, *, fact_policy=POLICY):
     bound = RuntimeScope.model_validate_json(canonical_json(scope))
-    q = evidence_question(question, scope)
-    request = target(q) if plan.analysis_type == 'semantic_evidence' else None
+    q = evidence_question(question, scope, fact_policy=fact_policy)
+    request = fact_target(q,fact_policy) if plan.analysis_type == 'semantic_evidence' else None
     facts = RequiredFacts()
     entity = subtopic = 'unknown'
     if request:
         # target() has already verified these complete clauses; no new intent inference.
-        pair = re.fullmatch(r'同一(?:条)?评论(?:中)?既(?:说)?(.+?)又(?:说|抱怨)?(.+)', request['text'])
-        clauses = pair.groups() if pair else (request['text'],)
+        clauses = request.get('clauses')
+        if clauses is None:
+            pair = re.fullmatch(r'同一(?:条)?评论(?:中)?既(?:说)?(.+?)又(?:说|抱怨)?(.+)', request['text'])
+            clauses = pair.groups() if pair else (request['text'],)
         items = tuple(RequiredFact(id=fid, description=f'买家自述该商品的体验：{clause}')
                       for fid, clause in zip(request['facts'], clauses, strict=True))
         relations = (FactRelation(kind='same_review', fact_ids=tuple(request['facts'])),) if request['relation'] else ()
-        facts = RequiredFacts(items=items, relations=relations)
+        facts = RequiredFacts(operator=request.get('operator','all_of'), items=items, relations=relations)
         domains = {fid.split('_')[0] for fid in request['facts']}
         entity = 'device' if domains <= {'cooling','heating','noise'} else next(iter(domains)) if len(domains)==1 else 'multiple'
         subtopic = next(iter(domains)) if len(domains)==1 else 'multiple'
@@ -166,6 +178,13 @@ def build_task_contract(question, scope, plan):
     statistics = []
     for req in plan.requirements:
         metrics = METRICS.get(req['tool'], [])
+        if req['tool']=='get_topic_statistics':
+            metrics=[('topic_rate','topics[].rate','topics[].review_count',req['parameters'].get('denominator','review_count'),None)]
+        if req['tool'] in ('compare_products', 'compare_time_windows') and req['parameters'].get('sentiment') == 'positive':
+            from data_analysis_agent.reviews.parameters import comparison_denominator
+            den = comparison_denominator('positive', req['parameters'].get('aspect'), req['parameters'].get('denominator'))
+            prefix = 'products[]' if req['tool'] == 'compare_products' else 'current'
+            metrics = [('positive_comparison_rate', prefix + '.comparison_rate', prefix + '.comparison_count', den, 'comparison_rate_denominator')]
         if req['tool'] in ('get_trend', 'get_aspect_trend') and req['parameters'].get('sentiment') == 'positive':
             if req['tool'] == 'get_trend':
                 metrics = [('positive_rate', 'summary.positive_rate', 'summary.positive_review_count',
@@ -259,10 +278,11 @@ def task_matches(contract, selected, *, scope):
             if not validate_retrieval(data,contract.original_question):return False
             a=data['assessment']
             if contract.support_status=='retrieval_only':return not a['permitted_keys'] and a['status']=='insufficient'
-            if a['policy']=='reported_experience_v2':
+            from data_analysis_agent.agents.review_retrieval import FACT_POLICIES
+            if a['policy'] in FACT_POLICIES:
                 ids=tuple(f.id for f in contract.required_facts.items)
                 relation=(FactRelation(kind='same_review',fact_ids=ids),) if a['relation'] else ()
-                if (a['required_fact_ids']!=list(ids) or contract.required_facts.operator!='all_of'
+                if (a['required_fact_ids']!=list(ids) or contract.required_facts.operator!=a.get('operator','all_of')
                         or contract.required_facts.relations!=relation):return False
         return bool(selected)
     except (ValueError,KeyError,TypeError,AttributeError):return False

@@ -17,13 +17,13 @@ from data_analysis_agent.core.serialization import canonical_json
 from data_analysis_agent.core.validation import Input, Text
 from data_analysis_agent.reviews import analytics
 from data_analysis_agent.reviews.opinions import ASPECTS, SENTIMENTS, Aspect
-from data_analysis_agent.reviews.parameters import BaselineScope
+from data_analysis_agent.reviews.parameters import BaselineScope, ComparisonOptions
 from data_analysis_agent.reviews.semantic_retrieval import SemanticRetrievalError
 
 
 QUERY_SIGNATURES = {name: signature(getattr(analytics, name)) for name in (
     "get_trend", "get_aspect_trend", "get_data_quality", "get_positive_aspects",
-    "get_rating_distribution", "compare_time_windows", "compare_products", "get_top_issues", "get_evidence", "get_opinion_breakdown",
+    "get_rating_distribution", "compare_time_windows", "compare_products", "get_top_issues", "get_evidence", "get_opinion_breakdown", "get_topic_corpus",
     "get_aspect_opinions",
 )}
 
@@ -51,6 +51,12 @@ class AspectDrilldownInput(ProductSelection):
     sentiment: Literal['positive', 'negative']
 
 
+class TopicStatisticsInput(AspectSelection):
+    sentiment: Literal['positive','negative'] = 'negative'
+    topic: str | None = Field(default=None, pattern=r'^[a-z_]+$')
+    denominator: Literal['review_count','successful_reviews'] = 'review_count'
+
+
 class TrendInput(ProductSelection):
     period: Literal["day", "month"] = Field(default="month", description="按 UTC 日或月统计")
     sentiment: Literal['negative', 'positive'] = 'negative'
@@ -69,7 +75,11 @@ class RatingInput(WindowInput):
     group_by: Literal["product", "month", "all"] = "product"
 
 
-class WindowComparisonInput(ProductSelection):
+class ComparisonInput(ProductSelection, ComparisonOptions):
+    pass
+
+
+class WindowComparisonInput(ComparisonInput):
     date_from: str | None = Field(default=None, description="自定义当前开始日 YYYY-MM-DD；四个日期必须一起传入")
     date_to: str | None = None
     baseline_from: str | None = None
@@ -87,9 +97,10 @@ class EvidenceInput(ProductSelection):
 TOOL_INPUTS = {'get_analysis_context': Input, 'get_trend': TrendInput, 'get_data_quality': WindowInput,
     'get_positive_aspects': AspectSelection, 'get_aspect_trend': AspectTrendInput,
     'get_rating_distribution': RatingInput, 'compare_time_windows': WindowComparisonInput,
-    'compare_products': ProductSelection, 'get_top_issues': IssueInput,
+    'compare_products': ComparisonInput, 'get_top_issues': IssueInput,
     'get_opinion_breakdown': OpinionBreakdownInput, 'get_aspect_drilldown': AspectDrilldownInput,
     'get_evidence': EvidenceInput, 'search_semantic_evidence': Input}
+TOOL_INPUTS['get_topic_statistics'] = TopicStatisticsInput
 
 
 class ReviewToolContext:
@@ -175,15 +186,15 @@ class ReviewToolContext:
             self.last_cache_hit = True
             return deepcopy(self.results[self.cache[key]])
         values = dict(parameters)
-        negative_tools = {"compare_products",
-                          "get_top_issues", "compare_time_windows"}
+        negative_tools = {"get_top_issues"}
         if self.sentiment_intent == "positive" and name in negative_tools:
             raise ReviewDataError("当前问题要求正向维度统计，请调用 get_positive_aspects。")
         if self.sentiment_intent == "negative" and name == "get_positive_aspects":
             raise ReviewDataError("当前问题要求负向分析，请使用负面统计工具。")
-        if name in ('get_trend', 'get_aspect_trend') and self.sentiment_intent in ('positive', 'negative'):
+        if name in ('get_trend', 'get_aspect_trend', 'compare_products', 'compare_time_windows') and self.sentiment_intent in ('positive', 'negative'):
             if values.get('sentiment', 'negative') != self.sentiment_intent:
-                raise ReviewDataError('趋势情感必须与本轮查询目标一致。')
+                label = '趋势' if name in ('get_trend', 'get_aspect_trend') else '对比'
+                raise ReviewDataError(label + '情感必须与本轮查询目标一致。')
         if name == "get_evidence" and self.sentiment_intent in {"positive", "negative"}:
             expected = self.sentiment_intent
             if values.get("sentiment", "negative") != expected:
@@ -222,7 +233,8 @@ class ReviewToolContext:
         elif name == "get_rating_distribution":
             kind, data = "ratings", self.query("get_rating_distribution", **scope, **values)
         elif name == "compare_time_windows":
-            dates = {key: value for key, value in values.items() if value is not None}
+            dates = {key: values.pop(key) for key in ('date_from', 'date_to', 'baseline_from', 'baseline_to')}
+            dates = {key: value for key, value in dates.items() if value is not None}
             if dates and len(dates) != 4:
                 raise ReviewDataError("自定义比较必须同时提供当前和基线的四个日期。")
             selected = BaselineScope.model_validate({**scope, "baseline_from": self.scope["baseline_from"],
@@ -233,15 +245,19 @@ class ReviewToolContext:
                                (selected["baseline_from"], selected["baseline_to"])]:
                 if not any(a <= start <= end <= b for a, b in allowed):
                     raise ReviewDataError("自定义窗口必须完整位于本次当前或基线范围内；扩大日期请先切换范围。")
-            kind, data = "window_comparison", self.query("compare_time_windows", **selected)
+            kind, data = "window_comparison", self.query("compare_time_windows", **selected, **values)
         elif name == "compare_products":
-            kind, data = "comparison", self.query("compare_products", **scope)
+            kind, data = "comparison", self.query("compare_products", **scope, **values)
         elif name == "get_top_issues":
             baseline = {key: self.scope[key] for key in ('baseline_from', 'baseline_to')} if values.pop('include_baseline', False) else {}
             kind, data = "issues", self.query("get_top_issues", **scope, **baseline)
             if (self.query_plan and self.query_plan.required_tools == ['get_top_issues']
                     and self.query_plan.requires_evidence and not parameters.get('aspect') and not baseline):
                 data['rank_examples'] = []
+                if len(scope['product_ids']) == 1:
+                    from data_analysis_agent.agents.review_topic_statistics import build_statistics
+                    data['topic_statistics']=build_statistics(self.query('get_topic_corpus',**scope,sentiment='negative'),
+                                                              denominator='successful_reviews')
                 # 同一只读快照内最多三个维度、每维两条评论，不启动主题模型或跨范围补查。
                 for issue in [row for row in data['issues'] if row['negative_review_count'] > 0][:3]:
                     examples = self.query('get_evidence', **scope, aspect=issue['aspect'],
@@ -251,6 +267,12 @@ class ReviewToolContext:
                     for item in examples['items']:
                         item.pop('file_path', None)
                     data['rank_examples'].append(examples)
+        elif name == 'get_topic_statistics':
+            from data_analysis_agent.agents.review_topic_statistics import build_statistics
+            if self.sentiment_intent in ('positive','negative') and values['sentiment'] != self.sentiment_intent:
+                raise ReviewDataError('细分主题情感必须与查询目标一致。')
+            corpus=self.query('get_topic_corpus',**scope,sentiment=values.pop('sentiment'))
+            kind,data='topic_statistics',build_statistics(corpus,**values)
         elif name == "get_opinion_breakdown":
             kind, data = "opinion_breakdown", self.query("get_opinion_breakdown", **scope, **values)
         elif name == 'get_aspect_drilldown':
@@ -365,11 +387,12 @@ def create_review_registry(context):
         ("get_positive_aspects", "查询正向观点在六个业务维度的去重评论数和占比；正向问题必须优先使用此工具。", AspectSelection),
         ("get_aspect_trend", "按日/月查看指定正负情感的六维度评论数、占比及覆盖率；正向维度以当期正向观点评论为分母。", AspectTrendInput),
         ("get_rating_distribution", "按商品/月/总体查询原始 1–5 星分布；可选择当前或基线窗口，不依赖标注。", RatingInput),
-        ("compare_time_windows", "比较已选当前/基线窗口的计数、覆盖率、负面占比及六维度变化；可传四个日期缩小窗口，不能超出绑定范围。", WindowComparisonInput),
-        ("compare_products", "比较已选商品在当前窗口的评论量、覆盖率、负面数量和占比。", ProductSelection),
+        ("compare_time_windows", "比较已选当前/基线窗口的正向或负向占比、计数和覆盖率；正向支持整体或单维度及明确分母，可传四个日期缩小窗口。", WindowComparisonInput),
+        ("compare_products", "比较已选商品的正向或负向占比、计数和覆盖率；正向支持整体或单维度及明确分母。", ComparisonInput),
         ("get_top_issues", "当前窗口六维度负面数量和占比；仅 include_baseline=true 时比较基线。", IssueInput),
         ("get_opinion_breakdown", "按已有观点原文与情感归组，返回去重评论数、观点数及可追溯原文；不是标准细分标签。", OpinionBreakdownInput),
         ('get_aspect_drilldown', '对一个商品的正向观点或指定维度的负向观点进行有来源的主题总结；正向省略 aspect 时按维度组织整体好评，数量由代码计算。', AspectDrilldownInput),
+        ('get_topic_statistics', '完整扫描一个商品的已标注观点，按固定版本细分主题归并；返回去重计数、覆盖率、未判定及占比上下界，不将未判定当作无反馈。', TopicStatisticsInput),
         ("get_evidence", "分页查询带原文位置的评论证据，可筛选维度、情感、商品子集和当前/基线窗口。", EvidenceInput),
         ('search_semantic_evidence', '使用本轮原问题和固定范围做语义检索；候选不等于事实支持，不接受范围或问题改写。', Input),
     ):

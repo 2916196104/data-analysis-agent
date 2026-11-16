@@ -25,6 +25,16 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('AI 聊天提交与恢复', () => {
+  it('基础追问发送当前会话已完成的历史，新会话隔离历史', async () => {
+    const chat = vi.spyOn(api, 'chat').mockResolvedValue({ answer: '上一轮真实接口回答' });
+    const hook = renderHook(() => useAgentChat());
+    await act(async () => { await hook.result.current.sendBasic('解释变频'); });
+    await act(async () => { await hook.result.current.sendBasic('举个例子'); });
+    expect(chat.mock.calls[1]).toEqual(['举个例子', [{ question: '解释变频', answer: '上一轮真实接口回答' }]]);
+    act(() => { hook.result.current.createSession(); });
+    await act(async () => { await hook.result.current.sendBasic('新问题'); });
+    expect(chat.mock.calls[2]).toEqual(['新问题', []]);
+  });
   it('提交时复制完整范围，草稿和商品数组变化不会改写内存、请求或刷新后的历史', async () => {
     const submit = vi.spyOn(api, 'submit').mockResolvedValue({ task: savedTask('frozen'), reused: false });
     const mutable = { ...parameters, product_ids: ['A'], as_of: '2023-02-28T23:59:59Z' };
@@ -182,7 +192,7 @@ describe('基础问答与分析消息隔离', () => {
     const hook = renderHook(() => useAgentChat());
     await act(async () => { expect(await hook.result.current.sendBasic('  你能做什么？  ')).toBe(true); });
     expect(chat).toHaveBeenCalledTimes(1);
-    expect(chat).toHaveBeenCalledWith('你能做什么？');
+    expect(chat).toHaveBeenCalledWith('你能做什么？', []);
     expect(submit).not.toHaveBeenCalled();
     expect(retry).not.toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
@@ -253,7 +263,7 @@ describe('基础问答与分析消息隔离', () => {
     expect(turns).toHaveLength(2);
     expect(turns[0].id).not.toBe(turns[1].id);
     expect(turns[1]).toMatchObject({ kind: 'basic', status: 'succeeded', answer: '重新发送后的回答' });
-    expect(chat.mock.calls).toEqual([['问题'], ['问题']]);
+    expect(chat.mock.calls).toEqual([['问题', []], ['问题', []]]);
     expect(retry).not.toHaveBeenCalled();
     expect(localStorage.getItem(CHAT_KEY)).toContain('重新发送后的回答');
   });

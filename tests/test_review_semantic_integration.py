@@ -399,6 +399,89 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(assessment['relation']['review_ids'],[1])
         self.assertEqual(set(assessment['fact_bindings'][0]['fact_ids']),{'cooling_good','noise_high'})
 
+    def test_v3_synonym_and_unrelated_report_reach_native_answer_and_history(self):
+        text='降温不够给力。但是包装很结实。客服说包装完好。'
+        self.sources=[source(self.scope(),text,'降温不够给力'),
+                      source(self.scope(),'制热很快。','制热很快',rid=2)]
+        self.matches=[OpinionMatch(self.sources[0].opinions[0],0.001)]
+        for question in ('有没有降温不给力的反馈？', '有用户反映降温不给力吗？',
+                         '有没有买家说制冷不够给力的评价？', '请帮我找出降温效果不好的评论。',
+                         '2023-01-02至2023-01-04有没有买家说制冷不够给力的评价？',
+                         'P1有用户反映降温不给力吗？'):
+            with self.subTest(question=question):
+                result=self.run_question(question);self.assert_success(result)
+                assessment=result['results']['r1']['data']['assessment']
+                self.assertEqual(assessment['policy'],'reported_experience_v3')
+                self.assertEqual(assessment['supported_target_fact_ids'],['cooling_poor'])
+                self.assertIn('降温不够给力',result['answer'])
+                self.assertEqual(read_public_answer({'status':'succeeded','result':result}),result['public_answer'])
+                self.assertEqual(result['total_model_calls'],0)
+
+    def test_v3_or_accepts_one_alternative_and_keeps_operator_and_history_bound(self):
+        self.sources=[source(self.scope(),'物流很快。','物流很快',sentiment='positive'),
+                      source(self.scope(),'制热很快。','制热很快',rid=2)]
+        self.matches=[OpinionMatch(self.sources[0].opinions[0],0.001)]
+        question='有没有制冷好或物流很快的反馈？'
+        result=self.run_question(question);self.assert_success(result)
+        self.assertEqual(result['query_contract']['required_facts']['operator'],'any_of')
+        self.assertEqual(result['results']['r1']['data']['assessment']['supported_target_fact_ids'],['delivery_fast'])
+        self.assertIn('至少一项',result['answer'])
+        self.assertEqual(read_public_answer({'status':'succeeded','result':result}),result['public_answer'])
+        for field,value in [('operator','all_of'),('supported_target_fact_ids',['cooling_good','delivery_fast'])]:
+            forged=deepcopy(result['results']['r1']['data']);forged['assessment'][field]=value
+            self.assertFalse(validate_retrieval(forged,question))
+            compact=deepcopy(result['compact_context'])
+            compact['statistics'][0]['filters']['assessment'][field]=value
+            with self.assertRaises(ValueError):semantic_answer(CompactAnalysisContext.model_validate(compact))
+
+    def test_v3_contrast_and_conjunction_publish_only_same_review_evidence(self):
+        quote='制冷很好但是噪音很大'
+        self.sources=[source(self.scope(),quote+'。',quote),source(self.scope(),'制热很快。','制热很快',rid=2)]
+        self.matches=[OpinionMatch(self.sources[0].opinions[0],0.001)]
+        for question in ('有没有制冷好但噪音大的反馈？','有没有同一条评论同时提到制冷好和噪音大的反馈？'):
+            with self.subTest(question=question):
+                result=self.run_question(question);self.assert_success(result)
+                self.assertIn('同一条评论',result['answer'])
+                self.assertEqual(result['query_contract']['required_facts']['operator'],'all_of')
+                self.assertEqual(result['results']['r1']['data']['assessment']['relation']['review_ids'],[1])
+                self.assertEqual(read_public_answer({'status':'succeeded','result':result}),result['public_answer'])
+        self.sources=[source(self.scope(),'制冷很好。','制冷很好',sentiment='positive'),
+                      source(self.scope(),'噪音很大。','噪音很大',rid=2)]
+        self.matches=[OpinionMatch(s.opinions[0],0.001) for s in self.sources]
+        result=self.run_question('有没有制冷好但噪音大的反馈？');self.assert_success(result)
+        self.assertEqual(result['public_answer']['evidence_refs'],[])
+        self.assertIn('尚未找到同一条评论',result['answer'])
+
+    def test_v2_history_keeps_frozen_context_permissions(self):
+        text='制冷不足。但是包装完好。'
+        self.sources=[source(self.scope(),text,'制冷不足'),source(self.scope(),'制热很快。','制热很快',rid=2)]
+        self.matches=[OpinionMatch(self.sources[0].opinions[0],0.001)]
+        result=self.run_question();self.assert_success(result)
+        self.assertTrue(result['public_answer']['evidence_refs'])
+        data=result['results']['r1']['data']
+        data['assessment']=assess_retrieval(QUESTION,data['retrieval']['evidence'],policy='reported_experience_v2')
+        self.assertEqual(data['assessment']['permitted_keys'],[])
+        self.assertTrue(validate_retrieval(data,QUESTION))
+        answer=read_public_answer({'status':'succeeded','result':result})
+        self.assertEqual(answer['status'],'ok')
+        self.assertEqual(answer['evidence_refs'],[])
+
+    def test_v2_unknown_synonym_history_keeps_original_task_goal(self):
+        from data_analysis_agent.agents.review_task_contract import build_task_contract
+        question='有没有降温不给力的反馈？'
+        result=self.run_question(question);self.assert_success(result)
+        self.assertTrue(result['public_answer']['evidence_refs'])
+        data=result['results']['r1']['data']
+        data['assessment']=assess_retrieval(question,data['retrieval']['evidence'],policy='reported_experience_v2')
+        old=build_task_contract(question,result['scope'],build_query_plan(question,result['scope']),
+                                fact_policy='reported_experience_v2').model_dump(mode='json')
+        self.assertEqual(old['support_status'],'retrieval_only')
+        result['query_plan']['task_contract']=old
+        result['query_contract']=old
+        answer=read_public_answer({'status':'succeeded','result':result})
+        self.assertEqual(answer['status'],'ok')
+        self.assertEqual(answer['evidence_refs'],[])
+
     def test_p3_compact_fact_binding_tampering_is_rejected(self):
         result=self.run_question();self.assert_success(result)
         for field,value in [('fact_ids',['cooling_fast']),('quote_sha256','0'*64),('review_id',999),('quote_start',12)]:

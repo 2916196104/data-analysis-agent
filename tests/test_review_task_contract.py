@@ -34,15 +34,15 @@ class RuntimeContractTests(unittest.TestCase):
     def test_known_p5_probes_have_explicit_routes_not_new_generalization_claim(self):
         cases=[
             ('P01','有没有制冷效果好的反馈？','semantic_evidence','supported'),
-            ('P02','有没有降温不给力的反馈？','semantic_evidence','retrieval_only'),
+            ('P02','有没有降温不给力的反馈？','semantic_evidence','supported'),
             ('P03','不是制冷慢，而是完全不降温，有没有类似抱怨？','semantic_evidence','unsupported'),
             ('P04','是否有制冷不足的评论？','semantic_evidence','supported'),
             ('P05','这款商品有哪些优点和缺点？','pros_cons','supported'),
-            ('P06','有没有制冷好或物流很快的反馈？','semantic_evidence','unsupported'),
+            ('P06','有没有制冷好或物流很快的反馈？','semantic_evidence','supported'),
             ('P07','有没有同一评论既说制冷好又抱怨噪音大的反馈？','semantic_evidence','supported'),
             ('P08','有没有先制冷正常、后来不制冷的反馈？','semantic_evidence','unsupported'),
             ('P09','好评主要集中在哪些方面？','positive_aspects','supported'),
-            ('P10','制冷不足的反馈占全部评论多少？','unsupported','unsupported'),
+            ('P10','制冷不足的反馈占全部评论多少？','topic_statistics','supported'),
             ('P11','2023-01-02至2023-01-04有没有制冷不足的反馈？','semantic_evidence','supported'),
             ('P12','为什么这款空调制冷不足，是否由压缩机故障导致？','unsupported','unsupported'),
             ('P13','有没有空调使用十年仍然耐用的反馈？','semantic_evidence','retrieval_only'),
@@ -121,9 +121,9 @@ class RuntimeContractTests(unittest.TestCase):
 
     def test_unsupported_ratio_and_cause_explain_next_step_without_running_another_goal(self):
         cases = [
-            ('制冷不足的反馈占全部评论多少？', '有没有制冷不足的反馈？', '逐条判定', '分母'),
+            ('客服不耐烦的反馈占全部评论多少？', '有没有客服不耐烦的反馈？', '逐条判定', '分母'),
             ('为什么这款空调制冷不足，是否由压缩机故障导致？', '有没有制冷不足的反馈？', '维修检测记录', '买家自述'),
-            ('制冷效果好的反馈占全部评论多少？', '有没有制冷效果好的反馈？', '逐条判定', '分母'),
+            ('安装师傅很热情的反馈占全部评论多少？', '有没有安装师傅很热情的反馈？', '逐条判定', '分母'),
         ]
         for question, alternative, *explanations in cases:
             with self.subTest(question=question):
@@ -181,7 +181,11 @@ class RuntimeContractTests(unittest.TestCase):
         _,before,_=self.resolve('有没有先制冷好后噪音大的反馈？')
         self.assertEqual(before.task_contract.required_facts.relations[0].kind,'before')
         self.assertEqual(before.task_contract.support_status,'unsupported')
-        for q in ('有没有制冷不足和配送迟缓的反馈？','有没有不仅省电而且安静的评论？'):
+        _,both,_=self.resolve('有没有制冷不足和配送迟缓的反馈？')
+        self.assertEqual(both.task_contract.support_status,'supported')
+        self.assertEqual(both.task_contract.required_facts.operator,'all_of')
+        self.assertEqual(both.task_contract.required_facts.relations[0].kind,'same_review')
+        for q in ('有没有制冷不足或配送迟缓并且噪音大的反馈？','有没有不仅省电而且安静的评论？'):
             with self.subTest(q=q):
                 self.assertEqual(self.resolve(q)[1].task_contract.support_status,'unsupported')
 

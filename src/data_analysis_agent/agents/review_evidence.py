@@ -37,6 +37,9 @@ def assess_evidence(context):
         'aspect':aspect,'sentiment':sentiment,'source_result_ids':list(context.source_result_ids),
         'scope_refs':[row['scope_ref'] for row in scopes],'gaps':[],'followup_queries':[],
         'max_additional_queries':2,'execution':'proposal_only','note':''}
+    if context.analysis_type=='topic_statistics':
+        assessment.update(requested_level='statistics',note='未判定内容和未标注评论已保留；不能将已确认数量当作完整主题分布。')
+        return assessment
     def propose(name, params, purpose):
         values = TOOL_MODELS[name].model_validate(params).model_dump(exclude_none=True)
         if not set(values.get('product_ids',[])) <= set(products):

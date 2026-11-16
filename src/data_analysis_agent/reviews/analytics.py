@@ -10,6 +10,7 @@ from data_analysis_agent.core.database import PostgresConnection
 
 from data_analysis_agent.reviews.label_store import check_labeling_schema
 from data_analysis_agent.reviews.opinions import ASPECTS, SENTIMENTS
+from data_analysis_agent.reviews.parameters import comparison_denominator as resolve_comparison_denominator
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.core.validation import validate_integer
 from data_analysis_agent.reviews.scope import analysis_scope, current_reviews_sql, parse_day
@@ -282,6 +283,7 @@ def get_top_issues(
     source: str | None = None,
     dataset_version: str | None = None,
     top_n: int = 6,
+    include_positive: bool = False,
 ) -> dict[str, Any]:
     """按当前窗口的负面评论数排序，并与调用方指定的更早基线比较。"""
     validate_integer(top_n, "top_n", maximum=len(ASPECTS))
@@ -297,7 +299,7 @@ def get_top_issues(
     identity, where, filters, scope = analysis_scope(date_from=date_from, date_to=date_to, **common)
     if baseline_from is None and baseline_to is None:
         with _snapshot(db_path) as connection:
-            current = _summary(_summaries(connection, identity, where, filters)[0])
+            current = _summary(_summaries(connection, identity, where, filters)[0], include_positive=include_positive)
         ranked = sorted(ASPECTS, key=lambda aspect: (-current['aspects'][aspect]['negative_review_count'], aspect))
         return {"scope": scope, "definitions": dict(DEFINITIONS), "current": current,
                 "issues": [{"rank": rank, "aspect": aspect, "aspect_label": ASPECTS[aspect],
@@ -309,8 +311,8 @@ def get_top_issues(
     if baseline_to >= date_from:
         raise ReviewDataError("基线结束日期必须早于当前窗口开始日期。")
     with _snapshot(db_path) as connection:
-        current = _summary(_summaries(connection, identity, where, filters)[0])
-        baseline = _summary(_summaries(connection, identity, baseline_where, baseline_filters)[0])
+        current = _summary(_summaries(connection, identity, where, filters)[0], include_positive=include_positive)
+        baseline = _summary(_summaries(connection, identity, baseline_where, baseline_filters)[0], include_positive=include_positive)
     ranked = sorted(
         ASPECTS,
         key=lambda aspect: (
@@ -362,18 +364,40 @@ def compare_products(
     as_of: str | None = None,
     source: str | None = None,
     dataset_version: str | None = None,
+    sentiment: str = 'negative',
+    aspect: str | None = None,
+    denominator: str | None = None,
 ) -> dict[str, Any]:
     """比较可见商品；不同来源和数据集版本始终分别统计。"""
+    comparison_denominator = resolve_comparison_denominator(sentiment, aspect, denominator)
     identity, where, filters, scope = analysis_scope(
         model=model, base_url=base_url, prompt_version=prompt_version, date_from=date_from, date_to=date_to,
         product_ids=product_ids, as_of=as_of, source=source, dataset_version=dataset_version)
     with _snapshot(db_path) as connection:
         rows = _summaries(connection, identity, where, filters, "product")
     products = [{"source": row["source"], "dataset_version": row["dataset_version"],
-                 "product_id": row["product_id"], **_summary(row)} for row in rows]
+                 "product_id": row["product_id"], **_summary(row, include_positive=sentiment == 'positive')} for row in rows]
     seen = {item["product_id"] for item in products}
-    return {"scope": scope, "definitions": dict(DEFINITIONS), "products": products,
+    result = {"scope": scope, "definitions": dict(DEFINITIONS), "products": products,
             "no_reviews_product_ids": [pid for pid in scope["product_ids"] if pid not in seen]}
+    if sentiment == 'positive':
+        result.update(sentiment=sentiment, aspect=aspect, rate_denominator=comparison_denominator)
+        result['definitions']['comparison_rate_denominator'] = comparison_denominator
+        for row in products:
+            row.update(_positive_comparison(row, aspect, comparison_denominator))
+    return result
+
+
+def _positive_comparison(row, aspect, denominator):
+    count = (row['aspects'][aspect] if aspect else row)['positive_review_count']
+    return dict(comparison_count=count, comparison_denominator=row[denominator],
+                comparison_rate=count_rate(count, row[denominator]))
+
+
+def _comparison_delta(current, baseline):
+    a, b = current['comparison_denominator'], baseline['comparison_denominator']
+    return (_rounded((Decimal(current['comparison_count']) / a - Decimal(baseline['comparison_count']) / b) * 100)
+            if a and b else None)
 
 
 def get_data_quality(db_path, **scope):
@@ -448,9 +472,11 @@ def get_rating_distribution(db_path, *, group_by="product", **scope):
                             "other_rating_policy": "excluded_without_rounding", "rate_unit": "fraction_0_to_1"}}
 
 
-def compare_time_windows(db_path, *, baseline_from, baseline_to, **scope):
+def compare_time_windows(db_path, *, baseline_from, baseline_to, sentiment='negative', aspect=None, denominator=None, **scope):
     """比较任意两个不重叠窗口；百分点由未舍入的计数计算。"""
-    result = get_top_issues(db_path, baseline_from=baseline_from, baseline_to=baseline_to, **scope)
+    comparison_denominator = resolve_comparison_denominator(sentiment, aspect, denominator)
+    result = get_top_issues(db_path, baseline_from=baseline_from, baseline_to=baseline_to,
+                          include_positive=sentiment == 'positive', **scope)
     current, baseline = result["current"], result["baseline"]
     changes = {key: current[key] - baseline[key] for key in (
         "review_count", "eligible_text_reviews", "successful_reviews", "failed_reviews",
@@ -460,6 +486,20 @@ def compare_time_windows(db_path, *, baseline_from, baseline_to, **scope):
         a, b = current[denominator], baseline[denominator]
         changes[metric + "_pp"] = (_rounded((Decimal(current[numerator]) / a
                                               - Decimal(baseline[numerator]) / b) * 100) if a and b else None)
+    if sentiment == 'positive':
+        current.update(_positive_comparison(current, aspect, comparison_denominator))
+        baseline.update(_positive_comparison(baseline, aspect, comparison_denominator))
+        changes.update(positive_review_count=current['positive_review_count'] - baseline['positive_review_count'],
+                       comparison_count=current['comparison_count'] - baseline['comparison_count'],
+                       comparison_rate_change_pp=_comparison_delta(current, baseline))
+        result.update(sentiment=sentiment, aspect=aspect, rate_denominator=comparison_denominator, comparison_aspects=[])
+        result['definitions']['comparison_rate_denominator'] = comparison_denominator
+        for key, label in ASPECTS.items():
+            now = _positive_comparison(current, key, comparison_denominator)
+            before = _positive_comparison(baseline, key, comparison_denominator)
+            result['comparison_aspects'].append(dict(aspect=key, aspect_label=label, **now,
+                baseline_count=before['comparison_count'], baseline_denominator=before['comparison_denominator'],
+                baseline_rate=before['comparison_rate'], comparison_rate_change_pp=_comparison_delta(now, before)))
     return {**result, "changes": changes,
             "current_days": (parse_day(scope["date_to"], "date_to") - parse_day(scope["date_from"], "date_from")).days + 1,
             "baseline_days": (parse_day(baseline_to, "baseline_to") - parse_day(baseline_from, "baseline_from")).days + 1}
@@ -542,6 +582,24 @@ def get_aspect_opinions(db_path, *, aspect, sentiment, **scope):
     for item in evidence['items']:
         item.pop('file_path', None)
     return {**evidence, 'scope': normalized, 'summary': summary}
+
+
+def get_topic_corpus(db_path, *, sentiment='negative', **scope):
+    """完整读取当前标注快照，不沿用临时主题发现的 100 条抽样上限。"""
+    if len(scope.get('product_ids') or []) != 1 or sentiment not in ('positive','negative'):
+        raise ReviewDataError('细分主题统计需要一个明确商品及正向或负向情感。')
+    identity, where, filters, normalized = analysis_scope(**scope)
+    with _snapshot(db_path) as connection:
+        first=get_evidence(connection,**scope,sentiment=sentiment,page_size=100)
+        items=first['items']
+        # shortcut: reuse evidence pages for single-SKU CSV scopes; switch to a
+        # streaming cursor when larger per-SKU corpora make repeated counts costly.
+        for page in range(2,first['pages']+1):
+            items.extend(get_evidence(connection,**scope,sentiment=sentiment,page_size=100,page=page)['items'])
+        summary=_summary(_summaries(connection,identity,where,filters)[0])
+    for item in items:item.pop('file_path',None)
+    return dict(scope=normalized,summary=summary,sentiment=sentiment,total=first['total'],
+                total_opinions=first['total_opinions'],items=items)
 
 
 def get_evidence(

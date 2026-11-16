@@ -1,11 +1,26 @@
 import { Table } from 'antd';
 import { rate } from '../../ResultCards';
-import { aspectRows } from '../../agent-report';
+import { aspectRows, comparisonBasis } from '../../agent-report';
 import type { AgentToolResult, RatingGroup } from '../../types';
 
 const aspectNames: Record<string, string> = { quality: '商品质量', effectiveness: '使用效果', price: '价格', packaging: '包装', logistics: '物流', service: '客服' };
 
 export default function ExtendedResults({ item }: { item: AgentToolResult }) {
+  if (item.kind === 'topic_statistics') return <>
+    <p>完整扫描 {item.data.coverage.processed_opinions} 条已标注观点，完整归类 {item.data.coverage.classified_opinions} 条，
+      未判定或部分归类 {item.data.coverage.unresolved_opinions} 条。归类覆盖率 {rate(item.data.coverage.classification_coverage)}。</p>
+    <p className="muted">规则版本 {item.data.version}。同义表达按规则归并；同一评论可涉及多个主题，数量不能相加。
+      存在未判定或未标注内容时，仅发布已确认下限；零条已确认不表示没有该反馈。</p>
+    <Table size="small" rowKey="topic_id" dataSource={item.data.topics} pagination={{ pageSize: 8, hideOnSinglePage: true }}
+      scroll={{ x: 720 }} columns={[
+        { title: '细分主题', dataIndex: 'name', width: 170 }, { title: '已确认评论数', dataIndex: 'review_count', width: 120 },
+        { title: '观点数', dataIndex: 'opinion_count', width: 85 },
+        { title: '已确认占比', dataIndex: 'rate', width: 120, render: (value: number | null, row) => `${row.rate_state === 'lower_bound' ? '至少 ' : ''}${rate(value)}` },
+        { title: '未判定计入时上限', dataIndex: 'upper_rate', render: rate, width: 145 },
+        { title: '分母', key: 'denominator', render: (_, row) => `${row.denominator} 条${row.denominator_name === 'review_count' ? '全部评论' : '成功标注评论'}` },
+      ]} />
+    {item.data.items.map(row => <blockquote key={row.review_id}>评论 #{row.review_id}：{row.opinions.map(opinion => opinion.quote).join('；')}</blockquote>)}
+  </>;
   if (item.kind === 'semantic_evidence') return <>
     <p>本次召回 {item.data.retrieval.evidence.length} 个候选观点；{item.data.assessment.status === 'sufficient' ? '已有支持回答的证据。' : item.data.assessment.status === 'limited' ? '仅部分目标获得支持。' : '当前证据不足以支持回答。'}</p>
     <p className="muted">候选不等于已许可证据，也不代表全量反馈数量；可许可的原文引用显示在回答中。</p>
@@ -100,6 +115,21 @@ export default function ExtendedResults({ item }: { item: AgentToolResult }) {
   </>;
   if (item.kind === 'window_comparison') {
     const data = item.data;
+    if (data.sentiment === 'positive') return <>
+      <p>{data.aspect ? aspectNames[data.aspect] : '整体'}好评对比，以各期{comparisonBasis(data)}为分母。</p>
+      <p>当前：{data.scope.date_from} — {data.scope.date_to}（{data.current_days} 天）<br />
+        基线：{data.baseline_scope.date_from} — {data.baseline_scope.date_to}（{data.baseline_days} 天）</p>
+      <Table size="small" rowKey="window" pagination={false} scroll={{ x: 650 }}
+        dataSource={[{ window: '当前', ...data.current }, { window: '基线', ...data.baseline }]} columns={[
+          { title: '窗口', dataIndex: 'window' }, { title: '评论数', dataIndex: 'review_count' },
+          { title: '正向评论数', dataIndex: 'comparison_count' },
+          { title: `${comparisonBasis(data)}（分母）`, dataIndex: 'comparison_denominator' },
+          { title: '好评占比', dataIndex: 'comparison_rate', render: rate },
+          { title: '标注覆盖率', dataIndex: 'labeling_coverage', render: rate },
+        ]} />
+      <p>当前较基线：{data.changes.comparison_rate_change_pp == null ? '暂无可比较占比' : `${data.changes.comparison_rate_change_pp > 0 ? '+' : ''}${data.changes.comparison_rate_change_pp.toFixed(1)} 个百分点`}。</p>
+      <p className="muted">每期按评论去重。空分母保留空值；窗口长度、样本量和标注覆盖率不同可能影响可比性，变化不代表原因已获证实。</p>
+    </>;
     const rows = [
       ['review_count', '评论数'], ['eligible_text_reviews', '有效正文'], ['successful_reviews', '成功标注'],
       ['failed_reviews', '失败标注'], ['unprocessed_reviews', '待标注'], ['negative_review_count', '负面评论数'],

@@ -133,6 +133,9 @@ def validate_product_identifiers(question, products):
 def product_mentions(question, products):
     """只提取用户明确写出的实体；不把页面默认商品当作用户指代。"""
     found = []
+    from data_analysis_agent.agents.review_reported_facts import target
+    from data_analysis_agent.agents.review_task_contract import evidence_question
+    bounded_fact_question = target(evidence_question(question)) is not None
     # A conjunction inside an exact catalog title is part of the product name.
     title_spans = [(m.start(),m.end()) for row in products if row['title']
                    for m in re.finditer(re.escape(row['title']),question)]
@@ -153,6 +156,10 @@ def product_mentions(question, products):
         explicit += [row['title'] for row in products if row['title'] and row['title'] in clause]
         if explicit:
             found.extend(explicit)
+            continue
+        # A complete known proposition has no unparsed product-name fragment.
+        # Independently scanned explicit identifiers are still checked below.
+        if bounded_fact_question:
             continue
         clause = _product_clause(clause)
         clause = re.sub(r'^(?:不是|并非|并不是)(?=(?:空调|商品|产品))', '', clause)

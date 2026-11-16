@@ -319,7 +319,7 @@ def read_public_analysis(task, options=None):
                                sentiment=result.get("sentiment_intent"), scope=result["scope"], requirements=requests,
                                answer_question=result.get('analysis_question') or result.get('question'),
                                product_groups=(result.get('query_plan') or {}).get('product_groups', []),
-                               requires_evidence=any(item["tool"] in {"get_evidence", "get_opinion_breakdown", 'get_aspect_drilldown', 'search_semantic_evidence'} for item in requests), max_evidence_items=10)
+                               requires_evidence=any(item["tool"] in {"get_evidence", "get_opinion_breakdown", 'get_aspect_drilldown', 'search_semantic_evidence','get_topic_statistics'} for item in requests), max_evidence_items=10)
         stored=(result.get('query_plan') or {}).get('task_contract')
         if stored is not None:
             from data_analysis_agent.agents.review_task_contract import build_task_contract, matches_saved_task_contract
@@ -329,7 +329,10 @@ def read_public_analysis(task, options=None):
             goal_plan=ReviewQueryPlan(analysis_type=saved_plan['analysis_type'],sentiment=saved_plan.get('sentiment'),scope=result['scope'],
                 requirements=saved_plan['requirements'],unsupported_reason=saved_plan.get('unsupported_reason'),
                 product_groups=saved_plan.get('product_groups',[]),requires_evidence=saved_plan.get('requires_evidence',False))
-            plan.task_contract=build_task_contract(result['question'],result['scope'],goal_plan)
+            from data_analysis_agent.agents.review_reported_facts import POLICY
+            fact_policy = next((result['results'][key]['data']['assessment']['policy'] for key in result['result_ids']
+                                if result['results'][key]['kind']=='semantic_evidence'), POLICY)
+            plan.task_contract=build_task_contract(result['question'],result['scope'],goal_plan,fact_policy=fact_policy)
             if not matches_saved_task_contract(stored,plan.task_contract) or result.get('query_contract',stored)!=stored:
                 raise ValueError('运行时查询契约版本或身份不一致。')
         validation = validate_report(result["results"], result["result_ids"],

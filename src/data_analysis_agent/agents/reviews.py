@@ -11,7 +11,7 @@ from data_analysis_agent.agents.review_validation import result_summaries, valid
 from data_analysis_agent.agents.review_semantics import QuestionScopeError
 from data_analysis_agent.agents.review_intent import resolve_review_request
 from data_analysis_agent.agents.review_compression import build_analysis_artifacts, empty_public
-from data_analysis_agent.agents.review_answers import NaturalLanguageAnswerGenerator, unavailable_answer
+from data_analysis_agent.agents.review_answers import NaturalLanguageAnswerGenerator, unavailable_answer, synchronize_answer
 from data_analysis_agent.agents.runtime import (
     AgentExecutionError, FinalResponseFormatError, build_agent, execution_failure, create_llm, validate_final_result,
 )
@@ -36,6 +36,10 @@ def grounded_answer(status, results):
     for result in results:
         data, reference = result["data"], f"[{result['result_id']}]"
         kind = result["kind"]
+        if data.get('sentiment') == 'positive' and kind in ('trend', 'aspect_trend', 'comparison', 'window_comparison'):
+            # 生成公开回答之前的内部摘要也不得采用旧的负向文案。
+            parts.append(f'{reference} 正向统计已完成；去重计数、分母和覆盖率见已校验统计。')
+            continue
         if kind in ("context", "trend", "quality", "aspect_trend"):
             summary = data["summary"]
             parts.append(f"{reference} 查询窗口共 {summary['review_count']} 条评论，成功标注 {summary['successful_reviews']} 条，"
@@ -99,6 +103,13 @@ def grounded_answer(status, results):
                 parts.append(f"{reference} 正向维度统计：范围共 {summary['review_count']} 条评论，成功标注 {summary['successful_reviews']} 条，"
                              f"至少包含一个正向观点的评论 {summary['positive_review_count']} 条；主要方面：{details}。"
                              "各维度按评论 ID 去重，同一评论可计入多个维度。")
+        elif kind == 'topic_statistics':
+            coverage=data['coverage']
+            parts.append(f"{reference} 固定版本细分主题统计：完整扫描 {coverage['processed_opinions']} 条观点，"
+                         f"完整归类 {coverage['classified_opinions']} 条，未判定或部分归类 {coverage['unresolved_opinions']} 条。")
+            for row in data['topics'][:3]:
+                parts.append(f"{reference} {row['name']}：已确认 {row['review_count']} 条评论，占比"
+                             f"{'至少' if row['rate_state']=='lower_bound' else ''}{_rate(row['rate'])}。")
         elif kind == 'opinion_breakdown':
             parts.append(f"{reference} 匹配 {data['total']} 条评论、{data['total_opinions']} 条观点；按观点原文和情感精确归组，非标准细分标签。")
             for row in data['groups'][:3]:
@@ -291,7 +302,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                 raise ReviewDataError("无法读取当前评论范围，请检查标注表和数据集。")
             status, ids = None, []
             simple_dimensions = len(plan.requirements) == 1 and plan.required_tools[0] in {'get_top_issues', 'get_positive_aspects'}
-            direct_query = semantic_direct or simple_dimensions or question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'evidence', 'opinion_breakdown', 'aspect_drilldown', 'pros_cons', 'trend', 'aspect_trend'}
+            direct_query = plan.deterministic() or semantic_direct or simple_dimensions or question.startswith("执行本轮已确认的只读查询") or plan.analysis_type in {'evidence', 'opinion_breakdown', 'aspect_drilldown', 'pros_cons', 'trend', 'aspect_trend','topic_statistics'}
             if direct_query:
                 # 已确认追问或确定的文本归组计划直接执行；仍走同一注册表、预算与发布校验。
                 for request in plan.requirements:
@@ -374,7 +385,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                     for item in selected]
             result.update(status=status, result_ids=ids, answer=grounded_answer(status, selected))
             summaries = list(result_summaries(context.results.values()))
-            warnings = ["负面占比以成功标注评论为分母；无成功标注时保留空值，可检查版本或准备数据后重查。零条证据不表示没有问题。",
+            warnings = ["各项占比按结果列明的分母计算；无可用分母时保留空值，可检查版本或准备数据后重查。零条证据不表示没有相关反馈。",
                         "原文是示例证据，不能仅凭评论确认问题根因；不完整的首末时间桶不宜直接比较。"]
             if any(item["successful_reviews"] < 20 or (item["labeling_coverage"] or 0) < 0.8 for item in summaries):
                 warnings.append("部分范围成功标注少于 20 条或覆盖率低于 80%，结论仅描述已有样本，请谨慎解释。")
@@ -416,10 +427,9 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             answer_started = perf_counter()
             result["public_answer"], result["answer_generation"] = NaturalLanguageAnswerGenerator().generate(
                 result["analysis_question"], result["compact_context"], settings=settings, validated=result["validation"]["status"] == "passed")
-            if plan.analysis_type == 'semantic_evidence':
-                answer = result['public_answer']
-                result['answer'] = '\n\n'.join([answer['summary'], *(row['text'] for row in answer['highlights'])])
-                result['answer_sections'] = [{'result_id':item['result_id'], 'kind':item['kind'], 'text':result['answer']} for item in selected]
+            consistent = synchronize_answer(result)
+            result['validation']['checks'].append({'name': '回答出口与情感一致性', 'passed': consistent,
+                'detail': '兼容 answer 与各结果段落均投影自已校验 public_answer，正向主指标不能混入负向指标。'})
             timings["answer_duration_ms"] = round((perf_counter() - answer_started) * 1000, 3)
     except QuestionScopeError as exc:
         result['user_intent'].update(needs_clarification=True, clarification_question=str(exc))

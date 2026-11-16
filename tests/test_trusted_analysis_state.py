@@ -52,6 +52,20 @@ class TrustedAnalysisStateTests(unittest.TestCase):
         self.assertTrue(basis['source']['task_sha256'])
         self.assertEqual(basis['source']['result_sha256'], content_sha256(self.first['results']['r1']))
 
+    def test_bounded_structured_history_keeps_latest_focus_and_prior_verified_history(self):
+        second=self.fixture.run_sync('物流差评有多少条？')
+        second_id=self.fixture.save(second['question'],second,parent=self.parent)
+        third=self.fixture.run_sync('使用效果差评有多少条？')
+        third_id=self.fixture.save(third['question'],third,parent=second_id)
+        context=self.load(context_task_id=third_id)
+        self.assertEqual([row['task_id'] for row in context['validated_history']],[third_id,second_id,self.parent])
+        self.assertEqual(context['validated']['task_id'],third_id)
+        focus=context['analysis_state']['focus']
+        self.assertEqual(focus['source']['task_id'],third_id)
+        self.assertEqual(focus['queries'][0]['parameters']['aspect'],'effectiveness')
+        self.assertIsNone(self.ranking(context))
+        self.assertIsNone(self.load(context_task_id=third_id,conversation_id='different-session'))
+
     def test_target_followup_exposes_verified_basis_without_running_p6(self):
         context = self.load()
         from data_analysis_agent.agents.reviews import run_review_agent
@@ -212,6 +226,10 @@ class TrustedAnalysisStateTests(unittest.TestCase):
             data['issues'].sort(key=lambda row: (-row['negative_review_count'], row['aspect']))
             for rank, issue in enumerate(data['issues'], 1):
                 issue['rank'] = rank
+            # This test isolates the task seal; the new independently verified
+            # full topic corpus would otherwise reject this old numeric tamper first.
+            data.pop('topic_statistics',None)
+            data.pop('rank_examples',None)
         self.change_result(self.parent, mutate)
         changed = get_task(self.fixture.tasks, self.parent)['result']
         from data_analysis_agent.agents.review_validation import validate_report, expected_result_scopes

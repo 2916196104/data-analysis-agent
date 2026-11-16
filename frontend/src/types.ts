@@ -214,16 +214,28 @@ export interface SemanticEvidence {
   quote: string; quote_start: number; quote_end: number; review_text: string;
   effective_snapshot_sha256: string; file_sha256: string; line_number: number;
 }
+export interface ComparisonSummary extends Summary {
+  comparison_count?: number; comparison_denominator?: number; comparison_rate?: number | null;
+}
+export interface ComparisonMetadata {
+  sentiment?: 'positive' | 'negative'; aspect?: string | null;
+  rate_denominator?: 'successful_reviews' | 'positive_review_count';
+}
 export type AgentToolResult = { result_id: string; parameters: Record<string, unknown> } & (
   { kind: 'semantic_evidence'; data: { retrieval: { evidence: SemanticEvidence[] };
     assessment: { status: 'sufficient' | 'limited' | 'insufficient'; reason: string } } }
   |
   { kind: 'context'; data: { summary: Summary; products?: { product_id: string; title: string | null }[] } }
   | { kind: 'trend'; data: { sentiment?: 'positive' | 'negative'; period: string; summary: Summary; buckets: (Summary & { bucket: string })[] } }
-  | { kind: 'comparison'; data: { products: (Summary & { product_id: string })[]; no_reviews_product_ids?: string[] } }
+  | { kind: 'comparison'; data: ComparisonMetadata & { products: (ComparisonSummary & { product_id: string })[]; no_reviews_product_ids?: string[] } }
   | { kind: 'issues'; data: { issues: Issue[]; current?: Summary; baseline?: Summary } }
   | { kind: 'evidence'; data: { total: number; page: number; items: AgentEvidence[] } }
   | { kind: 'aspect_drilldown'; data: AspectDrilldown }
+  | { kind: 'topic_statistics'; data: { scope: AnalysisScope; summary: Summary; aspect: string | null; sentiment: string;
+      version: string; rule_sha256: string; items: AgentEvidence[];
+      coverage: { processed_opinions: number; classified_opinions: number; unresolved_opinions: number; classification_coverage: number | null };
+      topics: { topic_id: string; name: string; review_count: number; opinion_count: number; rate: number | null;
+        upper_rate: number | null; rate_state: 'exact' | 'lower_bound'; denominator: number; denominator_name: string }[] } }
   | { kind: 'opinion_breakdown'; data: { total: number; total_opinions: number; summary: Summary; items: AgentEvidence[];
       groups: { quote: string; sentiment: string; review_count: number; opinion_count: number; review_rate: number | null; review_id: number; evidence_ref?: string }[] } }
   | { kind: 'quality'; data: { scope: AnalysisScope; summary: Summary; missing_text_rate: number | null; failed_rate: number | null;
@@ -234,8 +246,10 @@ export type AgentToolResult = { result_id: string; parameters: Record<string, un
   | { kind: 'positive_aspects'; data: { analysis_type: 'positive_aspects'; sentiment: 'positive';
       data_status: 'ok' | 'no_positive_mentions' | 'insufficient_data'; scope: AnalysisScope;
       summary: Summary & { positive_review_count: number }; aspects: PositiveAspect[] } }
-  | { kind: 'window_comparison'; data: { scope: AnalysisScope; baseline_scope: AnalysisScope;
-      current: Summary; baseline: Summary; current_days: number; baseline_days: number;
+  | { kind: 'window_comparison'; data: ComparisonMetadata & { scope: AnalysisScope; baseline_scope: AnalysisScope;
+      current: ComparisonSummary; baseline: ComparisonSummary; current_days: number; baseline_days: number;
+      comparison_aspects?: { aspect: string; aspect_label: string; comparison_count: number; comparison_denominator: number;
+        comparison_rate: number | null; baseline_count: number; baseline_denominator: number; baseline_rate: number | null; comparison_rate_change_pp: number | null }[];
       changes: Record<string, number | null>; issues: Issue[] } }
 );
 export interface PublicAnswer {

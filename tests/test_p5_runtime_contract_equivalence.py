@@ -388,7 +388,7 @@ class RuntimeEquivalenceTests(unittest.TestCase):
         for fields in (dict(publication_allowed=True),dict(semantic_verified=True),dict(permitted_target_fact_ids=('f0',))):
             with self.assertRaises(ValueError):b1.ShadowOutcome('validated_shadow',(),**fields)
 
-    def test_t15_formal_routes_v2_and_saved_runtime_compatibility_unchanged(self):
+    def test_t15_shadow_routes_preserved_and_v3_formal_routes_expanded(self):
         expected={q:('unsupported','statistics','unsupported') for q in compiler.DEFINITIONS}
         expected.update(Q06=('fact_search','evidence','retrieval_only'),Q18=('opinion_summary','evidence','supported'))
         for qid,d in compiler.DEFINITIONS.items():
@@ -397,13 +397,17 @@ class RuntimeEquivalenceTests(unittest.TestCase):
             self.assertEqual(old.required_facts.items,())
             self.target(qid)
             self.assertEqual(build_query_plan(d.question,deepcopy(SCOPE)).task_contract,old)
-        for question,status in [('有没有制冷效果好的反馈？','supported'),('有没有降温不给力的反馈？','retrieval_only'),
-            ('有没有制冷好或物流很快的反馈？','unsupported')]:
+        for question,status in [('有没有制冷效果好的反馈？','supported'),('有没有降温不给力的反馈？','supported'),
+            ('有没有制冷好或物流很快的反馈？','supported')]:
             contract=build_query_plan(question,deepcopy(SCOPE)).task_contract
             self.assertEqual(contract.support_status,status)
             self.assertTrue(matches_saved_task_contract(contract.model_dump(mode='json'),contract))
-        self.assertEqual(POLICY,'reported_experience_v2')
+        self.assertEqual(POLICY,'reported_experience_v3')
         self.assertEqual(assess('有没有制冷效果好的反馈？',[])['policy'],POLICY)
+        from data_analysis_agent.agents import review_reported_facts_v2
+        self.assertEqual(review_reported_facts_v2.POLICY,'reported_experience_v2')
+        self.assertIsNone(review_reported_facts_v2.target('有没有降温不给力的反馈？'))
+        self.assertIsNone(review_reported_facts_v2.target('有没有制冷好或物流很快的反馈？'))
         for path in Path('src').rglob('*.py'):
             self.assertNotIn('text_evidence_runtime_contract',path.read_text(encoding='utf-8'))
 

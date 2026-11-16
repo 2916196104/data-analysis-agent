@@ -41,6 +41,19 @@ export interface ConversationAnalysisContext {
   previous_result_refs: string[];
 }
 export type ConversationTurn = ChatTurn | BasicChatTurn;
+
+export function basicHistory(turns: ConversationTurn[]) {
+  const history: { question: string; answer: string }[] = [];
+  let chars = 0;
+  for (const turn of [...turns].reverse()) {
+    if (turn.kind !== 'basic') break;
+    if (turn.status !== 'succeeded' || !turn.answer?.trim()) continue;
+    const size = turn.question.length + turn.answer.length;
+    if (history.length >= 6 || chars + size > 12000 || turn.answer.length > 16000) break;
+    history.unshift({ question: turn.question, answer: turn.answer }); chars += size;
+  }
+  return history;
+}
 export interface ConversationUserIntent { task_id: string; question: string; product_ids: string[]; source?: string | null; dataset_version?: string | null }
 export interface AnalysisSession { turns: ChatTurn[]; activeId?: string; context?: ConversationAnalysisContext; intent?: ConversationUserIntent }
 export interface Conversation { turns: ConversationTurn[]; activeId?: string; context?: ConversationAnalysisContext; intent?: ConversationUserIntent }

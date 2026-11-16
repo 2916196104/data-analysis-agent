@@ -124,13 +124,27 @@ def analysis_state_for_scope(context, scope):
     state = empty_analysis_state()
     try:
         bound = BaselineScope.model_validate(scope).model_dump()
-        for key in ('ranking_basis', 'pending_goal'):
+        for key in ('ranking_basis', 'pending_goal','focus'):
             value = (context or {}).get('analysis_state', {}).get(key)
             if value and value['scope'] == bound and value['scope_sha256'] == content_sha256(bound):
                 state[key] = deepcopy(value)
     except (ValueError, KeyError, TypeError, AttributeError):
         pass
     return state
+
+
+def restore_focus(task, validated):
+    """状态仅由服务端校验后的快照投影，不接受客户端提供的历史结论。"""
+    if not has_saved_integrity(task):return None
+    scope=validated['scope'];queries=validated['queries']
+    selected=[task['result']['results'][key] for key in validated['result_refs'] if key!='overview']
+    topics=[topic['topic_id'] for item in selected if item['kind']=='topic_statistics'
+            for topic in item['data']['topics'][:3]]
+    return dict(version='review-focus-v1',source=_source(task),scope=deepcopy(scope),scope_sha256=content_sha256(scope),
+        analysis_type=validated['analysis_type'],sentiment=validated['sentiment'],queries=deepcopy(queries),
+        topic_ids=topics,result_refs=list(validated['result_refs']),
+        topic_snapshots=[{key:deepcopy(item['data'][key]) for key in ('version','rule_sha256','coverage','topic','aspect','denominator')}
+                         for item in selected if item['kind']=='topic_statistics'])
 
 
 def pending_context(context):

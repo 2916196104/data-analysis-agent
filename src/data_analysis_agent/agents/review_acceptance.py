@@ -34,6 +34,8 @@ STATISTIC_FAMILIES = {
     'quality': {'get_data_quality'}, 'ratings': {'get_rating_distribution'},
     'comparison': {'compare_products'}, 'window_comparison': {'compare_time_windows'},
 }
+CAPABILITIES['statistics'].add('get_topic_statistics')
+STATISTIC_FAMILIES['subtopics']={'get_topic_statistics'}
 REFERENCE = re.compile(
     r'(?:那|那么|再|也|只看|仅看)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面|问题)?(?:呢|怎么样)?[？?。]*|'
     r'(?:那|那么)?(?:主要)?集中在(?:哪些|什么)(?:地方|方面)(?:呢)?[？?。]*|'
@@ -71,6 +73,11 @@ def _evidence_page_goal(question, context, parameters=None):
 
 def build_request_goal(question, context=None):
     """在编译前冻结请求产物；不调用 opinion_request、Router、Planner 或模型。"""
+    from data_analysis_agent.agents.review_topic_statistics import topic_request
+    topic=topic_request(question,context)
+    if topic:
+        return RequestGoal(question,('statistics',),aspect=topic['aspect'],sentiment=topic['sentiment'],
+                           topic=topic['topic'],statistic_families=('subtopics',),denominator=topic['denominator'])
     from data_analysis_agent.agents.review_semantics import active_request, ASPECT_SWITCH, QuestionScopeError
     text = active_request(question)
     if question.startswith('执行本轮已确认的只读查询'):
@@ -89,7 +96,7 @@ def build_request_goal(question, context=None):
             params = declared['parameters']
             direction = 'positive' if tool == 'get_positive_aspects' else 'negative' if tool in {
                 'get_top_issues', 'get_trend', 'get_aspect_trend', 'compare_products', 'compare_time_windows'} else params.get('sentiment')
-            if tool in ('get_trend', 'get_aspect_trend'):
+            if tool in ('get_trend', 'get_aspect_trend', 'compare_products', 'compare_time_windows'):
                 direction = params.get('sentiment', 'negative')
             families = tuple(family for family, tools in STATISTIC_FAMILIES.items() if tool in tools)
             return RequestGoal(question, (level,), params.get('aspect'), direction,
@@ -109,11 +116,12 @@ def build_request_goal(question, context=None):
         # 既有 RAG / 双向比较使用各自的严格契约，本轮不替换它们。
         return None
     topic = next((word for word in ('制冷', '静音', '安装') if word in text), None)
+    aspect_text=text.replace('数据质量','')
     aspect = next((value for word, value in (
         ('使用效果', 'effectiveness'), ('用起来', 'effectiveness'), ('制冷', 'effectiveness'),
         ('静音', 'quality'), ('安装', 'service'), ('质量', 'quality'), ('效果', 'effectiveness'),
         ('物流', 'logistics'), ('客服', 'service'), ('服务', 'service'),
-        ('包装', 'packaging'), ('价格', 'price')) if word in text), None)
+        ('包装', 'packaging'), ('价格', 'price')) if word in aspect_text), None)
     sentiment = detect_sentiment_intent(text)
     examples = bool(re.search(r'原文|原话|证据|举例|例子|\d+\s*条', text))
     metrics = bool(re.search(r'多少|几条|数量|占比|比例|排名|分布', text))
@@ -266,7 +274,8 @@ def validate_goal_plan(goal, plan):
                                   for key in ('aspect', 'sentiment', 'topic')) for row in candidates)
         elif goal.get('aspect'):
             compatible &= all(row['parameters'].get('aspect') == goal['aspect'] for row in candidates
-                              if row['tool'] in {'get_top_issues', 'get_positive_aspects', 'get_aspect_trend'})
+                              if row['tool'] in {'get_top_issues', 'get_positive_aspects', 'get_aspect_trend'}
+                              or (row['tool'] in {'compare_products', 'compare_time_windows'} and row['parameters'].get('sentiment') == 'positive'))
         if level == 'statistics' and goal.get('aspects'):
             actual = [row['parameters'].get('aspect') for row in candidates if row['tool'] == 'get_aspect_trend']
             compatible &= len(actual) == len(goal['aspects']) and set(actual) == set(goal['aspects'])
@@ -279,9 +288,12 @@ def validate_goal_plan(goal, plan):
         checks.append({'name': 'sentiment', 'passed': goal['sentiment'] == plan.sentiment})
     if goal.get('denominator'):
         from data_analysis_agent.agents.review_semantics import trend_denominator
-        supported = [row for row in plan.requirements if row['tool'] in ('get_trend', 'get_aspect_trend')]
+        from data_analysis_agent.reviews.parameters import comparison_denominator
+        supported = [row for row in plan.requirements if row['tool'] in ('get_trend', 'get_aspect_trend','get_topic_statistics', 'compare_products', 'compare_time_windows')]
         checks.append({'name': 'denominator', 'passed': bool(supported) and all(
-            trend_denominator(row['tool'], row['parameters']) == goal['denominator'] for row in supported)})
+            (row['parameters'].get('denominator','review_count') if row['tool']=='get_topic_statistics'
+             else comparison_denominator(row['parameters'].get('sentiment', 'negative'), row['parameters'].get('aspect'), row['parameters'].get('denominator'))
+             if row['tool'] in ('compare_products', 'compare_time_windows') else trend_denominator(row['tool'], row['parameters'])) == goal['denominator'] for row in supported)})
     return {'passed': bool(checks) and all(row['passed'] for row in checks), 'checks': checks}
 
 

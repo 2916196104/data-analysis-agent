@@ -1,5 +1,5 @@
 import type { AgentResult, AgentToolResult, Summary } from '../../types';
-import { aspectRows, sectionSummary } from '../../agent-report';
+import { aspectRows, comparisonBasis, sectionSummary } from '../../agent-report';
 import { publicAnswerText } from './public-answer';
 import { readP6Publication } from './p6-publication';
 
@@ -16,6 +16,9 @@ const summaryTable = (rows: [string, Summary][]) => table(
 
 function statistics(item: AgentToolResult): string {
   switch (item.kind) {
+    case 'topic_statistics': return `规则版本 ${item.data.version}。扫描 ${item.data.coverage.processed_opinions} 条观点，完整归类 ${item.data.coverage.classified_opinions} 条，未判定或部分归类 ${item.data.coverage.unresolved_opinions} 条。归类覆盖率 ${percent(item.data.coverage.classification_coverage)}。存在未判定或未标注时，占比为已确认下限，不能视为完整主题排名。\n\n` + table(
+      ['细分主题','已确认评论数','观点数','已确认占比','未判定计入时上限','分母'], item.data.topics.map(row => [row.name,row.review_count,row.opinion_count,
+        `${row.rate_state === 'lower_bound' ? '至少 ' : ''}${percent(row.rate)}`,percent(row.upper_rate),`${row.denominator} ${row.denominator_name}`]));
     case 'semantic_evidence': return sectionSummary(item);
     case 'aspect_drilldown': return `${item.data.population_mode === 'sample' ? '样本探索，占比不代表总体。' : '二级主题分析。'}模型归并候选未经人工确认。各主题以该维度纳入评论为分母。\n\n` + table(['维度', '候选主题', '具体内容', '去重评论数', '观点数', '占该维度纳入评论', '分母'], item.data.topics.map(row => [row.aspect, row.name, row.definition, row.review_count, row.opinion_count, percent(row.review_rate), row.review_denominator]));
     case 'opinion_breakdown': return `按原始观点文本和情感归组，同义表述未合并，非标准细分主题排名。匹配 ${item.data.total} 条评论、${item.data.total_opinions} 条观点。\n\n` + table(['观点原文', '情感', '评论数', '观点数', '占匹配评论', '评论依据'], item.data.groups.map(row => [row.quote, row.sentiment, row.review_count, row.opinion_count, percent(row.review_rate), row.review_id]));
@@ -29,13 +32,22 @@ function statistics(item: AgentToolResult): string {
       ? table(['时间（UTC）', '正向评论数', '成功标注（分母）', '好评占比', '覆盖率'],
         item.data.buckets.map(row => [row.bucket, row.positive_review_count, row.successful_reviews, percent(row.positive_rate), percent(row.labeling_coverage)]))
       : summaryTable(item.data.buckets.map(row => [row.bucket, row]));
-    case 'comparison': return summaryTable(item.data.products.map(row => [row.product_id, row]))
+    case 'comparison': return (item.data.sentiment === 'positive'
+      ? table(['商品', '正向评论数', `${comparisonBasis(item.data)}（分母）`, '好评占比', '成功标注', '覆盖率'],
+        item.data.products.map(row => [row.product_id, row.comparison_count, row.comparison_denominator,
+          percent(row.comparison_rate), row.successful_reviews, percent(row.labeling_coverage)]))
+      : summaryTable(item.data.products.map(row => [row.product_id, row])))
       + `\n\n无评论商品：${clean(item.data.no_reviews_product_ids?.join('、') || '无')}`;
     case 'issues': return table(['维度', '负面数', '当前占比', '基线占比', '变化（百分点）'],
       aspectRows(item, item.data.issues).map(row => [row.aspect_label, row.negative_review_count, percent(row.negative_rate),
         percent(row.baseline_negative_rate), row.negative_rate_change_pp]));
-    case 'window_comparison': return summaryTable([['当前', item.data.current], ['基线', item.data.baseline]])
-      + '\n\n' + table(['指标', '变化（占比为百分点）'], Object.entries(item.data.changes));
+    case 'window_comparison': return item.data.sentiment === 'positive'
+      ? table(['窗口', '正向评论数', `${comparisonBasis(item.data)}（分母）`, '好评占比', '成功标注', '覆盖率'],
+        [['当前', item.data.current] as const, ['基线', item.data.baseline] as const].map(([name, row]) =>
+          [name, row.comparison_count, row.comparison_denominator, percent(row.comparison_rate), row.successful_reviews, percent(row.labeling_coverage)]))
+        + '\n\n' + table(['指标', '变化（百分点）'], [['好评占比', item.data.changes.comparison_rate_change_pp]])
+      : summaryTable([['当前', item.data.current], ['基线', item.data.baseline]])
+        + '\n\n' + table(['指标', '变化（占比为百分点）'], Object.entries(item.data.changes));
     case 'aspect_trend': return item.data.sentiment === 'positive'
       ? table(['时间（UTC）', '维度', '正向评论数', item.data.rate_denominator === 'successful_reviews' ? '成功标注（分母）' : '正向观点评论（分母）', '好评占比', '成功标注数', '覆盖率'],
         item.data.buckets.flatMap(row => Object.entries(row.aspects).map(([aspect, counts]) => [row.bucket,

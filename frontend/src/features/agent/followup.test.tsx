@@ -21,6 +21,25 @@ const evidence = (page = 1, total = 12): AgentToolResult => ({ result_id: 'r2', 
 const result = (...items: AgentToolResult[]): AgentResult => ({ agent: true, status: 'ok', scope, question: 'first', snapshot_at: '2026-10-30T00:00:00Z', validation: { status: 'passed', checks: [] },
   result_ids: items.map(item => item.result_id), results: Object.fromEntries(items.map(item => [item.result_id, item])), model_calls: 1, tool_calls: items.length, elapsed_seconds: 1, trace: [] });
 const parent = (...items: AgentToolResult[]): QueryParent => ({ id: 'turn-1', taskId: 'task-1', parameters: scope, result: result(...items) });
+
+describe('固定版本主题的结构化追问', () => {
+  it('情感和维度切换保留原问题与服务端父任务，不在客户端改写主题结果', () => {
+    const item = { result_id: 'r1', kind: 'topic_statistics', parameters: {
+      aspect: 'logistics', sentiment: 'negative', topic: null, denominator: 'review_count',
+    }, data: { scope, summary: { review_count: 0, eligible_text_reviews: 0, successful_reviews: 0,
+      failed_reviews: 0, unprocessed_reviews: 0, negative_review_count: 0, negative_rate: null, labeling_coverage: null },
+      aspect: 'logistics', sentiment: 'negative', version: 'test', rule_sha256: 'test', items: [], topics: [],
+      coverage: { processed_opinions: 0, classified_opinions: 0, unresolved_opinions: 0, classification_coverage: null } } } as AgentToolResult;
+    for (const question of ['那好评呢', '那质量呢']) {
+      const next = resolveQuery(question, scope, parent(item));
+      expect(next.clarification).toBeUndefined();
+      expect(next.query.effectiveQuestion).toBe(question);
+      expect(next.query.parentTaskId).toBe('task-1');
+      expect(next.query.queries).toBeUndefined();
+      expect(next.parameters).toEqual(scope);
+    }
+  });
+});
 const task = (id: string, value: AgentResult): Task => ({ task_id: id, kind: 'analysis', status: 'succeeded', parameters: { ...scope, question: '查询包装问题趋势', get conversation_id() { return JSON.parse(localStorage.getItem(CHAT_KEY) || '{}').activeSessionId; } },
   result: value as unknown as Task['result'], parent_task_id: null, error: null, created_at: '', started_at: '', finished_at: '', updated_at: '',
   progress: { stage: 'completed', completed: 1, total: 1, unit: 'task' } });

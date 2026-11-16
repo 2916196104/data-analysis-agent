@@ -113,7 +113,7 @@ def _llm_intent(question, scope, context, mentions, settings, diagnostics, *, co
     return intent
 
 
-def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False):
+def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False, question=None):
     if intent.needs_clarification or not intent.query_type:
         raise QuestionScopeError(intent.clarification_question or '请明确要查看维度汇总、观点细分、趋势还是评论原文。')
     params = {'product_ids': scope['product_ids']}
@@ -137,7 +137,7 @@ def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False
         confirmed = '执行本轮已确认的只读查询\n' + json.dumps({'tool': 'get_aspect_drilldown', 'parameters': {
             **params, 'aspect': intent.aspect, 'sentiment': intent.sentiment}}, ensure_ascii=False)
         return build_query_plan(confirmed, scope)
-    if intent.aspect and kind in {'quality', 'ratings', 'comparison', 'window_comparison'}:
+    if intent.aspect and (kind in {'quality', 'ratings'} or (kind in {'comparison', 'window_comparison'} and intent.sentiment != 'positive')):
         raise QuestionScopeError('该统计类型不支持直接按评价维度筛选。要查看该维度的观点细分、原文还是趋势？')
     if kind == 'aspect_summary':
         if intent.sentiment not in {'positive', 'negative'}:
@@ -166,8 +166,6 @@ def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False
     elif kind == 'comparison':
         if len(scope['product_ids']) < 2:
             raise QuestionScopeError('请明确要比较的两款商品，并分别提供商品 ID。')
-        if intent.sentiment == 'positive':
-            raise QuestionScopeError('商品对比工具统计负面评价；正向对比请分别查询每款商品的好评。')
         tool = 'compare_products'
     elif kind == 'quality':
         tool = 'get_data_quality'
@@ -175,12 +173,20 @@ def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False
         tool = 'get_rating_distribution'
         params.update({key: (previous_parameters or {}).get(key, default) for key, default in (('group_by', 'product'), ('window', 'current'))})
     elif kind == 'window_comparison':
-        if intent.sentiment == 'positive':
-            raise QuestionScopeError('当前窗口对比工具不统计正向趋势，请分别查询两个窗口的好评。')
         tool = 'compare_time_windows'
     elif kind not in {'aspect_summary', 'opinion_breakdown', 'evidence', 'trend', 'comparison', 'quality', 'ratings', 'window_comparison'}:
         raise QuestionScopeError('本轮需要多个分析步骤，请明确各自的统计目标和时间窗口。')
-    confirmed = '执行本轮已确认的只读查询\n' + json.dumps({'tool': tool, 'parameters': params}, ensure_ascii=False)
+    if kind in ('comparison', 'window_comparison') and intent.sentiment == 'positive':
+        params.update(sentiment='positive', aspect=intent.aspect)
+        if (previous_parameters or {}).get('denominator'):
+            params['denominator'] = previous_parameters['denominator']
+    if kind in ('comparison', 'window_comparison') and question:
+        from data_analysis_agent.agents.review_semantics import requested_denominator
+        denominator = requested_denominator(question)
+        if denominator:
+            params['denominator'] = denominator
+    confirmed = '执行本轮已确认的只读查询\n' + json.dumps({'tool': tool, 'parameters': params,
+        **({'question': question} if question else {})}, ensure_ascii=False)
     return build_query_plan(confirmed, scope)
 
 
@@ -222,7 +228,7 @@ def _followup_intent(question, conditions):
         raise QuestionScopeError('上轮不是时间序列或星级分布，请明确要按日/月查看哪个指标。')
     if short_period and last['kind'] == 'ratings' and short_period.group(1) != '月':
         raise QuestionScopeError('星级分布目前只支持按月、商品或总体分组。')
-    if short_sentiment and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown', 'evidence', 'trend', 'aspect_trend'}:
+    if short_sentiment and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown', 'evidence', 'trend', 'aspect_trend', 'comparison', 'window_comparison'}:
         raise QuestionScopeError('上轮没有可切换的评价情感目标，这次要看好差评汇总还是原文？')
     last_params = dict(last['parameters'])
     if count_ref and last['kind'] == 'evidence' and (not last_params.get('aspect') or
@@ -355,6 +361,15 @@ def _resolve_review_request(question, scope, products, *, settings, context=None
     intent_state = intent_state if intent_state is not None else {}
     diagnostics.update(method='rules', model_calls=0, context_turns=(context or {}).get('turns_read', 0))
     validate_product_identifiers(question, products)
+    from data_analysis_agent.agents.review_topic_statistics import topic_request
+    request=topic_request(question,context)
+    if request:
+        from data_analysis_agent.agents.review_plan import build_topic_plan
+        scope,diagnostics['scope_resolution']=bind_review_scope(question,scope,products,context)
+        plan=build_topic_plan(request,scope)
+        intent_state.update(query_type='opinion_breakdown',sub_intent='drill_down',sentiment=plan.sentiment,
+                            aspect=plan.requirements[0]['parameters'].get('aspect'))
+        return scope,plan,True
     if question.startswith('执行本轮已确认的只读查询'):
         plan = build_query_plan(question, scope)
         # The original question is decoded by the existing Planner, including JSON escapes.
@@ -406,12 +421,12 @@ def _resolve_review_request(question, scope, products, *, settings, context=None
         else:
             raise QuestionScopeError('请明确“这两款”指哪两款商品；当前没有可唯一恢复的比较对象。')
         intent = ReviewIntent(query_type='comparison', product_mentions=targets, sentiment=sentiment,
-                              aspect=semantic['aspect'] if semantic['topic'] else None, topic=semantic['topic'])
+                              aspect=semantic['aspect'] if semantic['topic'] or sentiment == 'positive' else None, topic=semantic['topic'])
         intent_state.update(intent.model_dump())
         # 一级维度仍由既有比较后的证据补查读取原问题；细分主题不能降为整体比较。
         intent_state['aspect'] = semantic['aspect']
         diagnostics['scope_resolution']['effective_scope'] = dict(scope)
-        return scope, _intent_plan(intent, scope), True
+        return scope, _intent_plan(intent, scope, question=question), True
 
     groups = []
     scope = resolve_question_scope(question, scope, products, product_groups=groups)
@@ -419,7 +434,7 @@ def _resolve_review_request(question, scope, products, *, settings, context=None
     if len(mentions) > 1 and re.search(r'比较|对比', question) and not groups and not re.search(r'基线|窗口|时间段', question):
         intent.query_type = 'comparison'
         intent_state.update(intent.model_dump())
-        return scope, _intent_plan(intent, scope), True
+        return scope, _intent_plan(intent, scope, question=question), True
     conditions = _user_conditions(context, scope, products)
     queries = conditions.get('queries', [])
     # 完整的多能力/多维度主题请求须由 Planner 拒绝，不能被历史单维度槽位吞掉。

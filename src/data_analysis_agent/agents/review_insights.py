@@ -195,9 +195,12 @@ def fact_catalog(context):
         filters = stat.get('filters', {})
         label = ASPECTS.get(fact.aspect_key, {'contrast': '商品评价差异', 'window': '时间窗口变化', 'quality': '数据质量',
             'rating': '星级分布', 'empty': '数据不足', 'opinion_group': '观点表述', 'evidence': '原文依据'}.get(fact.kind, fact.kind))
-        topic = next((row for row in filters.get('topics', []) if 'finding:' + content_sha256([stat['source_result_id'], row['topic_id']])[:20] == fact.finding_ref), None)
+        matching_topic = next((row for row in filters.get('topics', []) if 'finding:' + content_sha256([stat['source_result_id'], row['topic_id']])[:20] == fact.finding_ref), None)
+        topic = matching_topic if stat.get('analysis_type')=='aspect_drilldown' else None
+        versioned_topic = matching_topic if stat.get('analysis_type')=='topic_statistics' else None
         if topic:
             label = topic['name']
+        if versioned_topic:label=versioned_topic['name']
         group = next((row for index, row in enumerate(filters.get('groups', [])) if 'finding:' +
             content_sha256([stat['source_result_id'], index, row['quote'], row['sentiment']])[:20] == fact.finding_ref), None)
         aspect = fact.aspect_key
@@ -211,6 +214,7 @@ def fact_catalog(context):
         evidence = [ref for ref in context.evidence if ref.source_result_id in fact.source_result_ids
                     and (fact.aspect_key is None or any(q.aspect == fact.aspect_key for q in ref.opinions))
                     and (topic is None or (ref.review_id == topic['review_id'] and ref.evidence_ref == topic['evidence_ref']))
+                    and (versioned_topic is None or ref.review_id in versioned_topic['evidence_review_ids'])
                     and (group is None or (ref.review_id == group['review_id'] and ref.evidence_ref == group['evidence_ref']))]
         evidence_ids = ['evidence:' + content_sha256([ref.source_result_id, ref.review_id, ref.evidence_ref])[:20] for ref in evidence]
         entries.append({'fact_id': fact.finding_ref, 'result_ids': fact.source_result_ids, 'scope_ref': fact.scope_ref,

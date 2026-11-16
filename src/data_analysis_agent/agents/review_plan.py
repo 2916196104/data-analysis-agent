@@ -18,6 +18,7 @@ TOOL_KINDS = {"get_positive_aspects": "positive_aspects", "get_top_issues": "iss
               "get_data_quality": "quality", "get_rating_distribution": "ratings",
               "compare_products": "comparison", "compare_time_windows": "window_comparison",
               "get_opinion_breakdown": "opinion_breakdown", 'get_aspect_drilldown': 'aspect_drilldown'}
+TOOL_KINDS['get_topic_statistics']='topic_statistics'
 
 
 @dataclass
@@ -96,6 +97,20 @@ class ReviewQueryPlan:
         return True
 
 
+    def deterministic(self):
+        """只执行固定只读工具；目标校验和结果校验仍由调用方执行。"""
+        tools = {'get_analysis_context', 'get_data_quality', 'get_trend', 'get_aspect_trend',
+                 'get_positive_aspects', 'get_top_issues', 'get_rating_distribution', 'compare_products',
+                 'compare_time_windows', 'get_evidence', 'get_opinion_breakdown', 'get_topic_statistics'}
+        if self.unsupported_reason or not self.requirements or self.task_contract is None or self.task_contract.support_status != 'supported':
+            return False
+        from data_analysis_agent.agents.review_tools import TOOL_INPUTS
+        try:
+            return all(req['tool'] in tools and TOOL_INPUTS[req['tool']].model_validate(req['parameters']) is not None for req in self.requirements)
+        except (KeyError, ValueError, TypeError):
+            return False
+
+
 def build_p6_query_plan(goal):
     """仅编译已经独立冻结的目标；此函数不授予执行或来源权限。"""
     from data_analysis_agent.agents.review_task_contract import build_task_contract
@@ -115,14 +130,21 @@ def build_query_plan(question, scope, *, product_groups=None):
             else _build_query_plan(question, scope, product_groups=product_groups))
     from data_analysis_agent.agents.review_semantics import requested_denominator
     denominator = requested_denominator(question) if not question.startswith('执行本轮已确认的只读查询') else None
-    if denominator and not plan.unsupported_reason:
+    if denominator and not plan.unsupported_reason and plan.analysis_type != 'topic_statistics':
         if denominator not in ('successful_reviews', 'positive_review_count') or any(
-                req['tool'] not in ('get_trend', 'get_aspect_trend') for req in plan.requirements):
-            plan.unsupported_reason = '当前指定分母仅支持正负向趋势查询，请明确按日或按月分析；不支持的口径不会替换为默认分母。'
+                req['tool'] not in ('get_trend', 'get_aspect_trend', 'compare_products', 'compare_time_windows') for req in plan.requirements):
+            plan.unsupported_reason = '当前指定分母仅支持趋势或对比查询；不支持的口径不会替换为默认分母。'
         else:
             for req in plan.requirements:
-                if denominator == 'positive_review_count' and (req['tool'] != 'get_aspect_trend' or plan.sentiment != 'positive'):
-                    plan.unsupported_reason = '正向观点评论分母仅适用于正向维度趋势，请分别查询好评与差评。'
+                if req['tool'] in ('compare_products', 'compare_time_windows'):
+                    from data_analysis_agent.reviews.parameters import comparison_denominator
+                    try:
+                        comparison_denominator(plan.sentiment or 'negative', req['parameters'].get('aspect'), denominator)
+                        req['parameters']['denominator'] = denominator
+                    except ReviewDataError as exc:
+                        plan.unsupported_reason = str(exc)
+                elif denominator == 'positive_review_count' and (req['tool'] != 'get_aspect_trend' or plan.sentiment != 'positive'):
+                    plan.unsupported_reason = '正向观点评论分母仅适用于正向维度趋势或对比，请分别查询好评与差评。'
                 else:
                     req['parameters']['denominator'] = denominator
     plan.task_contract = build_task_contract(question, scope, plan)
@@ -130,7 +152,17 @@ def build_query_plan(question, scope, *, product_groups=None):
     return plan
 
 
+def build_topic_plan(request,scope):
+    return ReviewQueryPlan('topic_statistics',request['sentiment'],scope,
+        requirements=[{'tool':'get_topic_statistics','parameters':request}],requires_evidence=True,max_evidence_items=10,
+        unsupported_reason=None if len(scope['product_ids'])==1 else '细分主题统计需要选择一个明确商品。')
+
+
 def _build_query_plan(question, scope, *, product_groups=None):
+    from data_analysis_agent.agents.review_topic_statistics import topic_request
+    request=topic_request(question)
+    if request:
+        return build_topic_plan(request,scope)
     from data_analysis_agent.agents.review_retrieval import wants_semantic_search, TOOL
     if wants_semantic_search(question):
         plan = ReviewQueryPlan('semantic_evidence', None, scope,
@@ -173,7 +205,7 @@ def _build_query_plan(question, scope, *, product_groups=None):
             plan.unsupported_reason = '请直接输入原始评论问题进行语义检索，不能由追问工具参数改写问题。'
             return plan
         add(tool, **params)
-        plan.sentiment = params.get('sentiment', 'negative') if tool in ('get_trend', 'get_aspect_trend') else params.get("sentiment") if tool == "get_evidence" else (
+        plan.sentiment = params.get('sentiment', 'negative') if tool in ('get_trend', 'get_aspect_trend', 'compare_products', 'compare_time_windows') else params.get("sentiment") if tool == "get_evidence" else (
             "positive" if tool == "get_positive_aspects" else
             "negative" if tool in {"get_top_issues", "get_trend", "get_aspect_trend", "compare_products", "compare_time_windows"} else None)
         label = next((word for word, aspect in ASPECT_WORDS.items() if aspect == params.get("aspect")), "")
@@ -248,9 +280,7 @@ def _build_query_plan(question, scope, *, product_groups=None):
         if semantic['topic'] == '静音' and aspects == ['effectiveness'] and '使用效果' not in question:
             # “静音效果”中的效果是修饰语，静音观点属于 quality，不能查 effectiveness。
             aspects = ['quality']
-        if sentiment == "positive" and (windows or products) and not rating:
-            plan.unsupported_reason = "当前尚不支持正向对比；请分别查询各商品或窗口的好评统计与趋势。"
-        elif balanced or (sentiment is None and re.search(r"好评|差评|优点|缺点|满意|喜欢|值得购买", question)):
+        if balanced or (sentiment is None and re.search(r"好评|差评|优点|缺点|满意|喜欢|值得购买", question)):
             plan.unsupported_reason = "本轮情感方向或混合分析目标尚不明确，请分别说明正向或负向查询。"
         if ranking and sentiment is None and not breakdown and not (trend or windows or products or quality or rating):
             breakdown = True
@@ -260,12 +290,15 @@ def _build_query_plan(question, scope, *, product_groups=None):
             add("get_data_quality")
         if rating:
             add("get_rating_distribution")
+        comparison_params = {'sentiment': 'positive', 'aspect': aspects[0] if aspects else None} if sentiment == 'positive' else {}
+        if sentiment == 'positive' and (windows or products) and len(aspects) > 1:
+            plan.unsupported_reason = '请每次明确一个好评维度进行对比，或查询整体好评对比。'
         if windows:
-            add("compare_time_windows")
+            add("compare_time_windows", **comparison_params)
         if products and not rating:
             if re.search(r'另一款|另一个商品', question) and len(scope.get("product_ids", [])) < 2:
                 plan.unsupported_reason = "缺少明确的对比商品，请选择至少两款商品后比较。"
-            add("compare_products")
+            add("compare_products", **comparison_params)
         if trend and (not windows or re.search(r"趋势|按[日月天]", question)) and not (rating and not aspects):
             period = "day" if re.search(r"按日|按天", question) else "month"
             trend_text = "".join(part for part in re.split(r"[，。；、]", question) if re.search(r"趋势|变化|按[日月天]", part))

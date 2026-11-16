@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query
 
 from data_analysis_agent.api.responses import Result, ok_result
 from data_analysis_agent.api.schemas import (
-    AnalysisQuery, AspectTrendQuery, BaselineQuery, EvidenceQuery, IssueQuery, RatingQuery, TrendQuery,
+    AnalysisQuery, AspectTrendQuery, ComparisonQuery, EvidenceQuery, IssueQuery, RatingQuery, TrendQuery, WindowComparisonQuery,
 )
 from data_analysis_agent.reviews.analytics import (
     compare_products, compare_time_windows, get_aspect_trend, get_data_quality,
@@ -27,7 +27,7 @@ def create_router(db):
         return ok_result(get_top_issues(db, **query.model_dump()))
 
     @router.get("/analytics/compare-products", response_model=Result, tags=["统计分析"])
-    def comparison(query: Annotated[AnalysisQuery, Query()]):
+    def comparison(query: Annotated[ComparisonQuery, Query()]):
         return ok_result(compare_products(db, **query.model_dump()))
 
     @router.get("/analytics/evidence", response_model=Result, tags=["统计分析"])
@@ -50,7 +50,7 @@ def create_router(db):
         return ok_result(get_rating_distribution(db, **query.model_dump()))
 
     @router.get("/analytics/compare-windows", response_model=Result, tags=["统计分析"])
-    def windows(query: Annotated[BaselineQuery, Query()]):
+    def windows(query: Annotated[WindowComparisonQuery, Query()]):
         return ok_result(compare_time_windows(db, **query.model_dump()))
 
     return router

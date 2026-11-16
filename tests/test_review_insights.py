@@ -182,7 +182,7 @@ class InsightTests(answer_fixture.WorkbenchFixture, unittest.TestCase):
         self.assertEqual(answer['insights'], [])
 
     def test_comparison_relation_is_computed_and_incomparable_windows_do_not_mix(self):
-        _, context = self.context('比较两个商品的主要负面问题', product_ids=['P1', 'P2'])
+        _, context = self.context('比较两个商品的主要负面问题并解读', product_ids=['P1', 'P2'])
         catalog, _ = fact_catalog(CompactAnalysisContext.model_validate(context))
         self.assertEqual(catalog[0]['kind'], 'contrast')
         with self.model(transform=lambda draft: {**draft, 'insights': []}):

@@ -59,7 +59,7 @@ class MetricGoalTests(unittest.TestCase):
                 self.assertFalse(validate_goal_plan(result['task_goal'], plan)['passed'])
 
     def test_fine_topics_and_unclassified_all_reviews_ratio_remain_blocked(self):
-        for question in ('制冷不足的反馈占全部评论多少？', '物流配送迟缓的负面评论比例？',
+        for question in ('客服不耐烦的反馈占全部评论多少？', '物流配送迟缓的负面评论比例？',
                          '按月分析物流好评占全部评论比例趋势。'):
             result = run_review_agent(self.f.db, question, scope=self.f.scope, settings=SETTINGS)
             self.assertEqual(result['status'], 'unsupported')
@@ -71,7 +71,9 @@ class MetricGoalTests(unittest.TestCase):
                          '比较当前窗口与基线窗口的物流好评占比。'):
             self.assertEqual(product_mentions(question, PRODUCTS), [])
             _, plan, _ = resolve_review_request(question, SCOPE, PRODUCTS, settings=SETTINGS)
-            self.assertIn('正向对比', plan.unsupported_reason)
+            self.assertIsNone(plan.unsupported_reason)
+            self.assertEqual(plan.required_tools, ['compare_time_windows'])
+            self.assertEqual(plan.requirements[0]['parameters'], {'sentiment': 'positive', 'aspect': 'logistics'})
         for question in ('对比商品 XYZ-ABC123 与基线的物流差评', '比较基线空调的差评'):
             with self.assertRaises(QuestionScopeError):
                 resolve_review_request(question, SCOPE, PRODUCTS, settings=SETTINGS)

@@ -4,7 +4,7 @@ import { isAgentScope } from '../../analysis-draft';
 import { isActive } from '../../task-state';
 import { useTask } from '../../useTask';
 import type { AgentResult, AnalysisParameters, Task } from '../../types';
-import { analysisSession, isAgentTask, type BasicChatTurn, type ChatTurn, type ConversationAnalysisContext } from './chat-state';
+import { analysisSession, basicHistory, isAgentTask, type BasicChatTurn, type ChatTurn, type ConversationAnalysisContext } from './chat-state';
 import { newSession, useChatSessions } from './useChatSessions';
 import { copyScope, historyReference, isFollowup, resolveQuery, sameScope, sameScopeIdentity, type QueryChoice, type QueryParent } from './followup';
 
@@ -237,10 +237,11 @@ export function useAgentChat(routeTaskId?: string, scopeKey?: string, currentSco
     if (!text || text.length > 4000 || postLock.current || resolving.current || pending) return false;
     postLock.current = true;
     setPosting(true);
+    const history = basicHistory(sessionRef.current.turns);
     const turn: BasicChatTurn = { kind: 'basic', id: crypto.randomUUID(), question: text, status: 'pending' };
     commit(current => ({ ...current, turns: [...current.turns, turn], activeId: turn.id }));
     try {
-      const reply = await api.chat(text);
+      const reply = await api.chat(text, history);
       if (!reply || typeof reply.answer !== 'string' || !reply.answer.trim()) throw new Error('模型未返回有效回答，请重新发送。');
       commit(current => ({ ...current, turns: current.turns.map(item => item.kind === 'basic' && item.id === turn.id
         ? { ...item, status: 'succeeded', answer: reply.answer } : item) }));

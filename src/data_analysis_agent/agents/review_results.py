@@ -137,7 +137,7 @@ def adapt_result(item, bound_scope):
     data, kind = item["data"], item["kind"]
     scope = deepcopy(data.get("scope", bound_scope))
     sentiment = "positive" if kind == "positive_aspects" else (
-        data.get("sentiment") if kind in ("evidence", "opinion_breakdown", 'aspect_drilldown') else "negative" if kind not in ("ratings", "quality", "context") else None)
+        data.get("sentiment", 'negative') if kind in ("evidence", "opinion_breakdown", 'aspect_drilldown','topic_statistics', 'comparison', 'window_comparison') else "negative" if kind not in ("ratings", "quality", "context") else None)
     if kind in ('trend', 'aspect_trend'):
         sentiment = data.get('sentiment', 'negative')
     result = StructuredAnalysisResult(result_id=item["result_id"], kind=kind, analysis_type=kind,
@@ -146,8 +146,15 @@ def adapt_result(item, bound_scope):
         result.filters['aspect'] = item['parameters'].get('aspect')
     def group(name, row, actual_scope=None, aspects=False):
         return StatisticGroup(group_id=name, scope=deepcopy(actual_scope or scope), sample_size=sample_size(row),
-                              metrics=summary_metrics(row, sentiment or "negative") if kind not in ("quality", "opinion_breakdown", 'aspect_drilldown') else [],
+                              metrics=summary_metrics(row, sentiment or "negative") if kind not in ("quality", "opinion_breakdown", 'aspect_drilldown','topic_statistics') else [],
                               aspects=aspect_statistics(row, sentiment or "negative") if aspects else [])
+
+    def positive_comparison(name, row, actual_scope=None):
+        stat = group(name, row, actual_scope)
+        stat.metrics = [Metric(name='positive_review_count', value=row['positive_review_count']),
+            rate_metric('positive_comparison_rate', row['comparison_count'], row['comparison_denominator'],
+                        row['comparison_rate'], data['rate_denominator'])]
+        return stat
 
     if kind in ("positive_aspects", "trend", "aspect_trend", "quality", "context"):
         row = data["summary"]
@@ -173,10 +180,17 @@ def adapt_result(item, bound_scope):
                 result.statistics[0].trends.append(TrendSeries(aspect=aspect, period=data["period"], points=points))
     elif kind == "comparison":
         for row in data["products"]:
-            result.statistics.append(group(row["product_id"], row, {**scope, "product_ids": [row["product_id"]]}, aspects=True))
+            actual = {**scope, "product_ids": [row["product_id"]]}
+            result.statistics.append(positive_comparison(row['product_id'], row, actual) if sentiment == 'positive'
+                                     else group(row["product_id"], row, actual, aspects=True))
         for product_id in data.get("no_reviews_product_ids", []):
             result.statistics.append(StatisticGroup(group_id=product_id, scope={**scope, "product_ids": [product_id]}))
             result.warnings.append("no_reviews:" + product_id)
+    elif kind == 'window_comparison' and sentiment == 'positive':
+        result.statistics = [positive_comparison('current', data['current']),
+                             positive_comparison('baseline', data['baseline'], data['baseline_scope'])]
+        result.statistics[0].metrics.append(Metric(name='comparison_rate_change_pp',
+            value=data['changes']['comparison_rate_change_pp'], unit='percentage_points'))
     elif kind in ("issues", "window_comparison"):
         result.statistics = [group("current", data["current"], aspects=True)]
         if data.get('baseline'):
@@ -187,6 +201,9 @@ def adapt_result(item, bound_scope):
             if change:
                 aspect.metrics.append(Metric(name="negative_rate_change_pp", value=change["negative_rate_change_pp"], unit="percentage_points"))
         if kind == 'issues':
+            if 'topic_statistics' in data:
+                from data_analysis_agent.agents.review_topic_statistics import compact_statistics
+                result.filters['topic_statistics']=compact_statistics(data['topic_statistics'])
             for examples in data.get('rank_examples', []):
                 evidence = adapt_result({'result_id': item['result_id'], 'kind': 'evidence', 'parameters': {
                     'aspect': examples['aspect'], 'sentiment': 'negative'}, 'data': examples}, scope)
@@ -200,13 +217,18 @@ def adapt_result(item, bound_scope):
             metrics = [Metric(name=name, value=row[name]) for name in ("review_count", "rated_reviews", "missing_rating_reviews", "other_rating_reviews")]
             metrics.extend(rate_metric(f"star_{star['star']}", star["review_count"], row["rated_reviews"], star["rate"], "rated_reviews") for star in row["stars"])
             result.statistics.append(StatisticGroup(group_id=row["group"], scope=deepcopy(group_scope), metrics=metrics))
-    elif kind in ("evidence", "opinion_breakdown", 'aspect_drilldown'):
+    elif kind in ("evidence", "opinion_breakdown", 'aspect_drilldown','topic_statistics'):
         result.filters = {key: data.get(key) for key in ("aspect", "sentiment", "page", "page_size", "pages", "total")}
         if kind == 'opinion_breakdown':
             result.filters.update({key: deepcopy(data[key]) for key in ('groups', 'grouping', 'total_opinions', 'topic')})
             result.statistics = [group('current', data['summary'])]
             result.statistics[0].metrics = []
         items = data['items']
+        if kind=='topic_statistics':
+            from data_analysis_agent.agents.review_topic_statistics import compact_statistics
+            result.filters.update(compact_statistics(data))
+            result.statistics=[group('current',data['summary'])]
+            result.statistics[0].metrics=[]
         if kind == 'aspect_drilldown':
             result.statistics = [group('current', data['summary'])]
             result.filters.update({key: deepcopy(data[key]) for key in ('coverage', 'population_mode', 'analysis_status', 'total_opinions', 'grouping_version')})
@@ -241,4 +263,6 @@ def adapt_result(item, bound_scope):
         result.sentiment = None
     else:
         raise ValueError("无法适配的分析结果类型。")
+    if kind in ('comparison', 'window_comparison') and sentiment == 'positive':
+        result.filters.update(aspect=data['aspect'], rate_denominator=data['rate_denominator'])
     return result

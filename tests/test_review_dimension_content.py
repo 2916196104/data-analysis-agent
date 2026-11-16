@@ -90,6 +90,14 @@ class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
             with self.subTest(question=question):
                 result = self.run_local(question)
                 self.assertEqual(result['status'], 'ok', result.get('error'))
+                if question=='客服主要在抱怨什么':
+                    self.assertEqual(result['query_plan']['required_tools'],['get_topic_statistics'])
+                    data=result['results']['r1']['data']
+                    self.assertEqual(data['topics'][0]['name'],'客服响应慢')
+                    self.assertEqual(data['topics'][0]['review_count'],2)
+                    self.assertEqual(data['coverage']['processed_opinions'],12)
+                    self.assertEqual(result['total_model_calls'],0)
+                    continue
                 themes = {'物流差评主要体现在哪里？', '给出负面的物流观点的体现在哪里',
                           '物流负面评价主要表现在哪些方面？', '包装差评体现在哪些地方？',
                           '商品质量差评主要表现在哪些方面？'}
@@ -246,9 +254,15 @@ class DimensionContentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(single['query_plan']['required_tools'], ['get_top_issues'])
         self.assertEqual(single['model_calls'], 0)
         self.assertEqual(single['answer_model_calls'], 0)
-        self.assertIn('成功标注评论中有', single['public_answer']['summary'])
-        self.assertIn('4 条成功标注评论中有 2 条', single['public_answer']['summary'])
-        self.assertIn('具体内容仍需查看对应观点', single['public_answer']['summary'])
+        self.assertIn('差评提及较多的维度依次为使用效果、物流、包装', single['public_answer']['summary'])
+        self.assertIn('已核验的买家反馈', single['public_answer']['summary'])
+        self.assertEqual(len(single['public_answer']['metrics']),3)
+        for metric in single['public_answer']['metrics']:
+            rate = next(value for value in metric['values'] if value['name']=='negative_rate')
+            self.assertEqual((rate['value'],rate['numerator'],rate['denominator']),(.5,2,4))
+            self.assertEqual(rate['denominator_name'],'successful_reviews')
+        self.assertIn('制冷慢', single['public_answer']['highlights'][0]['text'])
+        self.assertIn('2/4 条成功标注评论', single['public_answer']['highlights'][0]['text'])
         self.assertGreater(single['performance']['scope_resolution_duration_ms'], 0)
         self.assertGreater(single['performance']['intent_resolution_duration_ms'], 0)
         self.assertEqual(single['performance']['planning_model_duration_ms'], 0)

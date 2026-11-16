@@ -2,6 +2,7 @@
 
 import math
 from datetime import date
+from data_analysis_agent.reviews.opinions import ASPECTS
 
 
 def expected_result_scopes(results, scope):
@@ -33,7 +34,7 @@ def expected_result_scopes(results, scope):
 def result_summaries(results):
     for item in results:
         data = item["data"]
-        if item["kind"] in ("context", "trend", "quality", "aspect_trend", "positive_aspects", "opinion_breakdown", 'aspect_drilldown'):
+        if item["kind"] in ("context", "trend", "quality", "aspect_trend", "positive_aspects", "opinion_breakdown", 'aspect_drilldown','topic_statistics'):
             yield data["summary"]
             yield from data.get("buckets", [])
         elif item["kind"] == "comparison":
@@ -61,6 +62,53 @@ def _scope_matches(actual, expected):
     if "product_ids" in expected:
         return sorted(actual.get("product_ids", [])) == sorted(expected.get("product_ids", []))
     return True
+
+
+def _validate_comparison(item):
+    from data_analysis_agent.reviews.parameters import comparison_denominator
+    data, params = item['data'], item['parameters']
+    try:
+        direction = params.get('sentiment', 'negative')
+        aspect = params.get('aspect')
+        denominator = comparison_denominator(direction, aspect, params.get('denominator'))
+        if data.get('sentiment', 'negative') != direction:
+            return False
+        if direction != 'positive':
+            return True
+        if data.get('aspect') != aspect or data.get('rate_denominator') != denominator or data['definitions'].get('comparison_rate_denominator') != denominator:
+            return False
+        def check(row, selected):
+            count = (row['aspects'][selected] if selected else row)['positive_review_count']
+            return (row['comparison_count'] == count and type(row['comparison_count']) is int
+                    and type(row['comparison_denominator']) is int and row['comparison_denominator'] == row[denominator]
+                    and _matches_rate(row['comparison_rate'], count, row[denominator]))
+        if item['kind'] == 'comparison':
+            return all(check(row, aspect) for row in data['products'])
+        current, baseline = data['current'], data['baseline']
+        if not (check(current, aspect) and check(baseline, aspect)):
+            return False
+        def delta(value, now_count, before_count):
+            a, b = current[denominator], baseline[denominator]
+            return _matches_rate(value, now_count * b - before_count * a, a * b, 100)
+        if not delta(data['changes']['comparison_rate_change_pp'], current['comparison_count'], baseline['comparison_count']):
+            return False
+        rows = data['comparison_aspects']
+        if len(rows) != len(ASPECTS) or {row['aspect'] for row in rows} != set(ASPECTS):
+            return False
+        for row in rows:
+            key = row['aspect']
+            now, before = current['aspects'][key]['positive_review_count'], baseline['aspects'][key]['positive_review_count']
+            if not (all(type(row[key]) is int for key in ('comparison_count', 'baseline_count', 'comparison_denominator', 'baseline_denominator'))
+                    and row['aspect_label'] == ASPECTS[key] and row['comparison_count'] == now
+                    and row['baseline_count'] == before and row['comparison_denominator'] == current[denominator]
+                    and row['baseline_denominator'] == baseline[denominator]
+                    and _matches_rate(row['comparison_rate'], now, current[denominator])
+                    and _matches_rate(row['baseline_rate'], before, baseline[denominator])
+                    and delta(row['comparison_rate_change_pp'], now, before)):
+                return False
+        return True
+    except (KeyError, ValueError, TypeError, IndexError):
+        return False
 
 
 def _validate_positive_aspects(data):
@@ -173,6 +221,8 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
         expected = expected_scopes.get(result_id) if expected_scopes is not None else expected_scope
         if expected is not None:
             scope_ok &= _scope_matches(data.get("scope"), expected)
+        if item['kind'] in ('comparison', 'window_comparison'):
+            positive_ok &= _validate_comparison(item)
         if item['kind'] in ('trend', 'aspect_trend'):
             from data_analysis_agent.reviews.analytics import _buckets
             try:
@@ -209,7 +259,7 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
             quote_count += len(data.get('retrieval', {}).get('evidence', []))
         if item["kind"] == "positive_aspects":
             positive_ok &= _validate_positive_aspects(data)
-        if item["kind"] in ("evidence", "opinion_breakdown", 'aspect_drilldown'):
+        if item["kind"] in ("evidence", "opinion_breakdown", 'aspect_drilldown','topic_statistics'):
             sentiment = item["parameters"].get("sentiment", "all" if item['kind'] == 'opinion_breakdown' else "negative")
             aspect = item["parameters"].get("aspect")
             quotes_ok &= data.get("sentiment") == (None if sentiment == "all" else sentiment)
@@ -275,6 +325,16 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
                     additional_ok &= type(star["review_count"]) is int and star["review_count"] >= 0
                     additional_ok &= _matches_rate(star["rate"], star["review_count"], row["rated_reviews"])
 
+        if item['kind']=='topic_statistics' or 'topic_statistics' in data:
+            from data_analysis_agent.agents.review_topic_statistics import validate_statistics
+            topic_data=data if item['kind']=='topic_statistics' else data['topic_statistics']
+            additional_ok &= validate_statistics(topic_data)
+            scope_ok &= _scope_matches(topic_data['scope'],data['scope'])
+            if item['kind']=='issues':
+                additional_ok &= topic_data['summary']==data['current']
+            if item['kind']=='topic_statistics':
+                additional_ok &= all(data[key]==item['parameters'].get(key,default) for key,default in
+                                     (('aspect',None),('topic',None),('denominator','review_count'),('sentiment','negative')))
         if item['kind'] == 'opinion_breakdown':
             total, opinions = data['total'], data['total_opinions']
             additional_ok &= type(total) is int and type(opinions) is int and 0 <= total <= opinions
@@ -297,12 +357,12 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
     semantic_ok = True
     if sentiment_intent == "positive":
         semantic_ok = any(item["kind"] == "positive_aspects" or (
-            item["kind"] in {"evidence", "opinion_breakdown", 'aspect_drilldown', 'trend', 'aspect_trend'} and item["data"].get("sentiment") == "positive"
+            item["kind"] in {"evidence", "opinion_breakdown", 'aspect_drilldown', 'topic_statistics','trend', 'aspect_trend', 'comparison', 'window_comparison'} and item["data"].get("sentiment") == "positive"
         ) for item in selected)
     elif sentiment_intent == "negative":
         semantic_ok = any((item["kind"] in {"trend", "aspect_trend", "comparison", "issues", "window_comparison"}
                           and item['data'].get('sentiment', 'negative') == 'negative')
-                          or (item["kind"] in {"evidence", "opinion_breakdown", 'aspect_drilldown'} and item["data"].get("sentiment") == "negative")
+                          or (item["kind"] in {"evidence", "opinion_breakdown", 'aspect_drilldown','topic_statistics'} and item["data"].get("sentiment") == "negative")
                           for item in selected)
     if query_plan is not None:
         semantic_ok &= query_plan.satisfied(selected)

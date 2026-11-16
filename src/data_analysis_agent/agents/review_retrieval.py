@@ -11,6 +11,7 @@ from time import perf_counter
 
 from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.agents.review_reported_facts import POLICY, assess as assess_reported_facts
+from data_analysis_agent.agents import review_reported_facts_v2
 from data_analysis_agent.reviews.embedding import LocalBgeM3Embedder
 from data_analysis_agent.reviews.embedding_store import SPACE_ID
 from data_analysis_agent.reviews.rag_corpus import _document, RagOpinionDocument, RagReviewState
@@ -21,8 +22,10 @@ from data_analysis_agent.reviews.semantic_retrieval import (
 
 TOOL = 'search_semantic_evidence'
 LEGACY_POLICY = 'literal_reported_statement_v1'
+FACT_POLICIES = (POLICY, review_reported_facts_v2.POLICY)
 STATISTICS = r'占比|比例|百分比|多少|几条|数量|统计|趋势|排名|分布|覆盖率|数据质量|对比|比较|主要|最多'
-COMPLEX = r'同时|同一|既.+又|不仅|而且|但|却|又|而是|不是|并非|或者|还是|之前|之后|先.+再|导致|原因|为什么|长期|耐用|睡眠|所有|每个|一定|和|以及|与|[、；;，,]'
+V2_COMPLEX = r'同时|同一|既.+又|不仅|而且|但|却|又|而是|不是|并非|或者|还是|之前|之后|先.+再|导致|原因|为什么|长期|耐用|睡眠|所有|每个|一定|和|以及|与|[、；;，,]'
+COMPLEX = V2_COMPLEX + r'|或|且'
 LITERAL_STATEMENT = (r'(?:空调)?(?:制冷|制热)(?:不足|不行|效果差|效果好|很快|很慢|不快)|'
                      r'(?:物流|到货|配送)(?:很快|很慢)|(?:客服|安装师傅)(?:态度好|态度差)|'
                      r'包装(?:破了|完好)|价格(?:太高|便宜)|噪音(?:很大|很小)')
@@ -32,11 +35,15 @@ def wants_semantic_search(question):
     # SQL browsing/pagination and aggregates keep their existing semantics.
     if question.startswith('执行本轮已确认的只读查询') or re.search(STATISTICS, question):
         return False
-    return bool(re.search(r'语义检索|类似.*(?:评论|反馈|抱怨|证据)|(?:有没有|是否有|有无|是否存在).*(?:评论|反馈|抱怨|证据)|'
+    from data_analysis_agent.agents.review_reported_facts import target
+    from data_analysis_agent.agents.review_task_contract import evidence_question
+    if target(evidence_question(question)):return True
+    return bool(re.search(r'语义检索|类似.*(?:评论|反馈|抱怨|证据)|(?:有没有|是否有|有无|是否存在).*(?:评论|评价|反馈|抱怨|证据)|'
+                         r'(?:有|有没有|是否有)(?:买家|用户)(?:反馈说|反映|提到|说).*(?:吗|么)[？?]*|'
                          r'(?:找|检索|搜索).*(?:评论|原文|反馈|证据)', question))
 
 
-def retrieval_request(question):
+def retrieval_request(question, *, policy=POLICY):
     """Keep the original question byte-for-byte. Filters are only optional hints."""
     from data_analysis_agent.agents.review_prompts import detect_sentiment_directions
     topics = {word for word in ('制冷','制热','静音','噪音','客服','物流','安装','包装','价格','质量') if word in question}
@@ -44,7 +51,10 @@ def retrieval_request(question):
     # negation of later sentiment words; strip only this question prefix.
     direction_text = re.sub(r'^(\s*(?:请问)?)(?:有没有|是否有)', r'\1', question)
     directions = detect_sentiment_directions(direction_text)
-    uncertain = bool(re.search(COMPLEX, question)) or len(topics) > 1 or len(directions) > 1
+    uncertain = bool(re.search(COMPLEX if policy==POLICY else V2_COMPLEX, question)) or len(topics) > 1 or len(directions) > 1
+    from data_analysis_agent.agents.review_reported_facts import target
+    request = target(question) if policy==POLICY else None
+    uncertain = uncertain or bool(request and len(request['facts']) > 1)
     aspect = None
     # Only explicit category names; a subtopic alone is not an approved SQL label.
     categories = {value for word,value in {'质量':'quality','使用效果':'effectiveness','价格':'price',
@@ -134,6 +144,8 @@ def assess_literal_retrieval(question, evidence):
 def assess_retrieval(question, evidence, *, policy=POLICY):
     if policy == POLICY:
         return assess_reported_facts(question, evidence)
+    if policy == review_reported_facts_v2.POLICY:
+        return review_reported_facts_v2.assess(question, evidence)
     if policy == LEGACY_POLICY:
         return assess_literal_retrieval(question, evidence)
     raise ValueError('unknown evidence permission policy')
@@ -175,7 +187,7 @@ def validate_retrieval(data, question):
     This checks transported candidates/spans/keys, not historical-source certification.
     """
     try:
-        scope = _scope(data['scope']); raw = data['retrieval']; query = retrieval_request(question)
+        scope = _scope(data['scope']); raw = data['retrieval']; query = retrieval_request(question,policy=data['assessment']['policy'])
         if raw['query'] != query.model_dump(mode='json') or raw['version'] != 'semantic-retrieval-v1': return False
         if raw['scope'] != scope.model_dump(mode='json', exclude={'base_url'}): return False
         if (raw['embedding_space_id'], raw['text_builder_version'], raw['source_policy'], raw['context_policy'], raw['context_version']) != (
@@ -202,7 +214,7 @@ def validate_retrieval(data, question):
         fact_question=question
         if 'assessment_question' in data:
             from data_analysis_agent.agents.review_task_contract import evidence_question, evidence_scope_matches
-            fact_question=evidence_question(question, data['scope'])
+            fact_question=evidence_question(question, data['scope'],fact_policy=data['assessment']['policy'])
             if data['assessment_question']!=fact_question or not evidence_scope_matches(question,data['scope']):return False
         return data['assessment'] == assess_retrieval(fact_question,evidence,policy=data['assessment']['policy'])
     except (KeyError,ValueError,TypeError,AttributeError,UnicodeError,SemanticRetrievalError):

@@ -1,4 +1,6 @@
-import type { AgentToolResult, Summary } from './types';
+import type { AgentToolResult, ComparisonMetadata, Summary } from './types';
+
+export const comparisonBasis = (data: ComparisonMetadata) => data.rate_denominator === 'positive_review_count' ? '含正向观点评论' : '成功标注评论';
 
 export function sampleState(row: Summary): { label: string; color?: string; reason: string } {
   if (!row.review_count) return { label: '无评论', reason: '当前时间范围内没有评论' };
@@ -27,15 +29,16 @@ export function sectionSummary(item: AgentToolResult): string {
     case 'quality': return `缺失正文 ${item.data.summary.empty_text_reviews ?? 0} 条，失败标注 ${item.data.summary.failed_reviews} 条，待标注 ${item.data.summary.unprocessed_reviews} 条。`;
     case 'aspect_trend': return `按${item.data.period === 'day' ? '日' : '月'}查看 ${Object.values(item.data.aspects).join('、')}，共 ${item.data.buckets.length} 个时间段。`;
     case 'ratings': return `按${{ product: '商品', month: '月份', all: '总体' }[item.data.group_by]}汇总 ${item.data.groups.length} 组原始星级；占比分母为有效 1–5 整数星级评论。`;
-    case 'window_comparison': return `当前 ${item.data.current_days} 天与基线 ${item.data.baseline_days} 天对比；占比变化由各自分母计算。`;
+    case 'window_comparison': return `当前 ${item.data.current_days} 天与基线 ${item.data.baseline_days} 天对比；${item.data.sentiment === 'positive' ? `好评占比以各期${comparisonBasis(item.data)}为分母。` : '占比变化由各自分母计算。'}`;
     case 'context': return `当前范围共 ${item.data.summary.review_count} 条评论，成功标注 ${item.data.summary.successful_reviews} 条。`;
     case 'trend': return `按${item.data.period === 'day' ? '日' : '月'}汇总 ${item.data.buckets.length} 个时间段，共 ${item.data.summary.review_count} 条评论，成功标注 ${item.data.summary.successful_reviews} 条。`;
     case 'comparison': {
       const rows = item.data.products;
-      const ready = rows.filter(row => row.successful_reviews > 0).length;
-      const limited = rows.filter(row => row.successful_reviews > 0 && sampleState(row).label === '样本有限').length;
+      const readyRows = rows.filter(row => (item.data.sentiment === 'positive' ? row.comparison_denominator ?? 0 : row.successful_reviews) > 0);
+      const ready = readyRows.length;
+      const limited = readyRows.filter(row => sampleState(row).label === '样本有限').length;
       const missing = item.data.no_reviews_product_ids?.length ?? 0;
-      return `对比 ${rows.length + missing} 款商品：${ready} 款可计算占比（其中 ${limited} 款样本有限），${rows.length - ready} 款暂无成功标注${missing ? `，${missing} 款在窗口内无评论` : ''}。`;
+      return `对比 ${rows.length + missing} 款商品：${ready} 款可计算占比（其中 ${limited} 款样本有限），${rows.length - ready} 款暂无可用分母${missing ? `，${missing} 款在窗口内无评论` : ''}。${item.data.sentiment === 'positive' ? `好评占比以各商品${comparisonBasis(item.data)}为分母。` : ''}`;
     }
     case 'issues': return `汇总 ${aspectRows(item, item.data.issues).length} 个维度的负面问题；占比变化按当前窗口与基线各自的成功标注数计算。`;
     case 'evidence': return `找到 ${item.data.total} 条匹配证据，本页展示 ${item.data.items.length} 条；可展开查看完整原文及引用。`;
@@ -49,5 +52,6 @@ export function comparisonRows(item: Extract<AgentToolResult, { kind: 'compariso
     product_id, review_count: 0, eligible_text_reviews: 0, successful_reviews: 0,
     failed_reviews: 0, unprocessed_reviews: 0, negative_review_count: 0,
     labeling_coverage: null, negative_rate: null,
+    comparison_count: 0, comparison_denominator: 0, comparison_rate: null,
   }))];
 }

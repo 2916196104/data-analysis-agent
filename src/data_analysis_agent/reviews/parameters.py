@@ -2,6 +2,7 @@
 
 import math
 import re
+from typing import Literal
 from datetime import date
 
 from pydantic import Field, model_validator
@@ -9,6 +10,33 @@ from pydantic import Field, model_validator
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.core.validation import Input, Text, validate_integer, validate_text
 from data_analysis_agent.reviews.scope import review_scope
+from data_analysis_agent.reviews.opinions import ASPECTS, Aspect
+
+
+def comparison_denominator(sentiment='negative', aspect=None, denominator=None):
+    if aspect is not None and aspect not in ASPECTS:
+        raise ReviewDataError('aspect 必须是六个有效维度之一。')
+    if sentiment not in ('positive', 'negative'):
+        raise ReviewDataError('对比只支持正向或负向情感。')
+    if sentiment == 'negative':
+        if aspect is not None or denominator not in (None, 'successful_reviews'):
+            raise ReviewDataError('负向对比沿用整体统计与成功标注分母。')
+        return 'successful_reviews'
+    resolved = denominator or ('positive_review_count' if aspect else 'successful_reviews')
+    if resolved not in ('successful_reviews', 'positive_review_count') or (not aspect and resolved != 'successful_reviews'):
+        raise ReviewDataError('整体好评对比以成功标注评论为分母；维度好评可选正向观点评论或成功标注评论。')
+    return resolved
+
+
+class ComparisonOptions(Input):
+    sentiment: Literal['positive', 'negative'] = 'negative'
+    aspect: Aspect | None = None
+    denominator: Literal['successful_reviews', 'positive_review_count'] | None = None
+
+    @model_validator(mode='after')
+    def valid_comparison(self):
+        comparison_denominator(self.sentiment, self.aspect, self.denominator)
+        return self
 
 
 DEFAULT_RULES = {

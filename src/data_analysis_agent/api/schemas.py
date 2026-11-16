@@ -9,7 +9,7 @@ from data_analysis_agent.jobs.parameters import (
     AnalysisParameters, ImportParameters, LabelParameters, ReplayParameters, TaskKind, TaskStatus,
 )
 from data_analysis_agent.reviews.parameters import (
-    AnalysisScope as AnalysisQuery, BaselineScope as BaselineQuery, Identity, Rules, Scope,
+    AnalysisScope as AnalysisQuery, BaselineScope as BaselineQuery, ComparisonOptions, Identity, Rules, Scope,
 )
 from data_analysis_agent.reviews.opinions import Aspect, Opinion, Sentiment
 from data_analysis_agent.reviews.scope import model_identity
@@ -43,6 +43,14 @@ class TrendQuery(AnalysisQuery):
 
 class AspectTrendQuery(TrendQuery):
     aspect: Aspect | None = None
+
+
+class ComparisonQuery(AnalysisQuery, ComparisonOptions):
+    pass
+
+
+class WindowComparisonQuery(BaselineQuery, ComparisonOptions):
+    pass
 
 
 class RatingQuery(AnalysisQuery):

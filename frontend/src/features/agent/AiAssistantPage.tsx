@@ -10,7 +10,7 @@ import ChatMessage from './ChatMessage';
 import AssistantScopeBar, { type AssistantScope } from './AssistantScopeBar';
 import './assistant.css';
 
-const questions = ['查看缺失正文、失败标注和覆盖率', '按月查看包装和物流问题变化', '比较当前窗口与基线窗口'];
+const questions = ['查看缺失正文、失败标注和覆盖率', '按月分析物流好评占比趋势', '对比当前窗口与基线的物流好评占比'];
 const basicQuestions = ['你能做什么？', '如何理解评论标注覆盖率？'];
 
 export default function AiAssistantPage({ chat, parameters, input, onInput, onSend, onPrepare, onNewQuestion, mode, onMode, draft, options, quality, onApplyScope, loading, refreshKey }: {
@@ -61,6 +61,10 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
         <Button aria-label="新建会话" type="primary" icon={<PlusOutlined />} onClick={() => { onNewQuestion(true); chat.createSession(); onInput(''); }}>新建会话</Button>
       </div>
     </header>
+    {analysis && <details className="chat-notice"><summary>查看支持的分析能力</summary>
+      <p>支持数据质量、星级分布、正负向维度汇总、日/月趋势、商品对比、时间窗口对比及评论原文。正向对比支持整体或一个维度；整体好评以成功标注评论为分母，维度好评默认以含正向观点评论为分母，也可明确指定成功标注评论。</p>
+      <p>负向对比按整体统计。细分主题统计仅覆盖已有规则，具体内容归纳取决于有效标注和证据。评论数据不能证明故障原因，也不能用于销量、销售额预测。</p>
+    </details>}
     <Drawer title="历史会话" open={historyOpen} onClose={() => setHistoryOpen(false)} width="min(360px, 100vw)">
       <p className="chat-history-note">会话仅保存在当前浏览器。继续提问使用当前选择范围。</p>
       <nav className="chat-session-list" aria-label="历史会话列表">
