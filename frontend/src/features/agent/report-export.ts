@@ -37,10 +37,10 @@ function statistics(item: AgentToolResult): string {
     case 'window_comparison': return summaryTable([['当前', item.data.current], ['基线', item.data.baseline]])
       + '\n\n' + table(['指标', '变化（占比为百分点）'], Object.entries(item.data.changes));
     case 'aspect_trend': return item.data.sentiment === 'positive'
-      ? table(['时间（UTC）', '维度', '正向评论数', '正向观点评论（分母）', '好评占比', '成功标注数', '覆盖率'],
+      ? table(['时间（UTC）', '维度', '正向评论数', item.data.rate_denominator === 'successful_reviews' ? '成功标注（分母）' : '正向观点评论（分母）', '好评占比', '成功标注数', '覆盖率'],
         item.data.buckets.flatMap(row => Object.entries(row.aspects).map(([aspect, counts]) => [row.bucket,
-          item.data.aspects[aspect], counts.positive_review_count, row.positive_review_count,
-          percent(counts.positive_rate), row.successful_reviews, percent(row.labeling_coverage)])))
+          item.data.aspects[aspect], counts.positive_review_count, item.data.rate_denominator === 'successful_reviews' ? row.successful_reviews : row.positive_review_count,
+          percent(item.data.rate_denominator === 'successful_reviews' ? counts.positive_success_rate : counts.positive_rate), row.successful_reviews, percent(row.labeling_coverage)])))
       : table(['时间（UTC）', '维度', '负面数', '成功标注（分母）', '占比', '覆盖率'],
       item.data.buckets.flatMap(row => Object.entries(row.aspects).map(([aspect, counts]) => [row.bucket,
         item.data.aspects[aspect], counts.negative_review_count, row.successful_reviews,

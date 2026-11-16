@@ -180,6 +180,17 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
                 additional_ok &= period in ('day', 'month') and [row['bucket'] for row in data['buckets']] == _buckets(data['scope'], period)
                 direction = item['parameters'].get('sentiment', 'negative')
                 additional_ok &= direction in ('positive', 'negative') and data.get('sentiment', 'negative') == direction
+                from data_analysis_agent.agents.review_semantics import trend_denominator
+                denominator = trend_denominator('get_aspect_trend' if item['kind']=='aspect_trend' else 'get_trend', item['parameters'])
+                additional_ok &= data.get('rate_denominator', denominator) == denominator
+                additional_ok &= denominator == 'successful_reviews' or (item['kind']=='aspect_trend' and direction=='positive' and denominator=='positive_review_count')
+                if item['parameters'].get('denominator') is not None:
+                    additional_ok &= data.get('rate_denominator') == denominator
+                if item['kind'] == 'aspect_trend':
+                    from data_analysis_agent.reviews.opinions import ASPECTS
+                    selected_aspects = {item['parameters']['aspect']} if item['parameters'].get('aspect') else set(ASPECTS)
+                    additional_ok &= set(data['aspects']) == selected_aspects and all(set(row['aspects']) == selected_aspects
+                        for row in [data['summary'], *data['buckets']])
                 if direction == 'positive':
                     additional_ok &= all('positive_review_count' in row and 'positive_rate' in row
                         and all('positive_review_count' in counts and 'positive_rate' in counts and 'positive_success_rate' in counts

@@ -143,10 +143,17 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
   const inheritedParameters = parent.parameters;
   if (op.type === 'sentiment') {
     const kind = op.value === 'positive' ? 'positive_aspects' : 'issues';
-    const previous = results.find(item => ['positive_aspects', 'issues', 'evidence', 'opinion_breakdown', 'aspect_drilldown', 'trend', 'aspect_trend'].includes(item.kind));
-    candidates = previous?.kind === 'opinion_breakdown' || previous?.kind === 'aspect_drilldown' || previous?.kind === 'trend' || previous?.kind === 'aspect_trend' ? [{ kind: previous.kind, parameters: { ...previous.parameters, sentiment: op.value } }]
-      : previous?.kind === 'evidence' ? [{ kind: 'evidence', parameters: { ...previous.parameters, sentiment: op.value, page: 1 } }]
-      : [{ kind, parameters: { product_ids: parent.parameters.product_ids, ...(previous?.parameters.aspect ? { aspect: previous.parameters.aspect } : {}) } }];
+    const targets = results.filter(item => ['positive_aspects', 'issues', 'evidence', 'opinion_breakdown', 'aspect_drilldown', 'trend', 'aspect_trend'].includes(item.kind));
+    candidates = targets.map(previous => {
+      const params: Record<string, unknown> = { ...previous.parameters, sentiment: op.value };
+      if (op.value === 'negative' && params.denominator === 'positive_review_count') delete params.denominator;
+      if (['opinion_breakdown', 'aspect_drilldown', 'trend', 'aspect_trend'].includes(previous.kind))
+        return { kind: previous.kind as QueryIntent['kind'], parameters: params };
+      if (previous.kind === 'evidence') return { kind: 'evidence', parameters: { ...params, page: 1 } };
+      return { kind, parameters: { product_ids: parent.parameters.product_ids,
+        ...(previous.parameters.aspect ? { aspect: previous.parameters.aspect } : {}) } };
+    });
+    if (!candidates.length) candidates = [{ kind, parameters: { product_ids: parent.parameters.product_ids } }];
   } else if (op.type === 'aspect') {
     candidates = results.filter(item => ['evidence', 'aspect_trend', 'trend'].includes(item.kind)).map(item => ({
       kind: item.kind === 'evidence' ? 'evidence' : 'aspect_trend',

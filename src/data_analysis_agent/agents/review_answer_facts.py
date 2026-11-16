@@ -141,7 +141,8 @@ def build_answer_facts(context, *, detailed=False):
                 aspect = series["aspect"]
                 positive = stat.get('sentiment') == 'positive'
                 direction_name = '正向' if positive else '负面'
-                denominator_label = '含正向观点评论' if positive and aspect else '成功标注评论'
+                positive_denominator = positive and any(point['metric'].get('denominator_name') == 'positive_review_count' for point in series['points'])
+                denominator_label = '含正向观点评论' if positive_denominator else '成功标注评论'
                 finding = next(row for row in context.key_findings if row["type"] == "trend"
                     and row["source_result_id"] == stat["source_result_id"] and row["scope_ref"] == stat["scope_ref"]
                     and row["aspect"] == aspect)
@@ -179,7 +180,7 @@ def build_answer_facts(context, *, detailed=False):
                             detail += f"最大相邻变化为 {largest['from']} 至 {largest['to']} 的 {largest['change_pp']:+.1f} 个百分点。"
                 else:
                     detail = (f'{label}各时间桶均无可用的正向观点评论分母，不能把空数据当作零好评占比。'
-                              if positive and aspect else f"{label}各时间桶均无成功标注，不能把空数据当作零{direction_name}占比。")
+                              if positive_denominator else f"{label}各时间桶均无成功标注，不能把空数据当作零{direction_name}占比。")
                 bucket_details = []
                 recent = finding.get('recent_adjacent_change')
                 displayed = series['points']
@@ -322,7 +323,11 @@ def answer_caveats(context, facts):
         messages.append('存在没有可用分母的时段，空数据不代表好评占比为零。' if context.sentiment == 'positive'
                         else "存在无成功标注的时段，空数据不代表负面占比为零。")
     if context.sentiment == 'positive' and points:
-        messages.append('每期按评论去重；维度好评占比以该期含任意正向观点的评论数为分母，整体好评占比以该期成功标注评论数为分母。')
+        denominators = {point['metric'].get('denominator_name') for point in points}
+        if denominators == {'successful_reviews'}:
+            messages.append('每期按评论去重；本轮好评占比以该期成功标注评论数为分母。')
+        else:
+            messages.append('每期按评论去重；维度好评占比以该期含任意正向观点的评论数为分母，整体好评占比以该期成功标注评论数为分母。')
     if sum(fact.kind == "aspect" for fact in facts) > 1 or is_mixed_overview(context):
         messages.append("同一条评论可涉及多个维度，各维度数量不能相加作为总评论数。")
     if any(fact.kind == 'aspect' and ranked_feedback(context, fact) for fact in facts):

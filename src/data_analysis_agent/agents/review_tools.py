@@ -54,6 +54,7 @@ class AspectDrilldownInput(ProductSelection):
 class TrendInput(ProductSelection):
     period: Literal["day", "month"] = Field(default="month", description="按 UTC 日或月统计")
     sentiment: Literal['negative', 'positive'] = 'negative'
+    denominator: Literal['successful_reviews', 'positive_review_count'] | None = None
 
 
 class WindowInput(ProductSelection):
@@ -203,12 +204,17 @@ class ReviewToolContext:
             kind, data = "context", {"scope": self.scope, "products": self.products, "summary": summary,
                                      "aspects": ASPECTS, "sentiments": SENTIMENTS}
         elif name in ("get_trend", "get_aspect_trend"):
+            denominator = values.pop('denominator', None)
+            if denominator == 'positive_review_count' and (name != 'get_aspect_trend' or values.get('sentiment', 'negative') != 'positive'):
+                raise ReviewDataError('正向观点评论分母仅适用于正向维度趋势。')
             start, end = date.fromisoformat(scope["date_from"]), date.fromisoformat(scope["date_to"])
             buckets = (end - start).days + 1 if values["period"] == "day" else (end.year-start.year)*12 + end.month-start.month + 1
             if buckets > (366 if values["period"] == "day" else 240):
                 raise ReviewDataError("Agent 趋势最多返回 366 天或 240 个月，请调整时间范围或统计周期。")
             kind, data = (("trend", self.query("get_trend", **scope, **values)) if name == "get_trend"
                           else ("aspect_trend", self.query("get_aspect_trend", **scope, **values)))
+            if denominator is not None:
+                data['rate_denominator'] = denominator
         elif name == "get_data_quality":
             kind, data = "quality", self.query("get_data_quality", **scope)
         elif name == "get_positive_aspects":

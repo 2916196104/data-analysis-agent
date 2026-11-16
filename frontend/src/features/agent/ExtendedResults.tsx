@@ -52,18 +52,21 @@ export default function ExtendedResults({ item }: { item: AgentToolResult }) {
   }
   if (item.kind === 'aspect_trend') {
     const positive = item.data.sentiment === 'positive';
+    const positiveDenominator = positive && item.data.rate_denominator !== 'successful_reviews';
     const rows = item.data.buckets.flatMap(row => Object.entries(row.aspects).map(([aspect, counts]) => ({
       key: `${row.bucket}-${aspect}`, bucket: row.bucket, aspect: item.data.aspects[aspect],
-      ...counts, positive_denominator: row.positive_review_count, successful_reviews: row.successful_reviews, labeling_coverage: row.labeling_coverage,
+      ...counts, displayed_rate: positive ? (positiveDenominator ? counts.positive_rate : counts.positive_success_rate) : counts.negative_rate,
+      displayed_denominator: positiveDenominator ? row.positive_review_count : row.successful_reviews,
+      successful_reviews: row.successful_reviews, labeling_coverage: row.labeling_coverage,
     })));
     return <>
-      <p className="muted">每个维度按评论去重；占比分母为该时间段{positive ? '含任意正向观点的评论数；无正向观点时不计算占比' : '全部成功标注评论'}。首末时间段可能不完整。</p>
+      <p className="muted">每个维度按评论去重；占比分母为该时间段{positiveDenominator ? '含任意正向观点的评论数；无正向观点时不计算占比' : '全部成功标注评论'}。首末时间段可能不完整。</p>
       <Table size="small" rowKey="key" dataSource={rows} pagination={{ pageSize: 12, hideOnSinglePage: true }} scroll={{ x: positive ? 850 : 680 }} columns={[
         { title: item.data.period === 'day' ? '日期（UTC）' : '月份（UTC）', dataIndex: 'bucket', width: 140 },
         { title: '维度', dataIndex: 'aspect' }, { title: positive ? '正向评论数' : '负面数', dataIndex: positive ? 'positive_review_count' : 'negative_review_count' },
-        { title: positive ? '正向观点评论（分母）' : '成功标注（分母）', dataIndex: positive ? 'positive_denominator' : 'successful_reviews' },
-        { title: positive ? '好评占比' : '负面占比', dataIndex: positive ? 'positive_rate' : 'negative_rate', render: rate },
-        ...(positive ? [{ title: '成功标注数', dataIndex: 'successful_reviews' }] : []),
+        { title: positiveDenominator ? '正向观点评论（分母）' : '成功标注（分母）', dataIndex: 'displayed_denominator' },
+        { title: positive ? '好评占比' : '负面占比', dataIndex: 'displayed_rate', render: rate },
+        ...(positiveDenominator ? [{ title: '成功标注数', dataIndex: 'successful_reviews' }] : []),
         { title: '覆盖率', dataIndex: 'labeling_coverage', render: rate },
       ]} />
     </>;

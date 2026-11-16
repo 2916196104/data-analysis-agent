@@ -58,13 +58,16 @@ def task_limit(question):
         return ('cause_check', '当前评论工具不能证明客观故障原因或因果关系；可以检索买家反馈，但不能用观点归组代替原因证明。')
     ratio = bool(re.search(r'占比|比例|百分比|占.*(?:多少|几成|百分之|全部|所有|评论)', question))
     if ratio:
-        from data_analysis_agent.agents.review_semantics import opinion_request
+        from data_analysis_agent.agents.review_semantics import opinion_request, requested_denominator
+        if requested_denominator(question) == 'conflicting':
+            return ('denominator_conflict', '本轮指定了多个分母，请分别提问并明确每个比例的分母。')
         semantic = opinion_request(question)
         subtopic = semantic['topic'] or re.search(r'制冷|制热|噪音|噪声|降温|耐用|寿命|压缩机|降价|失眠', question)
         # A dimension's aggregate sentiment rate is supported; an attribute inside
         # that dimension needs its own classified numerator, not an SQL substitute.
         dimension = re.search(r'(?:使用效果|质量|价格|包装|物流|配送|到货|客服|服务)(.+?)(?=占比|比例|百分比|占)', question)
-        if dimension and not re.fullmatch(r'(?:方面)?(?:正向|正面|负向|负面|好评|差评|问题)(?:评论|评价|反馈)?的?', dimension[1]):
+        dimension_tail = re.sub(r'^(?:(?:以及|和|与|、|及)(?:使用效果|质量|价格|包装|物流|配送|到货|客服|服务))*', '', dimension[1]) if dimension else ''
+        if dimension and not re.fullmatch(r'(?:方面)?(?:正向|正面|负向|负面|好评|差评|问题)(?:评论|评价|反馈)?的?', dimension_tail):
             subtopic = True
         if not semantic['aspect'] and re.search(r'(?:反馈|抱怨).*(?:占比|比例|百分比|占)', question) and not re.search(r'好评|差评|正向|负面|正面|负向', question):
             subtopic = True
@@ -170,9 +173,11 @@ def build_task_contract(question, scope, plan):
             else:
                 from data_analysis_agent.reviews.opinions import ASPECTS
                 aspects = [req['parameters']['aspect']] if req['parameters'].get('aspect') else list(ASPECTS)
-                metrics = [('positive_rate', f'summary.aspects.{aspect}.positive_rate',
-                    f'summary.aspects.{aspect}.positive_review_count', 'positive_review_count',
-                    'positive_aspect_rate_denominator') for aspect in aspects]
+                success = req['parameters'].get('denominator') == 'successful_reviews'
+                metric = 'positive_success_rate' if success else 'positive_rate'
+                metrics = [(metric, f'summary.aspects.{aspect}.{metric}',
+                    f'summary.aspects.{aspect}.positive_review_count', 'successful_reviews' if success else 'positive_review_count',
+                    'positive_success_rate_denominator' if success else 'positive_aspect_rate_denominator') for aspect in aspects]
         statistics.extend(StatisticGoal(tool=req['tool'],metric=m,value_path=path,numerator=num,denominator=den,definition_key=key)
                           for m,path,num,den,key in metrics)
     limit = task_limit(question)
@@ -240,6 +245,9 @@ def task_matches(contract, selected, *, scope):
         from data_analysis_agent.agents.review_plan import TOOL_KINDS
         for goal in contract.statistics:
             matching=[r for r in selected if r['kind']==TOOL_KINDS[goal.tool]]
+            if goal.tool == 'get_aspect_trend' and goal.value_path.startswith('summary.aspects.'):
+                aspect = goal.value_path.split('.')[2]
+                matching = [r for r in matching if r['parameters'].get('aspect') in (None, aspect)]
             if not matching:return False
             for item in matching:
                 data=item['data'];_path(data,goal.value_path);_path(data,goal.numerator)

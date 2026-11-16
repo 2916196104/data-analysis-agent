@@ -166,9 +166,10 @@ def adapt_result(item, bound_scope):
                 points = []
                 for bucket in data["buckets"]:
                     counts = bucket["aspects"][aspect] if aspect else bucket
-                    denominator = 'positive_review_count' if sentiment == 'positive' and aspect else 'successful_reviews'
+                    denominator = data.get('rate_denominator') or ('positive_review_count' if sentiment == 'positive' and aspect else 'successful_reviews')
+                    rate = counts['positive_success_rate'] if sentiment == 'positive' and aspect and denominator == 'successful_reviews' else counts[sentiment + '_rate']
                     points.append(TrendPoint(bucket=bucket["bucket"], sample_size=sample_size(bucket), metric=rate_metric(
-                        sentiment + '_rate', counts[sentiment + '_review_count'], bucket[denominator], counts[sentiment + '_rate'], denominator)))
+                        sentiment + '_rate', counts[sentiment + '_review_count'], bucket[denominator], rate, denominator)))
                 result.statistics[0].trends.append(TrendSeries(aspect=aspect, period=data["period"], points=points))
     elif kind == "comparison":
         for row in data["products"]:

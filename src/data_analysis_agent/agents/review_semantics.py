@@ -12,6 +12,24 @@ class QuestionScopeError(ReviewDataError):
     """商品目标不完整时要求补充，不能退回页面商品冒充完整比较。"""
 
 
+def requested_denominator(question):
+    """只识别用户明确指定的评论分母；未指定时沿用现有统计定义。"""
+    patterns = {
+        'successful_reviews': r'(?:全部|所有|全量)?成功标注(?:的)?评论(?:数)?',
+        'positive_review_count': r'(?:全部|所有)?(?:含(?:任意|至少一个)?正向观点(?:的)?评论|正向观点评论|好评评论)(?:数)?',
+        'review_count': r'(?:全部|所有|全量)评论(?:数)?',
+    }
+    found = {name for name, pattern in patterns.items() if re.search(
+        r'(?:占|以|在)(?:当月|当期|该期|每月|每期)?' + pattern, question)
+        or re.search(pattern + r'(?:作为|为)分母', question)}
+    return next(iter(found)) if len(found) == 1 else 'conflicting' if found else None
+
+
+def trend_denominator(tool, parameters):
+    return parameters.get('denominator') or ('positive_review_count' if tool == 'get_aspect_trend'
+        and parameters.get('sentiment', 'negative') == 'positive' else 'successful_reviews')
+
+
 def _title_matches(mention, title):
     def compact(value):
         value = re.sub(r'[（(][A-Za-z\s]+[）)]|系列', '', value)
@@ -48,6 +66,8 @@ def _generic_product(value):
 
 
 def _non_product_reference(value):
+    if re.fullmatch(r'(?:当前|本期|上期|上一|上个|前一|基线)(?:时间)?(?:窗口|时段|时间段|周期)?', value.strip()):
+        return True
     value = re.sub(r'^(?:商品|产品)\s*(?:ID\s*[:：=]?\s*)?', '', value.strip(), flags=re.I)
     value = re.sub(r'^(?:参数|版本号?|日期)\s*', '', value)
     if re.fullmatch(r'[A-Za-z]+|v\d+(?:[.\-][A-Za-z0-9]+)*|\d+(?:\.\d+)+(?:[-+][A-Za-z0-9.\-]+)?|(?:19|20)\d{2}', value, re.I):

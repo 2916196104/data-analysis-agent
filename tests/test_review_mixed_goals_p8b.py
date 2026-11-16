@@ -56,9 +56,15 @@ class MixedGoalsP8BTests(unittest.TestCase):
             with self.subTest(q=q):
                 self.assertTrue(build_query_plan(q, deepcopy(SCOPE)).unsupported_reason)
 
-    def test_old_request_goal_unchanged_and_unknown_version_rejected(self):
+    def test_optional_statistic_targets_preserve_old_goal_defaults_and_reject_unknown_version(self):
         self.assertEqual(set(asdict(build_request_goal('那好评呢？'))),
-                         {'original_question','levels','aspect','sentiment','topic','statistic_families','source'})
+                         {'original_question','levels','aspect','sentiment','topic','statistic_families','source', 'denominator', 'aspects'})
+        from data_analysis_agent.agents.review_acceptance import RequestGoal
+        old = asdict(build_request_goal('那好评呢？'))
+        old.pop('denominator'); old.pop('aspects')
+        restored = RequestGoal(**old)
+        self.assertIsNone(restored.denominator)
+        self.assertEqual(restored.aspects, ())
         q='整体趋势、包装原文、六维统计'; plan=build_query_plan(q, deepcopy(SCOPE))
         goal=build_task_goal(q,deepcopy(SCOPE),plan,{})
         goal['version']='review-mixed-goal-v99'

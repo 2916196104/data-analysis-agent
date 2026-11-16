@@ -228,7 +228,7 @@ export type AgentToolResult = { result_id: string; parameters: Record<string, un
       groups: { quote: string; sentiment: string; review_count: number; opinion_count: number; review_rate: number | null; review_id: number; evidence_ref?: string }[] } }
   | { kind: 'quality'; data: { scope: AnalysisScope; summary: Summary; missing_text_rate: number | null; failed_rate: number | null;
       failures: { error_code: string | null; review_count: number }[]; sources: { file_sha256: string; review_count: number }[] } }
-  | { kind: 'aspect_trend'; data: { scope: AnalysisScope; sentiment?: 'positive' | 'negative'; period: string; aspects: Record<string, string>;
+  | { kind: 'aspect_trend'; data: { scope: AnalysisScope; sentiment?: 'positive' | 'negative'; rate_denominator?: 'successful_reviews' | 'positive_review_count'; period: string; aspects: Record<string, string>;
       summary: AspectSummary; buckets: (AspectSummary & { bucket: string })[] } }
   | { kind: 'ratings'; data: { scope: AnalysisScope; group_by: 'product' | 'month' | 'all'; groups: RatingGroup[] } }
   | { kind: 'positive_aspects'; data: { analysis_type: 'positive_aspects'; sentiment: 'positive';

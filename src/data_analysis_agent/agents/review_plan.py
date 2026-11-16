@@ -113,6 +113,18 @@ def build_query_plan(question, scope, *, product_groups=None):
     limit = task_limit(question)
     plan = (ReviewQueryPlan('unsupported', None, scope, unsupported_reason=limit[1]) if limit
             else _build_query_plan(question, scope, product_groups=product_groups))
+    from data_analysis_agent.agents.review_semantics import requested_denominator
+    denominator = requested_denominator(question) if not question.startswith('执行本轮已确认的只读查询') else None
+    if denominator and not plan.unsupported_reason:
+        if denominator not in ('successful_reviews', 'positive_review_count') or any(
+                req['tool'] not in ('get_trend', 'get_aspect_trend') for req in plan.requirements):
+            plan.unsupported_reason = '当前指定分母仅支持正负向趋势查询，请明确按日或按月分析；不支持的口径不会替换为默认分母。'
+        else:
+            for req in plan.requirements:
+                if denominator == 'positive_review_count' and (req['tool'] != 'get_aspect_trend' or plan.sentiment != 'positive'):
+                    plan.unsupported_reason = '正向观点评论分母仅适用于正向维度趋势，请分别查询好评与差评。'
+                else:
+                    req['parameters']['denominator'] = denominator
     plan.task_contract = build_task_contract(question, scope, plan)
     if plan.task_contract.support_status == 'unsupported':plan.unsupported_reason = plan.task_contract.unsupported_reason
     return plan

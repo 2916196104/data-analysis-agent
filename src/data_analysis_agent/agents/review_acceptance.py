@@ -16,6 +16,8 @@ class RequestGoal:
     topic: str | None = None
     statistic_families: tuple[str, ...] = ()
     source: str = 'user_request'
+    denominator: str | None = None
+    aspects: tuple[str, ...] = ()
 
 
 # 验收能力不是工具路由：只声明用户要求的产物，不生成计划或读取本轮 Intent。
@@ -91,7 +93,7 @@ def build_request_goal(question, context=None):
                 direction = params.get('sentiment', 'negative')
             families = tuple(family for family, tools in STATISTIC_FAMILIES.items() if tool in tools)
             return RequestGoal(question, (level,), params.get('aspect'), direction,
-                               params.get('topic'), families, source='confirmed_request')
+                               params.get('topic'), families, source='confirmed_request', denominator=params.get('denominator'))
         except QuestionScopeError:
             raise
         except (ValueError, KeyError, IndexError, TypeError):
@@ -150,6 +152,14 @@ def build_request_goal(question, context=None):
         families = ['summary'] if sentiment or re.search(r'方面|维度|集中|买账', text) else []
     goal = RequestGoal(question, tuple(levels), aspect, sentiment, topic,
                        tuple(families) if 'statistics' in levels else ())
+    from data_analysis_agent.agents.review_semantics import requested_denominator
+    goal = replace(goal, denominator=requested_denominator(text))
+    if families == ['trend'] and levels == ['statistics']:
+        aspects = tuple(dict.fromkeys(value for word, value in (
+            ('使用效果', 'effectiveness'), ('质量', 'quality'), ('效果', 'effectiveness'),
+            ('包装', 'packaging'), ('物流', 'logistics'), ('客服', 'service'), ('服务', 'service'), ('价格', 'price')) if word in text))
+        if len(aspects) > 1:
+            goal = replace(goal, aspect=None, aspects=aspects)
     if context:
         previous = context.get('validated') or {}
         queries = previous.get('queries', [])
@@ -200,7 +210,7 @@ def build_request_goal(question, context=None):
             (params.get('sentiment') or previous.get('sentiment')) in ('positive', 'negative'))
         inherit_aspect = not whole and (reference or count_target or bool(re.search(r'具体|体现|表现|抱怨|吐槽|往里挖', text)))
         inherit_topic = reference or bool(re.search(r'往里挖|^(?:这些|那些|上述)', text))
-        goal = replace(goal, aspect=aspect or (inherited_aspect if inherit_aspect else None),
+        goal = replace(goal, aspect=None if goal.aspects else aspect or (inherited_aspect if inherit_aspect else None),
                        sentiment=sentiment or inherited_sentiment,
                        topic=topic or (inherited_topic if inherit_topic else None))
     return goal
@@ -257,6 +267,9 @@ def validate_goal_plan(goal, plan):
         elif goal.get('aspect'):
             compatible &= all(row['parameters'].get('aspect') == goal['aspect'] for row in candidates
                               if row['tool'] in {'get_top_issues', 'get_positive_aspects', 'get_aspect_trend'})
+        if level == 'statistics' and goal.get('aspects'):
+            actual = [row['parameters'].get('aspect') for row in candidates if row['tool'] == 'get_aspect_trend']
+            compatible &= len(actual) == len(goal['aspects']) and set(actual) == set(goal['aspects'])
         checks.append({'name': level, 'passed': bool(compatible)})
     for family in goal.get('statistic_families', ()):
         checks.append({'name': family, 'passed': bool(set(plan.required_tools) & STATISTIC_FAMILIES[family])})
@@ -264,6 +277,11 @@ def validate_goal_plan(goal, plan):
                                           'compare_products', 'compare_time_windows'}
     if directed and goal.get('sentiment') in ('positive', 'negative'):
         checks.append({'name': 'sentiment', 'passed': goal['sentiment'] == plan.sentiment})
+    if goal.get('denominator'):
+        from data_analysis_agent.agents.review_semantics import trend_denominator
+        supported = [row for row in plan.requirements if row['tool'] in ('get_trend', 'get_aspect_trend')]
+        checks.append({'name': 'denominator', 'passed': bool(supported) and all(
+            trend_denominator(row['tool'], row['parameters']) == goal['denominator'] for row in supported)})
     return {'passed': bool(checks) and all(row['passed'] for row in checks), 'checks': checks}
 
 

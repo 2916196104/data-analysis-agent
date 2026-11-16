@@ -37,9 +37,33 @@ it('导出保留正向分母并避免导出成负面趋势', () => {
   expect(report).toContain('| 2023-02 | 物流 | 0 | 0 | — | 8 | 80.0% |');
 });
 
+it('明确指定成功标注分母时表格与导出都使用成功标注比例', () => {
+  if (item.kind !== 'aspect_trend') throw Error('fixture kind');
+  const changed = { ...item, parameters: { ...item.parameters, denominator: 'successful_reviews' },
+    data: { ...item.data, rate_denominator: 'successful_reviews' as const } };
+  render(<ExtendedResults item={changed} />);
+  expect(screen.getAllByText('成功标注（分母）').length).toBeGreaterThan(0);
+  expect(screen.queryByText('正向观点评论（分母）')).toBeNull();
+  expect(screen.getAllByText('25.0%').length).toBeGreaterThan(0);
+  const report = buildAgentReport({ ...result, results: { r1: changed } });
+  expect(report).toContain('| 2023-01 | 物流 | 2 | 8 | 25.0% | 8 | 80.0% |');
+  const parent = { id:'p', taskId:'task', question:'按月分析物流好评占成功标注评论的比例趋势',
+    parameters:scope, result: { ...result, results: { r1: changed } } };
+  expect(resolveQuery('改为按日', scope, parent).query.queries?.[0].parameters.denominator).toBe('successful_reviews');
+});
+
 it('日月、情感和原文追问保留趋势维度与正向筛选', () => {
   const parent = { id: 'parent', taskId: 'task', question: result.question, parameters: scope, result };
   expect(resolveQuery('改为按日', scope, parent).query.queries?.[0]).toEqual({ kind: 'aspect_trend', parameters: { ...item.parameters, period: 'day' } });
   expect(resolveQuery('那差评呢', scope, parent).query.queries?.[0]).toEqual({ kind: 'aspect_trend', parameters: { ...item.parameters, sentiment: 'negative' } });
   expect(resolveQuery('继续查原文', scope, parent).query.queries?.[0].parameters.sentiment).toBe('positive');
+});
+
+it('多维度结果的省略情感追问要求选择目标，不静默只查询第一维', () => {
+  const other = { ...item, result_id: 'r2', parameters: { ...item.parameters, aspect: 'service' } };
+  const parent = { id:'p', taskId:'task', parameters:scope,
+    result: { ...result, result_ids:['r1','r2'], results:{ r1:item, r2:other } } };
+  const next = resolveQuery('那差评呢', scope, parent);
+  expect(next.clarification?.choices).toHaveLength(2);
+  expect(next.clarification?.choices.map(row => row.query.queries?.[0].parameters.aspect).sort()).toEqual(['logistics', 'service']);
 });

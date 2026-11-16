@@ -160,6 +160,9 @@ def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False
         params.update(**aspect, period=intent.period)
         if intent.sentiment == 'positive':
             params['sentiment'] = 'positive'
+        if (previous_parameters or {}).get('denominator') and not (
+                intent.sentiment == 'negative' and previous_parameters['denominator'] == 'positive_review_count'):
+            params['denominator'] = previous_parameters['denominator']
     elif kind == 'comparison':
         if len(scope['product_ids']) < 2:
             raise QuestionScopeError('请明确要比较的两款商品，并分别提供商品 ID。')
@@ -423,7 +426,9 @@ def _resolve_review_request(question, scope, products, *, settings, context=None
     mixed_themes = semantic['theme_summary'] and (
         len({value for word, value in ASPECT_WORDS.items() if word in question}) > 1
         or re.search(r'趋势|变化|按[日月天]|按月份|基线|比较|对比|覆盖率|数据质量|失败标注|缺失正文|待标注|星级|评分.*分布', question))
-    followup = _followup_intent(question, conditions) if not mentions and not mixed_themes else None
+    explicit_trend = bool(re.search(r'趋势|变化|按[日月天]|按月份', question) and
+                          re.search(r'物流|包装|客服|服务|质量|价格|效果|整体', question))
+    followup = _followup_intent(question, conditions) if not mentions and not mixed_themes and not explicit_trend else None
     if followup:
         intent, last_params = followup
         user_changed = ((context or {}).get('user') or {}).get('task_id') != previous.get('task_id')
