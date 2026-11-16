@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, DatePicker, Popover, Select, Spin, Tag, Tooltip } from 'antd';
 import dayjs from 'dayjs';
 import { DatabaseOutlined, SlidersOutlined } from '@ant-design/icons';
-import { analysisDates, analysisParameters, type AnalysisDraft } from '../../analysis-draft';
+import { analysisDates, analysisParameters, datasetKey, type AnalysisDraft } from '../../analysis-draft';
 import { sampleState } from '../../agent-report';
 import type { Options, Quality } from '../../types';
 import { DatasetSelector, ProductSelector } from '../datasets';
@@ -20,6 +20,10 @@ export default function AssistantScopeBar({ draft, options, quality, disabled, r
   const applied = { dataset: draft.dataset, productIds: draft.productIds, profileId: draft.profileId,
     current: dates.current, baseline: dates.baseline, ...(draft.rangeConfirmed ? { rangeConfirmed: true } : {}) };
   const appliedKey = JSON.stringify(applied);
+  const dataset = options.datasets?.find(item => datasetKey(item) === draft.dataset);
+  const dataStart = dataset?.published_at_start?.slice(0, 10);
+  const dataEnd = dataset?.published_at_end?.slice(0, 10);
+  const outsideDataDates = !!(dataStart && dataEnd && (dates.current[1] < dataStart || dates.current[0] > dataEnd));
   const [pending, setPending] = useState<AssistantScope>(applied);
   const [revision, setRevision] = useState(0);
   const parameters = analysisParameters(draft, options, quality);
@@ -36,6 +40,13 @@ export default function AssistantScopeBar({ draft, options, quality, disabled, r
   const pendingValid = !!analysisParameters({ ...pending, note: '' }, options, quality)
     && pending.productIds.every(id => pendingProducts.some(item => item.product_id === id));
   const pendingProfile = options.profiles.find(item => item.profile_id === pending.profileId);
+  const pendingDataset = options.datasets?.find(item => datasetKey(item) === pending.dataset);
+  const pendingDataStart = pendingDataset?.published_at_start?.slice(0, 10);
+  const pendingDataEnd = pendingDataset?.published_at_end?.slice(0, 10);
+  function previewDataDates(scope: AssistantScope) {
+    const restored = analysisDates({ ...scope, current: undefined, baseline: undefined, rangeConfirmed: false, note: '' }, quality, options);
+    setPending({ ...scope, current: restored.current, baseline: restored.baseline, rangeConfirmed: true });
+  }
   const displayDataset = (value: string) => {
     const match = datasetSelectOptions(options.products).find(item => item.value === value);
     return match?.label || value || '未选择';
@@ -74,7 +85,8 @@ export default function AssistantScopeBar({ draft, options, quality, disabled, r
       <div className="assistant-scope-products"><label htmlFor="assistant-products">商品（留空表示全部）</label><ProductSelector
         id="assistant-products" ariaLabel="助手分析商品" value={pending.productIds} options={productSelectOptions(pendingProducts)}
         disabled={disabled || !pending.dataset} onChange={productIds => update({ productIds })} /></div>
-      <div><label>当前窗口（UTC）</label><DatePicker.RangePicker aria-label="助手当前窗口"
+      <div><label>当前窗口（UTC）{pendingDataStart && pendingDataEnd && <Button type="link" size="small" disabled={disabled}
+        onClick={() => previewDataDates(pending)}>使用完整数据日期</Button>}</label><DatePicker.RangePicker aria-label="助手当前窗口"
         classNames={{ popup: { root: 'assistant-scope-calendar' } }}
         value={[dayjs(pendingDates.current[0]), dayjs(pendingDates.current[1])]} allowClear={false} disabled={disabled}
         onChange={value => { if (value?.[0] && value[1]) update({ current: [value[0].format('YYYY-MM-DD'), value[1].format('YYYY-MM-DD')], rangeConfirmed: true }); }} /></div>
@@ -84,6 +96,7 @@ export default function AssistantScopeBar({ draft, options, quality, disabled, r
         onChange={value => { if (value?.[0] && value[1]) update({ baseline: [value[0].format('YYYY-MM-DD'), value[1].format('YYYY-MM-DD')] }); }} /></div>
     </div>
     <div className="assistant-scope-popover-summary">
+      <p className="assistant-scope-availability">已应用窗口：{dates.current.join(' — ')}（UTC）</p>
       <div className="assistant-scope-metrics" aria-label="当前范围统计">
         <span>当前评论 <strong>{summary?.review_count.toLocaleString() ?? '—'}</strong></span>
         <span>有效正文 <strong>{summary?.eligible_text_reviews.toLocaleString() ?? '—'}</strong></span>
@@ -98,7 +111,7 @@ export default function AssistantScopeBar({ draft, options, quality, disabled, r
       <summary>高级设置</summary>
       <dl className="assistant-scope-values">
         <div><dt>标注版本</dt><dd>{pendingProfile ? `${pendingProfile.requested_model} · ${pendingProfile.prompt_version}` : '未选择'}</dd></div>
-        <div><dt>完整数据日期</dt><dd>{pendingDates.current.join(' — ')}</dd></div>
+        <div><dt>完整数据日期</dt><dd>{pendingDataStart && pendingDataEnd ? `${pendingDataStart} — ${pendingDataEnd}` : '暂无评论日期'}</dd></div>
         <div><dt>基线窗口</dt><dd>{pendingDates.baseline.join(' — ')}</dd></div>
       </dl>
       <DatasetSummary dataset={pending.dataset} options={options} compact />
@@ -116,19 +129,24 @@ export default function AssistantScopeBar({ draft, options, quality, disabled, r
   // 外部数据集或目录改变后，丢弃尚未应用的编辑，避免覆盖外部选择。
   useEffect(() => { setPending(applied); onEditing(false); }, [appliedKey, options]);
 
-  return <Popover open={editing} onOpenChange={open => { if (!disabled) onEditing(open); }} trigger="click" placement="topRight"
+  return <><Popover open={editing} onOpenChange={open => { if (!disabled) onEditing(open); }} trigger="click" placement="topRight"
     overlayClassName="assistant-scope-popover" content={scopeEditor} destroyOnHidden>
     <section className="assistant-scope-bar" aria-label="助手分析范围">
-      <div className="assistant-scope-identity">
+      <div className="assistant-scope-selection"><div className="assistant-scope-identity">
         <DatabaseOutlined aria-hidden="true" />
         <span className="assistant-scope-dataset" title={compactDataset}>{compactDataset}</span>
         <span className="assistant-scope-separator" aria-hidden="true">/</span>
         <Tooltip title={displayProducts(applied)}>
           <span className="assistant-scope-product">{compactProduct}</span>
         </Tooltip>
-      </div>
+      </div><div className="assistant-scope-dates" aria-label="当前查询日期">{dates.current.join(' — ')}（UTC）</div></div>
       <Button size="small" aria-label="修改范围" icon={<SlidersOutlined />} disabled={disabled} onClick={() => onEditing(true)}>修改范围</Button>
     </section>
-  </Popover>;
+  </Popover>
+    {outsideDataDates && <Alert className="assistant-scope-range-warning" type="warning" showIcon
+      message="当前窗口与数据日期没有交集"
+      description={`数据集评论日期为 ${dataStart} — ${dataEnd}（UTC）；当前窗口内不会有评论。`}
+      action={<Button size="small" disabled={disabled} onClick={() => { previewDataDates(applied); onEditing(true); }}>恢复数据日期</Button>} />}
+  </>;
 }
 

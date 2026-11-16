@@ -56,6 +56,37 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('助手范围编辑', () => {
+  it('折叠状态显示当前日期，空范围恢复只编辑草稿并需确认应用', async () => {
+    const apply = vi.fn();
+    vi.mocked(analysisApi.trend).mockResolvedValueOnce({ summary: { ...summary, review_count: 0,
+      eligible_text_reviews: 0, successful_reviews: 0, labeling_coverage: null }, buckets: [] });
+    render(<Harness onApply={apply} initial={{ ...draft, current: ['2029-08-10', '2029-09-23'],
+      baseline: ['2020-07-01', '2020-07-31'], rangeConfirmed: true }} />);
+    expect(screen.getByLabelText('当前查询日期').textContent).toContain('2029-08-10 — 2029-09-23');
+    expect(screen.getByText('当前窗口与数据日期没有交集')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '恢复数据日期' }));
+    await screen.findByText('修改分析范围');
+    expect(apply).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('当前查询日期').textContent).toContain('2029-08-10');
+    expect(screen.getByText('已应用窗口：2029-08-10 — 2029-09-23（UTC）')).toBeTruthy();
+    await openAdvanced();
+    expect(screen.getByText('完整数据日期').nextElementSibling?.textContent).toBe('2023-02-01 — 2023-02-28');
+    fireEvent.click(screen.getByRole('button', { name: '应用范围' }));
+    expect(apply).toHaveBeenCalledWith(expect.objectContaining({ dataset: draft.dataset, productIds: ['A'], profileId: 1,
+      current: ['2023-02-01', '2023-02-28'], baseline: ['2023-01-01', '2023-01-31'], rangeConfirmed: true }));
+    await waitFor(() => expect(screen.queryByText('当前窗口与数据日期没有交集')).toBeNull());
+    await waitFor(() => expect(analysisApi.trend).toHaveBeenLastCalledWith(expect.objectContaining({
+      product_ids: ['A'], model: 'model-one', date_from: '2023-02-01', date_to: '2023-02-28' }), expect.any(AbortSignal)));
+  });
+
+  it('与数据日期部分重叠的窗口不被当成全空窗口，也不会自动改变范围', () => {
+    const apply = vi.fn();
+    render(<Harness onApply={apply} initial={{ ...draft, current: ['2023-02-15', '2023-03-10'], rangeConfirmed: true }} />);
+    expect(screen.queryByText('当前窗口与数据日期没有交集')).toBeNull();
+    expect(screen.getByLabelText('当前查询日期').textContent).toContain('2023-02-15 — 2023-03-10');
+    expect(apply).not.toHaveBeenCalled();
+  });
+
   it('显示已应用的五类范围以及真实标注版本覆盖率', async () => {
     render(<Harness />);
     expect(screen.getByText('data-a')).toBeTruthy();

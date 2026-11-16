@@ -17,6 +17,9 @@
 .chat-developer-scope .assistant-scope-values { margin-top: 8px; }
 .assistant-scope-bar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: calc(100% - 48px); max-width: 960px; min-height: 44px; margin: 0 auto 8px; padding: 6px 10px 6px 12px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
 .assistant-scope-identity { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--color-text); font-size: 13px; line-height: 20px; }
+.assistant-scope-selection { min-width: 0; flex: 1; }
+.assistant-scope-dates { margin-top: 2px; color: var(--color-text-secondary); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.assistant-scope-range-warning { flex-shrink: 0; width: calc(100% - 48px); max-width: 960px; margin: 0 auto 8px; }
 .assistant-scope-identity > .anticon { flex-shrink: 0; color: var(--color-primary); }
 .assistant-scope-dataset, .assistant-scope-product { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .assistant-scope-dataset { max-width: 180px; font-weight: 600; }
@@ -123,6 +126,7 @@
   .chat-messages { padding: 16px; }
   .chat-input-area { padding: 12px 16px 16px; }
   .assistant-scope-bar { width: calc(100% - 32px); padding: 10px 12px; }
+  .assistant-scope-range-warning { width: calc(100% - 32px); }
   .assistant-scope-dataset { max-width: 34vw; }
   .assistant-scope-product { max-width: 42vw; }
   .assistant-scope-popover .ant-popover-inner { padding: 12px; }
