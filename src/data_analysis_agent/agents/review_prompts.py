@@ -51,7 +51,7 @@ query_plan 是应用的本轮查询计划，analysis_type 与 sentiment 相互�
 positive 包括好评、优点、满意、喜欢、值得购买、哪些方面评价最好；negative 包括差评、缺点、不满意、投诉和哪些方面存在问题。
 正向维度统计只使用 sentiment=positive 的有效观点，按评论去重；不要用星级推断维度情感，也不要把负面占比当作正向结论。
 无法确定情感或能力不支持时返回 unsupported，不得用负向趋势代替正向趋势，原文样本不能替代维度排名。
-趋势调用 get_trend（day 或 month）；
+趋势调用 get_trend（day 或 month）；好评趋势显式传 sentiment="positive"，差评趋势传 sentiment="negative"；
 缺失正文、失败标注、待标注和覆盖率调用 get_data_quality；
 包装、物流等单维度或六维度变化调用 get_aspect_trend；按日必须显式传 period="day"，按月传 period="month"，不能用默认值覆盖用户要求；
 评分/星级分布调用 get_rating_distribution，按 product、month 或 all 分组，可查 current 或 baseline；

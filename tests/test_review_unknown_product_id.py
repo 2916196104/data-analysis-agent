@@ -185,6 +185,67 @@ class UnknownProductIdTests(unittest.TestCase):
         self.assertTrue(reached)
         self.assertEqual(result['query_plan']['required_tools'], ['get_top_issues'])
 
+    def test_sales_forecast_stops_as_unsupported_before_product_name_matching(self):
+        for question in ('预测这款空调下个月的销量和销售额。', '预估当前商品下月销量', '这款空调下个月销售额预测'):
+            with self.subTest(question=question):
+                bound, plan, _ = resolve_review_request(question, deepcopy(SCOPE), PRODUCTS, settings=SETTINGS)
+                self.assertEqual(bound, SCOPE)
+                self.assertEqual(plan.required_tools, [])
+                self.assertIn('预测', plan.unsupported_reason)
+                result, reached = agent_at_boundary(question)
+                self.assertFalse(reached)
+                self.assertEqual(result['status'], 'unsupported')
+                self.assertEqual(result['query_executions'], 0)
+                self.assertEqual(result['total_model_calls'], 0)
+                self.assertIn('销售', result['public_answer']['summary'])
+                self.assertNotIn('未找到', result['public_answer']['summary'])
+                self.assertNotIn('总体占比', result['public_answer']['summary'])
+
+    def test_unsupported_forecast_and_cause_do_not_supply_old_product_names(self):
+        for previous in ('预测这款空调下个月的销量和销售额。', '为什么这款空调制冷不足？'):
+            context = {'user': {'task_id': 'unsupported', 'question': previous},
+                'users': [{'task_id': 'unsupported', 'question': previous}], 'validated': None, 'turns_read': 1}
+            with self.subTest(previous=previous):
+                bound, plan, _ = resolve_review_request('这款商品有哪些差评？', deepcopy(SCOPE), PRODUCTS,
+                                                       settings=SETTINGS, context=context)
+                self.assertEqual(bound, SCOPE)
+                self.assertEqual(plan.required_tools, ['get_top_issues'])
+                result, reached = agent_at_boundary('这款商品有哪些差评？', context=context)
+                self.assertTrue(reached)
+                self.assertNotIn('未找到', result.get('answer', ''))
+                unknown, reached = agent_at_boundary('商品123211092382的物流好评体现在哪里？', context=context)
+                self.assertFalse(reached)
+                self.assertIn('123211092382', unknown['answer'])
+
+    def test_missing_id_test_instruction_asks_for_actual_id_without_old_entity(self):
+        previous = '预测这款空调下个月的销量和销售额。'
+        context = {'user': {'task_id': 'forecast', 'question': previous},
+            'users': [{'task_id': 'forecast', 'question': previous}], 'validated': None}
+        result, reached = agent_at_boundary('指定一个数据集中不存在的商品 ID 再提问', context=context)
+        self.assertFalse(reached)
+        self.assertEqual(result['status'], 'unsupported')
+        self.assertEqual(result['query_executions'], 0)
+        self.assertEqual(result['total_model_calls'], 0)
+        self.assertTrue(result['user_intent']['needs_clarification'])
+        self.assertIn('具体商品 ID', result['public_answer']['summary'])
+        self.assertNotIn('预测这款空调', result['public_answer']['summary'])
+
+    def test_explicitly_declining_forecast_does_not_block_review_analysis(self):
+        bound, plan, _ = resolve_review_request('不要预测销量，只统计物流好评数量。', deepcopy(SCOPE), PRODUCTS,
+                                               settings=SETTINGS)
+        self.assertEqual(bound, SCOPE)
+        self.assertEqual(plan.required_tools, ['get_positive_aspects'])
+
+    def test_forecast_history_still_preserves_an_explicit_unknown_product(self):
+        for previous in ('预测商品 XYZ-ABC123 的下月销量', '商品123211092382的制冷不足是否由压缩机故障导致？'):
+            context = {'user': {'task_id': 'unsupported', 'question': previous},
+                'users': [{'task_id': 'unsupported', 'question': previous}], 'validated': None}
+            with self.subTest(previous=previous):
+                result, reached = agent_at_boundary('那好评呢？', context=context)
+                self.assertFalse(reached)
+                self.assertEqual(result['query_executions'], 0)
+                self.assertIn('未找到', result['answer'])
+
     def test_d_sentiment_followup_inherits_product_and_previous_aspect(self):
         context = {'validated': {'task_id': 'prior', 'scope': deepcopy(SCOPE), 'analysis_type': 'issues',
             'sentiment': 'negative', 'queries': [{'kind': 'issues', 'parameters': {'aspect': 'logistics',

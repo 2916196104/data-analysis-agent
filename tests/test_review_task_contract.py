@@ -13,7 +13,7 @@ from data_analysis_agent.agents.review_intent import resolve_review_request
 from data_analysis_agent.agents.review_plan import build_query_plan
 from data_analysis_agent.agents.review_task_contract import RuntimeQueryContract, task_matches
 from data_analysis_agent.agents.review_compression import read_public_analysis
-from data_analysis_agent.agents.review_answers import read_public_answer
+from data_analysis_agent.agents.review_answers import read_public_answer, unavailable_answer
 from data_analysis_agent.agents.review_retrieval import validate_retrieval, execute_retrieval
 from data_analysis_agent.reviews.semantic_retrieval import SemanticRetrievalError
 from data_analysis_agent.agents.review_validation import validate_report
@@ -118,6 +118,41 @@ class RuntimeContractTests(unittest.TestCase):
         self.assertEqual([e['tool'] for e in r['trace'] if e['event']=='tool_call'],
                          ['get_analysis_context','get_opinion_breakdown','get_opinion_breakdown'])
         self.assertEqual(read_public_analysis({'status':'succeeded','result':r})['status'],'ok')
+
+    def test_unsupported_ratio_and_cause_explain_next_step_without_running_another_goal(self):
+        cases = [
+            ('制冷不足的反馈占全部评论多少？', '有没有制冷不足的反馈？', '逐条判定', '分母'),
+            ('为什么这款空调制冷不足，是否由压缩机故障导致？', '有没有制冷不足的反馈？', '维修检测记录', '买家自述'),
+            ('制冷效果好的反馈占全部评论多少？', '有没有制冷效果好的反馈？', '逐条判定', '分母'),
+        ]
+        for question, alternative, *explanations in cases:
+            with self.subTest(question=question):
+                result = self.f.run_question(question)
+                self.assertEqual(result['status'], 'unsupported')
+                self.assertEqual(result['query_executions'], 0)
+                self.assertEqual(result['total_model_calls'], 0)
+                self.assertEqual(result['result_ids'], [])
+                self.assertEqual(self.f.encoder.calls, [])
+                answer = result['public_answer']
+                self.assertEqual(answer['status'], 'unsupported')
+                for text in (alternative, *explanations):
+                    self.assertIn(text, answer['summary'])
+                self.assertEqual(answer['metrics'], [])
+                self.assertEqual(answer['evidence_refs'], [])
+                self.assertEqual(read_public_answer({'status':'succeeded', 'result':result}), answer)
+                _, plan, _ = self.resolve(alternative)
+                self.assertEqual(plan.analysis_type, 'semantic_evidence')
+                self.assertEqual(plan.task_contract.support_status, 'supported')
+
+    def test_guidance_does_not_hide_scope_errors_or_choose_one_of_multiple_phenomena(self):
+        question = '为什么这款空调制冷不足，是否由压缩机故障导致？'
+        self.assertEqual(unavailable_answer('unsupported', '商品不属于当前范围', question=question)['summary'],
+                         '商品不属于当前范围')
+        self.assertEqual(unavailable_answer('failed', '查询失败', question=question)['summary'], '')
+        result = self.f.run_question('制冷不足和噪音大的反馈占全部评论多少？')
+        self.assertEqual(result['status'], 'unsupported')
+        self.assertEqual(result['query_executions'], 0)
+        self.assertNotIn('可以先问：', result['public_answer']['summary'])
 
     def test_contract_is_serializable_frozen_and_has_no_offline_run_identity(self):
         _,p,_=self.resolve('好评主要集中在哪些方面？')

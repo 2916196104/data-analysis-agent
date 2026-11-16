@@ -38,6 +38,7 @@ class OpinionQuery(Scope, Identity, Page):
 
 class TrendQuery(AnalysisQuery):
     period: Literal["day", "month"] = "month"
+    sentiment: Literal['negative', 'positive'] = 'negative'
 
 
 class AspectTrendQuery(TrendQuery):

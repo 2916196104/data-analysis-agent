@@ -138,6 +138,8 @@ def adapt_result(item, bound_scope):
     scope = deepcopy(data.get("scope", bound_scope))
     sentiment = "positive" if kind == "positive_aspects" else (
         data.get("sentiment") if kind in ("evidence", "opinion_breakdown", 'aspect_drilldown') else "negative" if kind not in ("ratings", "quality", "context") else None)
+    if kind in ('trend', 'aspect_trend'):
+        sentiment = data.get('sentiment', 'negative')
     result = StructuredAnalysisResult(result_id=item["result_id"], kind=kind, analysis_type=kind,
                                       sentiment=sentiment, scope=scope)
     if kind in ('positive_aspects', 'issues'):
@@ -164,8 +166,9 @@ def adapt_result(item, bound_scope):
                 points = []
                 for bucket in data["buckets"]:
                     counts = bucket["aspects"][aspect] if aspect else bucket
+                    denominator = 'positive_review_count' if sentiment == 'positive' and aspect else 'successful_reviews'
                     points.append(TrendPoint(bucket=bucket["bucket"], sample_size=sample_size(bucket), metric=rate_metric(
-                        "negative_rate", counts["negative_review_count"], bucket["successful_reviews"], counts["negative_rate"], "successful_reviews")))
+                        sentiment + '_rate', counts[sentiment + '_review_count'], bucket[denominator], counts[sentiment + '_rate'], denominator)))
                 result.statistics[0].trends.append(TrendSeries(aspect=aspect, period=data["period"], points=points))
     elif kind == "comparison":
         for row in data["products"]:

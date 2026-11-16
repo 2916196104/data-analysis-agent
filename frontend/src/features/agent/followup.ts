@@ -143,8 +143,8 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
   const inheritedParameters = parent.parameters;
   if (op.type === 'sentiment') {
     const kind = op.value === 'positive' ? 'positive_aspects' : 'issues';
-    const previous = results.find(item => ['positive_aspects', 'issues', 'evidence', 'opinion_breakdown', 'aspect_drilldown'].includes(item.kind));
-    candidates = previous?.kind === 'opinion_breakdown' || previous?.kind === 'aspect_drilldown' ? [{ kind: previous.kind, parameters: { ...previous.parameters, sentiment: op.value } }]
+    const previous = results.find(item => ['positive_aspects', 'issues', 'evidence', 'opinion_breakdown', 'aspect_drilldown', 'trend', 'aspect_trend'].includes(item.kind));
+    candidates = previous?.kind === 'opinion_breakdown' || previous?.kind === 'aspect_drilldown' || previous?.kind === 'trend' || previous?.kind === 'aspect_trend' ? [{ kind: previous.kind, parameters: { ...previous.parameters, sentiment: op.value } }]
       : previous?.kind === 'evidence' ? [{ kind: 'evidence', parameters: { ...previous.parameters, sentiment: op.value, page: 1 } }]
       : [{ kind, parameters: { product_ids: parent.parameters.product_ids, ...(previous?.parameters.aspect ? { aspect: previous.parameters.aspect } : {}) } }];
   } else if (op.type === 'aspect') {
@@ -176,7 +176,7 @@ export function resolveQuery(text: string, parameters: AnalysisParameters, paren
     } else {
       candidates = results.filter(item => item.kind === 'aspect_trend').map(item => ({ kind: 'evidence', parameters: {
         product_ids: item.parameters.product_ids ?? [], aspect: item.parameters.aspect ?? null,
-        sentiment: 'negative', window: 'current', page: 1, page_size: 3,
+        sentiment: item.parameters.sentiment ?? 'negative', window: 'current', page: 1, page_size: 3,
       } }));
       if (!candidates.length) return clarify('要查哪一类原文？请明确维度和情感，例如“查询物流负面评论的原文”。');
     }

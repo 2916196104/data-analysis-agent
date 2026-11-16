@@ -87,7 +87,7 @@ def compress_trend(series: TrendSeries, options: CompressionOptions):
     findings = {"aspect": series.aspect, "period": series.period, "bucket_count": len(points),
                 "empty_buckets": [point.bucket for point in points if point.metric.value is None]}
     findings["valid_bucket_count"] = len(valid)
-    findings["sufficient_bucket_count"] = sum(points[i].sample_size.successful_reviews >= 20
+    findings["sufficient_bucket_count"] = sum(points[i].metric.denominator >= 20 and points[i].sample_size.successful_reviews >= 20
         and (points[i].sample_size.labeling_coverage or 0) >= 0.8 for i in valid)
     findings["adjacent_valid_pair_count"] = len(changes)
     if changes:
@@ -202,7 +202,7 @@ class AnalysisResultCompressor:
                     findings.append({"source_result_id": result.result_id, "scope_ref": group_scope_ref, "type": "trend", **trend_finding})
                     if trend_finding["empty_buckets"]:
                         caveats.append({"code": "missing_time_buckets", "scope_ref": group_scope_ref})
-                    if any(point.sample_size.successful_reviews < 20 or (point.sample_size.labeling_coverage or 0) < 0.8 for point in series.points):
+                    if any((point.metric.denominator or 0) < 20 or point.sample_size.successful_reviews < 20 or (point.sample_size.labeling_coverage or 0) < 0.8 for point in series.points):
                         caveats.append({"code": "limited_bucket_samples", "scope_ref": group_scope_ref})
                     caveats.append({"code": "boundary_buckets_may_be_partial", "scope_ref": group_scope_ref})
                     if compressed["target_exceeded"]:

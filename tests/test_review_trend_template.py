@@ -195,9 +195,9 @@ class TrendTemplateTests(WorkbenchFixture, unittest.TestCase):
         result = self.run_trend(QUESTION.replace('物流', '整体'), required_tool='get_trend')
         self.assertIn('整体负面评价', self.text(result))
 
-    def test_unsupported_positive_trend_and_cause_do_not_fall_back_to_model(self):
+    def test_unsupported_positive_comparison_and_cause_do_not_fall_back_to_model(self):
         self.seed([('2023-01', 30, 3)])
-        for question in ('商品100013588055的好评按月有什么变化？',
+        for question in ('商品100013588055的好评与基线窗口对比',
                          '商品100013588055物流负面评价增加是什么原因？'):
             with self.subTest(question=question):
                 result = run_review_agent(self.db, question, scope=self.scope, settings=SETTINGS)

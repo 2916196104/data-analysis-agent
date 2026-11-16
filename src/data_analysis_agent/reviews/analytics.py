@@ -161,10 +161,14 @@ def get_trend(
     source: str | None = None,
     dataset_version: str | None = None,
     period: str = "month",
+    sentiment: str = "negative",
 ) -> dict[str, Any]:
-    """返回 UTC 时间桶、覆盖率和去重后的负面评论数，并补齐可见空桶。"""
+    """按指定正负情感返回 UTC 时间桶、去重评论数和覆盖率，并补齐可见空桶。"""
     if period not in ("day", "month"):
         raise ReviewDataError("period 仅支持 day 或 month。")
+    if sentiment not in ('negative', 'positive'):
+        raise ReviewDataError('sentiment 仅支持 negative 或 positive。')
+    positive = sentiment == 'positive'
     identity, where, filters, scope = analysis_scope(
         model=model,
         base_url=base_url,
@@ -178,15 +182,16 @@ def get_trend(
     )
     keys = _buckets(scope, period)
     with _snapshot(db_path) as connection:
-        summary = _summary(_summaries(connection, identity, where, filters)[0])
-        grouped = {row["bucket"]: _summary(row) for row in _summaries(connection, identity, where, filters, period)}
+        summary = _summary(_summaries(connection, identity, where, filters)[0], include_positive=positive)
+        grouped = {row["bucket"]: _summary(row, include_positive=positive) for row in _summaries(connection, identity, where, filters, period)}
     return {
+        **({'sentiment': 'positive'} if positive else {}),
         "scope": scope,
         "definitions": dict(DEFINITIONS),
         "period": period,
         "summary": summary,
         "buckets": [
-            {"bucket": key, **(grouped[key] if key in grouped else _summary())}
+            {"bucket": key, **(grouped[key] if key in grouped else _summary(include_positive=positive))}
             for key in keys
         ],
     }
@@ -392,11 +397,11 @@ def get_data_quality(db_path, **scope):
             "failures": failures, "sources": sources}
 
 
-def get_aspect_trend(db_path, *, aspect=None, period="month", **scope):
+def get_aspect_trend(db_path, *, aspect=None, period="month", sentiment="negative", **scope):
     """复用去重评论口径；同一评论的多条观点不会重复计数。"""
     if aspect is not None and aspect not in ASPECTS:
         raise ReviewDataError("aspect 必须是六个有效维度之一。")
-    result = get_trend(db_path, period=period, **scope)
+    result = get_trend(db_path, period=period, sentiment=sentiment, **scope)
     selected = {key: label for key, label in ASPECTS.items() if aspect is None or key == aspect}
     for row in [result["summary"], *result["buckets"]]:
         row["aspects"] = {key: row["aspects"][key] for key in selected}

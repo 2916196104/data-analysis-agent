@@ -157,6 +157,24 @@ class ManualSequenceTests(fixture.AssistantSemanticsFixture, unittest.TestCase):
         self.assertEqual(goal.sentiment, 'negative')
         self.assertEqual(build_request_goal('下一页。').levels, ('evidence',))
 
+    def test_empty_future_window_keeps_user_dates_and_does_not_fill_from_old_reviews(self):
+        scope = {**self.scope(), 'date_from': '2029-08-10', 'date_to': '2029-09-23', 'as_of': None}
+        before = hashlib.sha256(self.db.read_bytes()).hexdigest()
+        with patch('openai.OpenAI', side_effect=AssertionError('no external model')), \
+                patch('data_analysis_agent.agents.reviews.create_llm', side_effect=AssertionError('no planning model')):
+            result = run_review_agent(self.db, '美的空调的物流好评', scope=scope,
+                settings=replace(SETTINGS, semantic_parser_enabled=False))
+        self.assertEqual(result['status'], 'ok', result.get('error'))
+        self.assertEqual(result['scope'], scope)
+        self.assertEqual(result['query_plan']['required_tools'], ['get_positive_aspects'])
+        data = result['results'][result['result_ids'][0]]['data']
+        self.assertEqual(data['summary']['review_count'], 0)
+        self.assertEqual(data['summary']['successful_reviews'], 0)
+        self.assertTrue(all(row['positive_rate'] is None for row in data['aspects']))
+        self.assertIn('数据不足', result['public_answer']['summary'])
+        self.assertEqual(result['total_model_calls'], 0)
+        self.assertEqual(hashlib.sha256(self.db.read_bytes()).hexdigest(), before)
+
 
 if __name__ == '__main__':
     unittest.main()

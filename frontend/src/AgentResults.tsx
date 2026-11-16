@@ -93,14 +93,20 @@ export default function AgentResults({ result, onDetail, onPrepare, onEvidenceNe
       {summary && !summary.successful_reviews && <Alert className="spaced" type="warning" showIcon message={sampleState(summary).reason}
         description="暂无可用于负面占比的成功标注样本。可检查选用的标注版本，或准备数据后重新分析；这不表示负面占比为 0%。" />}
       {onPrepare && summary && summary.failed_reviews + summary.unprocessed_reviews > 0 && <Button className="spaced" onClick={() => onPrepare(result.scope.product_ids)}>补齐当前范围标注</Button>}
-      <p className="muted spaced">负面占比 = 负面评论数 / 成功标注数；覆盖率 = 成功标注数 / 有效正文数。未标注评论不用于判断正负面。成功标注不足 20 条或覆盖率低于 80% 时标记为“样本有限”。</p>
+      <p className="muted spaced">{result.sentiment_intent === 'positive' ? '好评占比的分母见各统计明细；' : '负面占比 = 负面评论数 / 成功标注数；'}覆盖率 = 成功标注数 / 有效正文数。未标注评论不用于判断正负面。成功标注不足 20 条或覆盖率低于 80% 时标记为“样本有限”。</p>
     </Card>}
     {selected.map(item => <Card id={`${idPrefix}-${item.result_id}`} key={item.result_id} title={`${sectionNames[item.kind]} [${item.result_id}]`}
       extra={<Button size="small" onClick={() => onDetail(item, `统计依据 [${item.result_id}]`)}>统计依据</Button>}>
       {item.kind === 'trend' ? <>
         <p className="muted">按 UTC 统计；首末时间段可能不完整，比较前请核对日期和标注覆盖率。</p>
         <Table size="small" rowKey="bucket" dataSource={item.data.buckets} pagination={{ pageSize: 8, hideOnSinglePage: true, showSizeChanger: false }} scroll={{ x: 850 }} columns={[
-          { title: item.data.period === 'day' ? '日期（UTC）' : '月份（UTC）', dataIndex: 'bucket', width: 140 }, ...countColumns,
+          { title: item.data.period === 'day' ? '日期（UTC）' : '月份（UTC）', dataIndex: 'bucket', width: 140 },
+          ...(item.data.sentiment === 'positive' ? [
+            { title: '正向评论数', dataIndex: 'positive_review_count' },
+            { title: '成功标注（分母）', dataIndex: 'successful_reviews' },
+            { title: '好评占比', dataIndex: 'positive_rate', render: rate },
+            { title: '标注覆盖率', dataIndex: 'labeling_coverage', render: rate },
+          ] : countColumns),
         ]} />
       </> : item.kind === 'comparison' ? <ProductComparison item={item} titles={titles} onPrepare={onPrepare} />
         : item.kind === 'evidence' ? <>

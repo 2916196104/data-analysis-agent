@@ -161,6 +161,8 @@ export interface Summary {
   negative_review_count: number;
   labeling_coverage: number | null;
   negative_rate: number | null;
+  positive_review_count?: number;
+  positive_rate?: number | null;
 }
 export interface Issue {
   rank: number;
@@ -181,7 +183,8 @@ export interface AgentEvidence {
   opinions: Opinion[];
 }
 export interface AspectSummary extends Summary {
-  aspects: Record<string, { negative_review_count: number; negative_rate: number | null }>;
+  aspects: Record<string, { negative_review_count: number; negative_rate: number | null;
+    positive_review_count?: number; positive_rate?: number | null; positive_success_rate?: number | null }>;
 }
 export interface RatingGroup {
   source: string; dataset_version: string; group: string; review_count: number; rated_reviews: number;
@@ -216,7 +219,7 @@ export type AgentToolResult = { result_id: string; parameters: Record<string, un
     assessment: { status: 'sufficient' | 'limited' | 'insufficient'; reason: string } } }
   |
   { kind: 'context'; data: { summary: Summary; products?: { product_id: string; title: string | null }[] } }
-  | { kind: 'trend'; data: { period: string; summary: Summary; buckets: (Summary & { bucket: string })[] } }
+  | { kind: 'trend'; data: { sentiment?: 'positive' | 'negative'; period: string; summary: Summary; buckets: (Summary & { bucket: string })[] } }
   | { kind: 'comparison'; data: { products: (Summary & { product_id: string })[]; no_reviews_product_ids?: string[] } }
   | { kind: 'issues'; data: { issues: Issue[]; current?: Summary; baseline?: Summary } }
   | { kind: 'evidence'; data: { total: number; page: number; items: AgentEvidence[] } }
@@ -225,7 +228,7 @@ export type AgentToolResult = { result_id: string; parameters: Record<string, un
       groups: { quote: string; sentiment: string; review_count: number; opinion_count: number; review_rate: number | null; review_id: number; evidence_ref?: string }[] } }
   | { kind: 'quality'; data: { scope: AnalysisScope; summary: Summary; missing_text_rate: number | null; failed_rate: number | null;
       failures: { error_code: string | null; review_count: number }[]; sources: { file_sha256: string; review_count: number }[] } }
-  | { kind: 'aspect_trend'; data: { scope: AnalysisScope; period: string; aspects: Record<string, string>;
+  | { kind: 'aspect_trend'; data: { scope: AnalysisScope; sentiment?: 'positive' | 'negative'; period: string; aspects: Record<string, string>;
       summary: AspectSummary; buckets: (AspectSummary & { bucket: string })[] } }
   | { kind: 'ratings'; data: { scope: AnalysisScope; group_by: 'product' | 'month' | 'all'; groups: RatingGroup[] } }
   | { kind: 'positive_aspects'; data: { analysis_type: 'positive_aspects'; sentiment: 'positive';

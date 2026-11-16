@@ -416,9 +416,34 @@ class NaturalLanguageAnswerGenerator:
         return answer.model_dump(), diagnostics
 
 
-def unavailable_answer(status="failed", reason=None):
+def unavailable_answer(status="failed", reason=None, *, question=None):
     reason = reason if isinstance(reason, str) else None
-    return PublicAnswer(status=status, summary=(reason or "当前问题超出已有分析能力，请调整查询目标。") if status == "unsupported" else "").model_dump()
+    summary = (reason or "当前问题超出已有分析能力，请调整查询目标。") if status == "unsupported" else ""
+    if status == 'unsupported' and isinstance(question, str):
+        from data_analysis_agent.agents.review_task_contract import task_limit
+        limit = task_limit(question)
+        if limit and reason == limit[1] and limit[0] in ('cause_check', 'statistics'):
+            if limit[0] == 'cause_check':
+                summary = ('仅凭评论不能确认客观故障原因，也不能认定是否由某个零部件损坏导致。'
+                           '评论可提供买家自述和原文线索，实际原因需要维修检测记录核验。')
+            else:
+                summary = ('当前不能准确计算该反馈占全部评论的比例，缺少可核验的全量主题计数。'
+                           '计算前需在当前范围内逐条判定该主题，说明缺失正文、未判定数量并明确分母；'
+                           '上级维度数量或少量检索样例不能替代该主题的总数。')
+            # 建议只复用已有完整命题语法，不执行改写后的目标或放宽原问题验收。
+            from data_analysis_agent.agents.review_reported_facts import PATTERNS, target
+            alternatives = {}
+            for pattern in PATTERNS.values():
+                for match in re.finditer(pattern, question):
+                    alternative = f'有没有{match[0].removeprefix("空调")}的反馈？'
+                    request = target(alternative)
+                    if request:
+                        alternatives[tuple(request['facts'])] = alternative
+            if len(alternatives) == 1:
+                summary += f'可以先问：“{next(iter(alternatives.values()))}”查看相关买家反馈；这项查询只核查原文。'
+            else:
+                summary += '可以先明确一个反馈现象，再查询对应的评论原文。'
+    return PublicAnswer(status=status, summary=summary).model_dump()
 
 
 def semantic_answer(context):
@@ -480,7 +505,7 @@ def read_public_answer(task, *, public_analysis=None):
     result = task.get("result")
     result = result if isinstance(result, dict) else {}
     if public["status"] != "ok":
-        return unavailable_answer(public["status"], reason=result.get("answer"))
+        return unavailable_answer(public["status"], reason=result.get("answer"), question=result.get('question'))
     context = CompactAnalysisContext(question=result.get("analysis_question") or result.get("question") or task.get("parameters", {}).get("question", "历史分析"),
         analysis_type=result.get("analysis_intent") or "composite", sentiment=result.get("sentiment_intent"),
         scope_summary=public["scope_summary"], sample_summary=public["summary_metrics"], key_findings=public["highlights"],

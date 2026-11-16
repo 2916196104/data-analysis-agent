@@ -53,6 +53,7 @@ class AspectDrilldownInput(ProductSelection):
 
 class TrendInput(ProductSelection):
     period: Literal["day", "month"] = Field(default="month", description="按 UTC 日或月统计")
+    sentiment: Literal['negative', 'positive'] = 'negative'
 
 
 class WindowInput(ProductSelection):
@@ -60,7 +61,7 @@ class WindowInput(ProductSelection):
 
 
 class AspectTrendInput(TrendInput):
-    aspect: Aspect | None = Field(default=None, description="省略时返回全部六维度；统计负面评论")
+    aspect: Aspect | None = Field(default=None, description="省略时返回全部六维度；按指定情感统计去重评论")
 
 
 class RatingInput(WindowInput):
@@ -173,12 +174,15 @@ class ReviewToolContext:
             self.last_cache_hit = True
             return deepcopy(self.results[self.cache[key]])
         values = dict(parameters)
-        negative_tools = {"get_trend", "get_aspect_trend", "compare_products",
+        negative_tools = {"compare_products",
                           "get_top_issues", "compare_time_windows"}
         if self.sentiment_intent == "positive" and name in negative_tools:
             raise ReviewDataError("当前问题要求正向维度统计，请调用 get_positive_aspects。")
         if self.sentiment_intent == "negative" and name == "get_positive_aspects":
             raise ReviewDataError("当前问题要求负向分析，请使用负面统计工具。")
+        if name in ('get_trend', 'get_aspect_trend') and self.sentiment_intent in ('positive', 'negative'):
+            if values.get('sentiment', 'negative') != self.sentiment_intent:
+                raise ReviewDataError('趋势情感必须与本轮查询目标一致。')
         if name == "get_evidence" and self.sentiment_intent in {"positive", "negative"}:
             expected = self.sentiment_intent
             if values.get("sentiment", "negative") != expected:
@@ -350,10 +354,10 @@ def create_review_registry(context):
     registry = ReviewRegistry(context)
     for name, description, parameters in (
         ("get_analysis_context", "查询绑定范围、商品 ID、标注覆盖率、维度及情感枚举。", Input),
-        ("get_trend", "查询当前窗口按日/月的评论量、负面评论量、覆盖率和占比。", TrendInput),
+        ("get_trend", "查询当前窗口按日/月的评论量、指定正负情感评论量、覆盖率和占比。", TrendInput),
         ("get_data_quality", "查询当前或基线窗口缺失正文、失败类型、待标注、覆盖率和导入来源指纹。", WindowInput),
         ("get_positive_aspects", "查询正向观点在六个业务维度的去重评论数和占比；正向问题必须优先使用此工具。", AspectSelection),
-        ("get_aspect_trend", "按日/月查看包装、物流等六维度的负面评论数、占比及覆盖率。", AspectTrendInput),
+        ("get_aspect_trend", "按日/月查看指定正负情感的六维度评论数、占比及覆盖率；正向维度以当期正向观点评论为分母。", AspectTrendInput),
         ("get_rating_distribution", "按商品/月/总体查询原始 1–5 星分布；可选择当前或基线窗口，不依赖标注。", RatingInput),
         ("compare_time_windows", "比较已选当前/基线窗口的计数、覆盖率、负面占比及六维度变化；可传四个日期缩小窗口，不能超出绑定范围。", WindowComparisonInput),
         ("compare_products", "比较已选商品在当前窗口的评论量、覆盖率、负面数量和占比。", ProductSelection),

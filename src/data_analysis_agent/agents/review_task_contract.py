@@ -44,6 +44,14 @@ def task_limit(question):
     """Unsupported goals must not fall through to an unrelated successful SQL tool."""
     if question.startswith('执行本轮已确认的只读查询'):
         return None
+    if re.fullmatch(r'\s*(?:请)?(?:指定|选择|输入)(?:一个|一款)(?:当前)?数据集(?:中|内)?不存在的(?:商品|产品)\s*(?:ID|编号)\s*'
+                    r'(?:再提问|重新提问|进行提问)?[。！？?!]*\s*', question, re.I):
+        return ('missing_product', '这条测试说明尚未给出具体商品 ID 和查询内容。请填写要测试的商品 ID，再提出物流好评等具体问题。')
+    forecast = re.sub(r'(?:不要|不用|无需|不必|不需要)(?:预测|预估|估算|估计|预判)[^，,。；;]*', '', question)
+    if re.search(r'(?:预测|预估|估算|估计|预判|forecast)[^，,。；;！？!?]*(?:销量|销售量|销售额|销售收入|营收|营业额)|'
+                 r'(?:销量|销售量|销售额|销售收入|营收|营业额)[^，,。；;！？!?]*(?:预测|预估|估算|forecast)', forecast, re.I):
+        return ('forecast', '当前评论助手不支持销量或销售额预测。评论数量不能代替销量或成交金额；'
+                '需要相应的销售历史数据和经过验证的预测方法。可以继续查询当前商品的评论统计、趋势或原文。')
     # Negated requests for explanation are not causal requests.
     active = re.sub(r'(?:不要|不用|无需|不必|不需要)(?:分析|判断|解释|推断|说明|核查)?(?:原因|根因|因果)[^，。；;]*', '', question)
     if re.search(r'为什么|什么原因|原因(?:是|是什么)|根因|因果|(?:是否|是不是|是否是|由).*(?:导致|造成)|(?:导致|造成).*(?:吗|么|？|\?)', active):
@@ -152,8 +160,21 @@ def build_task_contract(question, scope, plan):
             items=tuple(RequiredFact(id=f'f{i}',description=clause) for i,clause in enumerate(clauses))
             facts=RequiredFacts(operator='any_of' if parts else 'all_of',items=items,
                 relations=() if parts else (FactRelation(kind='before',fact_ids=('f0','f1')),))
-    statistics = tuple(StatisticGoal(tool=req['tool'],metric=m,value_path=path,numerator=num,denominator=den,definition_key=key)
-        for req in plan.requirements for m,path,num,den,key in METRICS.get(req['tool'],[]))
+    statistics = []
+    for req in plan.requirements:
+        metrics = METRICS.get(req['tool'], [])
+        if req['tool'] in ('get_trend', 'get_aspect_trend') and req['parameters'].get('sentiment') == 'positive':
+            if req['tool'] == 'get_trend':
+                metrics = [('positive_rate', 'summary.positive_rate', 'summary.positive_review_count',
+                            'successful_reviews', 'positive_success_rate_denominator')]
+            else:
+                from data_analysis_agent.reviews.opinions import ASPECTS
+                aspects = [req['parameters']['aspect']] if req['parameters'].get('aspect') else list(ASPECTS)
+                metrics = [('positive_rate', f'summary.aspects.{aspect}.positive_rate',
+                    f'summary.aspects.{aspect}.positive_review_count', 'positive_review_count',
+                    'positive_aspect_rate_denominator') for aspect in aspects]
+        statistics.extend(StatisticGoal(tool=req['tool'],metric=m,value_path=path,numerator=num,denominator=den,definition_key=key)
+                          for m,path,num,den,key in metrics)
     limit = task_limit(question)
     operation = 'fact_search' if plan.analysis_type=='semantic_evidence' else 'sql_statistics' if statistics else 'unsupported'
     if plan.analysis_type in ('pros_cons','opinion_breakdown','aspect_drilldown','evidence'):operation='opinion_summary'
@@ -176,7 +197,7 @@ def build_task_contract(question, scope, plan):
     if plan.analysis_type in ('composite','pros_cons') and plan.requires_evidence and statistics:task_type='mixed'
     return RuntimeQueryContract(original_question=question,evidence_question=q,scope=bound,sentiment_intent=sentiment,
         scope_sha256=content_sha256(bound.model_dump(mode='json')),task_type=task_type,
-        operation=operation,target_entity=entity,subtopic=subtopic,required_facts=facts,statistics=statistics,
+        operation=operation,target_entity=entity,subtopic=subtopic,required_facts=facts,statistics=tuple(statistics),
         support_status=status,unsupported_reason=reason,
         uncertainty=('目标语义未被当前规则覆盖；仅允许检索和明确说明不足，不能许可确定结论。',) if status=='retrieval_only' else ())
 

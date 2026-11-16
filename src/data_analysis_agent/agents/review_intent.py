@@ -156,10 +156,10 @@ def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False
         params.update(**aspect, sentiment=intent.sentiment or 'all', page=1,
                       page_size=inherited.get('page_size', 3), window=inherited.get('window', 'current'))
     elif kind == 'trend':
-        if intent.sentiment == 'positive':
-            raise QuestionScopeError('当前没有正向趋势统计，请改查正向维度汇总或正向观点原文。')
         tool = 'get_aspect_trend' if intent.aspect else 'get_trend'
         params.update(**aspect, period=intent.period)
+        if intent.sentiment == 'positive':
+            params['sentiment'] = 'positive'
     elif kind == 'comparison':
         if len(scope['product_ids']) < 2:
             raise QuestionScopeError('请明确要比较的两款商品，并分别提供商品 ID。')
@@ -325,7 +325,10 @@ def bind_review_scope(question, scope, products, context=None):
 
 def resolve_review_request(question, scope, products, *, settings, context=None, diagnostics=None, intent_state=None):
     from data_analysis_agent.agents.review_task_contract import build_task_contract, task_limit
-    if task_limit(question):
+    limit = task_limit(question)
+    if limit:
+        if limit[0] == 'missing_product':
+            raise QuestionScopeError(limit[1])
         return scope, build_query_plan(question, scope), True
     bound, plan, direct = _resolve_review_request(question, scope, products, settings=settings,
         context=context, diagnostics=diagnostics, intent_state=intent_state)

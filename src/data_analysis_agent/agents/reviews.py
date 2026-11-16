@@ -501,5 +501,6 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             'plan_check': result.get('task_plan_check', {'passed': False, 'checks': []}),
             'evidence_status': 'execution_failed' if result['status'] == 'error' else 'not_completed',
             'message': '任务未形成完整且通过校验的结果，业务目标尚未完成。'}
-    result.setdefault("public_answer", unavailable_answer("unsupported" if result["status"] == "unsupported" else "failed", reason=result.get("answer")))
+    result.setdefault("public_answer", unavailable_answer("unsupported" if result["status"] == "unsupported" else "failed",
+        reason=result.get("answer"), question=question))
     return json.loads(safe_json(result, settings.api_key))

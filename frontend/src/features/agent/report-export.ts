@@ -25,7 +25,10 @@ function statistics(item: AgentToolResult): string {
     case 'context': return summaryTable([['查询范围', item.data.summary]]);
     case 'quality': return summaryTable([['查询范围', item.data.summary]]) + '\n\n' + table(['文件 SHA-256', '评论数'],
       item.data.sources.map(row => [row.file_sha256, row.review_count]));
-    case 'trend': return summaryTable(item.data.buckets.map(row => [row.bucket, row]));
+    case 'trend': return item.data.sentiment === 'positive'
+      ? table(['时间（UTC）', '正向评论数', '成功标注（分母）', '好评占比', '覆盖率'],
+        item.data.buckets.map(row => [row.bucket, row.positive_review_count, row.successful_reviews, percent(row.positive_rate), percent(row.labeling_coverage)]))
+      : summaryTable(item.data.buckets.map(row => [row.bucket, row]));
     case 'comparison': return summaryTable(item.data.products.map(row => [row.product_id, row]))
       + `\n\n无评论商品：${clean(item.data.no_reviews_product_ids?.join('、') || '无')}`;
     case 'issues': return table(['维度', '负面数', '当前占比', '基线占比', '变化（百分点）'],
@@ -33,7 +36,12 @@ function statistics(item: AgentToolResult): string {
         percent(row.baseline_negative_rate), row.negative_rate_change_pp]));
     case 'window_comparison': return summaryTable([['当前', item.data.current], ['基线', item.data.baseline]])
       + '\n\n' + table(['指标', '变化（占比为百分点）'], Object.entries(item.data.changes));
-    case 'aspect_trend': return table(['时间（UTC）', '维度', '负面数', '成功标注（分母）', '占比', '覆盖率'],
+    case 'aspect_trend': return item.data.sentiment === 'positive'
+      ? table(['时间（UTC）', '维度', '正向评论数', '正向观点评论（分母）', '好评占比', '成功标注数', '覆盖率'],
+        item.data.buckets.flatMap(row => Object.entries(row.aspects).map(([aspect, counts]) => [row.bucket,
+          item.data.aspects[aspect], counts.positive_review_count, row.positive_review_count,
+          percent(counts.positive_rate), row.successful_reviews, percent(row.labeling_coverage)])))
+      : table(['时间（UTC）', '维度', '负面数', '成功标注（分母）', '占比', '覆盖率'],
       item.data.buckets.flatMap(row => Object.entries(row.aspects).map(([aspect, counts]) => [row.bucket,
         item.data.aspects[aspect], counts.negative_review_count, row.successful_reviews,
         percent(counts.negative_rate), percent(row.labeling_coverage)])));

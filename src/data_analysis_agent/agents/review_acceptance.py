@@ -87,6 +87,8 @@ def build_request_goal(question, context=None):
             params = declared['parameters']
             direction = 'positive' if tool == 'get_positive_aspects' else 'negative' if tool in {
                 'get_top_issues', 'get_trend', 'get_aspect_trend', 'compare_products', 'compare_time_windows'} else params.get('sentiment')
+            if tool in ('get_trend', 'get_aspect_trend'):
+                direction = params.get('sentiment', 'negative')
             families = tuple(family for family, tools in STATISTIC_FAMILIES.items() if tool in tools)
             return RequestGoal(question, (level,), params.get('aspect'), direction,
                                params.get('topic'), families, source='confirmed_request')

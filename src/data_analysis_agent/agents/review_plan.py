@@ -161,7 +161,7 @@ def _build_query_plan(question, scope, *, product_groups=None):
             plan.unsupported_reason = '请直接输入原始评论问题进行语义检索，不能由追问工具参数改写问题。'
             return plan
         add(tool, **params)
-        plan.sentiment = params.get("sentiment") if tool == "get_evidence" else (
+        plan.sentiment = params.get('sentiment', 'negative') if tool in ('get_trend', 'get_aspect_trend') else params.get("sentiment") if tool == "get_evidence" else (
             "positive" if tool == "get_positive_aspects" else
             "negative" if tool in {"get_top_issues", "get_trend", "get_aspect_trend", "compare_products", "compare_time_windows"} else None)
         label = next((word for word, aspect in ASPECT_WORDS.items() if aspect == params.get("aspect")), "")
@@ -171,6 +171,8 @@ def _build_query_plan(question, scope, *, product_groups=None):
             "compare_time_windows": "时间窗口对比", "get_data_quality": "数据质量",
             "get_opinion_breakdown": "观点文本细分", 'get_aspect_drilldown': '二级主题细分'}[tool]
         original = explicit.get('question')
+        if tool in ('get_trend', 'get_aspect_trend') and plan.sentiment == 'positive':
+            plan.answer_question = label + '好评趋势'
         if isinstance(original, str) and original.strip() and len(original) <= 4000:
             plan.answer_question = original.strip()
         if tool == 'get_aspect_drilldown':
@@ -234,8 +236,8 @@ def _build_query_plan(question, scope, *, product_groups=None):
         if semantic['topic'] == '静音' and aspects == ['effectiveness'] and '使用效果' not in question:
             # “静音效果”中的效果是修饰语，静音观点属于 quality，不能查 effectiveness。
             aspects = ['quality']
-        if sentiment == "positive" and (trend or windows or products) and not rating:
-            plan.unsupported_reason = "当前支持正向维度汇总和正向原文，尚不支持正向趋势或正向对比；请改问好评主要方面。"
+        if sentiment == "positive" and (windows or products) and not rating:
+            plan.unsupported_reason = "当前尚不支持正向对比；请分别查询各商品或窗口的好评统计与趋势。"
         elif balanced or (sentiment is None and re.search(r"好评|差评|优点|缺点|满意|喜欢|值得购买", question)):
             plan.unsupported_reason = "本轮情感方向或混合分析目标尚不明确，请分别说明正向或负向查询。"
         if ranking and sentiment is None and not breakdown and not (trend or windows or products or quality or rating):
@@ -258,9 +260,9 @@ def _build_query_plan(question, scope, *, product_groups=None):
             trend_aspects = list(dict.fromkeys(value for word, value in ASPECT_WORDS.items() if word in trend_text))
             if trend_aspects:
                 for aspect in trend_aspects:
-                    add("get_aspect_trend", aspect=aspect, period=period)
+                    add("get_aspect_trend", aspect=aspect, period=period, **({'sentiment': 'positive'} if sentiment == 'positive' else {}))
             else:
-                add("get_trend", period=period)
+                add("get_trend", period=period, **({'sentiment': 'positive'} if sentiment == 'positive' else {}))
         if breakdown:
             if semantic['theme_summary'] and len(aspects) > 1:
                 plan.unsupported_reason = '本阶段子主题归纳仅支持一个评价维度，请分别查询各维度的具体问题。'

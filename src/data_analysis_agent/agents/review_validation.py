@@ -163,7 +163,7 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
             if "positive_review_count" in aspect:
                 positive_count = aspect["positive_review_count"]
                 positive_total = row.get("positive_review_count", 0)
-                counts_ok &= type(positive_count) is int and 0 <= positive_count <= success
+                counts_ok &= type(positive_count) is int and 0 <= positive_count <= min(success, positive_total)
                 rates_ok &= _matches_rate(aspect.get("positive_rate"), positive_count, positive_total)
                 rates_ok &= _matches_rate(aspect.get("positive_success_rate"), positive_count, success)
 
@@ -178,6 +178,17 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
             try:
                 period = data['period']
                 additional_ok &= period in ('day', 'month') and [row['bucket'] for row in data['buckets']] == _buckets(data['scope'], period)
+                direction = item['parameters'].get('sentiment', 'negative')
+                additional_ok &= direction in ('positive', 'negative') and data.get('sentiment', 'negative') == direction
+                if direction == 'positive':
+                    additional_ok &= all('positive_review_count' in row and 'positive_rate' in row
+                        and all('positive_review_count' in counts and 'positive_rate' in counts and 'positive_success_rate' in counts
+                                for counts in row['aspects'].values()) for row in [data['summary'], *data['buckets']])
+                    additional_ok &= data['summary']['positive_review_count'] == sum(row['positive_review_count'] for row in data['buckets'])
+                    additional_ok &= all(counts['positive_review_count'] == sum(row['aspects'][aspect]['positive_review_count'] for row in data['buckets'])
+                                         for aspect, counts in data['summary']['aspects'].items())
+                    positive_ok &= data['definitions']['positive_aspect_rate_denominator'] == 'positive_review_count'
+                    positive_ok &= data['definitions']['positive_success_rate_denominator'] == 'successful_reviews'
             except (KeyError, TypeError, ValueError):
                 additional_ok = False
         if item['kind'] == 'semantic_evidence':
@@ -275,10 +286,11 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
     semantic_ok = True
     if sentiment_intent == "positive":
         semantic_ok = any(item["kind"] == "positive_aspects" or (
-            item["kind"] in {"evidence", "opinion_breakdown", 'aspect_drilldown'} and item["data"].get("sentiment") == "positive"
+            item["kind"] in {"evidence", "opinion_breakdown", 'aspect_drilldown', 'trend', 'aspect_trend'} and item["data"].get("sentiment") == "positive"
         ) for item in selected)
     elif sentiment_intent == "negative":
-        semantic_ok = any(item["kind"] in {"trend", "aspect_trend", "comparison", "issues", "window_comparison"}
+        semantic_ok = any((item["kind"] in {"trend", "aspect_trend", "comparison", "issues", "window_comparison"}
+                          and item['data'].get('sentiment', 'negative') == 'negative')
                           or (item["kind"] in {"evidence", "opinion_breakdown", 'aspect_drilldown'} and item["data"].get("sentiment") == "negative")
                           for item in selected)
     if query_plan is not None:
@@ -292,7 +304,7 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
         {"name": "扩展统计", "passed": bool(additional_ok), "detail": "复核缺失与失败数、星级分布分母及窗口变化；空分母保留空值"},
         {"name": "正向统计", "passed": bool(positive_ok), "detail": "复核正向维度排序、去重计数、两个占比分母和零分母状态"},
         {"name": "范围身份", "passed": bool(scope_ok), "detail": "复核来源、数据集、日期、商品和标注版本与绑定范围一致"},
-        {"name": "情感语义", "passed": bool(semantic_ok), "detail": "正向问题必须引用 positive_aspects；负向问题必须引用负面统计结果"},
+        {"name": "情感语义", "passed": bool(semantic_ok), "detail": "引用统计或原文的情感须与查询目标一致"},
         {"name": "查询结果完整性", "passed": refs_ok, "detail": "最终引用覆盖所有已完成查询；不代表对用户问题语义的完整性保证"},
     ]
     if query_plan is not None and query_plan.task_contract is not None:
