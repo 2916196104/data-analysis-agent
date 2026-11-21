@@ -59,14 +59,7 @@ def replay_vector(space, question, vector):
     return SimpleNamespace(space=space, embed_texts=embed_texts)
 
 
-def measure(repository, scope, encoder, request):
-    started = perf_counter()
-    service = SemanticRetrievalService(encoder=encoder, repository=repository, scope=scope)
-    result = service.search(request)
-    require_source_validated_result(result)
-    require(result.query == request and result.scope == scope, 'retrieval_binding_changed')
-    payload = result.to_dict()
-    question = request.question
+def assess_candidates(payload, scope, question):
     options = scope.options()
     require(evidence_scope_matches(question, options), 'evidence_scope_mismatch')
     fact_question = evidence_question(question, options)
@@ -81,14 +74,26 @@ def measure(repository, scope, encoder, request):
             filters=dict(question=question, assessment_question=fact_question, assessment=displayed,
                 context_policy=payload['context_policy'], context_version=payload['context_version'],
                 candidate_count=len(evidence)))]))
-    elapsed = (perf_counter() - started) * 1000
     require(len(answer['highlights']) <= DISPLAY_LIMIT, 'citation_display_limit_exceeded')
+    return dict(query=payload['query'], evidence=evidence, assessment=assessment,
+                displayed_keys=displayed['permitted_keys'], public_answer=answer)
+
+
+def measure(repository, scope, encoder, request):
+    started = perf_counter()
+    service = SemanticRetrievalService(encoder=encoder, repository=repository, scope=scope)
+    result = service.search(request)
+    require_source_validated_result(result)
+    require(result.query == request and result.scope == scope, 'retrieval_binding_changed')
+    payload = result.to_dict()
+    output = assess_candidates(payload, scope, request.question)
+    elapsed = (perf_counter() - started) * 1000
     if request.top_k == 5:
-        require(validate_retrieval(dict(scope=options, retrieval=payload, assessment=assessment,
-                    assessment_question=fact_question), question), 'top5_adapter_validation_failed')
-    return (dict(query=payload['query'], evidence=evidence, assessment=assessment,
-                 displayed_keys=displayed['permitted_keys'], public_answer=answer),
-            dict(service.timings, elapsed_ms=elapsed))
+        options, question = scope.options(), request.question
+        require(validate_retrieval(dict(scope=options, retrieval=payload, assessment=output['assessment'],
+                    assessment_question=evidence_question(question, options)), question),
+                'top5_adapter_validation_failed')
+    return output, dict(service.timings, elapsed_ms=elapsed)
 
 
 def signature(result):
