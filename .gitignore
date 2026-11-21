@@ -42,6 +42,7 @@ data/samples/*
 
 # 生成结果可能包含私有数据
 outputs/
+/output/label-pg-*/
 *.png
 *.log
 .cache/

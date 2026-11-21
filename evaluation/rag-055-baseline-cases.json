@@ -1,0 +1,17 @@
+{
+  "version": "rag-055-baseline-cases-v1",
+  "cases": [
+    {"id": "D01", "split": "development", "text": "有没有制冷很慢的反馈？", "expected_route": "semantic_evidence", "criterion": "明确描述制冷或降温速度慢，泛泛的效果差或完全不制冷不足以说明速度"},
+    {"id": "D02", "split": "development", "text": "有没有制冷比较慢的反馈？", "expected_route": "semantic_evidence", "criterion": "和 D01 是同一事实目标，比较在这里表示程度"},
+    {"id": "D03", "split": "development", "text": "有没有送货慢的反馈？", "expected_route": "semantic_evidence", "criterion": "首次配送慢，安装等待和退货运输不能支持"},
+    {"id": "D04", "split": "development", "text": "有没有物流慢的反馈？", "expected_route": "semantic_evidence", "criterion": "和 D03 是同一事实目标，比较两种措辞产生的过滤条件"},
+    {"id": "D05", "split": "development", "text": "物流差评占比多少？", "expected_route": "sql_statistics", "criterion": "统计占比，记录计划和统计工具，不评检索相关性"},
+    {"id": "D06", "split": "development", "text": "有没有同一条评论既说制冷好又说噪音大的反馈？", "expected_route": "semantic_evidence", "criterion": "同一 review_id 下两项都有明确原文，两条评论各说一项不能成立"},
+    {"id": "H01", "split": "holdout", "text": "有没有降温不快的反馈？", "expected_route": "semantic_evidence", "criterion": "保留否定作用对象，支持速度慢或不快"},
+    {"id": "H02", "split": "holdout", "text": "有没有退货寄回很慢的反馈？", "expected_route": "semantic_evidence", "criterion": "明确指退货返程时效，首次到货慢和退款慢均不满足"},
+    {"id": "H03", "split": "holdout", "text": "有没有安装师傅上门比较慢的评论？", "expected_route": "semantic_evidence", "criterion": "明确描述上门安装晚或等候过久，配送慢不能支持"},
+    {"id": "H04", "split": "holdout", "text": "有没有同一条评论既说物流很快又说包装破了的反馈？", "expected_route": "semantic_evidence", "criterion": "同一 review_id 下同时有快速配送和包装破损，机器本身损坏不足以支持包装破损"},
+    {"id": "H05", "split": "holdout", "text": "有没有提到设备在零下三十度可以连续制热十小时的评论？", "expected_route": "semantic_evidence", "criterion": "同时核实温度、连续时长和制热；无证据按人工实际审阅记录"},
+    {"id": "H06", "split": "holdout", "text": "这款商品的物流差评比例是多少？", "expected_route": "sql_statistics", "criterion": "同类统计问法的留出对照，记录计划和统计工具"}
+  ]
+}

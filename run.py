@@ -9,10 +9,11 @@ import socket
 import sys
 import time
 import webbrowser
-from contextlib import closing
+from contextlib import ExitStack, closing
 from http.client import HTTPConnection, HTTPException
 from pathlib import Path
 from subprocess import Popen
+from tempfile import TemporaryDirectory
 from threading import Event
 from typing import Sequence
 from urllib.parse import urlsplit
@@ -121,16 +122,21 @@ def wait_ready(
 
 
 def launch(api_port: int = 8000, web_port: int = 5173, open_browser: bool = True,
-           no_redis_worker: bool = False) -> int:
+           no_redis_worker: bool = False, *, demo: bool = False) -> int:
     """启动后端、前端和按配置启用的 Redis 标注 Worker，并统一回收。"""
     if api_port == web_port:
         raise RuntimeError('前端和后端必须使用不同端口。')
     check_port(api_port)
     check_port(web_port)
-    database_url = read_settings(ROOT / '.env').get('DATABASE_URL', '').strip()
-    if not database_url:
-        raise ConfigurationError('请在项目根目录 .env 中配置 DATABASE_URL。')
-    database_argument(database_url)
+    env_file = ROOT / '.env'
+    import_root = ROOT / 'data/private'
+    database = 'env:DATABASE_URL'
+    if not demo:
+        settings = read_settings(env_file)
+        database_url = settings.get('DATABASE_URL', '').strip()
+        if not database_url:
+            raise ConfigurationError('请在项目根目录 .env 中配置 DATABASE_URL。')
+        database_argument(database_url)
     node = shutil.which('node')
     vite = ROOT / 'frontend/node_modules/vite/bin/vite.js'
     if not node:
@@ -148,7 +154,26 @@ def launch(api_port: int = 8000, web_port: int = 5173, open_browser: bool = True
     for event in (signal.SIGINT, signal.SIGTERM, *([signal.SIGBREAK] if os.name == 'nt' else [])):
         previous_handlers[event] = signal.signal(event, lambda *_: stop.set())
     try:
-        with ProcessFamily() as family:
+        with ExitStack() as resources, ProcessFamily() as family:
+            if demo:
+                from scripts.frontend_fixture import create_demo_fixture
+
+                import_root = Path(resources.enter_context(TemporaryDirectory(prefix='guanshu-demo-')))
+                database = str(create_demo_fixture(import_root))
+                env_file = import_root / 'unused.env'
+                environment = {
+                    key: value for key, value in os.environ.items()
+                    if key.upper() in {'PATH', 'SYSTEMROOT', 'WINDIR', 'COMSPEC', 'PATHEXT', 'TEMP', 'TMP', 'TMPDIR',
+                                       'USERPROFILE', 'HOME', 'APPDATA', 'LOCALAPPDATA', 'PROGRAMDATA', 'LANG', 'LC_ALL'}
+                }
+                environment.update(
+                    PYTHONUTF8='1', PYTHONUNBUFFERED='1', PYTHONPATH=str(ROOT / 'src'),
+                    LABEL_EXECUTION_MODE='local', AGENT_SEMANTIC_PARSING='rules_only',
+                    LLM_MODEL_ID='DEMO-DISABLED', LLM_API_KEY='unused-local-placeholder',
+                    LLM_BASE_URL=f'{api_url}/__demo_model_disabled__/v1', LLM_MAX_RETRIES='0',
+                    LLM_TIMEOUT_SECONDS='1', ANSWER_TIMEOUT_SECONDS='1', ANSWER_MAX_RETRIES='0',
+                )
+                print('面试演示：使用临时 SQLite 和预标注的模拟评论，不连接业务库或外部模型。', flush=True)
             print(
                 f'启动后端：{api_url}\n启动前端：{web_url}',
                 flush=True,
@@ -159,11 +184,11 @@ def launch(api_port: int = 8000, web_port: int = 5173, open_browser: bool = True
                 'data_analysis_agent.cli.server',
                 'serve',
                 '--db',
-                'env:DATABASE_URL',
+                database,
                 '--env-file',
-                str(ROOT / '.env'),
+                str(env_file),
                 '--import-root',
-                str(ROOT / 'data/private'),
+                str(import_root),
                 '--host',
                 '127.0.0.1',
                 '--port',
@@ -176,6 +201,8 @@ def launch(api_port: int = 8000, web_port: int = 5173, open_browser: bool = True
             frontend_command = [
                 node, str(vite), '--host', '127.0.0.1', '--port', str(web_port), '--strictPort',
             ]
+            if demo:
+                frontend_command.extend(['--mode', 'demo'])
             frontend_environment = {
                 **environment,
                 'VITE_API_BASE_URL': f'{api_url}/api/v1',
@@ -186,8 +213,7 @@ def launch(api_port: int = 8000, web_port: int = 5173, open_browser: bool = True
                 env=frontend_environment,
             )
             processes = [('后端', backend), ('前端', frontend)]
-            settings = read_settings(ROOT / '.env')
-            execution_mode = settings.get('LABEL_EXECUTION_MODE', 'local').strip().lower()
+            execution_mode = 'local' if demo else settings.get('LABEL_EXECUTION_MODE', 'local').strip().lower()
             if execution_mode == 'redis' and not no_redis_worker:
                 redis_worker_command = [
                     sys.executable,
@@ -232,14 +258,17 @@ def port_number(value: str) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--api-port', type=port_number, default=8000, help='后端端口，默认 8000')
-    parser.add_argument('--web-port', type=port_number, default=5173, help='前端端口，默认 5173')
+    parser.add_argument('--demo', action='store_true', help='使用隔离的模拟评论，无需数据库配置或模型密钥')
+    parser.add_argument('--api-port', type=port_number, help='后端端口，默认 8000；演示默认 18080')
+    parser.add_argument('--web-port', type=port_number, help='前端端口，默认 5173；演示默认 15180')
     parser.add_argument('--no-browser', action='store_true', help='启动后不自动打开浏览器')
     parser.add_argument('--no-redis-worker', action='store_true', help='LABEL_EXECUTION_MODE=redis 时跳过自动启动 Redis Worker')
     args = parser.parse_args()
     try:
         print('正在检查启动环境与本地配置…', flush=True)
-        return launch(args.api_port, args.web_port, not args.no_browser, args.no_redis_worker)
+        return launch(args.api_port or (18080 if args.demo else 8000),
+                      args.web_port or (15180 if args.demo else 5173),
+                      not args.no_browser, args.no_redis_worker, demo=args.demo)
     except (OSError, ValueError, RuntimeError) as error:
         print(f'启动失败：{error}', file=sys.stderr)
         return 1

@@ -194,7 +194,8 @@ export async function checkPreparationPage(page, artifacts) {
     for (const viewport of viewports) {
       await page.setViewportSize(viewport);
       await navigate('数据管理');
-      const rows = await page.locator('.data-management tbody').innerText();
+      const products = page.getByRole('table').filter({ has: page.getByRole('columnheader', { name: '商品', exact: true }) }).locator('tbody');
+      const rows = await products.innerText();
       assert.equal(new URL(page.url()).pathname, '/data-management');
       assert.equal(await page.locator('.data-management').getByRole('button', { name: '准备所选数据', exact: true }).count(), 0);
       assert.equal(await page.locator('.data-management a').count(), 0, 'annotation-only review link must not belong to dataset page');
@@ -236,7 +237,7 @@ export async function checkPreparationPage(page, artifacts) {
       await page.screenshot({ path: path.join(artifacts, `preparation-${viewport.width}-bottom.png`), animations: 'disabled' });
       await page.goBack();
       await page.getByRole('heading', { name: '数据管理', exact: true }).waitFor();
-      assert.equal(await page.locator('.data-management tbody').innerText(), rows, 'back must retain dataset list');
+      assert.equal(await products.innerText(), rows, 'back must retain dataset list');
       assert.equal(await page.locator('.sidebar-nav button[aria-label="数据管理"]').getAttribute('aria-current'), 'page');
       await page.goForward();
       await page.getByRole('heading', { name: '评论标注', exact: true }).waitFor();

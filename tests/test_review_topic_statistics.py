@@ -1,12 +1,19 @@
 """Versioned full-snapshot topics, bounds and source tampering; no external models."""
 from copy import deepcopy
+from contextlib import closing
+import csv
 import unittest
+from unittest.mock import patch
 
 import test_review_dimension_content as fixture
+from data_analysis_agent.agents import review_evidence_loop, review_topic_statistics
 from data_analysis_agent.agents.review_topic_statistics import build_statistics,validate_statistics,topic_request
 from data_analysis_agent.agents.review_answers import read_public_answer
 from data_analysis_agent.agents.review_validation import validate_report
-from data_analysis_agent.reviews.analytics import get_topic_corpus
+from data_analysis_agent.reviews.analytics import get_evidence, get_topic_corpus
+from data_analysis_agent.reviews.human_review import save_human_review
+from data_analysis_agent.reviews.label_store import append_annotation_on_connection
+from data_analysis_agent.reviews.store import connect_review_database, import_amazon_jsonl
 
 
 class TopicStatisticsTests(unittest.TestCase):
@@ -16,6 +23,16 @@ class TopicStatisticsTests(unittest.TestCase):
         self.scope={key:value for key,value in self.f.scope().items() if not key.startswith('baseline_')}
 
     def corpus(self):return get_topic_corpus(self.f.db,**self.scope)
+
+    def assert_same_evidence_as_pages(self, corpus, scope, sentiment):
+        page = get_evidence(self.f.db, **scope, sentiment=sentiment, page_size=100)
+        items = list(page['items'])
+        for page_number in range(2, page['pages'] + 1):
+            items.extend(get_evidence(self.f.db, **scope, sentiment=sentiment, page_size=100, page=page_number)['items'])
+        for item in items:
+            item.pop('file_path')
+        self.assertEqual((corpus['scope'], corpus['total'], corpus['total_opinions'], corpus['items']),
+                         (page['scope'], page['total'], page['total_opinions'], items))
 
     def test_native_full_topic_query_and_history_do_not_call_models(self):
         r=self.f.run_local('按细分主题统计差评')
@@ -67,6 +84,50 @@ class TopicStatisticsTests(unittest.TestCase):
             forged=deepcopy(data);mutate(forged)
             self.assertFalse(validate_statistics(forged))
 
+    def test_topic_validation_reuses_only_an_exact_payload_with_the_same_rules(self):
+        data = build_statistics(self.corpus())
+        verified = set()
+        with patch.object(review_topic_statistics, 'build_statistics', wraps=build_statistics) as rebuild:
+            self.assertTrue(validate_statistics(data, verified_payloads=verified))
+            self.assertTrue(validate_statistics(deepcopy(data), verified_payloads=verified))
+            self.assertEqual(rebuild.call_count, 1)
+            with patch.object(review_topic_statistics, 'RULE_DIGEST', 'different-rule-digest'):
+                self.assertFalse(validate_statistics(data, verified_payloads=verified))
+            self.assertEqual(rebuild.call_count, 2)
+            self.assertEqual(len(verified), 1)
+
+    def test_task_rejects_changed_theme_or_evidence_after_initial_validation(self):
+        complete = review_evidence_loop.complete_evidence
+        for field, mutate in (
+            ('topic_count', lambda row: row['data']['topics'][0].update(review_count=999)),
+            ('evidence_ref', lambda row: row['data']['items'][0].update(evidence_ref='incorrect-source')),
+            ('query_denominator', lambda row: row['parameters'].update(denominator='successful_reviews')),
+        ):
+            def change_after_validation(db, result, plan, context, *args):
+                plan = complete(db, result, plan, context, *args)
+                self.assertEqual(result['validation']['status'], 'passed')
+                mutate(context.results['r1'])
+                return plan
+
+            with self.subTest(field=field), patch.object(
+                review_evidence_loop, 'complete_evidence', side_effect=change_after_validation,
+            ):
+                result = self.f.run_local('按细分主题统计差评')
+                self.assertEqual(result['status'], 'error')
+                self.assertFalse(result['task_acceptance']['complete'])
+                checks = {row['name']: row['passed'] for row in result['task_acceptance']['checks']}
+                self.assertFalse(checks['统计与引用校验'])
+                self.assertFalse(result['public_answer']['evidence_refs'])
+                self.assertEqual(result['public_analysis']['status'], 'failed')
+
+    def test_history_revalidates_topic_and_source_even_after_success(self):
+        result = self.f.run_local('按细分主题统计差评')
+        self.assertEqual(result['status'], 'ok')
+        result['results']['r1']['data']['items'][0]['opinions'][0]['quote_end'] += 1
+        answer = read_public_answer({'status': 'succeeded', 'result': result})
+        self.assertEqual(answer['status'], 'failed')
+        self.assertFalse(answer['evidence_refs'])
+
     def test_narrow_failure_and_intact_packaging_are_not_broadened_to_parent_themes(self):
         corpus=self.corpus()
         for item,text in zip(corpus['items'],['制冷不足','完全不制冷']):
@@ -112,25 +173,64 @@ class TopicStatisticsTests(unittest.TestCase):
         self.assertIsNone(topic_request('按月查看细分主题趋势'))
         self.assertIsNone(topic_request('查看细分主题和数据质量'))
 
-    def test_more_than_200_opinions_are_processed_and_pages_are_not_sampled(self):
-        from unittest.mock import patch
-        corpus=self.corpus();template=deepcopy(corpus['items'][0]);items=[]
-        for i in range(205):
-            item=deepcopy(template);item.update(review_id=1000+i,text='制冷不足')
-            item['opinions']=[dict(aspect='effectiveness',sentiment='negative',quote='制冷不足',quote_start=0,quote_end=4)]
-            items.append(item)
-        calls=[]
-        def page(db,*,page=1,**kwargs):
-            calls.append(page)
-            return dict(total=205,total_opinions=205,pages=3,items=deepcopy(items[(page-1)*100:page*100]))
-        with patch('data_analysis_agent.reviews.analytics.get_evidence',side_effect=page):
-            scanned=self.corpus()
-        self.assertEqual(calls,[1,2,3]);self.assertEqual(len(scanned['items']),205)
-        scanned['summary'].update(review_count=205,successful_reviews=205)
-        data=build_statistics(scanned,topic='cooling_poor')
-        self.assertEqual(data['coverage']['processed_opinions'],205)
-        self.assertEqual(data['topics'][0]['review_count'],205)
-        self.assertEqual(data['topics'][0]['rate_state'],'exact')
+    def test_full_sql_corpus_matches_all_pages_beyond_200_reviews(self):
+        source = self.f.root / 'topic-many.csv'
+        with source.open('w', encoding='utf-8', newline='') as handle:
+            writer = csv.writer(handle)
+            writer.writerow(('product_id', 'user_id', 'published_at', 'text'))
+            writer.writerows(('DIM-C', f'synthetic-{index}', '2023-02-11', '制冷不足。包装破损')
+                             for index in range(205))
+        import_amazon_jsonl(self.f.db, reviews_path=source, dataset_version='reviews-csv')
+        identity = {key: self.scope[key] for key in ('model', 'base_url', 'prompt_version')}
+        opinions = [dict(aspect='packaging', sentiment='negative', quote='包装破损', quote_start=5, quote_end=9),
+                    dict(aspect='effectiveness', sentiment='negative', quote='制冷不足', quote_start=0, quote_end=4)]
+        with closing(connect_review_database(self.f.db)) as connection, connection:
+            connection.execute('BEGIN')
+            rows = connection.execute("SELECT id, text, content_sha256 FROM reviews WHERE product_id='DIM-C'").fetchall()
+            for row in rows:
+                append_annotation_on_connection(connection, row, **identity, status='success', opinions=opinions)
+
+        scope = {**self.scope, 'product_ids': ['DIM-C']}
+        statements = []
+        with closing(connect_review_database(self.f.db, readonly=True)) as connection, connection:
+            connection.execute('BEGIN')
+            connection.set_trace_callback(statements.append)
+            scanned = get_topic_corpus(connection, **scope)
+        data_reads = [statement for statement in statements if statement.lstrip().startswith('WITH attempts AS')]
+        self.assertEqual(len(data_reads), 2)
+        self.assertTrue(all('OFFSET' not in statement.upper().split() for statement in data_reads))
+        self.assert_same_evidence_as_pages(scanned, scope, 'negative')
+        self.assertEqual((scanned['total'], scanned['total_opinions']), (205, 410))
+        self.assertEqual([item['review_id'] for item in scanned['items']], sorted((row['id'] for row in rows), reverse=True))
+        self.assertEqual([opinion['quote'] for opinion in scanned['items'][0]['opinions']], ['制冷不足', '包装破损'])
+        data = build_statistics(scanned, topic='cooling_poor')
+        self.assertEqual(data['coverage']['processed_opinions'], 410)
+        self.assertEqual((data['topics'][0]['review_count'], data['topics'][0]['rate_state']), (205, 'exact'))
+
+    def test_latest_human_revision_replaces_model_and_empty_revision_does_not_fall_back(self):
+        original, removed = self.corpus()['items']
+        revision = save_human_review(self.f.db, original['review_id'], annotation_id=original['annotation_id'],
+                                     expected_revision_id=None, action='corrected', reviewer='SIMULATED',
+                                     opinions=[dict(aspect='service', sentiment='positive', quote='客服回复慢')])
+        latest = save_human_review(self.f.db, original['review_id'], annotation_id=original['annotation_id'],
+                                   expected_revision_id=revision['revision_id'], action='corrected', reviewer='SIMULATED',
+                                   opinions=[dict(aspect='service', sentiment='negative', quote='客服回复慢')])
+        save_human_review(self.f.db, removed['review_id'], annotation_id=removed['annotation_id'],
+                          expected_revision_id=None, action='corrected', reviewer='SIMULATED', opinions=[])
+
+        negative = self.corpus()
+        self.assert_same_evidence_as_pages(negative, self.scope, 'negative')
+        self.assertEqual((negative['total'], negative['total_opinions']), (1, 1))
+        self.assertEqual(negative['summary']['successful_reviews'], 4)
+        item = negative['items'][0]
+        self.assertEqual((item['review_id'], item['revision_id'], item['opinion_source']),
+                         (original['review_id'], latest['revision_id'], 'human'))
+        self.assertEqual(item['evidence_ref'], original['evidence_ref'])
+        opinion = item['opinions'][0]
+        self.assertEqual(item['text'][opinion['quote_start']:opinion['quote_end']], '客服回复慢')
+        positive = get_topic_corpus(self.f.db, **self.scope, sentiment='positive')
+        self.assert_same_evidence_as_pages(positive, self.scope, 'positive')
+        self.assertEqual((positive['total'], positive['total_opinions']), (2, 12))
 
     def test_empty_window_positive_filter_and_explicit_denominator(self):
         empty=self.f.run_local('按细分主题统计差评',scope=self.f.scope(date_from='2030-01-01',date_to='2030-02-01'))

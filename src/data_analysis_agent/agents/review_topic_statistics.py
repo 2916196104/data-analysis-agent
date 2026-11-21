@@ -191,9 +191,18 @@ def build_statistics(corpus, *, aspect=None, topic=None, denominator='review_cou
         assignments=assignments,topics=topics,items=list(items.values()),corpus=deepcopy(corpus))
 
 
-def validate_statistics(data):
+def validate_statistics(data, *, verified_payloads=None):
     try:
-        return canonical_json(data)==canonical_json(build_statistics(data['corpus'],aspect=data['aspect'],topic=data['topic'],denominator=data['denominator']))
+        payload = canonical_json(data)
+        key = (VERSION, RULE_DIGEST, payload)
+        if verified_payloads is not None and key in verified_payloads:
+            return True
+        rebuilt = build_statistics(data['corpus'], aspect=data['aspect'], topic=data['topic'],
+                                   denominator=data['denominator'])
+        valid = payload == canonical_json(rebuilt)
+        if valid and verified_payloads is not None:
+            verified_payloads.add(key)
+        return valid
     except (ValueError,KeyError,TypeError,AttributeError,IndexError):return False
 
 

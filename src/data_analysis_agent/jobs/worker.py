@@ -240,6 +240,7 @@ class TaskWorker:
             elif task["kind"] == "analysis":
                 selection_scope = parameters.pop('selection_scope', None)
                 question = parameters.pop("question", None)
+                query_context = {key: parameters.pop(key) for key in ('conversation_id', 'context_task_id') if key in parameters}
                 if question is not None:
                     from data_analysis_agent.agents.reviews import run_review_agent
                     from data_analysis_agent.agents.review_mvp_scope import validate_agent_scope
@@ -249,7 +250,6 @@ class TaskWorker:
                     if queued_identity != current_identity:
                         raise ConfigurationError("Agent 模型配置与入队时不同，请重新提交问答任务。")
                     parameters.pop("rules")
-                    query_context = {key: parameters.pop(key) for key in ('conversation_id', 'context_task_id') if key in parameters}
                     if selection_scope is not None:
                         query_context['selection_scope'] = selection_scope
                     from data_analysis_agent.jobs.analysis_context import load_analysis_context

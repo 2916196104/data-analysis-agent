@@ -147,6 +147,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                                        "prompt_version": PROMPT_VERSION}}
     result.update(user_intent={}, intent_resolution={'method': 'rules', 'model_calls': 0})
     context, agent, llm = None, None, None
+    # Only share exact topic payload checks between the two validation stages of this run.
+    verified_topics = set()
     usage, model_responses = {}, 0
     progress_error = None
 
@@ -375,7 +377,7 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                 validation_started = perf_counter()
                 result["validation"] = validate_report(
                     context.results, ids, sentiment_intent=sentiment_intent, query_plan=plan,
-                    expected_scopes=expected_result_scopes(context.results,scope),
+                    expected_scopes=expected_result_scopes(context.results,scope), verified_topics=verified_topics,
                 )
                 timings["validation_duration_ms"] = round((perf_counter() - validation_started) * 1000, 3)
                 if result["validation"]["status"] != "passed":
@@ -414,7 +416,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
             result['answer_generation'] = {'strategy': 'blocked', 'attempts': 0, 'generation_status': 'unavailable', 'error_code': 'analysis_not_complete'}
         if result['status'] in ('ok', 'partial') and result.get('task_goal') is not None:
             from data_analysis_agent.agents.review_acceptance import validate_task_completion
-            acceptance = validate_task_completion(result['task_goal'], result['scope'], plan, selected)
+            acceptance = validate_task_completion(result['task_goal'], result['scope'], plan, selected,
+                                                  verified_topics=verified_topics)
             result['task_acceptance'] = acceptance
             if acceptance['status'] == 'failed' and result['status'] != 'partial':
                 raise ReviewDataError(acceptance['message'])

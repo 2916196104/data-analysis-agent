@@ -151,6 +151,8 @@ try {
   await page.getByRole('button', { name: '开始分析', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: '导入新数据', exact: true }).count(), 0);
   assert.equal(await page.getByRole('button', { name: '导入数据文件', exact: true }).count(), 1);
+  await page.getByRole('combobox', { name: '全局数据集', exact: true }).click();
+  await page.locator('.ant-select-dropdown:visible').getByText('SIMULATED-frontend', { exact: true }).click();
   await page.locator('.context-summary').filter({ hasText: 'SIMULATED-frontend' }).waitFor();
   assert.equal(await page.getByRole('textbox', { name: '分析问题备注' }).isVisible(), false);
   assert.equal(await page.getByRole('combobox', { name: '标注版本', exact: true }).isVisible(), false);
@@ -186,7 +188,10 @@ try {
   await captureLayout(page, artifacts, 'data-preview', layoutMeasurements);
   await page.keyboard.press('Escape');
   await page.getByRole('tab', { name: '数据预览', exact: true }).waitFor({ state: 'hidden' });
-  const analysisEnd = page.locator('.scope-card .ant-picker').first().locator('input').last();
+  const analysisRange = page.locator('.scope-card .ant-picker').first().locator('input');
+  await analysisRange.first().fill('2023-02-01');
+  await analysisRange.first().press('Enter');
+  const analysisEnd = analysisRange.last();
   await analysisEnd.fill('2023-02-28');
   await analysisEnd.press('Enter');
   const question = '验收：DEMO-A 的负面问题有哪些变化？';
@@ -204,6 +209,7 @@ try {
   const submission = (await (await submitted).json()).result;
   const taskId = submission.task.task_id;
   assert.deepEqual(submission.task.parameters.product_ids, ['DEMO-A']);
+  assert.equal(submission.task.parameters.date_from, '2023-02-01');
   assert.equal(submission.task.parameters.date_to, '2023-02-28');
   assert.equal(submission.task.parameters.question, undefined);
   await page.getByRole('heading', { name: '从评论中，看到变化' }).waitFor({ timeout: 30_000 });
@@ -612,7 +618,10 @@ try {
   // CSV uses the same native picker and a separate source through preparation.
   await page.setViewportSize({ width: 1366, height: 900 });
   const localCsv = path.join(localFiles, '京东 评论.CSV');
-  await writeFile(localCsv, '\uFEFF商品ID,用户ID,打分,商品名称,评论内容,评论时间\n000123,00042,5,模拟CSV商品,包装完整,2024/8/21 17:30\n');
+  const csvIds = ['000123', '000124'];
+  const csvRows = csvIds.flatMap(productId => [7, 8].map(month =>
+    `${productId},00042,2,模拟CSV商品${productId},包装破损,2024/${month}/21 17:30`));
+  await writeFile(localCsv, '\uFEFF商品ID,用户ID,打分,商品名称,评论内容,评论时间\n' + csvRows.join('\n') + '\n');
   await page.getByRole('button', { name: '导入数据文件', exact: true }).click();
   assert.equal(await page.locator('input[aria-label="评论文件"]').getAttribute('accept'), '.csv,.jsonl,.jsonl.gz');
   await chooseImportFile(localCsv);
@@ -623,23 +632,25 @@ try {
   await page.getByRole('button', { name: '标注已导入的数据', exact: true }).waitFor();
   const csvTask = (await get('/tasks?kind=import')).items[0];
   const csvResult = await get(`/tasks/${csvTask.task_id}`);
-  assert.equal(csvResult.result.imports[0].inserted_records, 1);
+  assert.equal(csvResult.result.imports[0].inserted_records, csvRows.length);
   assert.equal(csvResult.result.imports[0].source, 'reviews_csv');
   const csvProducts = (await get('/options')).products.filter(item => item.source === 'reviews_csv');
-  assert.equal(csvProducts[0].product_id, '000123');
+  assert.deepEqual(csvProducts.map(product => product.product_id).sort(), csvIds);
   await page.getByRole('button', { name: '标注已导入的数据', exact: true }).click();
   await page.getByText('reviews_csv / reviews-csv', { exact: true }).waitFor();
   await page.screenshot({ path: path.join(artifacts, 'csv-preparation.png'), fullPage: true });
-  await page.keyboard.press('Escape');
-  // Agent uses the actual queue, HelloAgents, SDK and read-only business tools.
+  await page.getByRole('button', { name: '提交标注任务', exact: true }).click();
+  await page.getByText(`标注进度 ${csvRows.length}/${csvRows.length}`, { exact: true }).waitFor();
+  await page.getByText(`成功 ${csvRows.length}`, { exact: true }).waitFor();
   const agentContext = await browser.newContext({ viewport: { width: 1366, height: 900 }, acceptDownloads: true });
-  const fixtureProfile = (await get('/options')).profiles.find(profile => profile.requested_model === 'SIMULATED-ANNOTATIONS');
-  await agentContext.addInitScript(({ storageKey, profileId }) => {
+  const fixtureProfile = (await get('/options')).profiles.find(profile => profile.requested_model === 'SIMULATED-LABEL-MODEL');
+  assert.ok(fixtureProfile, 'the isolated CSV reviews must have a label profile');
+  await agentContext.addInitScript(({ storageKey, profileId, productIds }) => {
     if (!localStorage.getItem(storageKey)) localStorage.setItem(storageKey, JSON.stringify({ selected: null, notes: {}, draft: {
-      dataset: JSON.stringify(['amazon_reviews_2023', 'SIMULATED-frontend']), productIds: ['DEMO-A', 'DEMO-B'],
-      profileId, current: ['2023-02-01', '2023-02-24'], baseline: ['2023-01-01', '2023-01-31'], note: '',
+      dataset: JSON.stringify(['reviews_csv', 'reviews-csv']), productIds,
+      profileId, current: ['2024-08-01', '2024-08-31'], baseline: ['2024-07-01', '2024-07-31'], note: '', rangeConfirmed: true,
     } }));
-  }, { storageKey: `review-workbench:${apiUrl}`, profileId: fixtureProfile.profile_id });
+  }, { storageKey: `review-workbench:${apiUrl}`, profileId: fixtureProfile.profile_id, productIds: csvIds });
   const agentPage = await agentContext.newPage();
   const mainPage = page;
   page = agentPage;
@@ -650,8 +661,9 @@ try {
   assert.equal(new URL(agentPage.url()).pathname, '/assistant');
   assert.equal(await agentPage.getByRole('dialog').count(), 0);
   await agentPage.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
-  await agentPage.getByRole('button', { name: '按日查看评论趋势', exact: true }).click();
-  assert.equal(await agentPage.getByRole('textbox', { name: '评论分析问题' }).inputValue(), '按日查看评论趋势');
+  const suggestedQuestion = '按月分析物流好评占比趋势';
+  await agentPage.getByRole('button', { name: suggestedQuestion, exact: true }).click();
+  assert.equal(await agentPage.getByRole('textbox', { name: '评论分析问题' }).inputValue(), suggestedQuestion);
   await captureLayout(agentPage, artifacts, 'agent-question', layoutMeasurements);
   const agentQuestion = '按月查看评论趋势，对比所选商品，并查询包装负面评论的原文证据';
   await agentPage.getByRole('textbox', { name: '评论分析问题' }).fill(agentQuestion);
@@ -682,36 +694,41 @@ try {
   const agentTask = await get(`/tasks/${agentId}`);
   assert.equal(agentTask.status, 'succeeded', JSON.stringify(agentTask));
   assert.equal(agentTask.parameters.question, agentQuestion);
-  assert.equal(agentTask.result.results.r1.data.summary.review_count, 48);
-  assert.equal(agentTask.result.results.r2.data.products.length, 2);
-  assert.ok(agentTask.result.results.r3.data.items.every(item => item.opinions[0].quote === '包装破损'));
-  assert.equal(agentModelCalls, 2);
+  const resultOf = kind => Object.values(agentTask.result.results).find(item => item.kind === kind).data;
+  assert.equal(agentTask.result.validation.status, 'passed');
+  assert.equal(agentTask.result.total_model_calls, 0);
+  assert.equal(resultOf('trend').summary.review_count, 2);
+  assert.deepEqual(resultOf('comparison').products.map(product => product.product_id).sort(), csvIds);
+  const evidence = resultOf('evidence').items;
+  assert.equal(evidence.length, 2);
+  assert.ok(evidence.every(item => item.opinions[0].quote === '包装破损'));
+  assert.equal(agentModelCalls, 0);
   await agentPage.getByRole('button', { name: /查看原文 #/ }).first().click();
   await agentPage.locator('.chat-inline-detail').getByText(/sha256:/).waitFor();
   assert.equal(await agentPage.getByRole('dialog').count(), 0);
   await agentPage.getByRole('button', { name: '关闭数据详情', exact: true }).click();
   await agentPage.locator('.chat-inline-detail').waitFor({ state: 'hidden' });
+  const auditPanel = agentPage.getByText('开发调试与结果校验', { exact: true });
+  await auditPanel.click();
   const [agentDownload] = await Promise.all([
     agentPage.waitForEvent('download'),
     agentPage.getByRole('button', { name: '下载 Agent JSON', exact: true }).click({ timeout: 5000 }),
   ]);
   assert.deepEqual(JSON.parse(await readFile(await agentDownload.path(), 'utf8')), agentTask.result);
-  await agentPage.locator('.chat-report > summary').click();
-  const nextQuestion = `第二次查询：请解释当前范围的包装问题。\n${'请结合真实评论原文分析。'.repeat(65)}`;
+  await auditPanel.click();
+  const nextQuestion = '查看缺失正文、失败标注和覆盖率';
   await chatInput.fill(nextQuestion);
   const nextSubmission = agentPage.waitForResponse(response => response.url() === `${apiUrl}/tasks` && response.request().method() === 'POST');
   await agentPage.getByRole('button', { name: '提交问题', exact: true }).click();
   const nextRequest = (await nextSubmission).request().postDataJSON();
-  assert.deepEqual(nextRequest.parameters.product_ids, ['DEMO-A', 'DEMO-B']);
-  assert.equal(nextRequest.parameters.date_from, '2023-02-01');
+  assert.deepEqual([...nextRequest.parameters.product_ids].sort(), csvIds);
+  assert.equal(nextRequest.parameters.date_from, '2024-08-01');
   assert.equal(nextRequest.parameters.question, nextQuestion);
   assert.equal('messages' in nextRequest || 'messages' in nextRequest.parameters, false, 'single-turn API must not receive chat history');
   await until(async () => await agentPage.locator('.chat-report').count() === 2, 'second real Agent reply');
-  assert.equal(agentModelCalls, 4);
+  assert.equal(agentModelCalls, 0);
   assert.deepEqual(await agentPage.locator('.chat-user > p').allTextContents(), [agentQuestion, nextQuestion]);
-  await agentPage.getByRole('button', { name: '对比所选商品的负面评论占比', exact: true }).click();
-  assert.equal(await chatInput.inputValue(), '对比所选商品的负面评论占比');
-  await chatInput.fill('');
+  assert.ok(await chatInput.isEditable(), 'another question can be entered after the reply');
   await agentPage.waitForFunction(() => { const m = document.querySelector('.chat-messages'); return Math.abs(m.scrollTop + m.clientHeight - m.scrollHeight) <= 1; });
   await checkAssistantChat(agentPage, artifacts);
   await clickNavigation('数据管理');
@@ -721,7 +738,7 @@ try {
   await until(async () => await agentPage.locator('.chat-report').count() === 2, 'conversation retained after navigation');
   await agentPage.reload();
   await until(async () => await agentPage.locator('.chat-report').count() === 2, 'saved conversation restored');
-  assert.equal(agentModelCalls, 4, 'reload must only read saved tasks');
+  assert.equal(agentModelCalls, 0, 'reload must only read saved tasks');
   await agentPage.goto(`${webUrl}/tasks/${agentId}`);
   await agentPage.waitForURL(`${webUrl}/assistant/tasks/${agentId}`);
   await until(async () => await agentPage.locator('.chat-report').count() === 2, 'legacy Agent link restored in chat');
@@ -739,7 +756,7 @@ try {
   await agentPage.setViewportSize({ width: 1366, height: 900 });
   await agentPage.screenshot({ path: path.join(artifacts, 'review-agent.png'), fullPage: true });
   await captureLayout(agentPage, artifacts, 'agent-result', layoutMeasurements);
-  assert.equal(agentModelCalls, 4, 'restoring a saved Agent result must not invoke the model');
+  assert.equal(agentModelCalls, 0, 'restoring a saved Agent result must not invoke the model');
   await agentContext.close();
   page = mainPage;
   const emptyContext = await browser.newContext({ viewport: { width: 1366, height: 900 } });
@@ -780,7 +797,7 @@ try {
       'Agent real tools and queue', 'Agent trend comparison and original evidence', 'Agent JSON download', 'Agent reload without model call', 'Agent mobile layout',
       'assistant route without overlays', 'chat keyboard send and multiline input', 'chat submission failure and idempotent retry',
       'ordered local conversation with single-turn requests', 'fixed chat input and independently scrolling messages',
-      'chat presets remain available after replies', 'inline Agent evidence without dialog', 'legacy Agent URL and connection recovery'],
+      'chat preset before first question and editable input after replies', 'inline Agent evidence without dialog', 'legacy Agent URL and connection recovery'],
     browser_errors: browserErrors, layout_screenshots: layoutMeasurements.length, artifacts };
   await writeFile(path.join(artifacts, 'acceptance.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));

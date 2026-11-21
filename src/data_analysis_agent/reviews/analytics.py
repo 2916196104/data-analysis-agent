@@ -585,21 +585,38 @@ def get_aspect_opinions(db_path, *, aspect, sentiment, **scope):
 
 
 def get_topic_corpus(db_path, *, sentiment='negative', **scope):
-    """完整读取当前标注快照，不沿用临时主题发现的 100 条抽样上限。"""
+    """在同一快照中一次读取全部匹配观点，并按评论归组。"""
     if len(scope.get('product_ids') or []) != 1 or sentiment not in ('positive','negative'):
         raise ReviewDataError('细分主题统计需要一个明确商品及正向或负向情感。')
     identity, where, filters, normalized = analysis_scope(**scope)
+    opinion_fields = ('aspect', 'sentiment', 'quote', 'quote_start', 'quote_end')
+    items = []
+    total_opinions = 0
     with _snapshot(db_path) as connection:
-        first=get_evidence(connection,**scope,sentiment=sentiment,page_size=100)
-        items=first['items']
-        # shortcut: reuse evidence pages for single-SKU CSV scopes; switch to a
-        # streaming cursor when larger per-SKU corpora make repeated counts costly.
-        for page in range(2,first['pages']+1):
-            items.extend(get_evidence(connection,**scope,sentiment=sentiment,page_size=100,page=page)['items'])
-        summary=_summary(_summaries(connection,identity,where,filters)[0])
-    for item in items:item.pop('file_path',None)
-    return dict(scope=normalized,summary=summary,sentiment=sentiment,total=first['total'],
-                total_opinions=first['total_opinions'],items=items)
+        cte, parameters = current_reviews_sql(connection, identity)
+        rows = connection.execute(cte + """
+            SELECT c.id review_id, c.source, c.dataset_version, c.product_id, c.text, c.published_at,
+                c.content_sha256, c.annotation_id, c.model_version, c.revision_id,
+                CASE WHEN c.revision_id IS NOT NULL THEN 'human' ELSE 'model' END opinion_source,
+                i.file_sha256, c.line_number, o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end
+            FROM current c JOIN effective_opinions o ON o.review_id=c.id
+            LEFT JOIN import_runs i ON i.id=c.import_run_id WHERE """ + where + """
+                AND o.sentiment=?
+            ORDER BY c.published_at DESC,c.id DESC,o.quote_start,o.quote_end,o.aspect,o.sentiment
+            """, (*parameters, *filters, sentiment))
+        for row in rows:
+            if not items or items[-1]['review_id'] != row['review_id']:
+                if row['file_sha256'] is None:
+                    raise ReviewDataError('细分主题语料缺少原文来源。')
+                item = {key: row[key] for key in row.keys() if key not in opinion_fields}
+                item['opinions'] = []
+                item['evidence_ref'] = f"sha256:{row['file_sha256']}#line={row['line_number']}"
+                items.append(item)
+            items[-1]['opinions'].append({key: row[key] for key in opinion_fields})
+            total_opinions += 1
+        summary = _summary(_summaries(connection, identity, where, filters)[0])
+    return dict(scope=normalized, summary=summary, sentiment=sentiment, total=len(items),
+                total_opinions=total_opinions, items=items)
 
 
 def get_evidence(

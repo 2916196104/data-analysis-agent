@@ -1,6 +1,7 @@
 """创建隔离的模拟评论数据库，供前端验收使用。"""
 
 import argparse
+import csv
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +13,54 @@ from data_analysis_agent.reviews.monitor_store import init_monitoring
 from data_analysis_agent.reviews.store import import_amazon_jsonl, init_database
 from data_analysis_agent.jobs.store import init_tasks
 from data_analysis_agent.reviews.human_review import init_workbench
+
+
+def initialize_fixture(db, tasks):
+    init_database(db)
+    init_labeling(db)
+    init_workbench(db)
+    init_monitoring(db)
+    init_tasks(tasks, db)
+
+
+def seed_positive_trend(db, root: Path, identity: dict) -> None:
+    specs = [('2023-01', '物流很快，送货很快，制冷很差'), ('2023-01', '客服很好'),
+        ('2023-01', '物流很慢'), ('2023-01', '待标注'), ('2023-01', '失败标注'), ('2023-01', ''),
+        ('2023-02', '物流很快'), ('2023-02', '送货很快'), ('2023-02', '客服很好'),
+        ('2023-02', '物流很慢'), ('2023-03', '物流很慢')]
+    rows = [dict(product_id='100013588055', product_name='正向趋势合成商品', user_id=str(index),
+                 published_at=month + '-15', text=text) for index, (month, text) in enumerate(specs)]
+    rows += [dict(product_id=product_id, product_name='范围对照', user_id='excluded-' + str(index),
+                  published_at=day, text='物流很快') for index, (product_id, day) in enumerate([
+                      ('OTHER', '2023-01-15'), ('100013588055', '2022-12-15'), ('100013588055', '2023-05-15')])]
+    path = root / 'positive-trend.csv'
+    with path.open('w', encoding='utf-8', newline='') as handle:
+        writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
+    imported = import_amazon_jsonl(db, reviews_path=path, dataset_version='reviews-csv')
+    if imported['imports'][0]['inserted_records'] != len(rows):
+        raise ValueError('演示评论样例导入不完整。')
+    for row in pending_reviews(db, **identity, source='reviews_csv', limit=100):
+        if row['text'] == '待标注':
+            continue
+        if row['text'] == '失败标注':
+            save_annotation(db, row, **identity, status='failed', error_code='invalid_output')
+            continue
+        values = [dict(aspect=aspect, sentiment=sentiment, quote=quote) for aspect, sentiment, quote in [
+            ('logistics', 'positive', '物流很快'), ('logistics', 'positive', '送货很快'),
+            ('logistics', 'negative', '物流很慢'), ('service', 'positive', '客服很好'),
+            ('effectiveness', 'negative', '制冷很差')] if quote in row['text']]
+        save_annotation(db, row, **identity, status='success',
+                        opinions=validate_opinions(json.dumps({'opinions': values}), row['text']))
+
+
+def create_demo_fixture(root: Path) -> Path:
+    db = root / 'reviews.sqlite3'
+    initialize_fixture(db, root / 'reviews.tasks.sqlite3')
+    seed_positive_trend(db, root, {'model': 'SIMULATED-ANNOTATIONS', 'base_url': 'https://offline.invalid/v1',
+                                  'prompt_version': 'fixture-v1'})
+    return db
 
 
 def create_fixture(root: Path, database: str | None = None) -> dict[str, Any]:
@@ -26,11 +75,7 @@ def create_fixture(root: Path, database: str | None = None) -> dict[str, Any]:
         if not urlsplit(database).path.startswith('/agent_test_'):
             raise ValueError('外部验收数据库必须使用 agent_test_ 前缀。')
         db = tasks = database
-    init_database(db)
-    init_labeling(db)
-    init_workbench(db)
-    init_monitoring(db)
-    init_tasks(tasks, db)
+    initialize_fixture(db, tasks)
     rows = []
     for product in ('DEMO-A', 'DEMO-B'):
         for month in (1, 2):

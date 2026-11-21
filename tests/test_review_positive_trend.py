@@ -1,5 +1,4 @@
 """Positive UTC trends use real SQLite aggregates and the native Agent without models."""
-import csv
 from copy import deepcopy
 import hashlib
 import json
@@ -7,16 +6,14 @@ import unittest
 from unittest.mock import patch
 
 from test_agent import SETTINGS
-from test_review_workbench import WorkbenchFixture, IDENTITY, opinion
+from test_review_workbench import WorkbenchFixture, IDENTITY
+from scripts.frontend_fixture import seed_positive_trend
 from data_analysis_agent.agents.reviews import run_review_agent
 from data_analysis_agent.agents.review_answers import read_public_answer
 from data_analysis_agent.agents.review_compression import read_public_analysis
 from data_analysis_agent.agents.review_plan import build_query_plan
 from data_analysis_agent.agents.review_validation import validate_report, expected_result_scopes
 from data_analysis_agent.reviews.analytics import get_trend, get_aspect_trend
-from data_analysis_agent.reviews.store import import_amazon_jsonl
-from data_analysis_agent.reviews.label_store import pending_reviews, save_annotation
-from data_analysis_agent.reviews.opinions import validate_opinions
 
 QUESTION = '按月分析物流好评占比趋势。'
 
@@ -30,32 +27,7 @@ class PositiveTrendTests(WorkbenchFixture, unittest.TestCase):
         for name in ('openai.OpenAI', 'data_analysis_agent.agents.reviews.create_llm',
                      'data_analysis_agent.agents.review_retrieval.create_semantic_service'):
             self.enterContext(patch(name, side_effect=AssertionError('no model/retrieval: ' + name)))
-        specs = [('2023-01', '物流很快，送货很快，制冷很差'), ('2023-01', '客服很好'),
-            ('2023-01', '物流很慢'), ('2023-01', '待标注'), ('2023-01', '失败标注'), ('2023-01', ''),
-            ('2023-02', '物流很快'), ('2023-02', '送货很快'), ('2023-02', '客服很好'),
-            ('2023-02', '物流很慢'), ('2023-03', '物流很慢')]
-        rows = [dict(product_id='100013588055', product_name='正向趋势合成商品', user_id=str(i),
-                     published_at=month + '-15', text=text) for i, (month, text) in enumerate(specs)]
-        rows += [dict(product_id=pid, product_name='范围对照', user_id='excluded-' + str(i), published_at=day,
-                      text='物流很快') for i, (pid, day) in enumerate([
-                          ('OTHER', '2023-01-15'), ('100013588055', '2022-12-15'), ('100013588055', '2023-05-15')])]
-        path = self.root / 'positive-trend.csv'
-        with path.open('w', encoding='utf-8', newline='') as handle:
-            writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
-            writer.writeheader(); writer.writerows(rows)
-        import_amazon_jsonl(self.db, reviews_path=path, dataset_version='reviews-csv')
-        for row in pending_reviews(self.db, **IDENTITY, source='reviews_csv', limit=100):
-            if row['text'] == '待标注':
-                continue
-            if row['text'] == '失败标注':
-                save_annotation(self.db, row, **IDENTITY, status='failed', error_code='invalid_output')
-                continue
-            values = [opinion(aspect, sentiment, quote) for aspect, sentiment, quote in [
-                ('logistics', 'positive', '物流很快'), ('logistics', 'positive', '送货很快'),
-                ('logistics', 'negative', '物流很慢'), ('service', 'positive', '客服很好'),
-                ('effectiveness', 'negative', '制冷很差')] if quote in row['text']]
-            save_annotation(self.db, row, **IDENTITY, status='success',
-                opinions=validate_opinions(json.dumps({'opinions': values}), row['text']))
+        seed_positive_trend(self.db, self.root, IDENTITY)
 
     def run_positive(self, question=QUESTION, *, context=None, **changes):
         before = hashlib.sha256(self.db.read_bytes()).hexdigest()

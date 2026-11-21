@@ -297,7 +297,7 @@ def validate_goal_plan(goal, plan):
     return {'passed': bool(checks) and all(row['passed'] for row in checks), 'checks': checks}
 
 
-def validate_task_completion(goal, scope, plan, selected):
+def validate_task_completion(goal, scope, plan, selected, *, verified_topics=None):
     checks = []
     def check(name, passed, detail):
         checks.append({'name': name, 'passed': bool(passed), 'detail': detail})
@@ -330,7 +330,8 @@ def validate_task_completion(goal, scope, plan, selected):
     try:
         snapshots = {row['result_id']: row for row in selected}
         verified = validate_report(snapshots, list(snapshots), sentiment_intent=plan.sentiment, query_plan=plan,
-                                   expected_scopes=expected_result_scopes(snapshots, scope))['status'] == 'passed'
+                                   expected_scopes=expected_result_scopes(snapshots, scope),
+                                   verified_topics=verified_topics)['status'] == 'passed'
     except (KeyError, ValueError, TypeError, IndexError, AttributeError):
         verified = False
     check('统计与引用校验', verified, '复用原 Validator 的数字、分母、范围、主题来源及精确引用校验。')

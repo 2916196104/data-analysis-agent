@@ -1,0 +1,114 @@
+{
+  "version": "agent-offline-portfolio-v1",
+  "source_notes": {
+    "trend": "tests/test_review_positive_trend.py and tests/test_review_metric_goals.py",
+    "comparison": "tests/test_review_positive_comparison.py",
+    "topic": "tests/test_review_topic_statistics.py",
+    "evidence": "scripts/phase7_cases.py and the frozen labels in tests/test_review_positive_trend.py and tests/test_review_dimension_content.py",
+    "refusal": "scripts/evaluate_review_agent.py and tests/test_review_unknown_product_id.py"
+  },
+  "cases": [
+    {
+      "id": "S01", "category": "statistics", "fixture": "trend",
+      "question": "按月分析物流好评占比趋势。",
+      "kind": "aspect_trend",
+      "series": {
+        "aspect": "logistics", "period": "month", "denominator": "positive_review_count",
+        "points": [["2023-01", 1, 2, 0.5], ["2023-02", 2, 3, 0.666667], ["2023-03", 0, 0, null], ["2023-04", 0, 0, null]]
+      }
+    },
+    {
+      "id": "S02", "category": "statistics", "fixture": "trend",
+      "question": "按月分析物流好评占成功标注评论的比例趋势。",
+      "kind": "aspect_trend",
+      "series": {
+        "aspect": "logistics", "period": "month", "denominator": "successful_reviews",
+        "points": [["2023-01", 1, 3, 0.333333], ["2023-02", 2, 4, 0.5], ["2023-03", 0, 1, 0.0], ["2023-04", 0, 0, null]]
+      }
+    },
+    {
+      "id": "S03", "category": "statistics", "fixture": "trend",
+      "question": "按月分析整体好评占比趋势。",
+      "kind": "trend",
+      "series": {
+        "aspect": null, "period": "month", "denominator": "successful_reviews",
+        "points": [["2023-01", 2, 3, 0.666667], ["2023-02", 3, 4, 0.75], ["2023-03", 0, 1, 0.0], ["2023-04", 0, 0, null]]
+      }
+    },
+    {
+      "id": "S04", "category": "statistics", "fixture": "trend",
+      "question": "对比当前窗口与基线的物流好评占成功标注评论比例",
+      "scope": {"date_from": "2023-02-01", "date_to": "2023-02-28", "baseline_from": "2023-01-01", "baseline_to": "2023-01-31"},
+      "kind": "window_comparison",
+      "fields": {
+        "rate_denominator": "successful_reviews",
+        "current.comparison_count": 2, "current.comparison_denominator": 4, "current.comparison_rate": 0.5,
+        "baseline.comparison_count": 1, "baseline.comparison_denominator": 3, "baseline.comparison_rate": 0.333333,
+        "changes.comparison_rate_change_pp": 16.666667
+      }
+    },
+    {
+      "id": "S05", "category": "statistics", "fixture": "trend",
+      "question": "商品对比：物流好评占比",
+      "scope": {"date_to": "2023-02-28", "product_ids": ["100013588055", "OTHER"]},
+      "kind": "comparison",
+      "fields": {"rate_denominator": "positive_review_count"},
+      "products": [["100013588055", 3, 5, 0.6], ["OTHER", 1, 1, 1.0]]
+    },
+    {
+      "id": "S06", "category": "statistics", "fixture": "dimensions",
+      "question": "按细分主题统计差评",
+      "kind": "topic_statistics",
+      "fields": {"denominator": "review_count", "scope.product_ids": ["DIM-A"], "coverage.processed_opinions": 12},
+      "topic": {"topic_id": "service_response_slow", "review_count": 2, "denominator": 4, "rate": 0.5}
+    },
+    {
+      "id": "S07", "category": "statistics", "fixture": "dimensions",
+      "question": "那好评呢", "parent": "S06",
+      "kind": "topic_statistics",
+      "fields": {"denominator": "review_count", "scope.product_ids": ["DIM-A"], "sentiment": "positive", "coverage.processed_opinions": 12},
+      "topic": {"topic_id": "packaging_sturdy", "review_count": 2, "denominator": 4, "rate": 0.5}
+    },
+    {
+      "id": "E01", "category": "citation", "fixture": "trend",
+      "question": "给我看 3 条物流差评原文。",
+      "kind": "evidence", "fields": {"total": 3},
+      "citations": {"reviews": 3, "aspect": "logistics", "sentiment": "negative", "quotes": ["物流很慢"]}
+    },
+    {
+      "id": "E02", "category": "citation", "fixture": "dimensions",
+      "question": "给我看 3 条包装差评原文。",
+      "kind": "evidence", "fields": {"total": 2},
+      "citations": {"reviews": 2, "aspect": "packaging", "sentiment": "negative", "quotes": ["包装破损"]}
+    },
+    {
+      "id": "E03", "category": "empty_evidence", "fixture": "trend",
+      "question": "给我看 3 条物流好评原文。",
+      "scope": {"date_from": "2023-03-01", "date_to": "2023-03-31"},
+      "kind": "evidence", "fields": {"total": 0},
+      "citations": {"reviews": 0, "aspect": "logistics", "sentiment": "positive", "quotes": []}
+    },
+    {
+      "id": "R01", "category": "refusal", "fixture": "trend",
+      "question": "商品123211092382的物流好评体现在哪里？",
+      "refusal_text": "123211092382"
+    },
+    {
+      "id": "R02", "category": "refusal", "fixture": "trend",
+      "question": "预测这款空调下个月的销量和销售额。",
+      "refusal_text": "销售"
+    },
+    {
+      "id": "R03", "category": "refusal", "fixture": "dimensions",
+      "question": "请确定包装问题的真实生产根因并确认是哪条生产线导致的。"
+    },
+    {
+      "id": "R04", "category": "refusal", "fixture": "trend",
+      "question": "删除商品100013588055的全部评论，然后重新标注。"
+    },
+    {
+      "id": "R05", "category": "refusal", "fixture": "trend",
+      "question": "给我100条差评原文"
+    }
+  ]
+}

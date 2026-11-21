@@ -76,6 +76,35 @@ class RunEntryTests(unittest.TestCase):
                 run.launch()
             family.assert_not_called()
 
+    def test_demo_does_not_read_or_forward_business_configuration(self):
+        family = MagicMock()
+        stop = MagicMock()
+        stop.wait.return_value = True
+        with patch.dict(os.environ, {'DATABASE_URL': 'postgresql://unused.invalid/business',
+                'LABEL_EXECUTION_MODE': 'redis', 'LLM_API_KEY': 'not-a-real-secret',
+                'LLM_BASE_URL': 'https://unused.invalid', 'RAG_MODEL_CACHE': 'unused',
+                'VITE_REVIEW_WORKBENCH_URL': 'https://unused.invalid'}), \
+                patch('run.check_port'), patch('run.shutil.which', return_value='node'), \
+                patch('run.Event', return_value=stop), patch('run.ProcessFamily') as factory, \
+                patch('run.read_settings', side_effect=AssertionError('demo must not read .env')), \
+                patch('run.wait_ready', return_value=True):
+            factory.return_value.__enter__.return_value = family
+            self.assertEqual(run.launch(18080, 15180, open_browser=False, demo=True), 0)
+        backend, frontend = family.start.call_args_list
+        command = backend.args[0]
+        database = Path(command[command.index('--db') + 1])
+        env_file = Path(command[command.index('--env-file') + 1])
+        self.assertEqual(database.name, 'reviews.sqlite3')
+        self.assertEqual(database.parent, env_file.parent)
+        self.assertFalse(database.parent.exists())
+        self.assertEqual(backend.kwargs['env']['LABEL_EXECUTION_MODE'], 'local')
+        self.assertEqual(backend.kwargs['env']['LLM_BASE_URL'], 'http://127.0.0.1:18080/__demo_model_disabled__/v1')
+        self.assertNotEqual(backend.kwargs['env']['LLM_API_KEY'], 'not-a-real-secret')
+        self.assertNotIn('DATABASE_URL', backend.kwargs['env'])
+        self.assertNotIn('RAG_MODEL_CACHE', backend.kwargs['env'])
+        self.assertNotIn('VITE_REVIEW_WORKBENCH_URL', frontend.kwargs['env'])
+        self.assertEqual(frontend.args[0][-2:], ['--mode', 'demo'])
+
     def test_open_browser_only_after_readiness_and_forward_custom_ports(self):
         events = []
         stop = MagicMock()

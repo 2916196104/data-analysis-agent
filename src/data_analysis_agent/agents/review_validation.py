@@ -181,7 +181,7 @@ def _validate_rank_examples(data):
 
 
 def validate_report(results, result_ids, *, sentiment_intent=None, expected_scope=None,
-                    query_plan=None, expected_scopes=None):
+                    query_plan=None, expected_scopes=None, verified_topics=None):
     """校验快照中所有统计行，零分母必须保留 null；失败时禁止发布成功回答。"""
     sentiment_intent = {"positive_aspects": "positive", "negative_aspects": "negative"}.get(
         sentiment_intent, sentiment_intent,
@@ -328,7 +328,7 @@ def validate_report(results, result_ids, *, sentiment_intent=None, expected_scop
         if item['kind']=='topic_statistics' or 'topic_statistics' in data:
             from data_analysis_agent.agents.review_topic_statistics import validate_statistics
             topic_data=data if item['kind']=='topic_statistics' else data['topic_statistics']
-            additional_ok &= validate_statistics(topic_data)
+            additional_ok &= validate_statistics(topic_data, verified_payloads=verified_topics)
             scope_ok &= _scope_matches(topic_data['scope'],data['scope'])
             if item['kind']=='issues':
                 additional_ok &= topic_data['summary']==data['current']
