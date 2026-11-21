@@ -16,7 +16,7 @@ from data_analysis_agent.agents.review_answers import read_public_answer, semant
 from data_analysis_agent.agents.review_compression import read_public_analysis, CompactAnalysisContext
 from data_analysis_agent.agents.review_plan import build_query_plan
 from data_analysis_agent.agents.review_retrieval import (
-    TOOL, retrieval_request, assess_retrieval, validate_retrieval, create_semantic_service,
+    TOOL, retrieval_request, assess_retrieval, validate_retrieval, create_semantic_service, wants_semantic_search,
 )
 from data_analysis_agent.agents.review_tools import ReviewToolContext, create_review_registry
 from data_analysis_agent.core.serialization import content_sha256
@@ -92,6 +92,31 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(result['total_model_calls'],0)
         self.network.assert_not_called();self.pg.assert_not_called();self.real_encoder.assert_not_called()
         self.assertEqual(result['evidence_completion']['cycles'],0)
+
+    def test_degree_expression_routes_to_evidence_with_the_original_question(self):
+        quote = '制冷很慢'
+        self.sources = [
+            source(self.scope(), quote + '。', quote),
+            source(self.scope(), '制冷很快。', '制冷很快', rid=2, sentiment='positive'),
+        ]
+        question = '有没有制冷比较慢的反馈？'
+        result = self.run_question(question)
+        self.assert_success(result)
+        self.assertEqual(result['query_plan']['required_tools'], [TOOL])
+        self.assertEqual(self.encoder.calls, [[question]])
+        refs = result['public_answer']['evidence_refs']
+        self.assertEqual([opinion['quote'] for ref in refs for opinion in ref['opinions']], [quote])
+
+    def test_degree_expression_routing_keeps_comparison_and_statistics_intents(self):
+        for question in ('有没有运行噪音比较大的反馈？', '有没有配送比较慢的评论？'):
+            with self.subTest(question=question):
+                self.assertTrue(wants_semantic_search(question))
+        for question in ('比较两款商品的物流反馈',
+                         '比较差评原文',
+                         '比较快慢，找几段反馈',
+                         '物流比较慢的反馈有多少条？'):
+            with self.subTest(question=question):
+                self.assertFalse(wants_semantic_search(question))
 
     def test_scope_and_annotation_profile_inherited_without_baseline_or_override(self):
         result=self.run_question(scope=self.scope(as_of='2023-01-03'))

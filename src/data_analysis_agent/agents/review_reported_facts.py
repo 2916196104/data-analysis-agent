@@ -7,6 +7,10 @@ from hashlib import sha256
 import re
 
 POLICY = 'reported_experience_v3'
+COMPARATIVE_ADVERB = re.compile(
+    r'比较[ \t]*(?=(?:慢|快|差|好|大|小|高|低|贵|便宜|久|吵|安静)[ \t]*'
+    r'(?:$|的|了|吗|么|但|却|又|而且|[，,。！？?!；;、]))'
+)
 PATTERNS = {
     'cooling_failure': r'(?:空调)?(?:完全|根本)?(?:不制冷|不降温|降不下温|无法降温|不能降温)',
     'cooling_poor': r'(?:空调)?(?:制冷|降温)(?:效果|能力)?(?:不足|不行|差|很差|太差|不佳|不好|不太好|不理想|不给力|不够给力)|(?:空调)?冷气不足',
@@ -98,7 +102,7 @@ def target(question):
         else:texts=[content]
     # A same-review wrapper must not be silently weakened into an OR query.
     if content != body and body.startswith('同一') and operator=='any_of':return None
-    facts=[fact(text) for text in texts]
+    facts=[fact(COMPARATIVE_ADVERB.sub('', text)) for text in texts]
     if any(value is None for value in facts) or len(set(facts))!=len(facts):return None
     return {'facts':facts,'relation':relation,'text':body,'clauses':texts,'operator':operator}
 

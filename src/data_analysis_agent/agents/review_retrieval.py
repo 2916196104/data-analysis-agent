@@ -10,7 +10,7 @@ import re
 from time import perf_counter
 
 from data_analysis_agent.core.serialization import content_sha256
-from data_analysis_agent.agents.review_reported_facts import POLICY, assess as assess_reported_facts
+from data_analysis_agent.agents.review_reported_facts import COMPARATIVE_ADVERB, POLICY, assess as assess_reported_facts
 from data_analysis_agent.agents import review_reported_facts_v2
 from data_analysis_agent.reviews.embedding import LocalBgeM3Embedder
 from data_analysis_agent.reviews.embedding_store import SPACE_ID
@@ -32,8 +32,8 @@ LITERAL_STATEMENT = (r'(?:空调)?(?:制冷|制热)(?:不足|不行|效果差|�
 
 
 def wants_semantic_search(question):
-    # SQL browsing/pagination and aggregates keep their existing semantics.
-    if question.startswith('执行本轮已确认的只读查询') or re.search(STATISTICS, question):
+    # “制冷比较慢”中的“比较”修饰程度，整个问题仍须通过证据意图检查。
+    if question.startswith('执行本轮已确认的只读查询') or re.search(STATISTICS, COMPARATIVE_ADVERB.sub('', question)):
         return False
     from data_analysis_agent.agents.review_reported_facts import target
     from data_analysis_agent.agents.review_task_contract import evidence_question
