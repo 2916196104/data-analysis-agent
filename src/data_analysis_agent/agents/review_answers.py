@@ -454,6 +454,7 @@ def semantic_answer(context):
     """Reuse PublicAnswer; publish only licensed verbatim reports, never raw candidates."""
     from data_analysis_agent.agents.review_retrieval import POLICY, LEGACY_POLICY, FACT_POLICIES
     from data_analysis_agent.agents.review_reported_facts import validate_answer_bindings
+    from data_analysis_agent.agents import review_reported_facts_v2, review_delivery_timing_evidence as timing
     if len(context.statistics) != 1 or context.statistics[0]['analysis_type'] != 'semantic_evidence':
         raise ValueError('语义回答上下文不一致。')
     stat = context.statistics[0]; filters = stat['filters']; assessment = filters['assessment']
@@ -470,11 +471,13 @@ def semantic_answer(context):
         raise ValueError('语义回答状态与证据不一致。')
     from data_analysis_agent.agents.review_task_contract import evidence_question
     fact_question=filters.get('assessment_question',context.question)
-    if fact_question not in (context.question,evidence_question(context.question, scope)):
+    if fact_question not in (context.question,evidence_question(context.question, scope, fact_policy=assessment['policy'])):
         raise ValueError('事实目标与原问题不一致。')
     if assessment['policy'] in FACT_POLICIES:
-        if assessment['policy'] != POLICY:
-            from data_analysis_agent.agents.review_reported_facts_v2 import validate_answer_bindings
+        if assessment['policy'] == review_reported_facts_v2.POLICY:
+            validate_answer_bindings = review_reported_facts_v2.validate_answer_bindings
+        elif assessment['policy'] == timing.POLICY:
+            validate_answer_bindings = timing.validate_answer_bindings
         if not validate_answer_bindings(fact_question,assessment,context.evidence):
             raise ValueError('语义回答事实、关系或引用绑定不一致。')
     highlights = []
@@ -492,7 +495,14 @@ def semantic_answer(context):
     summary = ('在本次检索到的评论中，有买家明确报告了以下情况。' if keys else
         '本次检索没有返回候选证据，暂时无法回答；这不表示全量评论不存在相关反馈。' if filters['candidate_count']==0 else
         '已检索到候选观点，但当前本地校验不能确认其直接支持所问结论；暂不作确定判断。')
-    if keys and assessment['policy'] == POLICY and assessment.get('operator') == 'any_of':
+    if keys and assessment['policy'] == timing.POLICY:
+        if assessment['required_fact_ids'] == [timing.NOT_RECEIVED]:
+            summary = '以下买家在发表评论时表示仍未收到货。'
+            if '迟迟' in fact_question:
+                summary += '这些引文确认的是当时的收货状态，等待时长以原文明确描述为准。'
+        else:
+            summary = '以下买家在发表评论时表示已经收货，仍在等待上门安装。'
+    elif keys and assessment['policy'] == POLICY and assessment.get('operator') == 'any_of':
         summary = '以下买家反馈满足所问条件中的至少一项；每条引文只支持其明确提到的内容。'
     elif keys and assessment['policy'] == POLICY and (assessment.get('relation') or {}).get('type') == 'same_review':
         summary = '以下反馈在同一条评论内明确提到了所问的全部情况；不同评论未拼接为一条反馈。'

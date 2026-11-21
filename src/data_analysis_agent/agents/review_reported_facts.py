@@ -76,7 +76,7 @@ def closure(facts):
     return set(facts) | {value for key in facts for value in EDGES.get(key,())}
 
 
-def target(question):
+def question_body(question):
     prefix=r'(?:请问|想问|想知道|想了解)?(?:(?:当前|这款|该)(?:商品|产品|空调))?'
     match = re.fullmatch(prefix +
         r'(?:有没有|是否有|有无|是否存在)(.+?)(?:的)?(?:类似)?(?:反馈|抱怨|评论|评价|证据)[？?。！!]*',question.strip())
@@ -84,8 +84,13 @@ def target(question):
         match = re.fullmatch(prefix + r'(?:有|有没有|是否有)(?:买家|用户)(?:反馈说|反映|提到|说)(.+?)(?:吗|么)[？?。！!]*', question.strip())
     if not match:
         match = re.fullmatch(r'(?:请帮我|帮我|请)?(?:找|查找|检索|搜索)(?:出|一下)?(.+?)的(?:反馈|抱怨|评论|评价|原文|证据)[？?。！!]*', question.strip())
-    if not match:return None
-    body=match[1].removesuffix('的').strip('“”「」" ')
+    return match[1].removesuffix('的').strip('“”「」" ') if match else None
+
+
+def target(question):
+    body = question_body(question)
+    if body is None:
+        return None
     relation=None;operator='all_of'
     content=re.sub(r'^(?:买家|用户)(?:反馈说|反映|提到|说)', '', body)
     content=re.sub(r'^同一(?:条)?评论(?:中|里)?', '', content)
@@ -112,7 +117,8 @@ def quote_facts(quote):
     return {value for _, _, clause in clauses(quote) if (value:=fact(clause))}
 
 
-def context_ok(row, facts, *, fact_parser=fact, domains=DOMAINS, opposites=OPPOSITES):
+def context_ok(row, facts, *, fact_parser=fact, domains=DOMAINS, opposites=OPPOSITES,
+               hazards=CONTEXT_HAZARDS, forward_frames=FORWARD_FRAMES):
     text=row['review_text'];start=row['quote_start'];end=row['quote_end']
     if ('delivery_slow' in facts and re.search(r'等(?:待)?了[一二三四五六七八九十两\d]{1,3}(?:天|日|周|星期)才到货', row['quote'])
             and re.search(r'退货|退回|退件|返修|寄回|换货', text)):
@@ -143,15 +149,15 @@ def context_ok(row, facts, *, fact_parser=fact, domains=DOMAINS, opposites=OPPOS
             # An earlier reporting/conditional frame can govern coordinated
             # clauses until the sentence ends, even with an unrelated first topic.
             sentence_prefix=re.split(r'[。！!？?\n]',text[:left])[-1]
-            if re.search(FORWARD_FRAMES,sentence_prefix):return False
-        if re.search(CONTEXT_HAZARDS,clause) or re.match(CONNECTIVES,clause):
+            if re.search(forward_frames,sentence_prefix):return False
+        if re.search(hazards,clause) or re.match(CONNECTIVES,clause):
             # Ignore a frame only when its ENTIRE proposition has a known,
             # independent topic. Orphan frames/pronouns may govern the target.
             independent=re.sub(r'^(?:' + CONNECTIVES + r')', '', clause).strip()
             independent=re.sub(r'^(?:客服说|朋友说|别人说|听说|据说|后来|现在|以前|曾经)', '', independent)
             independent=re.sub(r'^(?:不是|并非|并不)', '', independent)
             if re.search(words,clause):
-                if re.search(CONTEXT_HAZARDS,clause):return False
+                if re.search(hazards,clause):return False
             elif fact_parser(independent) is None:return False
     return True
 
@@ -168,13 +174,13 @@ def supported_targets(wanted, bindings):
     return [fid for fid in wanted if fid in covered]
 
 
-def assess(question,evidence):
-    request=target(question);wanted=request['facts'] if request else []
+def assess(question,evidence, *, policy=POLICY, target_parser=target, quote_parser=quote_facts, context_check=context_ok):
+    request=target_parser(question);wanted=request['facts'] if request else []
     judgments=[];groups={};bindings=[]
     for row in evidence:
-        explicit=quote_facts(row['quote'])
+        explicit=quote_parser(row['quote'])
         supported=closure(explicit)&set(wanted)
-        safe=bool(supported) and context_ok(row,supported)
+        safe=bool(supported) and context_check(row,supported)
         judgments.append({'key':row['key'],'support':'direct_report' if safe else 'unknown',
             'reason':'explicit_entailment' if safe else 'context_unresolved' if supported else 'semantic_not_verified',
             'explicit_fact_ids':sorted(explicit),'supported_fact_ids':sorted(supported) if safe else []})
@@ -188,7 +194,7 @@ def assess(question,evidence):
     chosen=[b for b in bindings if b['review_id'] in valid_reviews]
     keys=[r['key'] for r in evidence if any(b['key']==r['key'] for b in chosen)]
     sufficient=bool(keys)
-    return {'policy':POLICY,'status':'sufficient' if sufficient else 'insufficient',
+    return {'policy':policy,'status':'sufficient' if sufficient else 'insufficient',
         'target':request['text'] if request else None,'required_fact_ids':wanted,
         'operator':request['operator'] if request else 'all_of',
         'supported_target_fact_ids':supported_targets(wanted,chosen),
@@ -200,14 +206,14 @@ def assess(question,evidence):
         'scope_of_claim':'retrieved_buyer_report_only','general_entailment':False}
 
 
-def validate_answer_bindings(question, assessment, evidence):
+def validate_answer_bindings(question, assessment, evidence, *, target_parser=target, quote_parser=quote_facts):
     """Recheck compact answer facts/spans. Full source/context is checked upstream."""
-    request=target(question)
+    request=target_parser(question)
     wanted=request['facts'] if request else []
     bindings=[]; groups={}; keys=[]
     for ref in evidence:
         for quote in ref.opinions:
-            supported=closure(quote_facts(quote.quote)) & set(wanted)
+            supported=closure(quote_parser(quote.quote)) & set(wanted)
             if not supported or quote.quote_end-quote.quote_start != len(quote.quote):return False
             keys.append(quote.opinion_key)
             bindings.append({'key':quote.opinion_key,'review_id':ref.review_id,

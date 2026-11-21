@@ -11,7 +11,7 @@ from time import perf_counter
 
 from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.agents.review_reported_facts import COMPARATIVE_ADVERB, POLICY, assess as assess_reported_facts
-from data_analysis_agent.agents import review_reported_facts_v2
+from data_analysis_agent.agents import review_reported_facts_v2, review_delivery_timing_evidence as timing
 from data_analysis_agent.reviews.embedding import LocalBgeM3Embedder
 from data_analysis_agent.reviews.embedding_store import SPACE_ID
 from data_analysis_agent.reviews.rag_corpus import _document, RagOpinionDocument, RagReviewState
@@ -22,7 +22,7 @@ from data_analysis_agent.reviews.semantic_retrieval import (
 
 TOOL = 'search_semantic_evidence'
 LEGACY_POLICY = 'literal_reported_statement_v1'
-FACT_POLICIES = (POLICY, review_reported_facts_v2.POLICY)
+FACT_POLICIES = (POLICY, review_reported_facts_v2.POLICY, timing.POLICY)
 STATISTICS = r'占比|比例|百分比|多少|几条|数量|统计|趋势|排名|分布|覆盖率|数据质量|对比|比较|主要|最多'
 V2_COMPLEX = r'同时|同一|既.+又|不仅|而且|但|却|又|而是|不是|并非|或者|还是|之前|之后|先.+再|导致|原因|为什么|长期|耐用|睡眠|所有|每个|一定|和|以及|与|[、；;，,]'
 COMPLEX = V2_COMPLEX + r'|或|且'
@@ -37,7 +37,9 @@ def wants_semantic_search(question):
         return False
     from data_analysis_agent.agents.review_reported_facts import target
     from data_analysis_agent.agents.review_task_contract import evidence_question
-    if target(evidence_question(question)):return True
+    fact_question = evidence_question(question)
+    if target(fact_question) or timing.target(fact_question):
+        return True
     return bool(re.search(r'语义检索|类似.*(?:评论|反馈|抱怨|证据)|(?:有没有|是否有|有无|是否存在).*(?:评论|评价|反馈|抱怨|证据)|'
                          r'(?:有|有没有|是否有)(?:买家|用户)(?:反馈说|反映|提到|说).*(?:吗|么)[？?]*|'
                          r'(?:找|检索|搜索).*(?:评论|原文|反馈|证据)', question))
@@ -51,9 +53,10 @@ def retrieval_request(question, *, policy=POLICY):
     # negation of later sentiment words; strip only this question prefix.
     direction_text = re.sub(r'^(\s*(?:请问)?)(?:有没有|是否有)', r'\1', question)
     directions = detect_sentiment_directions(direction_text)
-    uncertain = bool(re.search(COMPLEX if policy==POLICY else V2_COMPLEX, question)) or len(topics) > 1 or len(directions) > 1
+    current_query_policy = policy in (POLICY, timing.POLICY)
+    uncertain = bool(re.search(COMPLEX if current_query_policy else V2_COMPLEX, question)) or len(topics) > 1 or len(directions) > 1
     from data_analysis_agent.agents.review_reported_facts import target
-    request = target(question) if policy==POLICY else None
+    request = target(question) if current_query_policy else None
     uncertain = uncertain or bool(request and len(request['facts']) > 1)
     aspect = None
     # Only explicit category names; a subtopic alone is not an approved SQL label.
@@ -144,6 +147,8 @@ def assess_literal_retrieval(question, evidence):
 def assess_retrieval(question, evidence, *, policy=POLICY):
     if policy == POLICY:
         return assess_reported_facts(question, evidence)
+    if policy == timing.POLICY:
+        return timing.assess(question, evidence)
     if policy == review_reported_facts_v2.POLICY:
         return review_reported_facts_v2.assess(question, evidence)
     if policy == LEGACY_POLICY:
@@ -155,7 +160,7 @@ def execute_retrieval(context, scope):
     if not context.question or not wants_semantic_search(context.question):
         raise SemanticRetrievalError('semantic_query_not_bound')
     expected = _scope(scope)
-    from data_analysis_agent.agents.review_task_contract import evidence_question, evidence_scope_matches
+    from data_analysis_agent.agents.review_task_contract import evidence_policy, evidence_question, evidence_scope_matches
     if not evidence_scope_matches(context.question, scope):
         raise SemanticRetrievalError('question_scope_mismatch')
     service = (context.semantic_service_factory(context.connection, deepcopy(scope))
@@ -169,8 +174,9 @@ def execute_retrieval(context, scope):
         raise SemanticRetrievalError('result_scope_or_question_mismatch')
     payload = result.to_dict()
     started=perf_counter()
-    fact_question=evidence_question(context.question, scope)
-    assessment=assess_retrieval(fact_question, payload['evidence'])
+    policy = evidence_policy(context.question, scope)
+    fact_question=evidence_question(context.question, scope, fact_policy=policy)
+    assessment=assess_retrieval(fact_question, payload['evidence'], policy=policy)
     data = {'scope': expected.model_dump(mode='json'), 'retrieval': payload,
             'assessment_question':fact_question,
             'assessment': assessment, 'timings':dict(service.timings,

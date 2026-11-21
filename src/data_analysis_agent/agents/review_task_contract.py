@@ -9,6 +9,7 @@ from data_analysis_agent.core.validation import Text
 from data_analysis_agent.reviews.parameters import AnalysisScope, BaselineScope
 from data_analysis_agent.reviews.query_contract import ContractModel, TaskType, RequiredFact, RequiredFacts, FactRelation, Digest, SentimentIntent
 from data_analysis_agent.agents.review_reported_facts import POLICY, target
+from data_analysis_agent.agents import review_delivery_timing_evidence as timing
 
 VERSION = 'review-runtime-contract-v1'
 DATE_PREFIX = re.compile(r'^\s*(?:(?:请问|在|从)\s*)?(\d{4}-\d{2}-\d{2})\s*(?:至|到|~|～|—)\s*'
@@ -36,10 +37,17 @@ def evidence_question(question, scope=None, *, fact_policy=POLICY):
 
 
 def fact_target(question, policy):
+    if policy == timing.POLICY:
+        return timing.target(question)
     if policy == 'reported_experience_v2':
         from data_analysis_agent.agents.review_reported_facts_v2 import target as old_target
         return old_target(question)
     return target(question)
+
+
+def evidence_policy(question, scope):
+    normalized = evidence_question(question, scope, fact_policy=timing.POLICY)
+    return timing.POLICY if timing.target(normalized) else POLICY
 
 
 def evidence_scope_matches(question, scope):
@@ -147,8 +155,10 @@ METRICS = {
 }
 
 
-def build_task_contract(question, scope, plan, *, fact_policy=POLICY):
+def build_task_contract(question, scope, plan, *, fact_policy=None):
     bound = RuntimeScope.model_validate_json(canonical_json(scope))
+    if fact_policy is None:
+        fact_policy = evidence_policy(question, scope) if plan.analysis_type == 'semantic_evidence' else POLICY
     q = evidence_question(question, scope, fact_policy=fact_policy)
     request = fact_target(q,fact_policy) if plan.analysis_type == 'semantic_evidence' else None
     facts = RequiredFacts()
@@ -215,7 +225,9 @@ def build_task_contract(question, scope, plan, *, fact_policy=POLICY):
         status='unsupported';reason='当前无法可靠解析该复合事实、否定或必要关系，请拆分问题或明确各项条件。'
     sentiment=plan.sentiment if plan.sentiment in ('positive','negative','neutral') else 'mixed' if plan.analysis_type=='pros_cons' else 'unknown'
     if request:
-        directions={'negative' if re.search(r'_(?:poor|failure|slow|bad)$|^(?:price|noise)_high$',fid) else 'positive' for fid in request['facts']}
+        directions={'negative' if fid in (timing.NOT_RECEIVED, timing.INSTALL_PENDING)
+                    or re.search(r'_(?:poor|failure|slow|bad)$|^(?:price|noise)_high$',fid) else 'positive'
+                    for fid in request['facts']}
         sentiment=next(iter(directions)) if len(directions)==1 else 'mixed'
     task_type='evidence' if operation in ('fact_search','cause_check','opinion_summary') else 'statistics'
     if plan.analysis_type in ('composite','pros_cons') and plan.requires_evidence and statistics:task_type='mixed'

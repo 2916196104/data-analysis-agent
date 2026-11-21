@@ -442,6 +442,49 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
                 self.assertEqual(read_public_answer({'status':'succeeded','result':result}),result['public_answer'])
                 self.assertEqual(result['total_model_calls'],0)
 
+    def test_delivery_timing_uses_native_top5_verbatim_answer_and_history(self):
+        from data_analysis_agent.agents import review_delivery_timing_evidence as timing
+        for question, quote, fact in (
+            ('买家有没有抱怨迟迟收不到货？', '没收到货却被签收了，现在还没收到货', timing.NOT_RECEIVED),
+            ('P1有没有安装师傅上门比较慢的评论？', '安装太慢，收货过了2天仍没人上门安装', timing.INSTALL_PENDING),
+        ):
+            with self.subTest(question=question):
+                self.sources = [source(self.scope(), '送货很慢。', '送货很慢', rid=2),
+                                source(self.scope(), quote + '。', quote)]
+                self.matches = [OpinionMatch(s.opinions[0], distance)
+                                for s, distance in zip(self.sources, (0.01, 0.1), strict=True)]
+                result = self.run_question(question)
+                self.assert_success(result)
+                data = result['results']['r1']['data']
+                self.assertEqual(data['retrieval']['query']['question'], question)
+                self.assertEqual(data['retrieval']['query']['top_k'], 5)
+                self.assertEqual(data['assessment']['policy'], timing.POLICY)
+                self.assertEqual(data['assessment']['supported_target_fact_ids'], [fact])
+                self.assertEqual(result['query_contract']['required_facts']['items'][0]['id'], fact)
+                self.assertEqual(result['query_contract']['sentiment_intent'], 'negative')
+                self.assertEqual(result['public_answer']['evidence_refs'][0]['opinions'][0]['quote'], quote)
+                self.assertIn('发表评论时', result['public_answer']['summary'])
+                if fact == timing.NOT_RECEIVED:
+                    self.assertIn('等待时长以原文明确描述为准', result['public_answer']['summary'])
+                self.assertEqual(read_public_answer({'status': 'succeeded', 'result': result}), result['public_answer'])
+                self.assertEqual(result['total_model_calls'], 0)
+
+    def test_timing_questions_keep_preexisting_v3_history_unlicensed(self):
+        from data_analysis_agent.agents.review_reported_facts import POLICY
+        question = '买家有没有抱怨迟迟收不到货？'
+        quote = '现在还没收到货'
+        self.sources = [source(self.scope(), quote + '。', quote),
+                        source(self.scope(), '送货很慢。', '送货很慢', rid=2)]
+        with patch('data_analysis_agent.agents.review_task_contract.evidence_policy', return_value=POLICY):
+            before = self.run_question(question)
+        self.assert_success(before)
+        self.assertEqual(before['query_contract']['support_status'], 'retrieval_only')
+        self.assertEqual(before['public_answer']['evidence_refs'], [])
+        self.assertEqual(read_public_answer({'status': 'succeeded', 'result': before}), before['public_answer'])
+        after = self.run_question(question)
+        self.assert_success(after)
+        self.assertEqual(after['public_answer']['evidence_refs'][0]['opinions'][0]['quote'], quote)
+
     def test_v3_or_accepts_one_alternative_and_keeps_operator_and_history_bound(self):
         self.sources=[source(self.scope(),'物流很快。','物流很快',sentiment='positive'),
                       source(self.scope(),'制热很快。','制热很快',rid=2)]

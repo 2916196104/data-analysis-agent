@@ -63,8 +63,12 @@ def assess_candidates(payload, scope, question):
     options = scope.options()
     require(evidence_scope_matches(question, options), 'evidence_scope_mismatch')
     fact_question = evidence_question(question, options)
+    assessment = assess_retrieval(fact_question, payload['evidence'])
+    return display_candidates(payload, question, fact_question, assessment)
+
+
+def display_candidates(payload, question, fact_question, assessment):
     evidence = payload['evidence']
-    assessment = assess_retrieval(fact_question, evidence)
     displayed = display_assessment(fact_question, evidence, assessment)
     refs = permitted_references(dict(retrieval=payload, assessment=displayed), 'r1')
     public_scope = dict(payload['scope'], scope_ref='scope1')

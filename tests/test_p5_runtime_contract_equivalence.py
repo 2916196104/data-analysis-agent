@@ -388,15 +388,25 @@ class RuntimeEquivalenceTests(unittest.TestCase):
         for fields in (dict(publication_allowed=True),dict(semantic_verified=True),dict(permitted_target_fact_ids=('f0',))):
             with self.assertRaises(ValueError):b1.ShadowOutcome('validated_shadow',(),**fields)
 
-    def test_t15_shadow_routes_preserved_and_v3_formal_routes_expanded(self):
+    def test_t15_shadow_routes_keep_legacy_contract_and_separate_new_non_receipt(self):
+        from data_analysis_agent.agents.review_delivery_timing_evidence import NOT_RECEIVED
+        from data_analysis_agent.agents.review_task_contract import build_task_contract
+
         expected={q:('unsupported','statistics','unsupported') for q in compiler.DEFINITIONS}
         expected.update(Q06=('fact_search','evidence','retrieval_only'),Q18=('opinion_summary','evidence','supported'))
         for qid,d in compiler.DEFINITIONS.items():
-            old=build_query_plan(d.question,deepcopy(SCOPE)).task_contract
+            plan=build_query_plan(d.question,deepcopy(SCOPE))
+            old=build_task_contract(d.question, plan.scope, plan, fact_policy=POLICY)
             self.assertEqual((old.operation,old.task_type,old.support_status),expected[qid])
             self.assertEqual(old.required_facts.items,())
+            formal=plan.task_contract
             self.target(qid)
-            self.assertEqual(build_query_plan(d.question,deepcopy(SCOPE)).task_contract,old)
+            self.assertEqual(build_query_plan(d.question,deepcopy(SCOPE)).task_contract,formal)
+            if qid == 'Q06':
+                self.assertEqual(formal.support_status, 'supported')
+                self.assertEqual([fact.id for fact in formal.required_facts.items], [NOT_RECEIVED])
+            else:
+                self.assertEqual(formal, old)
         for question,status in [('有没有制冷效果好的反馈？','supported'),('有没有降温不给力的反馈？','supported'),
             ('有没有制冷好或物流很快的反馈？','supported')]:
             contract=build_query_plan(question,deepcopy(SCOPE)).task_contract
