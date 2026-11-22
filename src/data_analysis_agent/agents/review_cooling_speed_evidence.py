@@ -7,8 +7,10 @@ from data_analysis_agent.agents import review_reported_facts as base
 
 PREVIOUS_POLICY = 'reported_cooling_speed_v1'
 EXPLICIT_POLICY = 'reported_cooling_speed_v2'
-POLICY = 'reported_cooling_speed_v3'
-POLICIES = (PREVIOUS_POLICY, EXPLICIT_POLICY, POLICY)
+PROGRESS_POLICY = 'reported_cooling_speed_v3'
+POLICY = 'reported_cooling_speed_v4'
+KEYWORD_POLICIES = (PROGRESS_POLICY, POLICY)
+POLICIES = (PREVIOUS_POLICY, EXPLICIT_POLICY, *KEYWORD_POLICIES)
 SLOW = 'cooling_slow'
 _SPEED = r'(?:很|太|挺|比较|较|特别|有点)?慢|不快|缓慢|迟缓'
 _SLOW_CLAUSE = re.compile(
@@ -111,7 +113,7 @@ def _context_fact_v2(clause):
     return _context_fact(clause)
 
 
-def _context_ok_v2(row, supported):
+def _context_ok_v2(row, supported, *, fact_parser=_context_fact_v2, condition_change=_CONDITION_CHANGE.search):
     if SLOW not in supported:
         return base.context_ok(row, supported)
     text = row['review_text']
@@ -122,10 +124,10 @@ def _context_ok_v2(row, supported):
         if _OTHER_EXPERIENCE.fullmatch(clause.strip()) and (
                 left < row['quote_end'] or not re.search(r'[。！!？?\n]', text[row['quote_end']-1:left])):
             return False
-    if _CONDITION_CHANGE.search(text) or any(
-            _context_fact_v2(c) in ('cooling_fast', 'cooling_failure') for _, _, c in base.clauses(text)):
+    if condition_change(text) or any(
+            fact_parser(c) in ('cooling_fast', 'cooling_failure') for _, _, c in base.clauses(text)):
         return False
-    return base.context_ok(row, supported, fact_parser=_context_fact_v2, domains=_V2_DOMAINS, opposites=_CONFLICTS,
+    return base.context_ok(row, supported, fact_parser=fact_parser, domains=_V2_DOMAINS, opposites=_CONFLICTS,
         hazards=base.CONTEXT_HAZARDS + _CONTEXT_QUALIFIERS, forward_frames=base.FORWARD_FRAMES + _CONTEXT_QUALIFIERS)
 
 
@@ -180,6 +182,49 @@ def _quote_facts_v3(quote):
     return _quote_facts_v2(quote) | ({SLOW} if reports_timed_progress(quote) else set())
 
 
+_JOINED_EFFECT = re.compile(r'(.+?)[ \t\u3000]+((?:制冷|降温)效果\S+)')
+_UNTESTED_HEATING = re.compile(r'制热(?:还|也|暂时)?没(?:有)?试过')
+_COOLING_SENSATION = re.compile(r'能感觉到凉|感觉不到冷')
+
+
+def _joined_slow(clause):
+    match = _JOINED_EFFECT.fullmatch(clause.strip())
+    return bool(match and _cooling_fact(match[1]) == SLOW and base.fact(match[2]) == 'cooling_poor')
+
+
+def _quote_facts_v4(quote):
+    return _quote_facts_v3(quote) | ({SLOW} if any(_joined_slow(c) for _, _, c in base.clauses(quote)) else set())
+
+
+def _context_fact_v4(clause):
+    text = re.sub(rf'^(?:{base.CONNECTIVES})\s*', '', clause.strip())
+    if _joined_slow(text):
+        return SLOW
+    if _UNTESTED_HEATING.fullmatch(text) or _COOLING_SENSATION.fullmatch(text):
+        return 'cooling_context_only'
+    return _context_fact_v2(clause)
+
+
+def _condition_change_v4(text):
+    # An untested heating mode leaves a separate buyer report about cooling intact.
+    heating = [(left, right) for left, right, clause in base.clauses(text) if _UNTESTED_HEATING.fullmatch(clause.strip())]
+    return any(not any(left <= match.start() and match.end() <= right for left, right in heating)
+               for match in _CONDITION_CHANGE.finditer(text))
+
+
+def _context_ok_v4(row, supported):
+    if reports_timed_progress(row['quote']):
+        return _progress_context_ok(row, supported)
+    return _context_ok_v2(row, supported, fact_parser=_context_fact_v4, condition_change=_condition_change_v4)
+
+
+def keyword_quote_matches(quote, *, policy=POLICY):
+    if policy not in KEYWORD_POLICIES:
+        raise ValueError('unknown cooling keyword policy')
+    parser = _quote_facts_v3 if policy == PROGRESS_POLICY else _quote_facts_v4
+    return SLOW in parser(quote)
+
+
 def is_single_slow(question):
     request = base.target(question)
     return bool(request and request['facts'] == [SLOW] and request['relation'] is None)
@@ -188,10 +233,13 @@ def is_single_slow(question):
 def assess(question, evidence, *, policy=POLICY):
     if policy == PREVIOUS_POLICY:
         return base.assess(question, evidence, policy=policy, quote_parser=_quote_facts, context_check=_context_ok)
-    if policy == POLICY and is_single_slow(question):
+    if policy == PROGRESS_POLICY and is_single_slow(question):
         return base.assess(question, evidence, policy=policy, quote_parser=_quote_facts_v3,
                            context_check=_progress_context_ok)
-    if policy not in (EXPLICIT_POLICY, POLICY):
+    if policy == POLICY and is_single_slow(question):
+        return base.assess(question, evidence, policy=policy, quote_parser=_quote_facts_v4,
+                           context_check=_context_ok_v4)
+    if policy not in POLICIES:
         raise ValueError('unknown cooling evidence policy')
     return base.assess(question, evidence, policy=policy, quote_parser=_quote_facts_v2, context_check=_context_ok_v2)
 
@@ -200,8 +248,8 @@ def validate_answer_bindings(question, assessment, evidence):
     policy = assessment['policy']
     if policy not in POLICIES:
         return False
-    if policy == POLICY and is_single_slow(question):
-        parser = _quote_facts_v3
+    if policy in KEYWORD_POLICIES and is_single_slow(question):
+        parser = _quote_facts_v3 if policy == PROGRESS_POLICY else _quote_facts_v4
     else:
         parser = _quote_facts if policy == PREVIOUS_POLICY else _quote_facts_v2
     return base.validate_answer_bindings(question, assessment, evidence, quote_parser=parser)

@@ -499,7 +499,7 @@ def semantic_answer(context):
         '本次检索没有返回候选证据，暂时无法回答；这不表示全量评论不存在相关反馈。' if filters['candidate_count']==0 else
         '本次检索已返回候选观点，但核验不能确认有原文直接支持问题。当前范围的全部评论是否有相关反馈，暂无法判断。')
     relationship_policy = assessment['policy'] in (POLICY, *cooling.POLICIES)
-    if keys and assessment['policy'] == cooling.POLICY and cooling.is_single_slow(fact_question) and any(
+    if keys and assessment['policy'] in cooling.KEYWORD_POLICIES and cooling.is_single_slow(fact_question) and any(
             cooling.reports_timed_progress(quote.quote) for ref in context.evidence for quote in ref.opinions):
         summary = '以下是买家关于制冷速度的自述或亲测记录。带时长的引文按原文呈现运行时间和降温结果。'
     elif keys and assessment['policy'] == timing.POLICY:

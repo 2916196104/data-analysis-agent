@@ -170,7 +170,7 @@ def _cooling_keyword_fallback(fact_question, request, snapshot, baseline):
         if doc.stable_versioned_opinion_key not in excluded
         and (request.aspect is None or doc.aspect == request.aspect)
         and (request.sentiment is None or doc.sentiment == request.sentiment)
-        and cooling.SLOW in cooling._quote_facts_v3(doc.quote)),
+        and cooling.keyword_quote_matches(doc.quote)),
         key=lambda doc: (doc.published_at, doc.stable_versioned_opinion_key), reverse=True)
     return tuple(documents[:request.top_k - bool(baseline)])
 
@@ -263,15 +263,15 @@ def validate_retrieval(data, question):
 
 
 def _validate_keyword_fallback(question, policy, query, baseline, evidence):
-    if (policy != cooling.POLICY or not cooling.is_single_slow(question)
-            or cooling.assess(question, baseline)['permitted_keys']):
+    if (policy not in cooling.KEYWORD_POLICIES or not cooling.is_single_slow(question)
+            or cooling.assess(question, baseline, policy=policy)['permitted_keys']):
         return False
     keys = {row['key'] for row in baseline}
     keywords = [row for row in evidence if row['channel'] == 'keyword']
     if not 0 < len(keywords) <= query.top_k - bool(baseline):
         return False
     if any(row['key'] in keys or type(row['channel_rank']) is not int or row['channel_rank'] != rank
-           or cooling.SLOW not in cooling._quote_facts_v3(row['quote'])
+           or not cooling.keyword_quote_matches(row['quote'], policy=policy)
            for rank, row in enumerate(keywords, 1)):
         return False
     if keywords != sorted(keywords, key=lambda row: (row['published_at'], row['key']), reverse=True):

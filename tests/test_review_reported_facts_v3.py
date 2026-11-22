@@ -1,5 +1,6 @@
 """Bounded synonym/relationship and clause-context regressions; synthetic evidence."""
 import unittest
+from types import SimpleNamespace
 
 from test_review_reported_facts import evidence
 from data_analysis_agent.agents import review_cooling_speed_evidence as cooling
@@ -91,6 +92,41 @@ class ReportedFactsV3Tests(unittest.TestCase):
                 self.assertEqual(binding['fact_ids'], [cooling.SLOW])
                 self.assertEqual(text[binding['quote_start']:binding['quote_end']], quote)
                 self.assertEqual(assess_retrieval(q, [row])['permitted_keys'], [])
+
+    def test_slow_cooling_keeps_joined_claims_and_untested_heating_in_scope(self):
+        question = '有没有制冷慢的反馈？'
+        joined = '制冷效果慢   制冷效果不好'
+        experience = '制冷效果比较慢，能感觉到凉但感觉不到冷'
+        for text, quote in (
+            (joined, joined),
+            (joined.replace('   ', '\u3000'), joined.replace('   ', '\u3000')),
+            (experience + '，制热没试过', experience),
+        ):
+            with self.subTest(text=text):
+                row = evidence(text, quote)
+                assessment = cooling.assess(question, [row])
+                self.assertEqual(assessment['permitted_keys'], [row['key']])
+                binding, = assessment['fact_bindings']
+                self.assertEqual(binding['fact_ids'], [cooling.SLOW])
+                self.assertEqual(text[binding['quote_start']:binding['quote_end']], quote)
+                opinion = SimpleNamespace(opinion_key=row['key'], quote=quote,
+                                          quote_start=row['quote_start'], quote_end=row['quote_end'])
+                citation = SimpleNamespace(review_id=row['review_id'], opinions=[opinion])
+                self.assertTrue(cooling.validate_answer_bindings(question, assessment, [citation]))
+                self.assertFalse(cooling.assess(question, [row], policy=cooling.PROGRESS_POLICY)['permitted_keys'])
+
+        self.assertTrue(cooling.keyword_quote_matches(joined))
+        self.assertFalse(cooling.keyword_quote_matches(joined, policy=cooling.PROGRESS_POLICY))
+        for text, quote in (
+            ('客服说，' + joined, joined),
+            ('邻居家的空调，' + joined, joined),
+            (experience + '，制冷没试过', experience),
+            (experience + '，制热没试过，完全不制冷', experience),
+            (experience + '，制热没试过，后来关机', experience),
+            ('能感觉到凉但感觉不到冷，制热没试过', '能感觉到凉但感觉不到冷'),
+        ):
+            with self.subTest(text=text):
+                self.assertFalse(cooling.assess(question, [evidence(text, quote)])['permitted_keys'])
 
     def test_slow_cooling_permission_keeps_context_vetoes_and_speed_specificity(self):
         q = '有没有制冷速度不快的反馈？'
