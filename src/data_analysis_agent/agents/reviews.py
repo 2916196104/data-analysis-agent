@@ -269,7 +269,9 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                                         sentiment_intent=sentiment_intent, query_plan=plan, settings=settings,
                                         question=question, semantic_service_factory=semantic_service_factory)
             if plan.analysis_type == 'semantic_evidence':
-                from data_analysis_agent.agents.review_retrieval import create_semantic_service, retrieval_request
+                from data_analysis_agent.agents.review_retrieval import (
+                    create_semantic_service, retrieval_request, retrieval_query_variants,
+                )
                 from data_analysis_agent.reviews.semantic_retrieval import SemanticRetrievalService, SemanticRetrievalError, _scope
                 bound=context.query_scope()
                 # Scope planning is finished; release its snapshot before loading/encoding.
@@ -280,7 +282,8 @@ def run_review_agent(db, question, *, scope, settings, progress=None, conversati
                              else create_semantic_service(connection,bound,settings))
                     if not isinstance(service,SemanticRetrievalService) or service.scope!=_scope(bound):
                         raise SemanticRetrievalError('service_scope_mismatch')
-                    service.prepare(retrieval_request(question))
+                    variants = retrieval_query_variants(question, bound, settings)
+                    service.prepare(retrieval_request(question), query_variants=variants)
                 except SemanticRetrievalError as exc:
                     raise ReviewDataError(exc.code) from None
                 finally:

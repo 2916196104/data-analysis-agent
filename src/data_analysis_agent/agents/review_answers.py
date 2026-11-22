@@ -483,7 +483,6 @@ def semantic_answer(context):
             validate_answer_bindings = cooling.validate_answer_bindings
         if not validate_answer_bindings(fact_question,assessment,context.evidence):
             raise ValueError('语义回答事实、关系或引用绑定不一致。')
-    highlights = []
     for ref in context.evidence:
         if (ref.source_result_id != stat['source_result_id'] or ref.product_id not in scope['product_ids']
                 or not scope['date_from'] <= ref.published_at[:10] <= scope['date_to']):
@@ -492,9 +491,16 @@ def semantic_answer(context):
             if (quote.truncated or not quote.annotation_id or
                     (assessment['policy']==LEGACY_POLICY and quote.quote.strip('。！! ') != assessment['target'])):
                 raise ValueError('语义回答必须保留完整许可引文。')
-            highlights.append(AnswerHighlight(finding_ref=quote.opinion_key, aspect_key=quote.aspect,
-                scope_ref=stat['scope_ref'], source_result_ids=[ref.source_result_id],
-                text=f'评论 #{ref.review_id}（{ref.published_at[:10]}）写道：“{quote.quote}” [{ref.source_result_id}]'))
+    references = context.evidence
+    if 'citation_rerank' in filters:
+        from data_analysis_agent.agents.review_evidence_ranking import CITATION_RERANK_POLICY, rerank_citations
+        if filters['citation_rerank'] != CITATION_RERANK_POLICY:
+            raise ValueError('语义回答重排序版本不一致。')
+        references = rerank_citations(fact_question, references)
+    highlights = [AnswerHighlight(finding_ref=quote.opinion_key, aspect_key=quote.aspect,
+        scope_ref=stat['scope_ref'], source_result_ids=[ref.source_result_id],
+        text=f'评论 #{ref.review_id}（{ref.published_at[:10]}）写道：“{quote.quote}” [{ref.source_result_id}]')
+        for ref in references for quote in ref.opinions]
     summary = ('在本次检索到的评论中，有买家明确报告了以下情况。' if keys else
         '本次检索没有返回候选证据，暂时无法回答；这不表示全量评论不存在相关反馈。' if filters['candidate_count']==0 else
         '本次检索已返回候选观点，但核验不能确认有原文直接支持问题。当前范围的全部评论是否有相关反馈，暂无法判断。')
@@ -516,7 +522,7 @@ def semantic_answer(context):
     elif (not keys and relationship_policy and filters['candidate_count']
             and (assessment.get('relation') or {}).get('type') == 'same_review'):
         summary = '本次候选中，尚未找到同一条评论内同时支持全部条件的完整原文；不能把不同评论拼接成一条反馈。'
-    return PublicAnswer(status='ok', summary=summary, highlights=highlights, evidence_refs=context.evidence,
+    return PublicAnswer(status='ok', summary=summary, highlights=highlights, evidence_refs=references,
         caveats=['仅描述本次检索且可明确核验的买家自述，不代表客观性能、总体比例或全部评论。',
                  '完整评论仅作上下文否决；相似度不代表事实支持。未识别表达属于语义覆盖不足。'],
         sample_note='语义Top-K候选不作为统计样本或总体分母。', generation_status='template',

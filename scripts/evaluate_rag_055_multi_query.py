@@ -13,7 +13,7 @@ from evaluate_rag_055_coverage import OUTPUT_ROOT, setup
 from evaluate_rag_055_hybrid import BASELINE, Candidate, answer_candidates, known_keys, signature
 from evaluate_retrieval_quality import inventory, private_directory, write_json
 from data_analysis_agent.agents.review_reported_facts import target
-from data_analysis_agent.agents.review_retrieval import retrieval_request, wants_semantic_search
+from data_analysis_agent.agents.review_retrieval import SLOW_QUERY_VARIANTS, retrieval_request, wants_semantic_search
 from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.reviews.embedding_process import PersistentEmbeddingProcess
 from data_analysis_agent.reviews.embedding_store import validate_vector
@@ -23,7 +23,7 @@ from data_analysis_agent.reviews.semantic_retrieval import PostgresSemanticRepos
 
 HYBRID = OUTPUT_ROOT / '055-stage4-hybrid-20261121'
 CASE_IDS = ('D01', 'D02', 'H01')
-PARAPHRASES = ('有没有制冷速度迟缓的反馈？', '有没有空调开了好一会儿才凉快的评论？')
+PARAPHRASES = SLOW_QUERY_VARIANTS
 ARM_BUDGETS = {'single': (10,), 'multi': (4, 3, 3)}
 ORDERS = (('single', 'multi'), ('multi', 'single'), ('single', 'multi'), ('multi', 'single'))
 COLLOQUIAL = {

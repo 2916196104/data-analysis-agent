@@ -13,17 +13,20 @@ from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.agents.review_reported_facts import COMPARATIVE_ADVERB, POLICY, assess as assess_reported_facts
 from data_analysis_agent.agents import review_reported_facts_v2, review_delivery_timing_evidence as timing
 from data_analysis_agent.agents import review_cooling_speed_evidence as cooling
+from data_analysis_agent.agents.review_evidence_ranking import CITATION_RERANK_POLICY
 from data_analysis_agent.reviews.embedding import LocalBgeM3Embedder
 from data_analysis_agent.reviews.embedding_store import SPACE_ID
 from data_analysis_agent.reviews.rag_corpus import _document, RagOpinionDocument, RagReviewState
 from data_analysis_agent.reviews.semantic_retrieval import (
     SemanticQuery, SemanticRetrievalService, PostgresSemanticRepository, SemanticRetrievalError, _scope, _in_scope,
-    require_source_validated_result,
+    merge_query_channels, query_channel_limits, require_source_validated_result,
 )
 
 TOOL = 'search_semantic_evidence'
 LEGACY_POLICY = 'literal_reported_statement_v1'
 FACT_POLICIES = (POLICY, review_reported_facts_v2.POLICY, timing.POLICY, *cooling.POLICIES)
+SLOW_QUERY_VARIANTS = ('有没有制冷速度迟缓的反馈？', '有没有空调开了好一会儿才凉快的评论？')
+MULTI_QUERY_FACT_POLICY = 'reported_cooling_speed_v4'
 STATISTICS = r'占比|比例|百分比|多少|几条|数量|统计|趋势|排名|分布|覆盖率|数据质量|对比|比较|主要|最多'
 V2_COMPLEX = r'同时|同一|既.+又|不仅|而且|但|却|又|而是|不是|并非|或者|还是|之前|之后|先.+再|导致|原因|为什么|长期|耐用|睡眠|所有|每个|一定|和|以及|与|[、；;，,]'
 COMPLEX = V2_COMPLEX + r'|或|且'
@@ -175,6 +178,21 @@ def _cooling_keyword_fallback(fact_question, request, snapshot, baseline):
     return tuple(documents[:request.top_k - bool(baseline)])
 
 
+def _slow_query_variants(question, fact_question, policy):
+    if policy != MULTI_QUERY_FACT_POLICY or not cooling.is_single_slow(fact_question):
+        return ()
+    existing = {text.strip().rstrip('？?。') for text in (question, fact_question)}
+    return tuple(text for text in SLOW_QUERY_VARIANTS if text.rstrip('？') not in existing)
+
+
+def retrieval_query_variants(question, scope, settings):
+    if not getattr(settings, 'rag_multi_query', False):
+        return ()
+    from data_analysis_agent.agents.review_task_contract import evidence_policy, evidence_question
+    policy = evidence_policy(question, scope)
+    return _slow_query_variants(question, evidence_question(question, scope, fact_policy=policy), policy)
+
+
 def execute_retrieval(context, scope):
     if not context.question or not wants_semantic_search(context.question):
         raise SemanticRetrievalError('semantic_query_not_bound')
@@ -189,7 +207,10 @@ def execute_retrieval(context, scope):
     request = retrieval_request(context.question)
     policy = evidence_policy(context.question, scope)
     fact_question = evidence_question(context.question, scope, fact_policy=policy)
-    if (getattr(context.settings, 'rag_cooling_keyword_fallback', False)
+    variants = retrieval_query_variants(context.question, scope, context.settings)
+    if variants:
+        result = service.search(request, query_variants=variants)
+    elif (getattr(context.settings, 'rag_cooling_keyword_fallback', False)
             and policy == cooling.POLICY and cooling.is_single_slow(fact_question)):
         result = service.search(request, keyword_fallback=lambda query, snapshot, baseline:
                                 _cooling_keyword_fallback(fact_question, query, snapshot, baseline))
@@ -205,6 +226,8 @@ def execute_retrieval(context, scope):
             'assessment_question':fact_question,
             'assessment': assessment, 'timings':dict(service.timings,
                 permission_ms=(perf_counter()-started)*1000)}
+    if getattr(context.settings, 'rag_citation_rerank', False):
+        data['citation_rerank'] = CITATION_RERANK_POLICY
     if not validate_retrieval(data, context.question):
         raise SemanticRetrievalError('semantic_result_validation_failed')
     return data
@@ -219,9 +242,12 @@ def validate_retrieval(data, question):
     try:
         scope = _scope(data['scope']); raw = data['retrieval']; query = retrieval_request(question,policy=data['assessment']['policy'])
         hybrid = raw['version'] == 'semantic-retrieval-v2'
+        multi_query = raw['version'] == 'semantic-retrieval-v3'
         if raw['query'] != query.model_dump(mode='json') or raw['version'] not in (
-                'semantic-retrieval-v1', 'semantic-retrieval-v2'): return False
+                'semantic-retrieval-v1', 'semantic-retrieval-v2', 'semantic-retrieval-v3'): return False
         if hybrid != ('vector_baseline' in raw): return False
+        if multi_query != ('query_channels' in raw): return False
+        if 'citation_rerank' in data and data['citation_rerank'] != CITATION_RERANK_POLICY: return False
         if raw['scope'] != scope.model_dump(mode='json', exclude={'base_url'}): return False
         if (raw['embedding_space_id'], raw['text_builder_version'], raw['source_policy'], raw['context_policy'], raw['context_version']) != (
             SPACE_ID, 'quote-utf8-v1', 'current_effective_readonly_v1', 'quote_full_review_veto', '1'): return False
@@ -257,9 +283,29 @@ def validate_retrieval(data, question):
             if data['assessment_question']!=fact_question or not evidence_scope_matches(question,data['scope']):return False
         if hybrid and not _validate_keyword_fallback(fact_question, data['assessment']['policy'], query, baseline, evidence):
             return False
+        if multi_query and not _validate_query_channels(query, fact_question, data['assessment']['policy'],
+                                                        raw['query_channels'], evidence):
+            return False
         return data['assessment'] == assess_retrieval(fact_question,evidence,policy=data['assessment']['policy'])
     except (KeyError,ValueError,TypeError,AttributeError,UnicodeError,SemanticRetrievalError):
         return False
+
+
+def _validate_query_channels(query, fact_question, policy, channels, evidence):
+    variants = _slow_query_variants(query.question, fact_question, policy)
+    texts = (query.question, *variants)
+    if not variants or not isinstance(channels, list) or len(channels) != len(texts):
+        return False
+    lists = []
+    for channel, text, limit in zip(channels, texts, query_channel_limits(query.top_k,len(texts)), strict=True):
+        if set(channel) != {'question', 'keys'} or channel['question'] != text:
+            return False
+        keys = channel['keys']
+        if (not isinstance(keys, list) or len(keys)>limit or len(keys)!=len(set(keys))
+                or any(not isinstance(key,str) for key in keys)):
+            return False
+        lists.append(keys)
+    return merge_query_channels(lists,key=lambda key:key) == tuple(row['key'] for row in evidence)
 
 
 def _validate_keyword_fallback(question, policy, query, baseline, evidence):

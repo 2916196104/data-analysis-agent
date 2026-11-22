@@ -16,7 +16,8 @@ from data_analysis_agent.agents.review_answers import read_public_answer, semant
 from data_analysis_agent.agents.review_compression import read_public_analysis, CompactAnalysisContext
 from data_analysis_agent.agents.review_plan import build_query_plan
 from data_analysis_agent.agents.review_retrieval import (
-    TOOL, retrieval_request, assess_retrieval, validate_retrieval, create_semantic_service, wants_semantic_search,
+    TOOL, SLOW_QUERY_VARIANTS, retrieval_request, retrieval_query_variants, assess_retrieval, validate_retrieval,
+    create_semantic_service, wants_semantic_search,
 )
 from data_analysis_agent.agents.review_tools import ReviewToolContext, create_review_registry
 from data_analysis_agent.core.serialization import content_sha256
@@ -38,10 +39,14 @@ def source(scope, text='制冷不足；客服态度好。', quote='制冷不足'
         error_code=None,opinion_source='model',review_content_sha256=content_sha256(['SYNTHETIC',text]),
         published_at='2023-01-02T00:00:00+00:00',review_text=text,import_run_id=1,line_number=rid+1,
         file_sha256=content_sha256('SYNTHETIC-FILE'))
-    start = text.index(quote)
-    doc = _document(dict(**row,model_opinion_id=rid,human_opinion_id=None,quote=quote,quote_start=start,
-        quote_end=start+len(quote),aspect='effectiveness',sentiment=sentiment),identity,profile)
-    return ReviewSource(_review_state(row,[doc],profile),(doc,),text)
+    spans = (quote,) if isinstance(quote, str) else quote
+    docs = []
+    for index, span in enumerate(spans):
+        start = text.index(span)
+        docs.append(_document(dict(**row, model_opinion_id=rid if len(spans)==1 else 100*rid+index,
+            human_opinion_id=None, quote=span, quote_start=start, quote_end=start+len(span),
+            aspect='effectiveness', sentiment=sentiment), identity, profile))
+    return ReviewSource(_review_state(row,docs,profile),tuple(docs),text)
 
 
 class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
@@ -485,6 +490,111 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
         self.assertTrue(validate_retrieval(data, q))
         self.assertFalse(data['assessment']['permitted_keys'])
         self.assertFalse(read_public_answer({'status':'succeeded','result':result})['evidence_refs'])
+
+    def test_opt_in_multi_query_keeps_original_scope_and_verifies_merged_top5(self):
+        question = 'P1有没有制冷很慢的反馈？'
+        scope = self.scope()
+        self.sources = [source(scope, '制冷效果差。','制冷效果差'),
+                        source(scope, '根本不制冷。','根本不制冷',rid=2),
+                        source(scope, '制冷很慢。','制冷很慢',rid=3),
+                        source(scope, '朋友说，制冷很慢。','制冷很慢',rid=4)]
+        matches = [OpinionMatch(s.opinions[0], 0.15) for s in self.sources]
+        batches = iter((matches[:2], [matches[2],matches[0]], [matches[3]]))
+
+        def factory(connection, current):
+            service = self.factory(connection, current)
+            snapshot = self.snapshots[-1]
+            original_search = snapshot.search
+
+            def search(vector, **options):
+                snapshot.matches = next(batches)
+                return original_search(vector, **options)
+
+            snapshot.search = search
+            return service
+
+        settings = replace(SETTINGS, rag_multi_query=True, rag_citation_rerank=True)
+        result = run_review_agent(self.db, question, scope=scope, settings=settings, semantic_service_factory=factory)
+        self.assert_success(result)
+        self.assertEqual(self.encoder.calls, [[question], *[[variant] for variant in SLOW_QUERY_VARIANTS]])
+        self.assertEqual([row['top_k'] for row in self.snapshots[0].search_calls], [2,2,1])
+        self.assertEqual(self.events[:self.events.index('search')].count('encode'), 3)
+        data = result['results']['r1']['data']
+        raw = data['retrieval']
+        self.assertEqual(raw['version'], 'semantic-retrieval-v3')
+        self.assertEqual(raw['query']['question'], question)
+        self.assertEqual(raw['scope']['product_ids'], ['P1'])
+        self.assertEqual(data['assessment_question'], '有没有制冷很慢的反馈？')
+        self.assertEqual([row['review_id'] for row in raw['evidence']], [1,3,4,2])
+        self.assertEqual([ref['review_id'] for ref in result['public_answer']['evidence_refs']], [3])
+        saved = json.loads(json.dumps({'status':'succeeded','result':result}))
+        self.assertEqual(read_public_answer(saved), result['public_answer'])
+        invalid = deepcopy(data)
+        invalid['retrieval']['query_channels'][1]['question'] = '有没有完全不制冷的反馈？'
+        self.assertFalse(validate_retrieval(invalid, question))
+        invalid = deepcopy(data)
+        invalid['retrieval']['query_channels'][1]['keys'].reverse()
+        self.assertFalse(validate_retrieval(invalid, question))
+
+    def test_multi_query_does_not_expand_other_intents_and_can_fall_back_to_original(self):
+        settings = replace(SETTINGS, rag_multi_query=True)
+        for question in ('有没有完全不制冷的反馈？', '有没有首次配送很慢的反馈？', '有没有退货寄回很慢的反馈？',
+                         '有没有同一条评论既说制冷慢又说噪音大的反馈？'):
+            with self.subTest(question=question):
+                self.assertEqual(retrieval_query_variants(question, self.scope(), settings), ())
+        question = '有没有制冷很慢的反馈？'
+        self.sources = [source(self.scope(), '制冷慢。', '制冷慢'),
+                        source(self.scope(), '制热很快。', '制热很快', rid=2)]
+        self.matches = [OpinionMatch(self.sources[0].opinions[0], 0.1)]
+        embed = self.encoder.embed_texts
+
+        def encode(texts):
+            if texts == [question]:
+                return embed(texts)
+            raise ValueError('optional encoding unavailable')
+
+        with patch.object(self.encoder, 'embed_texts', side_effect=encode):
+            result = run_review_agent(self.db, question, scope=self.scope(), settings=settings,
+                                      semantic_service_factory=self.factory)
+        self.assert_success(result)
+        raw = result['results']['r1']['data']['retrieval']
+        self.assertEqual(raw['version'], 'semantic-retrieval-v1')
+        self.assertEqual([row['top_k'] for row in self.snapshots[0].search_calls], [5])
+        self.assertEqual([ref['review_id'] for ref in result['public_answer']['evidence_refs']], [1])
+
+    def test_opt_in_rerank_orders_licensed_sources_and_groups_same_review(self):
+        settings = replace(SETTINGS, rag_citation_rerank=True)
+        question = '有没有制冷很慢的反馈？'
+        detail = '降温太慢了，开了20分钟都还没凉快'
+        self.sources = [source(self.scope(), '制冷慢。', '制冷慢'),
+                        source(self.scope(), detail+'。', detail, rid=2),
+                        source(self.scope(), '朋友说，制冷很慢。','制冷很慢',rid=3)]
+        self.matches = [OpinionMatch(s.opinions[0], 0.1) for s in self.sources]
+        before = self.run_question(question)
+        result = run_review_agent(self.db, question, scope=self.scope(), settings=settings,
+                                  semantic_service_factory=self.factory)
+        self.assert_success(before)
+        self.assert_success(result)
+        self.assertEqual(before['results']['r1']['data']['assessment'], result['results']['r1']['data']['assessment'])
+        self.assertEqual([ref['review_id'] for ref in before['public_answer']['evidence_refs']], [1,2])
+        self.assertEqual([ref['review_id'] for ref in result['public_answer']['evidence_refs']], [2,1])
+        self.assertEqual(read_public_answer({'status':'succeeded','result':result}), result['public_answer'])
+
+        question = '有没有同一条评论既说制冷好又抱怨噪音大的反馈？'
+        quotes = ('制冷很好', '噪音很大')
+        self.sources = [source(self.scope(), '。'.join(quotes)+'。', quotes),
+                        source(self.scope(), '噪音很大。','噪音很大',rid=2)]
+        self.matches = [OpinionMatch(doc, 0.1) for s in self.sources for doc in s.opinions]
+        result = run_review_agent(self.db, question, scope=self.scope(), settings=settings,
+                                  semantic_service_factory=self.factory)
+        self.assert_success(result)
+        ref, = result['public_answer']['evidence_refs']
+        self.assertEqual(ref['review_id'], 1)
+        self.assertEqual([op['quote'] for op in ref['opinions']], list(quotes))
+        self.assertEqual(read_public_answer({'status':'succeeded','result':result}), result['public_answer'])
+        invalid = deepcopy(result['results']['r1']['data'])
+        invalid['citation_rerank'] = 'unverified_order'
+        self.assertFalse(validate_retrieval(invalid, question))
 
     def test_keyword_fallback_retains_vector_origin_and_roundtrips_timed_citation(self):
         from data_analysis_agent.agents import review_cooling_speed_evidence as cooling

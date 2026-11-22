@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
+from itertools import zip_longest
 import math
 import re
 from time import perf_counter
@@ -134,6 +135,7 @@ class SemanticResult:
     context_version: str = '1'
     _source_validation: object = field(default=None, repr=False, compare=False)
     vector_baseline: tuple[SemanticEvidence, ...] | None = None
+    query_channels: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
     def to_dict(self):
         data = dict(version='semantic-retrieval-v1', query=self.query.model_dump(mode='json'),
@@ -154,6 +156,9 @@ class SemanticResult:
                     row.update(channel='keyword', channel_rank=keyword_rank)
                 else:
                     row.update(channel='vector', channel_rank=vector_ranks[row['key']])
+        if self.query_channels:
+            data['version'] = 'semantic-retrieval-v3'
+            data['query_channels'] = [dict(question=text, keys=list(keys)) for text,keys in self.query_channels]
         return data
 
 
@@ -276,6 +281,20 @@ def _verified_sources(sources, keys, scope):
     return documents
 
 
+def query_channel_limits(top_k, channel_count):
+    base, remainder = divmod(top_k, channel_count)
+    return tuple(base + (index < remainder) for index in range(channel_count))
+
+
+def merge_query_channels(channels, *, key):
+    unique = {}
+    for batch in zip_longest(*channels):
+        for item in batch:
+            if item is not None:
+                unique.setdefault(key(item), item)
+    return tuple(unique.values())
+
+
 class SemanticRetrievalService:
     def __init__(self, *, encoder: QueryEncoder, repository: RetrievalRepository, scope):
         self._scope = _scope(scope)
@@ -286,28 +305,46 @@ class SemanticRetrievalService:
     @property
     def scope(self): return self._scope
 
-    def prepare(self, request):
-        self._prepared = None
-        started=perf_counter()
-        query = _parse(request,SemanticQuery,'invalid_retrieval_request')
-        scope = self.scope
-        try: query.question.encode('utf-8')
-        except UnicodeError: raise SemanticRetrievalError('invalid_retrieval_request') from None
+    def _check_embedding_space(self):
         try:
-            _require(isinstance(self.encoder.space,EmbeddingSpace) and self.encoder.space.space_id == SPACE_ID,
+            space = self.encoder.space
+            _require(isinstance(space, EmbeddingSpace) and space.space_id == SPACE_ID,
                      'encoder_embedding_space_mismatch')
         except (AttributeError, ValueError, TypeError, UnicodeError):
             raise SemanticRetrievalError('encoder_embedding_space_mismatch') from None
-        try: vectors = self.encoder.embed_texts([query.question])
+
+    def _encode_query(self, text):
+        try: text.encode('utf-8')
+        except UnicodeError: raise SemanticRetrievalError('invalid_retrieval_request') from None
+        self._check_embedding_space()
+        try: vectors = self.encoder.embed_texts([text])
         except Exception: raise SemanticRetrievalError('embedding_failed') from None
         try:
             _require(isinstance(vectors,(list,tuple)) and len(vectors)==1, 'invalid_query_vector')
             vector = validate_vector(vectors[0])
-            _require(self.encoder.space.space_id == SPACE_ID, 'encoder_embedding_space_mismatch')
+            self._check_embedding_space()
         except SemanticRetrievalError: raise
         except Exception: raise SemanticRetrievalError('invalid_query_vector') from None
-        self._prepared = (query, vector)
-        self.timings={'encoding_total_ms':(perf_counter()-started)*1000}
+        return vector
+
+    def prepare(self, request, *, query_variants=()):
+        self._prepared = None
+        started = perf_counter()
+        query = _parse(request,SemanticQuery,'invalid_retrieval_request')
+        query_variants = tuple(query_variants)
+        texts = (query.question, *query_variants)
+        _require(len(texts) <= min(3, query.top_k) and all(isinstance(text, str) and text.strip() for text in texts)
+                 and len(texts) == len(set(texts)), 'invalid_query_variants')
+        vector = self._encode_query(query.question)
+        variants = ()
+        if query_variants:
+            try:
+                variants = tuple(self._encode_query(text) for text in query_variants)
+            except SemanticRetrievalError:
+                # An optional expansion failure leaves the original query usable.
+                self._check_embedding_space()
+        self._prepared = (query, query_variants, (vector, *variants))
+        self.timings = {'encoding_total_ms':(perf_counter()-started)*1000}
         return query
 
     def _hydrate(self, snapshot, scope, info, query, documents, distances, *, track_timing=False):
@@ -332,25 +369,38 @@ class SemanticRetrievalService:
                 sha256(source.review_text.encode('utf-8')).hexdigest()))
         return tuple(rows)
 
-    def search(self, request, *, keyword_fallback=None) -> SemanticResult:
+    def search(self, request, *, keyword_fallback=None, query_variants=()) -> SemanticResult:
         query = _parse(request,SemanticQuery,'invalid_retrieval_request')
         scope = self.scope
-        if self._prepared is None:self.prepare(query)
+        query_variants = tuple(query_variants)
+        _require(not (query_variants and keyword_fallback), 'conflicting_retrieval_modes')
+        if self._prepared is None:self.prepare(query, query_variants=query_variants)
         prepared,self._prepared = self._prepared,None
-        _require(prepared[0]==query,'prepared_query_mismatch')
-        vector = prepared[1]
+        _require(prepared[:2]==(query,query_variants),'prepared_query_mismatch')
+        vectors = prepared[2]
         # No model work under a database transaction. No normal result on a failure.
         try:
             with self.repository.snapshot(scope) as snapshot:
                 _snapshot_identity(snapshot,scope)
                 info = snapshot.info
                 started=perf_counter()
-                matches = tuple(snapshot.search(vector,top_k=query.top_k,aspect=query.aspect,sentiment=query.sentiment))
+                channels = []
+                for vector, limit in zip(vectors, query_channel_limits(query.top_k,len(vectors)), strict=True):
+                    hits = tuple(snapshot.search(vector,top_k=limit,aspect=query.aspect,sentiment=query.sentiment))
+                    _require(len(hits)<=limit and all(isinstance(hit,OpinionMatch) for hit in hits), 'invalid_candidate_list')
+                    _require(all(type(hit.cosine_distance) in (int,float) and math.isfinite(hit.cosine_distance)
+                                 for hit in hits), 'invalid_candidate_distance')
+                    channels.append(hits)
+                query_channels = ()
+                matches = channels[0]
+                if len(channels)>1:
+                    key = lambda hit: hit.document.stable_versioned_opinion_key
+                    matches = merge_query_channels(channels,key=key)
+                    query_channels = tuple((text,tuple(map(key,hits))) for text,hits in
+                                           zip((query.question,*query_variants),channels,strict=True))
                 self.timings['search_including_corpus_ms']=(perf_counter()-started)*1000
                 _snapshot_identity(snapshot,scope,info)
-                _require(len(matches)<=query.top_k and all(isinstance(m,OpinionMatch) for m in matches), 'invalid_candidate_list')
                 distances = tuple(match.cosine_distance for match in matches)
-                _require(all(type(d) in (int, float) and math.isfinite(d) for d in distances), 'invalid_candidate_distance')
                 evidence = self._hydrate(snapshot, scope, info, query, tuple(m.document for m in matches),
                                          distances, track_timing=True)
                 vector_baseline = None
@@ -366,7 +416,7 @@ class SemanticRetrievalService:
                         evidence = tuple(replace(row, rank=rank) for rank, row in enumerate(merged, 1))
                     self.timings['keyword_fallback_ms'] = (perf_counter() - fallback_started) * 1000
                 self.timings.update(getattr(snapshot,'timings',{}))
-                result = SemanticResult(query,scope,info,evidence,vector_baseline=vector_baseline)
+                result = SemanticResult(query,scope,info,evidence,vector_baseline=vector_baseline,query_channels=query_channels)
                 result = replace(result, _source_validation=_SourceValidation(
                     _SOURCE_VALIDATOR, _result_integrity(result)))
             return result

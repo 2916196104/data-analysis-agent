@@ -5,7 +5,6 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass
 from itertools import zip_longest
 import json
-import re
 from statistics import median
 import sys
 from time import perf_counter
@@ -14,8 +13,7 @@ from baseline_rag_055 import load
 from evaluate_rag_055_coverage import OUTPUT_ROOT, setup
 from evaluate_rag_055_topk import BASELINE, COVERAGE, assess_candidates, signature
 from evaluate_retrieval_quality import inventory, private_directory, write_json
-from data_analysis_agent.agents.review_cooling_speed_evidence import ROOM_DROP
-from data_analysis_agent.agents.review_reported_facts import DOMAINS
+from data_analysis_agent.agents.review_evidence_ranking import CUES, TOPICS, evidence_features as features
 from data_analysis_agent.agents.review_retrieval import retrieval_request, wants_semantic_search
 from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.reviews.embedding_process import PersistentEmbeddingProcess
@@ -27,26 +25,6 @@ from data_analysis_agent.reviews.semantic_retrieval import PostgresSemanticRepos
 TOPK = OUTPUT_ROOT / '055-stage3-topk-20261121'
 SPARSE_INDEX = OUTPUT_ROOT / '055-stage1-query-routing-20261121'
 ORDERS = (('vector', 'hybrid'), ('hybrid', 'vector'), ('vector', 'hybrid'), ('hybrid', 'vector'))
-TOPICS = {
-    'cooling': (DOMAINS['cooling'], DOMAINS['cooling'] + '|凉快|凉爽|变凉|有点凉|' + ROOM_DROP),
-    'heating': (DOMAINS['heating'], DOMAINS['heating'] + '|暖和'),
-    'delivery': (DOMAINS['delivery'] + '|发货|收.{0,3}到货', DOMAINS['delivery'] + '|发货|收.{0,3}到货|送达|签收'),
-    'return': ('退货|退回|寄回', '退货|退回|寄回|退件|取件|退运'),
-    'installation': ('安装|上门', '安装|上门'),
-    'noise': (DOMAINS['noise'], DOMAINS['noise'] + '|静音|很吵'),
-    'packaging': ('包装|纸箱|外箱', '包装|纸箱|外箱|包裹'),
-}
-CUES = {
-    'delay': ('慢|不快|迟迟|不到货', '慢|不快|迟迟|迟缓|不及时|拖|才|等了|没收到|未收到|没送到'),
-    'not_received': ('收不到货|不到货', '收不到|没收到|未收到|没送到|未送到|还没到'),
-    'quick': ('(?<!不)快', '很快|挺快|迅速|及时|当天|次日'),
-    'working_well': ('(?:制冷|降温)(?:效果)?好', '很好|效果好|不错|很棒|满意'),
-    'loud': ('(?:噪音|噪声|声音)(?:很|比较)?大', '声音大|噪音大|噪声大|(?:声音|噪音|噪声).{0,3}大|很吵'),
-    'damaged': ('破了|破损|损坏', '破了|破损|损坏|破裂|裂开'),
-    'temperature': ('零下|负[一二三四五六七八九十0-9]', '零下|负[一二三四五六七八九十0-9]'),
-    'duration': ('慢|不快|迟迟|小时|分钟|连续',
-                 r'(?:[0-9]+|[几一二三四五六七八九十两半]+)\s*(?:个\s*)?(?:小时|钟(?:头)?|天|分钟|周)'),
-}
 
 
 @dataclass(frozen=True)
@@ -60,12 +38,6 @@ class Candidate:
     @property
     def key(self):
         return self.document.stable_versioned_opinion_key
-
-
-def features(question):
-    topics = {name: re.compile(quote) for name, (query, quote) in TOPICS.items() if re.search(query, question)}
-    cues = {name: re.compile(quote) for name, (query, quote) in CUES.items() if re.search(query, question)}
-    return topics, cues
 
 
 def keyword_candidates(documents, request, eligible, exclude):

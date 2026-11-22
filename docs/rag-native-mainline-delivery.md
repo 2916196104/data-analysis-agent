@@ -40,3 +40,17 @@
 ```
 
 [验收脚本](../scripts/accept_review_rag_mainline.py) · [真实运行记录](../outputs/rag-retrieval-quality/native-mainline-acceptance-20261121/acceptance.json) · [公开回答出口](../src/data_analysis_agent/agents/review_answers.py)
+
+## 可选的多 Query 与 Rerank
+
+两项能力从正常评论分析入口读取本地配置，默认使用原问执行向量 Top 5 和全文核验。将需要试用的项目设为 `1` 后重启本地服务即可。[配置示例](../.env.example)
+
+| 开关 | 开启后的行为 |
+| --- | --- |
+| `RAG_MULTI_QUERY` | 仅扩展明确的单一慢冷问题。原问和最多两个固定同义问法共用 5 条召回预算，同一个只读快照内按观点键去重。所有候选仍按原问题核验。扩展编码失败时使用原问 Top 5。 |
+| `RAG_CITATION_RERANK` | 完成原文核验后，根据问法与引文的主题和线索调整展示顺序。同一条评论的已许可引文成组展示。 |
+| `RAG_COOLING_KEYWORD_FALLBACK` | 关键词补查试点保持为 `0`，等独立样本达到验收门槛再评估。 |
+
+多 Query 正常生效时，任务记录各问法的候选键，回放按保存的问法、预算和去重规则复验。在同一个慢冷请求中同时设置多 Query 和关键词补查时，使用多 Query。Rerank 只读取核验通过的引文，在历史回放中复现当时的展示顺序。[慢冷补查现状](rag-cooling-keyword-pilot.md)
+
+接入验收覆盖开关关闭时的 5 个真实 Agent 用例和两项能力开启时的 3 个真实页面用例。`053` 的慢冷问题分配 `2 + 2 + 1` 个召回名额，去重后核验 3 条候选，并在历史中恢复证据不足提示。`055` 仍展示正确原文并恢复历史引用。 [默认链路复验](../outputs/rag-retrieval-quality/native-mainline-post-integration-20261122/acceptance.json) · [页面验收](../outputs/rag-retrieval-quality/native-page-multi-query-rerank-20261122/report.json)

@@ -260,6 +260,8 @@ def adapt_result(item, bound_scope):
             'assessment_question':data.get('assessment_question',data['retrieval']['query']['question']),
             'candidate_count': len(data['retrieval']['evidence']),
             'context_policy': data['retrieval']['context_policy'], 'context_version': data['retrieval']['context_version']}
+        if 'citation_rerank' in data:
+            result.filters['citation_rerank'] = data['citation_rerank']
         result.sentiment = None
     else:
         raise ValueError("无法适配的分析结果类型。")
