@@ -82,7 +82,7 @@ def evaluate(out):
     require(inventory['reviews'] == count, 'incomplete_product_corpus')
     settings = AgentSettings(model=values['LLM_MODEL_ID'], api_key='', base_url=options['base_url'],
         semantic_parser_enabled=False, rag_model_cache=values['RAG_MODEL_CACHE'], rag_python=values['RAG_PYTHON'],
-        rag_timeout_seconds=90)
+        rag_timeout_seconds=90, rag_multi_query=False, rag_citation_rerank=False)
     try:
         with ExitStack() as guards:
             for module in (reviews, runtime):

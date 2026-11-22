@@ -20,7 +20,8 @@ from data_analysis_agent.sales.loader import load_sales_csv
 
 SAMPLE = Path(__file__).resolve().parents[1] / "data/samples/sales_mock.csv"
 FAKE_KEY = "offline-test-key-not-a-real-credential"
-SETTINGS = AgentSettings("offline-test-model", FAKE_KEY, "https://offline.invalid/v1")
+SETTINGS = AgentSettings("offline-test-model", FAKE_KEY, "https://offline.invalid/v1",
+                         rag_multi_query=False, rag_citation_rerank=False)
 
 
 def tools(*calls):
@@ -78,6 +79,12 @@ class AgentTests(unittest.TestCase):
         values = {"LLM_MODEL_ID": "test", "LLM_API_KEY": FAKE_KEY,
                   "LLM_BASE_URL": "https://offline.invalid/v1"}
         settings = AgentSettings.from_values(values)
+        self.assertTrue(settings.rag_multi_query)
+        self.assertTrue(settings.rag_citation_rerank)
+        self.assertFalse(settings.rag_cooling_keyword_fallback)
+        overrides = AgentSettings.from_values({**values, 'RAG_MULTI_QUERY': '0', 'RAG_CITATION_RERANK': '0'})
+        self.assertFalse(overrides.rag_multi_query)
+        self.assertFalse(overrides.rag_citation_rerank)
         self.assertNotIn(FAKE_KEY, repr(settings))
         self.assertNotIn(FAKE_KEY, safe_json({"error": FAKE_KEY}, FAKE_KEY))
         escaped_secret = 'fake-"key\\value'

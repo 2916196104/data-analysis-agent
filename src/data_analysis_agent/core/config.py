@@ -46,8 +46,8 @@ class AgentSettings:
     p6_execution_enabled: bool = False
     p6_publication_enabled: bool = False
     rag_cooling_keyword_fallback: bool = False
-    rag_multi_query: bool = False
-    rag_citation_rerank: bool = False
+    rag_multi_query: bool = True
+    rag_citation_rerank: bool = True
 
     @classmethod
     def from_values(cls, values: dict[str, str]) -> "AgentSettings":
@@ -106,8 +106,8 @@ class AgentSettings:
             rag_python=values.get('RAG_PYTHON', '').strip() or None,
             rag_timeout_seconds=integer('RAG_TIMEOUT_SECONDS', 600, 1, 600),
             rag_cooling_keyword_fallback=bool(integer('RAG_COOLING_KEYWORD_FALLBACK', 0, 0, 1)),
-            rag_multi_query=bool(integer('RAG_MULTI_QUERY', 0, 0, 1)),
-            rag_citation_rerank=bool(integer('RAG_CITATION_RERANK', 0, 0, 1)),
+            rag_multi_query=bool(integer('RAG_MULTI_QUERY', 1, 0, 1)),
+            rag_citation_rerank=bool(integer('RAG_CITATION_RERANK', 1, 0, 1)),
             p6_preparation_enabled=bool(integer('AGENT_P6_PREPARATION_ENABLED', 0, 0, 1)),
             p6_execution_enabled=bool(integer('AGENT_P6_EXECUTION_ENABLED', 0, 0, 1)),
             p6_publication_enabled=bool(integer('AGENT_P6_PUBLICATION_ENABLED', 0, 0, 1)),

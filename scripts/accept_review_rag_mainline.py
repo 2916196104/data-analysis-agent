@@ -118,7 +118,8 @@ def run():
     values, db, options = setup()
     settings = AgentSettings(model=values['LLM_MODEL_ID'], api_key='', base_url=options['base_url'],
         semantic_parser_enabled=False, rag_model_cache=values['RAG_MODEL_CACHE'],
-        rag_python=values['RAG_PYTHON'], rag_timeout_seconds=90)
+        rag_python=values['RAG_PYTHON'], rag_timeout_seconds=90,
+        rag_multi_query=False, rag_citation_rerank=False)
     products = {sku: dict(options, product_ids=[sku]) for sku in (SKU_055, SKU_053)}
     before = {sku: coverage(db, scoped) for sku, scoped in products.items()}
     require(before[SKU_055]['usable_vectors']==before[SKU_055]['effective_opinions'] and
