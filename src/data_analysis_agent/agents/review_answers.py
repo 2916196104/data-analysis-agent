@@ -455,6 +455,7 @@ def semantic_answer(context):
     from data_analysis_agent.agents.review_retrieval import POLICY, LEGACY_POLICY, FACT_POLICIES
     from data_analysis_agent.agents.review_reported_facts import validate_answer_bindings
     from data_analysis_agent.agents import review_reported_facts_v2, review_delivery_timing_evidence as timing
+    from data_analysis_agent.agents import review_cooling_speed_evidence as cooling
     if len(context.statistics) != 1 or context.statistics[0]['analysis_type'] != 'semantic_evidence':
         raise ValueError('语义回答上下文不一致。')
     stat = context.statistics[0]; filters = stat['filters']; assessment = filters['assessment']
@@ -478,6 +479,8 @@ def semantic_answer(context):
             validate_answer_bindings = review_reported_facts_v2.validate_answer_bindings
         elif assessment['policy'] == timing.POLICY:
             validate_answer_bindings = timing.validate_answer_bindings
+        elif assessment['policy'] in cooling.POLICIES:
+            validate_answer_bindings = cooling.validate_answer_bindings
         if not validate_answer_bindings(fact_question,assessment,context.evidence):
             raise ValueError('语义回答事实、关系或引用绑定不一致。')
     highlights = []
@@ -494,19 +497,23 @@ def semantic_answer(context):
                 text=f'评论 #{ref.review_id}（{ref.published_at[:10]}）写道：“{quote.quote}” [{ref.source_result_id}]'))
     summary = ('在本次检索到的评论中，有买家明确报告了以下情况。' if keys else
         '本次检索没有返回候选证据，暂时无法回答；这不表示全量评论不存在相关反馈。' if filters['candidate_count']==0 else
-        '已检索到候选观点，但当前本地校验不能确认其直接支持所问结论；暂不作确定判断。')
-    if keys and assessment['policy'] == timing.POLICY:
+        '本次检索已返回候选观点，但核验不能确认有原文直接支持问题。当前范围的全部评论是否有相关反馈，暂无法判断。')
+    relationship_policy = assessment['policy'] in (POLICY, *cooling.POLICIES)
+    if keys and assessment['policy'] == cooling.POLICY and cooling.is_single_slow(fact_question) and any(
+            cooling.reports_timed_progress(quote.quote) for ref in context.evidence for quote in ref.opinions):
+        summary = '以下是买家关于制冷速度的自述或亲测记录。带时长的引文按原文呈现运行时间和降温结果。'
+    elif keys and assessment['policy'] == timing.POLICY:
         if assessment['required_fact_ids'] == [timing.NOT_RECEIVED]:
             summary = '以下买家在发表评论时表示仍未收到货。'
             if '迟迟' in fact_question:
                 summary += '这些引文确认的是当时的收货状态，等待时长以原文明确描述为准。'
         else:
             summary = '以下买家在发表评论时表示已经收货，仍在等待上门安装。'
-    elif keys and assessment['policy'] == POLICY and assessment.get('operator') == 'any_of':
+    elif keys and relationship_policy and assessment.get('operator') == 'any_of':
         summary = '以下买家反馈满足所问条件中的至少一项；每条引文只支持其明确提到的内容。'
-    elif keys and assessment['policy'] == POLICY and (assessment.get('relation') or {}).get('type') == 'same_review':
+    elif keys and relationship_policy and (assessment.get('relation') or {}).get('type') == 'same_review':
         summary = '以下反馈在同一条评论内明确提到了所问的全部情况；不同评论未拼接为一条反馈。'
-    elif (not keys and assessment['policy'] == POLICY and filters['candidate_count']
+    elif (not keys and relationship_policy and filters['candidate_count']
             and (assessment.get('relation') or {}).get('type') == 'same_review'):
         summary = '本次候选中，尚未找到同一条评论内同时支持全部条件的完整原文；不能把不同评论拼接成一条反馈。'
     return PublicAnswer(status='ok', summary=summary, highlights=highlights, evidence_refs=context.evidence,

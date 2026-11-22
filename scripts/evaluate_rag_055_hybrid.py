@@ -14,6 +14,7 @@ from baseline_rag_055 import load
 from evaluate_rag_055_coverage import OUTPUT_ROOT, setup
 from evaluate_rag_055_topk import BASELINE, COVERAGE, assess_candidates, signature
 from evaluate_retrieval_quality import inventory, private_directory, write_json
+from data_analysis_agent.agents.review_cooling_speed_evidence import ROOM_DROP
 from data_analysis_agent.agents.review_reported_facts import DOMAINS
 from data_analysis_agent.agents.review_retrieval import retrieval_request, wants_semantic_search
 from data_analysis_agent.core.serialization import content_sha256
@@ -27,7 +28,7 @@ TOPK = OUTPUT_ROOT / '055-stage3-topk-20261121'
 SPARSE_INDEX = OUTPUT_ROOT / '055-stage1-query-routing-20261121'
 ORDERS = (('vector', 'hybrid'), ('hybrid', 'vector'), ('vector', 'hybrid'), ('hybrid', 'vector'))
 TOPICS = {
-    'cooling': (DOMAINS['cooling'], DOMAINS['cooling'] + '|凉快|凉爽|变凉|有点凉'),
+    'cooling': (DOMAINS['cooling'], DOMAINS['cooling'] + '|凉快|凉爽|变凉|有点凉|' + ROOM_DROP),
     'heating': (DOMAINS['heating'], DOMAINS['heating'] + '|暖和'),
     'delivery': (DOMAINS['delivery'] + '|发货|收.{0,3}到货', DOMAINS['delivery'] + '|发货|收.{0,3}到货|送达|签收'),
     'return': ('退货|退回|寄回', '退货|退回|寄回|退件|取件|退运'),

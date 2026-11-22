@@ -12,6 +12,7 @@ from time import perf_counter
 from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.agents.review_reported_facts import COMPARATIVE_ADVERB, POLICY, assess as assess_reported_facts
 from data_analysis_agent.agents import review_reported_facts_v2, review_delivery_timing_evidence as timing
+from data_analysis_agent.agents import review_cooling_speed_evidence as cooling
 from data_analysis_agent.reviews.embedding import LocalBgeM3Embedder
 from data_analysis_agent.reviews.embedding_store import SPACE_ID
 from data_analysis_agent.reviews.rag_corpus import _document, RagOpinionDocument, RagReviewState
@@ -22,7 +23,7 @@ from data_analysis_agent.reviews.semantic_retrieval import (
 
 TOOL = 'search_semantic_evidence'
 LEGACY_POLICY = 'literal_reported_statement_v1'
-FACT_POLICIES = (POLICY, review_reported_facts_v2.POLICY, timing.POLICY)
+FACT_POLICIES = (POLICY, review_reported_facts_v2.POLICY, timing.POLICY, *cooling.POLICIES)
 STATISTICS = r'占比|比例|百分比|多少|几条|数量|统计|趋势|排名|分布|覆盖率|数据质量|对比|比较|主要|最多'
 V2_COMPLEX = r'同时|同一|既.+又|不仅|而且|但|却|又|而是|不是|并非|或者|还是|之前|之后|先.+再|导致|原因|为什么|长期|耐用|睡眠|所有|每个|一定|和|以及|与|[、；;，,]'
 COMPLEX = V2_COMPLEX + r'|或|且'
@@ -53,7 +54,7 @@ def retrieval_request(question, *, policy=POLICY):
     # negation of later sentiment words; strip only this question prefix.
     direction_text = re.sub(r'^(\s*(?:请问)?)(?:有没有|是否有)', r'\1', question)
     directions = detect_sentiment_directions(direction_text)
-    current_query_policy = policy in (POLICY, timing.POLICY)
+    current_query_policy = policy in (POLICY, timing.POLICY, *cooling.POLICIES)
     uncertain = bool(re.search(COMPLEX if current_query_policy else V2_COMPLEX, question)) or len(topics) > 1 or len(directions) > 1
     from data_analysis_agent.agents.review_reported_facts import target
     request = target(question) if current_query_policy else None
@@ -149,11 +150,29 @@ def assess_retrieval(question, evidence, *, policy=POLICY):
         return assess_reported_facts(question, evidence)
     if policy == timing.POLICY:
         return timing.assess(question, evidence)
+    if policy in cooling.POLICIES:
+        return cooling.assess(question, evidence, policy=policy)
     if policy == review_reported_facts_v2.POLICY:
         return review_reported_facts_v2.assess(question, evidence)
     if policy == LEGACY_POLICY:
         return assess_literal_retrieval(question, evidence)
     raise ValueError('unknown evidence permission policy')
+
+
+def _cooling_keyword_fallback(fact_question, request, snapshot, baseline):
+    rows = [row.to_dict() for row in baseline]
+    if cooling.assess(fact_question, rows)['permitted_keys']:
+        return ()
+    excluded = {row.key for row in baseline}
+    # Stable key breaks ties between equally recent observations. The quote parser
+    # nominates candidates. Citation permission still needs the full review.
+    documents = sorted((doc for doc in snapshot.corpus().documents
+        if doc.stable_versioned_opinion_key not in excluded
+        and (request.aspect is None or doc.aspect == request.aspect)
+        and (request.sentiment is None or doc.sentiment == request.sentiment)
+        and cooling.SLOW in cooling._quote_facts_v3(doc.quote)),
+        key=lambda doc: (doc.published_at, doc.stable_versioned_opinion_key), reverse=True)
+    return tuple(documents[:request.top_k - bool(baseline)])
 
 
 def execute_retrieval(context, scope):
@@ -168,14 +187,19 @@ def execute_retrieval(context, scope):
     if not isinstance(service, SemanticRetrievalService) or service.scope != expected:
         raise SemanticRetrievalError('service_scope_mismatch')
     request = retrieval_request(context.question)
-    result = service.search(request)
+    policy = evidence_policy(context.question, scope)
+    fact_question = evidence_question(context.question, scope, fact_policy=policy)
+    if (getattr(context.settings, 'rag_cooling_keyword_fallback', False)
+            and policy == cooling.POLICY and cooling.is_single_slow(fact_question)):
+        result = service.search(request, keyword_fallback=lambda query, snapshot, baseline:
+                                _cooling_keyword_fallback(fact_question, query, snapshot, baseline))
+    else:
+        result = service.search(request)
     require_source_validated_result(result)
     if result.scope != expected or result.query != request:
         raise SemanticRetrievalError('result_scope_or_question_mismatch')
     payload = result.to_dict()
     started=perf_counter()
-    policy = evidence_policy(context.question, scope)
-    fact_question=evidence_question(context.question, scope, fact_policy=policy)
     assessment=assess_retrieval(fact_question, payload['evidence'], policy=policy)
     data = {'scope': expected.model_dump(mode='json'), 'retrieval': payload,
             'assessment_question':fact_question,
@@ -194,7 +218,10 @@ def validate_retrieval(data, question):
     """
     try:
         scope = _scope(data['scope']); raw = data['retrieval']; query = retrieval_request(question,policy=data['assessment']['policy'])
-        if raw['query'] != query.model_dump(mode='json') or raw['version'] != 'semantic-retrieval-v1': return False
+        hybrid = raw['version'] == 'semantic-retrieval-v2'
+        if raw['query'] != query.model_dump(mode='json') or raw['version'] not in (
+                'semantic-retrieval-v1', 'semantic-retrieval-v2'): return False
+        if hybrid != ('vector_baseline' in raw): return False
         if raw['scope'] != scope.model_dump(mode='json', exclude={'base_url'}): return False
         if (raw['embedding_space_id'], raw['text_builder_version'], raw['source_policy'], raw['context_policy'], raw['context_version']) != (
             SPACE_ID, 'quote-utf8-v1', 'current_effective_readonly_v1', 'quote_full_review_veto', '1'): return False
@@ -202,29 +229,56 @@ def validate_retrieval(data, question):
         identity = (scope.model,scope.base_url,scope.prompt_version); profile = content_sha256(list(identity))
         if raw['label_profile_key'] != profile: return False
         evidence = raw['evidence']
-        if len(evidence)>query.top_k or len({row['key'] for row in evidence}) != len(evidence): return False
-        for rank,row in enumerate(evidence,1):
-            if type(row['rank']) is not int or row['rank'] != rank or row['source'] != scope.source or row['dataset_version'] != scope.dataset_version: return False
-            if not _in_scope(RagReviewState(**row['review_state']),scope): return False
-            if type(row['cosine_distance']) not in (int,float) or not math.isfinite(row['cosine_distance']): return False
-            fields = dict(row, base_url=scope.base_url, embedding_input=row['quote'], stable_versioned_opinion_key=row['key'])
-            doc = RagOpinionDocument(**{key:fields[key] for key in RagOpinionDocument.__dataclass_fields__})
-            if _document(dict(**asdict(doc),review_text=row['review_text'],
-                              processing_status=row['review_state']['processing_status']),identity,profile) != doc: return False
-            if sha256(row['review_text'].encode('utf-8')).hexdigest() != row['review_text_sha256']: return False
-            if row['effective_snapshot_sha256'] != row['review_state']['effective_snapshot_sha256']: return False
-            if any(row[key] != row['review_state'][key] for key in ('review_id','annotation_id','human_revision_id',
-                    'source','dataset_version','product_id','review_content_sha256','published_at','opinion_source')): return False
-            if query.aspect is not None and doc.aspect != query.aspect: return False
-            if query.sentiment is not None and doc.sentiment != query.sentiment: return False
+        baseline = raw.get('vector_baseline', [])
+        for rows, channels in ((baseline, False), (evidence, hybrid)):
+            if len(rows)>query.top_k or len({row['key'] for row in rows}) != len(rows): return False
+            for rank,row in enumerate(rows,1):
+                if type(row['rank']) is not int or row['rank'] != rank or row['source'] != scope.source or row['dataset_version'] != scope.dataset_version: return False
+                if not _in_scope(RagReviewState(**row['review_state']),scope): return False
+                distance = row['cosine_distance']
+                if channels and row['channel'] == 'keyword':
+                    if distance is not None: return False
+                elif (channels and row['channel'] != 'vector') or type(distance) not in (int,float) or not math.isfinite(distance):
+                    return False
+                fields = dict(row, base_url=scope.base_url, embedding_input=row['quote'], stable_versioned_opinion_key=row['key'])
+                doc = RagOpinionDocument(**{key:fields[key] for key in RagOpinionDocument.__dataclass_fields__})
+                if _document(dict(**asdict(doc),review_text=row['review_text'],
+                                  processing_status=row['review_state']['processing_status']),identity,profile) != doc: return False
+                if sha256(row['review_text'].encode('utf-8')).hexdigest() != row['review_text_sha256']: return False
+                if row['effective_snapshot_sha256'] != row['review_state']['effective_snapshot_sha256']: return False
+                if any(row[key] != row['review_state'][key] for key in ('review_id','annotation_id','human_revision_id',
+                        'source','dataset_version','product_id','review_content_sha256','published_at','opinion_source')): return False
+                if query.aspect is not None and doc.aspect != query.aspect: return False
+                if query.sentiment is not None and doc.sentiment != query.sentiment: return False
         fact_question=question
         if 'assessment_question' in data:
             from data_analysis_agent.agents.review_task_contract import evidence_question, evidence_scope_matches
             fact_question=evidence_question(question, data['scope'],fact_policy=data['assessment']['policy'])
             if data['assessment_question']!=fact_question or not evidence_scope_matches(question,data['scope']):return False
+        if hybrid and not _validate_keyword_fallback(fact_question, data['assessment']['policy'], query, baseline, evidence):
+            return False
         return data['assessment'] == assess_retrieval(fact_question,evidence,policy=data['assessment']['policy'])
     except (KeyError,ValueError,TypeError,AttributeError,UnicodeError,SemanticRetrievalError):
         return False
+
+
+def _validate_keyword_fallback(question, policy, query, baseline, evidence):
+    if (policy != cooling.POLICY or not cooling.is_single_slow(question)
+            or cooling.assess(question, baseline)['permitted_keys']):
+        return False
+    keys = {row['key'] for row in baseline}
+    keywords = [row for row in evidence if row['channel'] == 'keyword']
+    if not 0 < len(keywords) <= query.top_k - bool(baseline):
+        return False
+    if any(row['key'] in keys or type(row['channel_rank']) is not int or row['channel_rank'] != rank
+           or cooling.SLOW not in cooling._quote_facts_v3(row['quote'])
+           for rank, row in enumerate(keywords, 1)):
+        return False
+    if keywords != sorted(keywords, key=lambda row: (row['published_at'], row['key']), reverse=True):
+        return False
+    vector = [dict(row, channel='vector', channel_rank=row['rank']) for row in baseline]
+    expected = (vector[:1] + keywords + vector[1:])[:query.top_k]
+    return evidence == [dict(row, rank=rank) for rank, row in enumerate(expected, 1)]
 
 
 def permitted_references(data, result_id):

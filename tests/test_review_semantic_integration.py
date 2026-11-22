@@ -163,6 +163,7 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(result['public_answer']['evidence_refs'],[])
         self.assertEqual(result['answer_generation']['evidence_assessment']['status'],'insufficient')
         self.assertIn('不能确认',result['answer'])
+        self.assertIn('当前范围的全部评论是否有相关反馈，暂无法判断', result['public_answer']['summary'])
 
     def test_complex_query_has_no_hard_filters_or_invented_relationship_support(self):
         question='有没有同一评论既表扬客服又抱怨物流、并提到制冷不足的反馈？'
@@ -442,6 +443,91 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
                 self.assertEqual(read_public_answer({'status':'succeeded','result':result}),result['public_answer'])
                 self.assertEqual(result['total_model_calls'],0)
 
+    def test_slow_cooling_uses_native_top5_verbatim_answer_and_history(self):
+        from data_analysis_agent.agents import review_cooling_speed_evidence as cooling
+
+        question = 'P1有买家反映降温速度较慢吗？'
+        quote = '制冷太慢了，开了20分钟都还没凉快'
+        self.sources = [source(self.scope(), '完全不制冷。', '完全不制冷', rid=2),
+                        source(self.scope(), quote + '。', quote)]
+        self.matches = [OpinionMatch(self.sources[0].opinions[0], 0.01),
+                        OpinionMatch(self.sources[1].opinions[0], 0.1)]
+        result = self.run_question(question)
+        self.assert_success(result)
+        data = result['results']['r1']['data']
+        self.assertEqual(data['retrieval']['query'], retrieval_request(question).model_dump(mode='json'))
+        self.assertEqual(data['assessment_question'], '有买家反映降温速度较慢吗？')
+        self.assertEqual(data['assessment']['policy'], cooling.POLICY)
+        self.assertEqual(data['assessment']['supported_target_fact_ids'], [cooling.SLOW])
+        self.assertEqual(result['query_contract']['required_facts']['items'][0]['id'], cooling.SLOW)
+        ref, = result['public_answer']['evidence_refs']
+        self.assertEqual(ref['opinions'][0]['quote'], quote)
+        self.assertEqual(ref['review_id'], 1)
+        self.assertEqual(read_public_answer({'status': 'succeeded', 'result': result}), result['public_answer'])
+
+        old_data = deepcopy(data)
+        old_data['assessment'] = assess_retrieval(data['assessment_question'], data['retrieval']['evidence'])
+        self.assertEqual(old_data['assessment']['permitted_keys'], [])
+        self.assertTrue(validate_retrieval(old_data, question))
+
+    def test_cooling_v2_public_quote_and_old_cooling_policy_replay(self):
+        from data_analysis_agent.agents import review_cooling_speed_evidence as cooling
+        q, quote = '有没有制冷很慢的反馈？', '制冷慢得离谱'
+        self.sources = [source(self.scope(), quote+'。', quote),
+                        source(self.scope(), '制热很快。', '制热很快', rid=2)]
+        result = self.run_question(q)
+        self.assert_success(result)
+        data = result['results']['r1']['data']
+        self.assertEqual(data['assessment']['policy'], cooling.POLICY)
+        self.assertEqual(result['public_answer']['evidence_refs'][0]['opinions'][0]['quote'], quote)
+        self.assertEqual(read_public_answer({'status':'succeeded','result':result}), result['public_answer'])
+        data['assessment'] = assess_retrieval(q, data['retrieval']['evidence'], policy=cooling.PREVIOUS_POLICY)
+        self.assertTrue(validate_retrieval(data, q))
+        self.assertFalse(data['assessment']['permitted_keys'])
+        self.assertFalse(read_public_answer({'status':'succeeded','result':result})['evidence_refs'])
+
+    def test_keyword_fallback_retains_vector_origin_and_roundtrips_timed_citation(self):
+        from data_analysis_agent.agents import review_cooling_speed_evidence as cooling
+
+        question = '有没有制冷很慢的反馈？'
+        quote = '空调开18度，开了大半个小时，房间没明显制冷效果，3小时后降温效果仍不明显'
+        self.sources = [
+            source(self.scope(), '制冷效果差。', '制冷效果差'),
+            source(self.scope(), '制冷效果不明显。\n' + quote + '，维修师傅说，开机前请关闭门窗。', quote, rid=2),
+        ]
+        self.matches = [OpinionMatch(self.sources[0].opinions[0], 0.15)]
+
+        def with_corpus(connection, scope):
+            service = self.factory(connection, scope)
+            service.repository.value.corpus = lambda: SimpleNamespace(
+                documents=[s.opinions[0] for s in self.sources])
+            return service
+
+        result = run_review_agent(self.db, question, scope=self.scope(),
+            settings=replace(SETTINGS, rag_cooling_keyword_fallback=True),
+            semantic_service_factory=with_corpus)
+        self.assert_success(result)
+        data = result['results']['r1']['data']
+        raw = data['retrieval']
+        self.assertEqual(raw['version'], 'semantic-retrieval-v2')
+        self.assertEqual([r['channel'] for r in raw['evidence']], ['vector', 'keyword'])
+        self.assertIsNone(raw['evidence'][1]['cosine_distance'])
+        self.assertEqual(data['assessment']['policy'], cooling.POLICY)
+        ref, = result['public_answer']['evidence_refs']
+        self.assertEqual(ref['opinions'][0]['quote'], quote)
+        self.assertNotIn('维修师傅', result['answer'])
+        self.assertEqual(read_public_answer({'status':'succeeded','result': json.loads(json.dumps(result))}),
+                         result['public_answer'])
+        for field, value in [('channel', 'vector'), ('channel_rank', 2), ('cosine_distance', 0.1), ('quote_start', 0)]:
+            changed = deepcopy(data)
+            changed['retrieval']['evidence'][1][field] = value
+            self.assertFalse(validate_retrieval(changed, question))
+        changed = deepcopy(data)
+        changed['retrieval']['vector_baseline'] = []
+        self.assertFalse(validate_retrieval(changed, question))
+        previous = assess_retrieval(question, raw['evidence'], policy=cooling.EXPLICIT_POLICY)
+        self.assertEqual(previous['permitted_keys'], [])
+
     def test_delivery_timing_uses_native_top5_verbatim_answer_and_history(self):
         from data_analysis_agent.agents import review_delivery_timing_evidence as timing
         for question, quote, fact in (
@@ -519,6 +605,17 @@ class SemanticAgentTests(WorkbenchFixture, unittest.TestCase):
         result=self.run_question('有没有制冷好但噪音大的反馈？');self.assert_success(result)
         self.assertEqual(result['public_answer']['evidence_refs'],[])
         self.assertIn('尚未找到同一条评论',result['answer'])
+
+        slow_quote = '制冷效果也挺慢，噪音很大'
+        self.sources = [source(self.scope(), slow_quote + '。', slow_quote),
+                        source(self.scope(), '制热很快。', '制热很快', rid=2)]
+        self.matches = [OpinionMatch(self.sources[0].opinions[0], 0.001)]
+        slow_question = '有没有同一条评论既说制冷慢又说噪音大的反馈？'
+        result = self.run_question(slow_question)
+        self.assert_success(result)
+        self.assertIn('同一条评论内明确提到了所问的全部情况', result['public_answer']['summary'])
+        self.assertEqual(result['results']['r1']['data']['assessment']['relation']['review_ids'], [1])
+        self.assertEqual(read_public_answer({'status': 'succeeded', 'result': result}), result['public_answer'])
 
     def test_v2_history_keeps_frozen_context_permissions(self):
         text='制冷不足。但是包装完好。'

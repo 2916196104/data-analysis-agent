@@ -10,6 +10,7 @@ from data_analysis_agent.reviews.parameters import AnalysisScope, BaselineScope
 from data_analysis_agent.reviews.query_contract import ContractModel, TaskType, RequiredFact, RequiredFacts, FactRelation, Digest, SentimentIntent
 from data_analysis_agent.agents.review_reported_facts import POLICY, target
 from data_analysis_agent.agents import review_delivery_timing_evidence as timing
+from data_analysis_agent.agents import review_cooling_speed_evidence as cooling
 
 VERSION = 'review-runtime-contract-v1'
 DATE_PREFIX = re.compile(r'^\s*(?:(?:请问|在|从)\s*)?(\d{4}-\d{2}-\d{2})\s*(?:至|到|~|～|—)\s*'
@@ -47,7 +48,10 @@ def fact_target(question, policy):
 
 def evidence_policy(question, scope):
     normalized = evidence_question(question, scope, fact_policy=timing.POLICY)
-    return timing.POLICY if timing.target(normalized) else POLICY
+    if timing.target(normalized):
+        return timing.POLICY
+    request = target(evidence_question(question, scope))
+    return cooling.POLICY if request and cooling.SLOW in request['facts'] else POLICY
 
 
 def evidence_scope_matches(question, scope):

@@ -100,7 +100,7 @@ class ReviewSource:
 @dataclass(frozen=True)
 class SemanticEvidence:
     rank: int
-    cosine_distance: float
+    cosine_distance: float | None
     document: RagOpinionDocument
     review_state: RagReviewState
     review_text: str = field(repr=False)
@@ -133,15 +133,28 @@ class SemanticResult:
     context_policy: str = 'quote_full_review_veto'
     context_version: str = '1'
     _source_validation: object = field(default=None, repr=False, compare=False)
+    vector_baseline: tuple[SemanticEvidence, ...] | None = None
 
     def to_dict(self):
-        return dict(version='semantic-retrieval-v1', query=self.query.model_dump(mode='json'),
+        data = dict(version='semantic-retrieval-v1', query=self.query.model_dump(mode='json'),
             scope=self.scope.model_dump(mode='json', exclude={'base_url'}),
             label_profile_key=content_sha256([self.scope.model,self.scope.base_url,self.scope.prompt_version]),
             snapshot=asdict(self.snapshot), embedding_space_id=self.embedding_space_id,
             text_builder_version=self.text_builder_version, source_policy=self.source_policy,
             context_policy=self.context_policy, context_version=self.context_version,
             evidence=[row.to_dict() for row in self.evidence])
+        if self.vector_baseline is not None:
+            data['version'] = 'semantic-retrieval-v2'
+            data['vector_baseline'] = [row.to_dict() for row in self.vector_baseline]
+            vector_ranks = {row.key: row.rank for row in self.vector_baseline}
+            keyword_rank = 0
+            for row in data['evidence']:
+                if row['cosine_distance'] is None:
+                    keyword_rank += 1
+                    row.update(channel='keyword', channel_rank=keyword_rank)
+                else:
+                    row.update(channel='vector', channel_rank=vector_ranks[row['key']])
+        return data
 
 
 _SOURCE_VALIDATOR = object()
@@ -297,7 +310,29 @@ class SemanticRetrievalService:
         self.timings={'encoding_total_ms':(perf_counter()-started)*1000}
         return query
 
-    def search(self, request) -> SemanticResult:
+    def _hydrate(self, snapshot, scope, info, query, documents, distances, *, track_timing=False):
+        keys = tuple(doc.stable_versioned_opinion_key for doc in documents)
+        _require(len(keys) == len(set(keys)), 'duplicate_candidate_key')
+        started = perf_counter()
+        sources = snapshot.load_sources(keys) if keys else ()
+        _snapshot_identity(snapshot, scope, info)
+        if track_timing:
+            self.timings['source_hydration_ms'] = (perf_counter() - started) * 1000
+        started = perf_counter()
+        verified = _verified_sources(sources, keys, scope)
+        if track_timing:
+            self.timings['source_verification_ms'] = (perf_counter() - started) * 1000
+        rows = []
+        for rank, (candidate, distance) in enumerate(zip(documents, distances, strict=True), 1):
+            doc, source = verified[candidate.stable_versioned_opinion_key]
+            _require(candidate == doc, 'candidate_source_version_mismatch')
+            _require(query.aspect is None or doc.aspect == query.aspect, 'candidate_filter_mismatch')
+            _require(query.sentiment is None or doc.sentiment == query.sentiment, 'candidate_filter_mismatch')
+            rows.append(SemanticEvidence(rank, distance, doc, source.state, source.review_text,
+                sha256(source.review_text.encode('utf-8')).hexdigest()))
+        return tuple(rows)
+
+    def search(self, request, *, keyword_fallback=None) -> SemanticResult:
         query = _parse(request,SemanticQuery,'invalid_retrieval_request')
         scope = self.scope
         if self._prepared is None:self.prepare(query)
@@ -314,27 +349,24 @@ class SemanticRetrievalService:
                 self.timings['search_including_corpus_ms']=(perf_counter()-started)*1000
                 _snapshot_identity(snapshot,scope,info)
                 _require(len(matches)<=query.top_k and all(isinstance(m,OpinionMatch) for m in matches), 'invalid_candidate_list')
-                keys = tuple(m.document.stable_versioned_opinion_key for m in matches)
-                _require(len(keys)==len(set(keys)), 'duplicate_candidate_key')
-                started=perf_counter()
-                sources = snapshot.load_sources(keys) if keys else ()
-                self.timings['source_hydration_ms']=(perf_counter()-started)*1000
-                _snapshot_identity(snapshot,scope,info)
-                started=perf_counter()
-                verified = _verified_sources(sources,keys,scope)
-                self.timings['source_verification_ms']=(perf_counter()-started)*1000
+                distances = tuple(match.cosine_distance for match in matches)
+                _require(all(type(d) in (int, float) and math.isfinite(d) for d in distances), 'invalid_candidate_distance')
+                evidence = self._hydrate(snapshot, scope, info, query, tuple(m.document for m in matches),
+                                         distances, track_timing=True)
+                vector_baseline = None
+                if keyword_fallback is not None:
+                    fallback_started = perf_counter()
+                    documents = keyword_fallback(query, snapshot, evidence)
+                    if documents:
+                        _require(len(documents) <= query.top_k - bool(evidence), 'keyword_budget_exceeded')
+                        keywords = self._hydrate(snapshot, scope, info, query, documents, (None,) * len(documents))
+                        _require(not ({row.key for row in evidence} & {row.key for row in keywords}), 'duplicate_candidate_key')
+                        vector_baseline = evidence
+                        merged = (evidence[:1] + keywords + evidence[1:])[:query.top_k]
+                        evidence = tuple(replace(row, rank=rank) for rank, row in enumerate(merged, 1))
+                    self.timings['keyword_fallback_ms'] = (perf_counter() - fallback_started) * 1000
                 self.timings.update(getattr(snapshot,'timings',{}))
-                evidence = []
-                for rank,match in enumerate(matches,1):
-                    doc,source = verified[match.document.stable_versioned_opinion_key]
-                    _require(match.document == doc, 'candidate_source_version_mismatch')
-                    _require(query.aspect is None or doc.aspect == query.aspect, 'candidate_filter_mismatch')
-                    _require(query.sentiment is None or doc.sentiment == query.sentiment, 'candidate_filter_mismatch')
-                    distance = match.cosine_distance
-                    _require(type(distance) in (int,float) and math.isfinite(distance), 'invalid_candidate_distance')
-                    evidence.append(SemanticEvidence(rank,distance,doc,source.state,source.review_text,
-                        sha256(source.review_text.encode('utf-8')).hexdigest()))
-                result = SemanticResult(query,scope,info,tuple(evidence))
+                result = SemanticResult(query,scope,info,evidence,vector_baseline=vector_baseline)
                 result = replace(result, _source_validation=_SourceValidation(
                     _SOURCE_VALIDATOR, _result_integrity(result)))
             return result
