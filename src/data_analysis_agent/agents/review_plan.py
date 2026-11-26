@@ -237,16 +237,30 @@ def _build_query_plan(question, scope, *, product_groups=None):
         ranking_pattern = r"主要.*(?:方面|维度|集中|问题|吐槽)|集中|排名|哪些方面|优点|缺点|最好|六.*维度|有什么问题|提及最多"
         ranking_text = "".join(part for part in re.split(r"[，。；、]", question) if re.search(ranking_pattern, part))
         ranking = bool(ranking_text)
-        quality = bool(re.search(r"覆盖率|数据质量|失败标注|缺失正文|待标注|多少.*评论|评论.*多少", question))
+        explicit_quality = bool(re.search(r"覆盖率|数据质量|失败标注|缺失正文|待标注", question))
+        count_comments = bool(re.search(r"多少.*评论|评论.*多少", question))
         rating = bool(re.search(r"星级|评分.*分布", question))
         windows = bool(re.search(r"基线|窗口.*(?:比较|对比)|(?:比较|对比).*窗口|上一时间段|上个.*相比", question))
         products = bool(re.search(r"商品对比|对比.*商品|比较.*商品|另一款.*(?:不同|区别|变化)", question))
         if re.search(r"比较|对比", question) and sum(product in question for product in scope.get("product_ids", [])) >= 2:
             products = True
-        aspects = list(dict.fromkeys(value for word, value in ASPECT_WORDS.items() if word in question))
+        aspect_text = question.replace("数据质量", "")
+        aspects = list(dict.fromkeys(value for word, value in ASPECT_WORDS.items() if word in aspect_text))
         semantic = opinion_request(question)
-        # “每个问题涉及多少评论”由主题结果的去重计数回答，不是数据质量查询。
-        if semantic['theme_summary'] and not re.search(r'覆盖率|数据质量|失败标注|缺失正文|待标注', question):
+        # 仅无情感、无维度/主题限定的总评论数查询走 get_data_quality；限定好差评或维度的计数不误入数据质量。
+        unqualified_count = (
+            count_comments
+            and not sentiment
+            and not detect_sentiment_directions(question)
+            and not aspects
+            and not semantic["topic"]
+            and not semantic["theme_summary"]
+            and not semantic["positive_summary"]
+            and not semantic["content_detail"]
+            and not (ranking or trend or rating or windows or products or evidence)
+        )
+        quality = explicit_quality or unqualified_count
+        if semantic['theme_summary'] and not explicit_quality:
             quality = False
         if semantic['theme_summary'] and (trend or windows or products or quality or rating):
             plan.unsupported_reason = '本阶段不支持子主题归纳与趋势、对比或数据质量的混合分析，请分别查询。'

@@ -261,6 +261,7 @@ export interface PublicAnswer {
   sample_note: string;
   evidence_refs: Record<string, unknown>[];
   caveats: string[];
+  body_caveats?: string[] | null;
   generation_status: 'template' | 'llm' | 'fallback' | 'unavailable';
   source_result_ids: string[];
   scope_summary: Record<string, unknown>[];

@@ -1,4 +1,4 @@
-import type { Page, Submission, Task, TaskInput, TaskSummary, PublicAnswer } from '../../types';
+import type { AgentResult, Page, Submission, Task, TaskInput, TaskSummary, PublicAnswer } from '../../types';
 import type { P6Publication } from '../../features/agent/p6-publication';
 import { query, request } from './http-client';
 
@@ -14,12 +14,20 @@ export const taskApi = {
       } catch { /* 公开校验失败时关闭 P6 正文；任务状态和范围仍可查看。 */ }
       return { ...task, result: { ...task.result, validation: { status: 'failed' as const, checks: [] }, public_answer: undefined, answer: undefined } };
     }
-    const scopedRanking = task.result?.agent === true && Object.values(task.result.results ?? {}).some(item =>
+    const result = task.result?.agent === true ? task.result as unknown as AgentResult : undefined;
+    const scopedRanking = Object.values(result?.results ?? {}).some(item =>
       ['positive_aspects', 'issues'].includes(item.kind) && Boolean(item.parameters.aspect));
-    if (task.status === 'succeeded' && !task.error && task.result?.agent === true && (!task.result.public_answer || scopedRanking)) {
+    const savedAnswer = result?.public_answer;
+    const historicalTopicAnswer = savedAnswer?.status === 'ok' && savedAnswer.body_caveats == null
+      && result?.result_ids?.some(id => result.results?.[id]?.kind === 'aspect_drilldown') ? savedAnswer : undefined;
+    if (task.status === 'succeeded' && !task.error && result && (!savedAnswer || scopedRanking || historicalTopicAnswer)) {
       try {
         const view = await request<{ public_answer: PublicAnswer }>(`/public/tasks/${encodeURIComponent(id)}`, { signal });
-        return { ...task, result: { ...task.result, public_answer: view.public_answer } };
+        // 历史主题回答只更新说明的展示方式，保留原先发布的解读和引用。
+        const answer = historicalTopicAnswer && !scopedRanking && view.public_answer.status === 'ok'
+          ? { ...historicalTopicAnswer, body_caveats: view.public_answer.body_caveats }
+          : view.public_answer;
+        return { ...task, result: { ...task.result, public_answer: answer } };
       } catch {
         // 历史公开视图不可用时保留详情读取，聊天不回显旧技术正文。
         if (scopedRanking) return { ...task, result: { ...task.result, public_answer: undefined, answer: undefined } };

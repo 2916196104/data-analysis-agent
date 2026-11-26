@@ -146,12 +146,16 @@ def build_request_goal(question, context=None):
         levels.append('opinion_content')
     families = []
     for family, pattern in (
-        ('quality', r'覆盖率|数据质量|失败标注|缺失正文|待标注|多少.*评论|评论.*多少'),
+        ('quality', r'覆盖率|数据质量|失败标注|缺失正文|待标注'),
         ('ratings', r'星级|评分.*分布'), ('trend', r'趋势|变化|按[日月天]|按月份'),
         ('window_comparison', r'基线|窗口.*(?:比较|对比)|上一时间段|上个.*相比'),
         ('comparison', r'商品对比|(?:比较|对比).*(?:商品|空调)|另一款|这两款|它们.*(?:对比|比较)')):
         if re.search(pattern, text):
             families.append(family)
+    if (not families and re.search(r'多少.*评论|评论.*多少', text)
+            and not sentiment and not detect_sentiment_directions(text)
+            and not aspect and not topic and not examples and not themes and not content):
+        families.append('quality')
     if 'window_comparison' in families and not re.search(r'趋势|按[日月天]|按月份', text):
         families = [family for family in families if family != 'trend']
     if not levels or (examples and (families or re.search(r'主要.*(?:方面|维度)|维度.*排名', text))):
@@ -279,9 +283,15 @@ def validate_goal_plan(goal, plan):
         if level == 'statistics' and goal.get('aspects'):
             actual = [row['parameters'].get('aspect') for row in candidates if row['tool'] == 'get_aspect_trend']
             compatible &= len(actual) == len(goal['aspects']) and set(actual) == set(goal['aspects'])
+        if level == 'statistics' and goal.get('topic'):
+            topic_rows = [row for row in candidates if row['tool'] == 'get_topic_statistics']
+            compatible &= bool(topic_rows) and all(row['parameters'].get('topic') == goal['topic'] for row in topic_rows)
         checks.append({'name': level, 'passed': bool(compatible)})
     for family in goal.get('statistic_families', ()):
         checks.append({'name': family, 'passed': bool(set(plan.required_tools) & STATISTIC_FAMILIES[family])})
+    if plan.required_tools == ['get_data_quality'] and (
+            goal.get('sentiment') in ('positive', 'negative') or goal.get('aspect') is not None or goal.get('topic') is not None):
+        checks.append({'name': 'quality_scope_mismatch', 'passed': False})
     directed = set(plan.required_tools) & {'get_top_issues', 'get_positive_aspects', 'get_trend', 'get_aspect_trend',
                                           'compare_products', 'compare_time_windows'}
     if directed and goal.get('sentiment') in ('positive', 'negative'):

@@ -318,28 +318,30 @@ def build_answer_facts(context, *, detailed=False):
     return facts[:limit], len(facts) > limit
 
 
-def answer_caveats(context, facts):
+def answer_caveats(context, facts, *, include_topic_methodology=True):
     codes = {item["code"] for item in context.caveats}
     messages = []
     for stat in context.statistics:
         if stat['analysis_type'] == 'aspect_drilldown':
-            filters, coverage = stat['filters'], stat['filters']['coverage']
-            messages.append(f"模型候选主题未经人工确认，未穷尽全部主题；同一评论可进入多个主题，数量不能相加。"
-                f"未归类 {coverage['unclassified_opinions']} 条（含模糊、矛盾及未处理观点）。")
-            if filters.get('aspect') is None:
-                resolved = {topic['aspect'] for topic in filters['topics']}
-                messages.append('整体好评按维度归并，各主题占比以该维度实际纳入的评论为分母。'
-                    + ('尚未形成可靠主题的维度：' + '、'.join(label for key, label in ASPECTS.items() if key not in resolved) + '；不据此推断没有好评。' if len(resolved) < len(ASPECTS) else ''))
-            basis = '非随机样本评论' if filters['population_mode'] == 'sample' else '匹配评论'
-            messages.append(f"本次二级主题分析纳入 {coverage['selected_reviews']} 条{basis}、{coverage['selected_opinions']} 条观点"
-                + ('，样本量较少' if coverage['selected_reviews'] < 20 else '') + '，主题归并结果不能直接代表更广泛的消费者评价。')
-            if filters['population_mode'] == 'sample':
-                messages.append(f"这是受预算限制的非随机样本探索，总体有 {filters['total']} 条匹配评论、{filters['total_opinions']} 条观点；样本占比不能视为总体真实比例。")
+            filters = stat['filters']
+            if include_topic_methodology:
+                coverage = filters['coverage']
+                messages.append(f"模型候选主题未经人工确认，未穷尽全部主题；同一评论可进入多个主题，数量不能相加。"
+                    f"未归类 {coverage['unclassified_opinions']} 条（含模糊、矛盾及未处理观点）。")
+                if filters.get('aspect') is None:
+                    resolved = {topic['aspect'] for topic in filters['topics']}
+                    messages.append('整体好评按维度归并，各主题占比以该维度实际纳入的评论为分母。'
+                        + ('尚未形成可靠主题的维度：' + '、'.join(label for key, label in ASPECTS.items() if key not in resolved) + '；不据此推断没有好评。' if len(resolved) < len(ASPECTS) else ''))
+                basis = '非随机样本评论' if filters['population_mode'] == 'sample' else '匹配评论'
+                messages.append(f"本次二级主题分析纳入 {coverage['selected_reviews']} 条{basis}、{coverage['selected_opinions']} 条观点"
+                    + ('，样本量较少' if coverage['selected_reviews'] < 20 else '') + '，主题归并结果不能直接代表更广泛的消费者评价。')
+                if filters['population_mode'] == 'sample':
+                    messages.append(f"这是受预算限制的非随机样本探索，总体有 {filters['total']} 条匹配评论、{filters['total_opinions']} 条观点；样本占比不能视为总体真实比例。")
             if filters['analysis_status'] == 'partial':
                 messages.append('部分归属批次失败，仅保留已通过来源与计算校验的事实，尚未形成完整分析结果。')
     if context.analysis_type == 'aspect_drilldown':
-        if any(topic.get('aspect') == 'service' for stat in context.statistics
-               for topic in stat.get('filters', {}).get('topics', [])):
+        if include_topic_methodology and any(topic.get('aspect') == 'service' for stat in context.statistics
+                                             for topic in stat.get('filters', {}).get('topics', [])):
             messages.append('本次“客服”维度沿用已有服务标注，可能包含安装、售后与客服沟通；'
                             '请按二级主题理解，安装评价不等同于在线客服体验。')
         total = sum(len(stat.get('filters', {}).get('topics', [])) for stat in context.statistics

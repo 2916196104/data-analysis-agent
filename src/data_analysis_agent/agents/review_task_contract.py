@@ -59,6 +59,51 @@ def evidence_scope_matches(question, scope):
     return not match or (match[1], match[2]) == (scope['date_from'], scope['date_to'])
 
 
+_GENERIC_MODIFIER = re.compile(
+    r'^(?:请|请问|帮我|看看|查看|查询|统计|分析|计算|告诉我|只|仅|不要|不用|全部|所有|全量|整体|总体|目前|当前|该|这|那|本|所选|上述|上轮|'
+    r'这款|这台|这个|那款|那台|那个|两款|两台|多款|商品|产品|空调|机器|机型|型号|设备|窗口|时间|范围|日期|本月|上月|今年|去年|'
+    r'用户|买家|消费者|大家|使用效果|质量|效果|价格|包装|物流|客服|服务|方面|维度|正向|负向|正面|负面|好评|差评|有效|成功标注|带正文|空正文|缺失正文|'
+    r'[A-Za-z0-9_\-/]+|\d{4}-\d{2}-\d{2}|的|中|里|内|上|下|\s)+$'
+)
+_FINE_SUBTOPIC_TERMS = re.compile(
+    r'制冷|制热|噪音|噪声|降温|升温|耐用|寿命|压缩机|降价|失眠|掉漆|异响|漏水|破损|结实|不耐烦|迟缓|响应慢|发货慢|送货慢|到货慢|乱?收费'
+)
+_DIMENSION_TAIL = re.compile(
+    r'(?:方面)?(?:正向|正面|负向|负面|好评|差评|问题)?(?:评论|评价|反馈)?(?:涉及|共|一共|总计|总共|有)?的?'
+)
+
+
+def _has_fine_subtopic(question, semantic, *, boundary_pattern, check_dimension=True, check_modifier=False):
+    """Detect fine-grained subtopics inside or outside the six macro dimensions."""
+    if semantic['topic'] or _FINE_SUBTOPIC_TERMS.search(question):
+        return True
+    if check_dimension:
+        dimension = re.search(
+            r'(?:使用效果|质量|价格|包装|物流|配送|到货|客服|服务)([^，,。；;]+?)(?=' + boundary_pattern + r')',
+            question,
+        )
+        if dimension:
+            tail = re.sub(
+                r'^(?:(?:以及|和|与|、|及)(?:使用效果|质量|价格|包装|物流|配送|到货|客服|服务))*',
+                '',
+                dimension[1],
+            )
+            if not _DIMENSION_TAIL.fullmatch(tail):
+                return True
+    if (not semantic['aspect']
+            and re.search(r'(?:反馈|抱怨)[^，,。；;]*(?:' + boundary_pattern + r')', question)
+            and not re.search(r'好评|差评|正向|负面|正面|负向', question)):
+        return True
+    if check_modifier and not semantic['aspect']:
+        match = re.search(
+            r'([^\s，,。；;：:]{2,16})的(?:差评|好评|负面|正面|评论|反馈|抱怨)[^，,。；;]*(?:' + boundary_pattern + r')',
+            question,
+        )
+        if match and not _GENERIC_MODIFIER.fullmatch(match[1]):
+            return True
+    return False
+
+
 def task_limit(question):
     """Unsupported goals must not fall through to an unrelated successful SQL tool."""
     if question.startswith('执行本轮已确认的只读查询'):
@@ -83,19 +128,36 @@ def task_limit(question):
         if requested_denominator(question) == 'conflicting':
             return ('denominator_conflict', '本轮指定了多个分母，请分别提问并明确每个比例的分母。')
         semantic = opinion_request(question)
-        subtopic = semantic['topic'] or re.search(r'制冷|制热|噪音|噪声|降温|耐用|寿命|压缩机|降价|失眠', question)
-        # A dimension's aggregate sentiment rate is supported; an attribute inside
-        # that dimension needs its own classified numerator, not an SQL substitute.
-        dimension = re.search(r'(?:使用效果|质量|价格|包装|物流|配送|到货|客服|服务)(.+?)(?=占比|比例|百分比|占)', question)
-        dimension_tail = re.sub(r'^(?:(?:以及|和|与|、|及)(?:使用效果|质量|价格|包装|物流|配送|到货|客服|服务))*', '', dimension[1]) if dimension else ''
-        if dimension and not re.fullmatch(r'(?:方面)?(?:正向|正面|负向|负面|好评|差评|问题)(?:评论|评价|反馈)?的?', dimension_tail):
-            subtopic = True
-        if not semantic['aspect'] and re.search(r'(?:反馈|抱怨).*(?:占比|比例|百分比|占)', question) and not re.search(r'好评|差评|正向|负面|正面|负向', question):
-            subtopic = True
+        subtopic = _has_fine_subtopic(question, semantic, boundary_pattern=r'占比|比例|百分比|占')
         if re.search(r'(?:全部|所有|全量)评论', question):
             subtopic = True  # Existing sentiment rates use successfully labelled reviews.
         if subtopic:
             return ('statistics', '当前没有该细分语义主题的完整分类分子，无法计算其总体占比；不能用上级维度、数据质量或 Top-K 候选比例替代。')
+    examples = bool(re.search(r'原文|原话|证据|举例|例子|(?:给我|列出|展示|找|看|来)\s*(?:\d+|几)\s*条', question))
+    trend = bool(re.search(r'趋势|变化|按[日月天]|按月份', question))
+    if trend and not examples:
+        from data_analysis_agent.agents.review_semantics import opinion_request
+        semantic = opinion_request(question)
+        if _has_fine_subtopic(
+            question,
+            semantic,
+            boundary_pattern=r'趋势|变化|按[日月天]|按月份',
+            check_dimension=False,
+            check_modifier=True,
+        ):
+            return ('subtopic_trend', '当前仅支持整体或六大评价维度的趋势分析，没有该细分语义主题的完整分类时间序列；不能用整体或上级维度趋势替代。')
+    count = bool(re.search(r'(?:有)?多少(?:条)?|几条|数量|多少.*评论|评论.*多少', question))
+    if count and not examples and not ratio:
+        from data_analysis_agent.agents.review_semantics import opinion_request
+        semantic = opinion_request(question)
+        if not semantic['theme_summary'] and not semantic['positive_summary']:
+            if _has_fine_subtopic(
+                question,
+                semantic,
+                boundary_pattern=r'(?:有)?多少(?:条)?|几条|数量|多少.*评论|评论.*多少',
+                check_modifier=True,
+            ):
+                return ('subtopic_count', '当前没有该细分语义主题的完整分类计数，无法统计其准确评论条数；不能用上级维度数量、数据质量总评论数或 Top-K 检索条数替代。')
     return None
 
 
@@ -273,7 +335,7 @@ def _path(data, path):
 def task_matches(contract, selected, *, scope):
     """Additional goal check; existing numeric/source/permission validators still run."""
     try:
-        if contract.support_status=='unsupported':return False
+        if contract.support_status=='unsupported' or contract.operation in ('cause_check', 'unsupported'):return False
         bound=RuntimeScope.model_validate_json(canonical_json(scope))
         if contract.scope!=bound or contract.scope_sha256!=content_sha256(bound.model_dump(mode='json')):return False
         if task_limit(contract.original_question):return False
@@ -287,6 +349,28 @@ def task_matches(contract, selected, *, scope):
             for item in matching:
                 data=item['data'];_path(data,goal.value_path);_path(data,goal.numerator)
                 if goal.definition_key and data.get('definitions',{}).get(goal.definition_key)!=goal.denominator:return False
+        if contract.operation == 'sql_statistics':
+            stat_rows = [r for r in selected if r['kind'] != 'context']
+            if not stat_rows:
+                return False
+            if all(r['kind'] == 'quality' for r in stat_rows) and (
+                contract.sentiment_intent in ('positive', 'negative') or contract.subtopic != 'unknown'
+            ):
+                return False
+            if contract.sentiment_intent in ('positive', 'negative'):
+                def _matches_direction(row):
+                    kind = row['kind']
+                    if kind == 'positive_aspects':
+                        return contract.sentiment_intent == 'positive'
+                    if kind == 'issues':
+                        return contract.sentiment_intent == 'negative'
+                    if kind in ('trend', 'aspect_trend', 'comparison', 'window_comparison'):
+                        return row['data'].get('sentiment', 'negative') == contract.sentiment_intent
+                    if kind in ('topic_statistics', 'evidence', 'opinion_breakdown', 'aspect_drilldown'):
+                        return row['data'].get('sentiment') == contract.sentiment_intent
+                    return False
+                if not any(_matches_direction(row) for row in stat_rows):
+                    return False
         if contract.operation=='fact_search':
             from data_analysis_agent.agents.review_retrieval import validate_retrieval
             if len(selected)!=1 or selected[0]['kind']!='semantic_evidence':return False

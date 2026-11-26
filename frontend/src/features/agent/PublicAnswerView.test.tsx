@@ -55,6 +55,22 @@ it('降级显示可靠摘要与明确生成状态，不显示模型错误原文'
   expect(screen.getByText(answer.summary)).toBeTruthy();
 });
 
+it('正文和复制采用主题说明展示字段，并保留必要提示和引用', () => {
+  const topic: PublicAnswer = { ...answer, summary: '本次纳入的非随机样本中，差评集中在配送时效。',
+    highlights: [{ ...answer.highlights[0], text: '物流 · 配送时效：3 条去重评论、4 条观点，占该维度纳入样本评论 25.0%（分母 12 条）。代表原文：“发货很晚”（评论 #123）。' }],
+    caveats: ['未归类 2 条', ...answer.caveats], body_caveats: answer.caveats };
+  show({ ...task, result: { ...result, public_answer: topic } as unknown as Task['result'] });
+  const body = screen.getByRole('region', { name: '分析回答' });
+  for (const text of [topic.summary, topic.highlights[0].text, topic.sample_note, ...answer.caveats]) {
+    expect(within(body).getByText(text)).toBeTruthy();
+    expect(publicAnswerText(topic)).toContain(text);
+  }
+  expect(body.textContent).not.toContain('未归类 2 条');
+  expect(publicAnswerText(topic)).not.toContain('未归类 2 条');
+  expect(publicAnswerText({ ...topic, body_caveats: [] })).not.toContain(topic.caveats[0]);
+  expect(publicAnswerText(answer)).toContain(answer.caveats[0]);
+});
+
 it('本地编码失败展示可操作提示且不发布证据；首次准备显示等待说明', () => {
   const failed = show({ ...task, status: 'failed', result: null, error: { code: 'business_error', message: 'embedding_failed' } });
   expect(screen.getByText('本地语义检索暂不可用，请检查模型运行配置后重试。')).toBeTruthy();
@@ -174,6 +190,24 @@ it('历史任务客户端从公开接口转换，既不重查统计也不重新�
   expect(fetcher).toHaveBeenCalledTimes(2);
   expect(fetcher.mock.calls[1][0]).toContain('/public/tasks/task');
   expect(oldResult.public_answer).toBeUndefined();
+});
+
+it('已有公开回答的历史主题任务保留解读和证据，仅从快照读取应展示的说明', async () => {
+  const savedAnswer = { ...answer, caveats: ['未归类 2 条'], insights: [
+    { kind: 'interpretation', text: '保留已发布的解读。', finding_refs: ['finding:1'], evidence_ids: [] },
+  ] };
+  const saved = { ...task, result: { ...result, public_answer: savedAnswer,
+    result_ids: ['r1'], results: { r1: { kind: 'aspect_drilldown' } } } };
+  const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok', result: saved })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok', result: {
+      public_answer: { ...answer, body_caveats: [] },
+    } })));
+  vi.stubGlobal('fetch', fetcher);
+  const rebuilt = await taskApi.task('task');
+  expect(rebuilt.result?.public_answer).toEqual({ ...savedAnswer, body_caveats: [] });
+  expect(rebuilt.result?.results).toEqual(saved.result.results);
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(fetcher.mock.calls[1][0]).toContain('/public/tasks/task');
 });
 
 it('维度追问的统计详情只展示被选中的维度，完整审计数据仍保留', () => {

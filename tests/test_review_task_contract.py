@@ -217,5 +217,70 @@ class RuntimeContractTests(unittest.TestCase):
             else:saved['question']='制冷不足的反馈占全部评论多少？'
             self.assertEqual(read_public_analysis({'status':'succeeded','result':saved})['status'],'failed')
 
+    def test_review_count_phrasings_do_not_misroute_sentiment_or_aspect_to_data_quality(self):
+        from data_analysis_agent.agents.review_acceptance import build_request_goal, build_task_goal, validate_goal_plan
+        for q, tool, aspect, sentiment in (
+            ('物流差评有多少条评论？', 'get_top_issues', 'logistics', 'negative'),
+            ('物流差评涉及多少评论？', 'get_top_issues', 'logistics', 'negative'),
+            ('差评一共有多少条评论？', 'get_top_issues', None, 'negative'),
+            ('好评有多少条评论？', 'get_positive_aspects', None, 'positive'),
+            ('好评评论有多少？', 'get_positive_aspects', None, 'positive'),
+            ('客服好评评论数量是多少？', 'get_positive_aspects', 'service', 'positive'),
+        ):
+            with self.subTest(q=q):
+                bound, plan, _ = self.resolve(q)
+                self.assertEqual(plan.required_tools, [tool])
+                self.assertEqual(plan.sentiment, sentiment)
+                self.assertEqual(plan.requirements[0]['parameters'].get('aspect'), aspect)
+                self.assertEqual(plan.task_contract.support_status, 'supported')
+                goal = build_task_goal(q, bound, plan, {}, request_goal=build_request_goal(q))
+                self.assertTrue(validate_goal_plan(goal, plan)['passed'])
+        for q in ('一共有多少条评论？', '当前商品有多少评论？', '查看缺失正文、失败标注和覆盖率'):
+            with self.subTest(q=q):
+                bound, plan, _ = self.resolve(q)
+                self.assertEqual(plan.required_tools, ['get_data_quality'])
+                goal = build_task_goal(q, bound, plan, {}, request_goal=build_request_goal(q))
+                self.assertTrue(validate_goal_plan(goal, plan)['passed'])
+        _, composite, _ = self.resolve('好评主要方面、数据质量')
+        self.assertEqual(composite.required_tools, ['get_data_quality', 'get_positive_aspects'])
+
+    def test_fine_subtopic_counts_and_trends_are_blocked_without_sql_substitution(self):
+        for q in (
+            '制冷不足的评论有多少条？', '噪音大的反馈有多少条？', '客服不耐烦的评论有多少？',
+            '客服态度差的评论有多少条？', '包装破损有多少条评论？', '物流配送迟缓的差评有几条？',
+            '外观掉漆的差评有多少？', '制冷慢的反馈有多少条？', '物流比较慢的反馈有多少条？',
+            '制冷问题趋势', '噪音大的评论趋势如何？',
+        ):
+            with self.subTest(q=q):
+                _, plan, _ = self.resolve(q)
+                self.assertEqual(plan.task_contract.support_status, 'unsupported')
+                self.assertEqual(plan.required_tools, [])
+                self.assertTrue(plan.unsupported_reason)
+        result = self.f.run_question('制冷不足的评论有多少条？')
+        self.assertEqual(result['status'], 'unsupported')
+        self.assertEqual(result['query_executions'], 0)
+        self.assertEqual(result['total_model_calls'], 0)
+        self.assertEqual(self.f.encoder.calls, [])
+        self.assertEqual(result['public_answer']['status'], 'unsupported')
+        self.assertIn('有没有制冷不足的反馈？', result['public_answer']['summary'])
+        self.assertEqual(read_public_answer({'status': 'succeeded', 'result': result}), result['public_answer'])
+
+    def test_task_match_blocks_data_quality_substituting_for_sentiment_or_aspect_goal(self):
+        from data_analysis_agent.agents.review_acceptance import build_request_goal, build_task_goal, validate_goal_plan
+        quality_run = self.f.run_question('一共有多少条评论？')
+        self.f.assert_success(quality_run)
+        self.assertEqual(quality_run['results']['r1']['kind'], 'quality')
+        quality_plan = build_query_plan('一共有多少条评论？', self.scope)
+        for q in ('好评有多少条评论？', '物流差评有多少条评论？'):
+            with self.subTest(q=q):
+                goal = build_task_goal(q, self.scope, None, {}, request_goal=build_request_goal(q))
+                self.assertFalse(validate_goal_plan(goal, quality_plan)['passed'])
+                forged_contract = quality_plan.task_contract.model_copy(update={
+                    'original_question': q,
+                    'sentiment_intent': 'positive' if '好评' in q else 'negative',
+                    'subtopic': 'logistics' if '物流' in q else 'unknown',
+                })
+                self.assertFalse(task_matches(forged_contract, [quality_run['results']['r1']], scope=self.scope))
+
 
 if __name__=='__main__':unittest.main()

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
 import type { PublicAnswer, SemanticEvidence } from '../../types';
-import { publicAnswerText } from './public-answer';
+import { publicAnswerCaveats, publicAnswerText } from './public-answer';
 import AnswerEvidence from './AnswerEvidence';
 
 export default function PublicAnswerView({ answer, evidence = [] }: { answer: PublicAnswer; evidence?: SemanticEvidence[] }) {
@@ -34,7 +34,7 @@ export default function PublicAnswerView({ answer, evidence = [] }: { answer: Pu
       <AnswerEvidence answer={answer} evidence={evidence} />
       {answer.insights?.map((item, index) => <p key={`${item.kind}-${index}`}><strong>{item.kind === 'interpretation' ? '可能的解释：' : '分析建议：'}</strong>{item.text}</p>)}
       {answer.sample_note && <p>{answer.sample_note}</p>}
-      {answer.caveats.map(note => <p className="muted" key={note}>{note}</p>)}
+      {publicAnswerCaveats(answer).map(note => <p className="muted" key={note}>{note}</p>)}
       {answer.generation_status === 'fallback' && <p role="status" className="muted">解释生成未完成，已根据核验统计生成可靠摘要。</p>}
     </>}
   </section>;

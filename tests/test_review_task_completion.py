@@ -100,6 +100,15 @@ class ReviewTaskCompletionTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(themes['模拟配送迟延']['review_count'], 2)
         self.assertEqual(themes['模拟配送迟延']['opinion_count'], 3)
         self.assertEqual(data['coverage']['unclassified_opinions'], 1)
+        self.assertEqual(result['validation']['status'], 'passed')
+        self.assertIn('未归类 1 条', ''.join(result['public_answer']['caveats']))
+        self.assertNotIn('未归类', result['answer'])
+        self.assertNotIn('本次二级主题分析纳入', result['answer'])
+        self.assertIn('2 条去重评论、3 条观点', result['answer'])
+        self.assertIn('占该维度该情感的匹配评论 50.0%（分母 4 条）', result['answer'])
+        self.assertIn('本次分析范围共 5 条评论，基于 5 条成功标注评论', result['answer'])
+        for theme in result['compact_context']['statistics'][0]['filters']['topics']:
+            self.assertIn(f'“{theme["quote"]}”（评论 #{theme["review_id"]}）', result['answer'])
         for item in data['items']:
             self.assertEqual(item['product_id'], A)
             self.assertTrue(item['evidence_ref'])
@@ -127,6 +136,9 @@ class ReviewTaskCompletionTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual(switched['status'], 'ok', switched.get('error'))
         self.assertEqual(switched['scope']['product_ids'], [B])
         self.assertTrue(all(item['product_id'] == B for item in switched['results']['r1']['data']['items']))
+        self.assertIn('1 条去重评论、1 条观点', switched['answer'])
+        self.assertIn('分母 1 条', switched['answer'])
+        self.assertNotIn('本次二级主题分析纳入', switched['answer'])
         selection, context, _ = self.saved_context(A + '物流差评数量，日期2023-02-01至2023-02-15',
             date_from='2023-02-09', date_to='2023-02-12')
         changed = self.run_agent('物流差评有多少条？', scope=selection, context=context)

@@ -103,7 +103,10 @@ async function until(check, label, timeout = 30_000) {
 }
 function launch(command, args, name, extra = {}) {
   const log = createWriteStream(path.join(out, `${name}.log`)); logs.push(log);
-  const child = spawn(command, args, { cwd: root, windowsHide: true, env: { ...process.env, PYTHONUTF8: '1', LABEL_EXECUTION_MODE: 'local', ...extra } });
+  const env = { ...process.env, PYTHONUTF8: '1', LABEL_EXECUTION_MODE: 'local', ...extra };
+  // Isolated HTTP fixtures do not need the host's TLS key logging.
+  delete env.SSLKEYLOGFILE;
+  const child = spawn(command, args, { cwd: root, windowsHide: true, env });
   child.stdout.pipe(log); child.stderr.pipe(log); children.push(child);
 }
 try {
@@ -142,6 +145,30 @@ if ${summaryMode ? 'True' : 'False'}:
     from test_review_positive_summary import add_summary_reviews, THEMES
     add_summary_reviews(out/'reviews.sqlite3',out,product='DEMO-A',dataset='SIMULATED-frontend',identity=identity)
     (out/'summary-themes.json').write_text(json.dumps(THEMES,ensure_ascii=False),encoding='utf-8')
+if ${topicMode ? 'True' : 'False'}:
+    # Run the topic cases on the dataset type accepted by the current Agent page.
+    import csv, sqlite3
+    from collections import defaultdict
+    from contextlib import closing
+    db=out/'reviews.sqlite3'
+    with closing(sqlite3.connect(db)) as connection:
+        connection.row_factory=sqlite3.Row
+        rows=connection.execute('SELECT r.product_id,p.title AS product_name,p.brand,r.user_id,r.text,r.rating,r.published_at '
+            'FROM reviews r JOIN products p USING(source,dataset_version,product_id) ORDER BY r.id').fetchall()
+        opinions=defaultdict(list)
+        for row in connection.execute('SELECT r.product_id,r.user_id,o.aspect,o.sentiment,o.quote,o.quote_start,o.quote_end '
+            'FROM review_opinions o JOIN review_annotations a ON a.id=o.annotation_id JOIN reviews r ON r.id=a.review_id'):
+            opinions[row['product_id'],row['user_id']].append({key:row[key] for key in row.keys()[2:]})
+    csv_path=out/'topic-case-reviews.csv'
+    with csv_path.open('w',encoding='utf-8',newline='') as handle:
+        writer=csv.DictWriter(handle,fieldnames=rows[0].keys());writer.writeheader();writer.writerows(map(dict,rows))
+    imported=import_amazon_jsonl(db,reviews_path=csv_path,dataset_version='reviews-csv')
+    assert imported['imports'][0]['inserted_records']==len(rows), imported
+    with closing(sqlite3.connect(db)) as connection:
+        connection.row_factory=sqlite3.Row
+        reviews=connection.execute("SELECT id,product_id,user_id,text,content_sha256 FROM reviews WHERE source='reviews_csv'").fetchall()
+    for review in reviews:
+        save_annotation(db,review,**identity,status='success',opinions=opinions[review['product_id'],review['user_id']])
 (out/'business-before.sha256').write_text(hashlib.sha256((out/'reviews.sqlite3').read_bytes()).hexdigest())
 `, out], { cwd: root, windowsHide: true, env: { ...process.env, PYTHONUTF8: '1' } });
   if (summaryMode) summaryThemes = JSON.parse(await readFile(path.join(out, 'summary-themes.json'), 'utf8'));
@@ -165,6 +192,7 @@ main()
     '--port', String(apiPort), '--env-file', path.join(out, 'unused.env'), '--import-root', out, '--allow-origin', web], 'api', {
     LLM_MODEL_ID: 'SIMULATED-NOT-CALLED', LLM_API_KEY: 'SIMULATED-key', LLM_MAX_RETRIES: '0',
     LLM_BASE_URL: `http://127.0.0.1:${model.address().port}/v1`,
+    NO_PROXY: '127.0.0.1,localhost',
   });
   launch(process.execPath, [path.join(root, 'frontend/node_modules/vite/bin/vite.js'), 'frontend', '--host', '127.0.0.1', '--port', String(webPort), '--strictPort'], 'vite', { VITE_API_BASE_URL: api });
   await until(async () => {
@@ -174,13 +202,13 @@ main()
   const profile = options.profiles.find(row => row.requested_model === 'SIMULATED-ANNOTATIONS');
   browser = await chromium.launch({ channel: 'chrome', headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, permissions: ['clipboard-read', 'clipboard-write'] });
-  await context.addInitScript(({ api, profileId }) => {
+  await context.addInitScript(({ api, profileId, dataset }) => {
     const key = `review-workbench:${api}`;
     if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ selected: null, notes: {}, draft: {
-      dataset: JSON.stringify(['amazon_reviews_2023', 'SIMULATED-frontend']), productIds: ['DEMO-A'], profileId,
-      current: ['2023-02-01', '2023-02-24'], baseline: ['2023-01-01', '2023-01-31'], note: '',
+      dataset: JSON.stringify(dataset), productIds: ['DEMO-A'], profileId,
+      current: ['2023-02-01', '2023-02-24'], baseline: ['2023-01-01', '2023-01-31'], note: '', rangeConfirmed: true,
     } }));
-  }, { api, profileId: profile.profile_id });
+  }, { api, profileId: profile.profile_id, dataset: topicMode ? ['reviews_csv', 'reviews-csv'] : ['amazon_reviews_2023', 'SIMULATED-frontend'] });
   page = await context.newPage(); page.on('pageerror', error => errors.push(error.message));
   await page.goto(web + '/assistant');
   await page.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
@@ -198,6 +226,21 @@ main()
     else await latest.getByText('分析未完成，未发布统计与原文。请重试任务。', { exact: true }).waitFor();
     await until(async () => await input.isEnabled(), 'answer shown');
     return task;
+  }
+  async function checkTopicBody(task) {
+    const body = page.locator('.chat-turn').last().getByRole('region', { name: '分析回答' });
+    const { public_answer: answer, answer: answerText } = task.result;
+    const text = await body.innerText();
+    const methodology = /未穷尽全部主题|整体好评按维度归并|本次二级主题分析纳入|受预算限制的非随机样本探索|沿用已有服务标注/;
+    assert.match(answer.caveats.join('\n'), methodology);
+    assert.doesNotMatch(text, methodology);
+    assert.doesNotMatch(answerText, methodology);
+    assert.ok(text.includes(answer.sample_note) && answer.sample_note.includes('成功标注'));
+    for (const row of answer.highlights) {
+      assert.ok(text.includes(row.text));
+      assert.match(row.text, /代表原文.*评论 #\d+/);
+    }
+    return body;
   }
   if (scopeMode) {
     const rounds = []; report.rounds = rounds;
@@ -282,11 +325,28 @@ main()
         : summaryThemes.map(([, name]) => name);
       for (const name of expected) assert.ok(task.result.public_answer.summary.includes(name), task.result.public_answer.summary);
       assert.ok(data.opinions.every(row => row.sentiment === 'positive' && (!aspect || row.aspect === aspect)));
+      await checkTopicBody(task);
       rounds.push(task);
     }
     const latest = page.locator('.chat-turn').last();
     await latest.getByRole('region', { name: '分析回答' }).getByText(/发货及时/).first().waitFor();
     const beforeText = await latest.getByRole('region', { name: '分析回答' }).innerText();
+    await latest.getByRole('button', { name: '复制回答', exact: true }).click();
+    await latest.getByText('已复制', { exact: true }).waitFor();
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    assert.equal(copied.replace(/\r\n/g, '\n'), rounds.at(-1).result.answer);
+    await latest.getByText('查看完整查询范围', { exact: true }).click();
+    await latest.getByText('本轮实际执行范围', { exact: true }).waitFor();
+    await latest.getByText('查看完整查询范围', { exact: true }).click();
+    await latest.getByText('查看本轮查询快照', { exact: true }).click();
+    const downloading = page.waitForEvent('download');
+    await latest.getByRole('button', { name: '下载查询快照', exact: true }).click();
+    const snapshotPath = path.join(out, 'topic-query-snapshot.json');
+    await (await downloading).saveAs(snapshotPath);
+    const snapshot = JSON.parse(await readFile(snapshotPath, 'utf8'));
+    assert.deepEqual(snapshot.resolved_scope, rounds.at(-1).result.scope);
+    assert.deepEqual(snapshot.results.r1.data, rounds.at(-1).result.results.r1.data);
+    await latest.getByText('查看本轮查询快照', { exact: true }).click();
     await latest.locator('.chat-report > summary').click();
     for (const width of [1440, 1024, 768]) {
       await page.setViewportSize({ width, height: 1000 });
@@ -305,7 +365,8 @@ main()
     assert.equal(await page.locator('.chat-turn').last().getByRole('region', { name: '分析回答' }).innerText(), beforeText);
     assert.equal(modelCalls, beforeCalls);
     report.checks = ['four real API/worker summary rounds', 'product/positive context inherited', 'logistics and service synonyms merged',
-      'whole-product six-aspect summary', 'per-aspect denominators and sources', '1440/1024/768 screenshots', 'history restored without model calls', 'business database unchanged'];
+      'whole-product six-aspect summary', 'per-aspect denominators and sources', 'clean answer and clipboard, full query snapshot',
+      '1440/1024/768 screenshots', 'history restored without model calls', 'business database unchanged'];
   } else if (topicMode) {
     await send('美的空调好评主要集中在哪些方面？');
     const task = await send('使用效果具体好在哪里？');
@@ -321,11 +382,13 @@ main()
     }
     const latest = page.locator('.chat-turn').last();
     await latest.getByRole('region', { name: '分析回答' }).getByText(/制冷速度/).first().waitFor();
-    assert.match(await latest.innerText(), /未经人工确认/);
+    await checkTopicBody(task);
     await latest.locator('.chat-report > summary').click();
     await latest.getByText('二级主题分析 [r1]', { exact: true }).waitFor();
+    assert.match(await latest.locator('.chat-report').innerText(), /未经人工确认/);
     for (const width of [1440, 1024, 768, 390]) {
-      await page.setViewportSize({ width, height: 1000 }); await latest.scrollIntoViewIfNeeded();
+      await page.setViewportSize({ width, height: 1000 });
+      await latest.getByRole('region', { name: '分析回答' }).evaluate(node => node.scrollIntoView({ block: 'start' }));
       await page.screenshot({ path: path.join(out, `topics-${width}.png`), animations: 'disabled' });
       const measure = await page.evaluate(() => ({ width: innerWidth, documentWidth: document.documentElement.scrollWidth, inputBottom: document.querySelector('.chat-input-area').getBoundingClientRect().bottom }));
       assert.ok(measure.documentWidth <= width + 1); assert.ok(measure.inputBottom <= 1001); screenshots.push(measure);
@@ -337,6 +400,10 @@ main()
     assert.equal(negative.result.results.r1.data.sentiment, 'negative');
     assert.equal(negative.result.results.r1.data.topics[0].review_count, 2);
     assert.deepEqual(negative.result.results.r1.data.topics.map(row => row.name), ['配送时效']);
+    const negativeBody = await checkTopicBody(negative);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await negativeBody.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(out, 'negative-answer-1440.png'), animations: 'disabled' });
     const before = modelCalls; await page.reload();
     await page.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
     await page.locator('.chat-turn').last().getByRole('region', { name: '分析回答' }).waitFor(); assert.equal(modelCalls, before);
@@ -475,15 +542,16 @@ main()
   report.status = 'passed'; report.modelCalls = modelCalls; report.screenshots = screenshots; report.errors = errors;
 } catch (error) {
   report.status = 'failed'; report.error = String(error); process.exitCode = 1;
+  console.error(error);
   if (page && !page.isClosed()) await page.screenshot({ path: path.join(out, 'failure.png') }).catch(() => {});
 } finally {
+  await writeFile(path.join(out, 'acceptance.json'), JSON.stringify(report, null, 2));
   if (browser) await browser.close();
   for (const child of children.filter(child => child.pid && child.exitCode === null)) {
-    if (process.platform === 'win32') await run('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }).catch(() => {});
+    if (process.platform === 'win32') await run('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, timeout: 5000 }).catch(() => child.kill());
     else child.kill();
   }
   model.closeAllConnections(); await new Promise(resolve => model.close(resolve));
   for (const log of logs) log.end();
-  await writeFile(path.join(out, 'acceptance.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 }

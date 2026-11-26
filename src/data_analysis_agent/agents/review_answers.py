@@ -55,6 +55,7 @@ class PublicAnswer(AnalysisModel):
     sample_note: str = ""
     evidence_refs: list[EvidenceReference] = Field(default_factory=list)
     caveats: list[str] = Field(default_factory=list)
+    body_caveats: list[str] | None = None
     generation_status: Literal["template", "llm", "fallback", "unavailable"] = "unavailable"
     source_result_ids: list[str] = Field(default_factory=list)
     scope_summary: list[dict] = Field(default_factory=list)
@@ -186,14 +187,18 @@ class AnswerAssembler:
         if len(facts) == 1 and facts[0].kind == 'aspect' and confirmed_aspects(context):
             # 单维度的数量/分母已由摘要完整呈现，指标与详情保留，正文不再重复数字行。
             highlights = []
-        notes = answer_caveats(context, facts)
+        additional_notes = []
         assessment = assess_evidence(context)
         if assessment['note'] and assessment['status'] not in ('facts_sufficient','descriptive_evidence_available','sample_descriptive_only'):
-            notes.append(assessment['note'])
+            additional_notes.append(assessment['note'])
         if facts and not context.evidence and all(fact.kind in ('aspect', 'empty') for fact in facts) and (opinion_request(context.question)['content_detail'] or re.search(r'具体|反映|解释|为什么', context.question)):
-            notes.append('目前只能确认已有维度的提及数量和占比；未查询对应观点原文或二级主题，不能判断具体问题类型或原因。')
+            additional_notes.append('目前只能确认已有维度的提及数量和占比；未查询对应观点原文或二级主题，不能判断具体问题类型或原因。')
         if omitted:
-            notes.append("正文仅列出主要发现，完整分组和统计保留在详情中。")
+            additional_notes.append("正文仅列出主要发现，完整分组和统计保留在详情中。")
+        notes = answer_caveats(context, facts) + additional_notes
+        body_caveats = None
+        if any(stat['analysis_type'] == 'aspect_drilldown' for stat in context.statistics):
+            body_caveats = answer_caveats(context, facts, include_topic_methodology=False) + additional_notes
         samples = context.sample_summary
         note = ""
         if context.analysis_type == "pros_cons":
@@ -212,7 +217,7 @@ class AnswerAssembler:
             note += "。"
         answer=PublicAnswer(status="ok", summary=summary, highlights=highlights,
             metrics=[{"finding_ref": fact.finding_ref, "scope_ref": fact.scope_ref, "values": fact.metrics} for fact in facts],
-            sample_note=note, evidence_refs=context.evidence, caveats=notes, generation_status=generation_status,
+            sample_note=note, evidence_refs=context.evidence, caveats=notes, body_caveats=body_caveats, generation_status=generation_status,
             source_result_ids=context.source_result_ids, scope_summary=context.scope_summary, details_available=True)
         catalog,_=fact_catalog(context)
         return apply_evidence_relations(context,answer,catalog)
@@ -426,10 +431,16 @@ def unavailable_answer(status="failed", reason=None, *, question=None):
     if status == 'unsupported' and isinstance(question, str):
         from data_analysis_agent.agents.review_task_contract import task_limit
         limit = task_limit(question)
-        if limit and reason == limit[1] and limit[0] in ('cause_check', 'statistics'):
+        if limit and reason == limit[1] and limit[0] in ('cause_check', 'statistics', 'subtopic_count', 'subtopic_trend'):
             if limit[0] == 'cause_check':
                 summary = ('仅凭评论不能确认客观故障原因，也不能认定是否由某个零部件损坏导致。'
                            '评论可提供买家自述和原文线索，实际原因需要维修检测记录核验。')
+            elif limit[0] == 'subtopic_count':
+                summary = ('当前不能准确统计该细分反馈的评论条数，缺少可核验的全量主题分类计数。'
+                           '上级维度数量、数据质量总评论数或少量检索样例均不能替代该主题的准确条数。')
+            elif limit[0] == 'subtopic_trend':
+                summary = ('当前仅支持整体或六大评价维度的趋势分析，缺少该细分主题的完整分类时间序列，'
+                           '不能用整体或上级维度趋势替代。')
             else:
                 summary = ('当前不能准确计算该反馈占全部评论的比例，缺少可核验的全量主题计数。'
                            '计算前需在当前范围内逐条判定该主题，说明缺失正文、未判定数量并明确分母；'
@@ -537,9 +548,10 @@ def public_answer_text(answer, *, result_id=None):
         return '\n'.join(highlights) or answer['summary']
     insights = [f"{'可能的解释' if row['kind'] == 'interpretation' else '分析建议'}：{row['text']}"
                 for row in answer.get('insights', [])] if answer['status'] == 'ok' else []
+    notes = answer.get('body_caveats')
     return '\n\n'.join(part for part in [answer['summary'],
         *(f'{index + 1}. {text}' for index, text in enumerate(highlights)), *insights,
-        answer['sample_note'], *answer['caveats']] if part)
+        answer['sample_note'], *(answer['caveats'] if notes is None else notes)] if part)
 
 
 def synchronize_answer(result):

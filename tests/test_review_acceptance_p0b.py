@@ -112,6 +112,7 @@ class IndependentAcceptanceTests(unittest.TestCase):
         self.assertFalse(acceptance['complete'])
         self.assertFalse(result['public_answer']['highlights'])
         self.assertEqual(acceptance['evidence_status'], 'no_matching_opinions')
+        self.assertIn('当前范围证据不足', result['public_answer']['summary'])
 
     def test_partial_classification_cannot_hide_behind_missing_citations(self):
         result = self.run_local('物流差评主要体现在哪里？')
@@ -142,6 +143,7 @@ class IndependentAcceptanceTests(unittest.TestCase):
         self.assertEqual(result['task_acceptance']['status'], 'insufficient_evidence')
         self.assertEqual(result['task_acceptance']['evidence_status'], 'no_supported_evidence')
         self.assertFalse(result['task_acceptance']['complete'])
+        self.assertIn('当前范围证据不足', result['public_answer']['summary'])
 
     def test_tool_execution_failure_has_no_successful_business_acceptance(self):
         with patch('data_analysis_agent.agents.review_topics.analyze_aspect_topics', side_effect=TimeoutError('synthetic failure')):
@@ -151,6 +153,7 @@ class IndependentAcceptanceTests(unittest.TestCase):
         self.assertTrue(result['task_acceptance']['plan_check']['passed'])
         self.assertEqual(result['task_acceptance']['evidence_status'], 'execution_failed')
         self.assertNotEqual(result['public_answer']['status'], 'ok')
+        self.assertTrue(result['error']['message'])
 
     def test_existing_quote_location_validator_still_rejects_corruption(self):
         result = self.run_local('物流差评主要体现在哪里？')

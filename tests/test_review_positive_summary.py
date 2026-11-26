@@ -13,7 +13,7 @@ from topic_fixture import topic_model
 from data_analysis_agent.agents.review_topics import TopicCatalog, TopicBatch, validate_topic_result, analyze_aspect_topics
 from data_analysis_agent.agents.review_semantics import product_mentions
 from data_analysis_agent.agents.reviews import run_review_agent
-from data_analysis_agent.agents.review_answers import read_public_answer
+from data_analysis_agent.agents.review_answers import public_answer_text, read_public_answer
 from data_analysis_agent.reviews.analytics import get_aspect_opinions
 from data_analysis_agent.reviews.label_store import pending_reviews, save_annotation
 from data_analysis_agent.reviews.opinions import ASPECTS, validate_opinions
@@ -122,6 +122,36 @@ class PositiveSummaryTests(WorkbenchFixture, unittest.TestCase):
         public = read_public_answer({'status': 'succeeded', 'parameters': self.scope(), 'result': result})
         self.assertEqual(public['summary'], result['public_answer']['summary'])
         self.assertEqual(len(public['highlights']), 8)
+
+    def test_sampled_summary_keeps_topic_methodology_in_metadata_only(self):
+        with patch('data_analysis_agent.agents.review_topics.MAX_POSITIVE_UNIQUE', 13):
+            result = self.run_summary('给出100013588053商品评论中具体的好评')
+        self.assertEqual(result['status'], 'ok', result.get('error'))
+        self.assertEqual(result['validation']['status'], 'passed')
+        self.assertTrue(result['task_acceptance']['complete'])
+        data = result['results']['r1']['data']
+        self.assertEqual(data['population_mode'], 'sample')
+        self.assertTrue(validate_topic_result(data))
+        self.assertGreater(data['coverage']['unclassified_opinions'], 0)
+        answer = result['public_answer']
+        body = result['answer']
+        for phrase in ('未穷尽全部主题', '整体好评按维度归并', '本次二级主题分析纳入',
+                       '受预算限制的非随机样本探索', '沿用已有服务标注'):
+            self.assertTrue(any(phrase in note for note in answer['caveats']), phrase)
+            self.assertNotIn(phrase, body)
+        self.assertIn('本次纳入的非随机样本中', body)
+        self.assertIn('占该维度纳入样本评论', body)
+        self.assertIn('本次分析范围共 4 条评论，基于 4 条成功标注评论', body)
+        for row in answer['highlights']:
+            self.assertIn(row['text'], body)
+        for ref in answer['evidence_refs']:
+            self.assertIn(ref['review_id'], {item['review_id'] for item in data['items']})
+        self.assertTrue(answer['evidence_refs'])
+        stored = {'status': 'succeeded', 'parameters': self.scope(), 'result': result}
+        rebuilt = read_public_answer(stored)
+        self.assertEqual(public_answer_text(rebuilt), body)
+        for field in ('caveats', 'metrics', 'scope_summary', 'evidence_refs'):
+            self.assertEqual(rebuilt[field], answer[field])
 
     def test_followup_restores_product_and_can_switch_dimension_or_return_to_whole(self):
         first = self.run_summary('100013588053的好评集中在什么地方？')

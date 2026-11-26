@@ -14,7 +14,7 @@ import httpx
 from openai import OpenAI
 
 from test_agent import SETTINGS, completion
-from data_analysis_agent.agents.review_answers import AnswerAssembler, NaturalLanguageAnswerGenerator, read_public_answer, template_draft
+from data_analysis_agent.agents.review_answers import AnswerAssembler, NaturalLanguageAnswerGenerator, public_answer_text, read_public_answer, template_draft
 from data_analysis_agent.agents.review_answer_facts import build_answer_facts
 from data_analysis_agent.agents.review_compression import CompactAnalysisContext
 from data_analysis_agent.agents.review_compression import public_from_context
@@ -137,6 +137,8 @@ class TopicAnswerIntegrityTests(unittest.TestCase):
         answer, _, _ = generate(context, focus=['F8', 'F7'])
         self.assertEqual(len(answer['highlights']), 8)
         self.assertIn('未展示 4 个', ''.join(answer['caveats']))
+        self.assertIn('未展示 4 个', public_answer_text(answer))
+        self.assertNotIn('未穷尽全部主题', public_answer_text(answer))
         for row, topic in zip(answer['highlights'], context.statistics[0]['filters']['topics'][:8]):
             self.assertIn(topic['name'], row['text'])
 
