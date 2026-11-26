@@ -1,19 +1,29 @@
 """有预算的二级主题发现与归属复核；模型不产生统计，所有来源与数量由代码保留。"""
 
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from copy import deepcopy
+from threading import Event, Lock
 import unicodedata
 from time import perf_counter
 from typing import Literal
-from urllib.parse import urlsplit
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError
 from pydantic import Field, ValidationError
 
 from data_analysis_agent.agents.review_results import AnalysisModel
 from data_analysis_agent.core.errors import ReviewDataError
+from data_analysis_agent.core.llm_gateway import (
+    chat_completion,
+    is_b4_budget_guarded,
+    open_llm_client,
+    provider_extra_body,
+    resolve_model,
+)
 from data_analysis_agent.core.serialization import canonical_json, content_sha256
 from data_analysis_agent.reviews.analytics import count_rate
 from data_analysis_agent.reviews.opinions import Aspect, ASPECTS
+
+_REAL_PERF_COUNTER = perf_counter
 
 TOPIC_VERSION = 'aspect-topics-v1'
 MAX_OPINIONS, MAX_UNIQUE, BATCH_SIZE = 200, 80, 20
@@ -118,7 +128,6 @@ def topic_id(name, aspect, sentiment):
 
 
 def _call(settings, prompt, payload, schema, timeout, *, shared_budget=None, aspect=None):
-    from openai import OpenAI
     # 归属逐项重复长字段会拖慢真实模型；只压缩传输，持久化与校验仍使用原完整结构。
     wire_schema = TopicWireBatch if schema is TopicBatch else TopicWireCatalog if schema is TopicCatalog else schema
     if schema is TopicCatalog:
@@ -135,20 +144,32 @@ i 对应 opinion_id；s 用 a=assigned、u=uncertain、c=conflicting、n=unclass
     body = canonical_json({**payload, 'schema': wire_schema.model_json_schema()})
     if len(body.encode('utf-8')) > MAX_INPUT_BYTES:
         raise TopicResponseError('input_budget_exceeded', '主题模型输入超过字节预算')
-    options = {}
-    if urlsplit(settings.base_url).hostname in {'api.siliconflow.cn', 'api.siliconflow.com'} and settings.model.rsplit('/', 1)[-1] == 'DeepSeek-V3.2':
-        # 该供应商支持显式关闭额外思考；主题发现与独立归属复核仍分别执行。
-        options['extra_body'] = {'enable_thinking': False}
+    target_model = resolve_model(settings, 'topic')
+    extra = provider_extra_body(settings, role='topic', model=target_model)
+    options = {'extra_body': extra} if extra else {}
     max_tokens = 1200 if schema is TopicCatalog else 3000
+
     def provider(request_timeout):
-        with OpenAI(api_key=settings.api_key, base_url=settings.base_url, timeout=request_timeout, max_retries=0) as client:
-            create = client.chat.completions.with_raw_response.create if shared_budget else client.chat.completions.create
-            response = create(model=settings.model, temperature=0, max_tokens=max_tokens,
-                response_format={'type': 'json_object'}, messages=[{'role': 'system', 'content': prompt}, {'role': 'user', 'content': body}], **options)
+        with open_llm_client(settings, timeout=request_timeout, max_retries=0) as client:
+            response = chat_completion(
+                settings,
+                role='topic',
+                model=target_model,
+                messages=[{'role': 'system', 'content': prompt}, {'role': 'user', 'content': body}],
+                timeout=request_timeout,
+                max_retries=0,
+                temperature=0,
+                max_tokens=max_tokens,
+                response_format={'type': 'json_object'},
+                extra_body=extra or None,
+                raw_response=bool(shared_budget),
+                client=client,
+            )
             if shared_budget:
                 from data_analysis_agent.agents.review_provider import parse_provider_response
                 return parse_provider_response(response)
             return response
+
     stage = payload.get('stage')
     try:
         response = (shared_budget.request(settings, aspect=aspect, stage=stage, prompt=prompt, body=body,
@@ -314,7 +335,24 @@ def recompute_topics(data):
         'population_opinion_coverage': count_rate(len(evaluated), data['total_opinions'])}
 
 
-def analyze_aspect_topics(extracted=None, *, settings, progress=None, frozen_input=None, shared_budget=None):
+class _BatchCallError(Exception):
+    """携带单次请求已分配超时的内部错误包装，避免并发批次共享可变超时变量。"""
+
+    def __init__(self, original, request_timeout):
+        super().__init__(str(original))
+        self.original = original
+        self.request_timeout = request_timeout
+
+
+def analyze_aspect_topics(
+    extracted=None,
+    *,
+    settings,
+    progress=None,
+    frozen_input=None,
+    shared_budget=None,
+    max_concurrency=None,
+):
     started = perf_counter()
     if frozen_input is not None or shared_budget is not None:
         from data_analysis_agent.agents.review_budget import P6SharedBudget, P6BudgetBlocked, P6InputIntegrityError
@@ -326,63 +364,114 @@ def analyze_aspect_topics(extracted=None, *, settings, progress=None, frozen_inp
         rows, units, items = (deepcopy(frozen_input[key]) for key in ('opinions', 'units', 'items'))
     else:
         rows, units, items = _units(extracted)
+    target_model = resolve_model(settings, 'topic')
     data = {key: deepcopy(extracted[key]) for key in ('scope', 'summary', 'aspect', 'sentiment', 'total', 'total_opinions')}
     data.update(analysis_type='aspect_drilldown', analysis_status='insufficient_data' if not rows else 'complete',
         population_mode='full' if len(rows) == extracted['total_opinions'] else 'sample',
         sampling_method=('stratified_by_aspect_then_recent_reviews; bounded_non_random' if extracted['aspect'] is None
                          else 'latest_reviews_then_opinion_order; bounded_non_random'),
-        grouping_version=TOPIC_VERSION, grouping_model=settings.model, catalog=[], assignments=[],
+        grouping_version=TOPIC_VERSION, grouping_model=target_model, catalog=[], assignments=[],
         opinions=rows, items=items, failures=[], model_calls=0, discovery_unit_ids=[])
 
-    request_timeout = 0
     bounded_negative = shared_budget is None and data['sentiment'] == 'negative'
     whole_positive = shared_budget is None and data['aspect'] is None and data['sentiment'] == 'positive'
     recovery_remaining = int(whole_positive)
     total_seconds = NEGATIVE_MAX_SECONDS if bounded_negative else MAX_SECONDS
+    budget_lock = Lock()
+    stop_event = Event()
+
+    configured_concurrency = (
+        max_concurrency
+        if max_concurrency is not None
+        else getattr(settings, 'topic_classification_concurrency', 3)
+    )
+    try:
+        configured_concurrency = max(1, min(4, int(configured_concurrency)))
+    except (TypeError, ValueError):
+        configured_concurrency = 1
+
+    def reserve_call():
+        with budget_lock:
+            if stop_event.is_set():
+                raise _BatchCallError(TimeoutError('主题剩余预算不足一次完整请求。'), 0)
+            remaining = total_seconds - (perf_counter() - started)
+            request_limit = min(settings.timeout_seconds, REQUEST_MAX_SECONDS)
+            # Do not send a full classification batch with only a few seconds left.
+            if remaining <= 0 or (bounded_negative and remaining < request_limit):
+                if bounded_negative:
+                    stop_event.set()
+                raise _BatchCallError(TimeoutError('主题剩余预算不足一次完整请求。'), 0)
+            if bounded_negative and data['model_calls'] >= MAX_MODEL_CALLS:
+                stop_event.set()
+                raise _BatchCallError(
+                    TopicResponseError('request_budget_exceeded', '主题模型请求次数预算已用完'),
+                    0,
+                )
+            data['model_calls'] += 1
+            return min(request_limit, remaining)
+
+    def execute_reserved_call(prompt, payload, schema, req_timeout):
+        request_started = perf_counter()
+        try:
+            response = _call(settings, prompt, payload, schema, req_timeout)
+            if (bounded_negative or whole_positive) and (
+                perf_counter() - request_started > req_timeout or perf_counter() - started > total_seconds
+            ):
+                raise TimeoutError('主题响应超过本次请求或总耗时预算。')
+            return response
+        except Exception as exc:
+            raise _BatchCallError(exc, req_timeout) from exc
+
     def call(prompt, payload, schema):
-        nonlocal request_timeout
         if shared_budget is not None:
             shared_budget.verify_input(data['aspect'], frozen_input)
-            request_timeout = min(settings.timeout_seconds, 20)
+            req_timeout = min(settings.timeout_seconds, 20)
             before = shared_budget.snapshot()['attempts']
             try:
-                return call_topic_model(settings, prompt, payload, schema, request_timeout,
-                    shared_budget=shared_budget, aspect=data['aspect'])
+                return call_topic_model(settings, prompt, payload, schema, req_timeout,
+                    shared_budget=shared_budget, aspect=data['aspect']), req_timeout
+            except Exception as exc:
+                raise _BatchCallError(exc, req_timeout) from exc
             finally:
                 data['model_calls'] += shared_budget.snapshot()['attempts'] - before
-        remaining = total_seconds - (perf_counter() - started)
-        request_timeout = 0
-        request_limit = min(settings.timeout_seconds, REQUEST_MAX_SECONDS)
-        # Do not send a full classification batch with only a few seconds left.
-        if remaining <= 0 or (bounded_negative and remaining < request_limit):
-            raise TimeoutError('主题剩余预算不足一次完整请求。')
-        if bounded_negative and data['model_calls'] >= MAX_MODEL_CALLS:
-            raise TopicResponseError('request_budget_exceeded', '主题模型请求次数预算已用完')
-        data['model_calls'] += 1
-        request_timeout = min(request_limit, remaining)
-        request_started = perf_counter()
-        response = _call(settings, prompt, payload, schema, request_timeout)
-        if (bounded_negative or whole_positive) and (perf_counter() - request_started > request_timeout or perf_counter() - started > total_seconds):
-            raise TimeoutError('主题响应超过本次请求或总耗时预算。')
-        return response
+        req_timeout = reserve_call()
+        return execute_reserved_call(prompt, payload, schema, req_timeout), req_timeout
 
     def checked_call(prompt, payload, schema, check):
         nonlocal recovery_remaining
         while True:
+            req_timeout = 0
             try:
-                return check(call(prompt, payload, schema))
-            except TopicResponseError as exc:
-                if (not recovery_remaining or exc.code not in {'cross_aspect_support', 'cross_aspect_assignment'}
+                raw_response, req_timeout = call(prompt, payload, schema)
+                return check(raw_response)
+            except _BatchCallError as wrapped:
+                exc, req_timeout = wrapped.original, wrapped.request_timeout
+                if (not recovery_remaining or not isinstance(exc, TopicResponseError)
+                        or exc.code not in {'cross_aspect_support', 'cross_aspect_assignment'}
                         or perf_counter() - started >= total_seconds):
-                    raise
+                    raise _BatchCallError(exc, req_timeout) from exc
                 # 仅整体好评共用一次纠正机会；成功批次不重跑，所有请求继续计入原预算。
                 recovery_remaining -= 1
                 payload = {**payload, 'correction': {'code': exc.code,
                     'instruction': '上次响应跨越已有 aspect，不得迁移维度。' + (
                         '每个主题仅使用同维度依据，无法支持时不生成该主题。' if schema is TopicCatalog else
                         '只选择本行 allowed_theme_keys，不匹配时返回 uncertain 或 unclassified。')}}
+            except TopicResponseError as exc:
+                if (not recovery_remaining or exc.code not in {'cross_aspect_support', 'cross_aspect_assignment'}
+                        or perf_counter() - started >= total_seconds):
+                    raise _BatchCallError(exc, req_timeout) from exc
+                recovery_remaining -= 1
+                payload = {**payload, 'correction': {'code': exc.code,
+                    'instruction': '上次响应跨越已有 aspect，不得迁移维度。' + (
+                        '每个主题仅使用同维度依据，无法支持时不生成该主题。' if schema is TopicCatalog else
+                        '只选择本行 allowed_theme_keys，不匹配时返回 uncertain 或 unclassified。')}}
+            except Exception as exc:
+                raise _BatchCallError(exc, req_timeout) from exc
 
-    def failure(exc, batch):
+    def failure(exc, batch, req_timeout=0):
+        if isinstance(exc, _BatchCallError):
+            req_timeout = exc.request_timeout
+            exc = exc.original
         stage = 'topic_classification' if batch else 'topic_discovery'
         label = f'主题归属复核第 {batch} 批' if batch else '主题发现'
         if shared_budget is not None and isinstance(exc, P6InputIntegrityError):
@@ -390,8 +479,8 @@ def analyze_aspect_topics(extracted=None, *, settings, progress=None, frozen_inp
         if shared_budget is not None and isinstance(exc, P6BudgetBlocked):
             code, reason = exc.code, '共享预算或截止条件阻止继续执行'
         elif isinstance(exc, (TimeoutError, APITimeoutError)):
-            code = 'timeout' if request_timeout else 'budget_exhausted'
-            reason = f'请求超时（单次上限 {round(request_timeout, 1):g} 秒）' if request_timeout else f'总耗时预算 {total_seconds} 秒已耗尽或不足一次完整请求'
+            code = 'timeout' if req_timeout else 'budget_exhausted'
+            reason = f'请求超时（单次上限 {round(req_timeout, 1):g} 秒）' if req_timeout else f'总耗时预算 {total_seconds} 秒已耗尽或不足一次完整请求'
         elif isinstance(exc, APIStatusError):
             code = 'http_error'
             reason = {401: '模型服务鉴权失败', 402: '模型服务额度不足', 403: '模型服务拒绝访问',
@@ -402,7 +491,7 @@ def analyze_aspect_topics(extracted=None, *, settings, progress=None, frozen_inp
             code, reason = exc.code, str(exc)
         else:
             code, reason = 'invalid_response', '模型响应未完整返回或未通过结构、观点及原文校验'
-        return {'batch': batch, 'stage': stage, 'code': code, 'timeout_seconds': round(request_timeout, 3),
+        return {'batch': batch, 'stage': stage, 'code': code, 'timeout_seconds': round(req_timeout, 3),
                 'message': label + reason}
 
     progress_error = None
@@ -418,26 +507,127 @@ def analyze_aspect_topics(extracted=None, *, settings, progress=None, frozen_inp
             classification_themes = [{key: value for key, value in theme.items() if key != 'support_ids'}
                                      for theme in data['catalog']]
             batch_size = min(BATCH_SIZE, POSITIVE_BATCH_SIZE) if data['sentiment'] == 'positive' else BATCH_SIZE
-            for offset in range(0, len(units), batch_size):
-                batch = units[offset:offset + batch_size]
-                try:
-                    if progress:
+            batches = [
+                (offset // batch_size + 1, offset, units[offset:offset + batch_size])
+                for offset in range(0, len(units), batch_size)
+            ]
+            can_parallelize = (
+                configured_concurrency > 1
+                and len(batches) > 1
+                and shared_budget is None
+                and not whole_positive
+                and perf_counter is _REAL_PERF_COUNTER
+                and not is_b4_budget_guarded()
+            )
+
+            if not can_parallelize:
+                for batch_no, offset, batch in batches:
+                    try:
+                        if progress:
+                            try:
+                                progress({'stage': 'topic_classifying', 'completed': offset, 'total': len(units), 'unit': 'opinions'})
+                            except Exception as exc:
+                                progress_error = exc
+                                raise
+                        model_batch = [{**row, 'allowed_theme_keys': [theme.key for theme in catalog.themes
+                            if theme.aspect == row['aspect']]} for row in batch] if whole_positive else batch
+                        checked = checked_call(CLASSIFY_PROMPT, {'stage': 'topic_classification', 'themes': classification_themes,
+                            'opinions': model_batch}, TopicBatch, lambda value: _checked_batch(value, batch, catalog))
+                        data['assignments'].extend(checked.model_dump()['assignments'])
+                    except Exception as exc:
+                        if progress_error is not None:
+                            raise progress_error
+                        entry = failure(exc, batch_no)
+                        data['failures'].append(entry)
+                        if bounded_negative and entry['timeout_seconds'] == 0:
+                            break
+            else:
+                # 独立分类批次使用受控线程池并发执行：
+                # 1) 在主线程按批次顺序预占预算，确保 MAX_MODEL_CALLS 与失败截断确定；
+                # 2) 工作线程仅执行模型请求与结构校验，不触碰 progress/SQLite；
+                # 3) 所有结果在主线程按批次号升序合并，保证 assignments 与 failures 顺序完全确定。
+                if progress:
+                    try:
+                        progress({'stage': 'topic_classifying', 'completed': 0, 'total': len(units), 'unit': 'opinions'})
+                    except Exception as exc:
+                        progress_error = exc
+                        raise
+
+                workers = min(configured_concurrency, len(batches))
+                batch_outcomes: dict[int, tuple[str, object]] = {}
+                completed_opinions = 0
+
+                def _classify_worker(batch_units, req_timeout):
+                    raw_response = execute_reserved_call(
+                        CLASSIFY_PROMPT,
+                        {'stage': 'topic_classification', 'themes': classification_themes, 'opinions': batch_units},
+                        TopicBatch,
+                        req_timeout,
+                    )
+                    try:
+                        return _checked_batch(raw_response, batch_units, catalog).model_dump()['assignments']
+                    except Exception as exc:
+                        raise _BatchCallError(exc, req_timeout) from exc
+
+                pending_iter = iter(batches)
+                in_flight: dict = {}
+
+                def _submit_next(executor):
+                    while len(in_flight) < workers and not stop_event.is_set():
+                        item = next(pending_iter, None)
+                        if item is None:
+                            break
+                        batch_no, _offset, batch_units = item
                         try:
-                            progress({'stage': 'topic_classifying', 'completed': offset, 'total': len(units), 'unit': 'opinions'})
-                        except Exception as exc:
-                            progress_error = exc
-                            raise
-                    model_batch = [{**row, 'allowed_theme_keys': [theme.key for theme in catalog.themes
-                        if theme.aspect == row['aspect']]} for row in batch] if whole_positive else batch
-                    checked = checked_call(CLASSIFY_PROMPT, {'stage': 'topic_classification', 'themes': classification_themes,
-                        'opinions': model_batch}, TopicBatch, lambda value: _checked_batch(value, batch, catalog))
-                    data['assignments'].extend(checked.model_dump()['assignments'])
-                except Exception as exc:
-                    if progress_error is not None:
-                        raise progress_error
-                    data['failures'].append(failure(exc, offset // batch_size + 1))
-                    if bounded_negative and request_timeout == 0:
-                        break
+                            req_timeout = reserve_call()
+                        except _BatchCallError as exc:
+                            entry = failure(exc, batch_no)
+                            batch_outcomes[batch_no] = ('err', entry)
+                            if bounded_negative and entry['timeout_seconds'] == 0:
+                                stop_event.set()
+                                break
+                            continue
+                        future = executor.submit(_classify_worker, batch_units, req_timeout)
+                        in_flight[future] = (batch_no, len(batch_units))
+
+                with ThreadPoolExecutor(max_workers=workers, thread_name_prefix='topic-batch') as executor:
+                    _submit_next(executor)
+                    while in_flight:
+                        done, _ = wait(in_flight, return_when=FIRST_COMPLETED)
+                        for future in done:
+                            batch_no, batch_len = in_flight.pop(future)
+                            try:
+                                assignments = future.result()
+                                batch_outcomes[batch_no] = ('ok', assignments)
+                            except Exception as exc:
+                                batch_outcomes[batch_no] = ('err', failure(exc, batch_no))
+                            completed_opinions += batch_len
+                            if progress and progress_error is None:
+                                try:
+                                    progress({
+                                        'stage': 'topic_classifying',
+                                        'completed': min(completed_opinions, len(units)),
+                                        'total': len(units),
+                                        'unit': 'opinions',
+                                    })
+                                except Exception as exc:
+                                    progress_error = exc
+                                    stop_event.set()
+                        if progress_error is not None:
+                            for pending_future in list(in_flight):
+                                pending_future.cancel()
+                            break
+                        _submit_next(executor)
+
+                if progress_error is not None:
+                    raise progress_error
+
+                for batch_no in sorted(batch_outcomes):
+                    kind, payload_value = batch_outcomes[batch_no]
+                    if kind == 'ok':
+                        data['assignments'].extend(payload_value)
+                    else:
+                        data['failures'].append(payload_value)
         except Exception as exc:
             if progress_error is not None:
                 raise progress_error

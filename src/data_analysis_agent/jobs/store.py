@@ -1,6 +1,8 @@
 """在显式初始化的 SQLite/PostgreSQL 数据表中实现持久化单 worker 队列。"""
 
 import json
+from threading import Lock
+from time import monotonic
 import uuid
 from contextlib import closing
 from pathlib import Path
@@ -13,7 +15,7 @@ from data_analysis_agent.core.database import (PostgresConnection, check_postgre
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.core.serialization import canonical_json, content_sha256
 from data_analysis_agent.core.validation import validate_integer
-from data_analysis_agent.jobs.events import notify_task_update
+from data_analysis_agent.jobs.events import notify_queue_update, notify_task_update
 from data_analysis_agent.jobs.parameters import TaskKind, TaskStatus
 from data_analysis_agent.jobs.result_storage import (
     AUDIT_SPLIT_THRESHOLD_BYTES,
@@ -140,12 +142,27 @@ def init_tasks(path, business_path):
     return {"created": True, "task_database": str(path), "task_schema_version": 1}
 
 
+_AUDIT_TABLE_CACHE_LOCK = Lock()
+_AUDIT_TABLE_CACHE: dict[str, float] = {}
+_AUDIT_TABLE_CACHE_TTL_SECONDS = 60.0
+
+
 def _has_audit_table(connection):
     if isinstance(connection, PostgresConnection):
+        identity = getattr(connection, "identity", None)
+        if identity:
+            with _AUDIT_TABLE_CACHE_LOCK:
+                verified_at = _AUDIT_TABLE_CACHE.get(identity)
+            if verified_at is not None and monotonic() - verified_at < _AUDIT_TABLE_CACHE_TTL_SECONDS:
+                return True
         row = connection.execute(
             "SELECT 1 FROM information_schema.tables WHERE table_schema=current_schema() AND table_name='task_audit_blobs'"
         ).fetchone()
-        return row is not None
+        exists = row is not None
+        if exists and identity:
+            with _AUDIT_TABLE_CACHE_LOCK:
+                _AUDIT_TABLE_CACHE[identity] = monotonic()
+        return exists
     row = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='task_audit_blobs'"
     ).fetchone()
@@ -154,6 +171,11 @@ def _has_audit_table(connection):
 
 def _ensure_audit_table(connection):
     connection.execute(AUDIT_TABLE_DDL)
+    if isinstance(connection, PostgresConnection):
+        identity = getattr(connection, "identity", None)
+        if identity:
+            with _AUDIT_TABLE_CACHE_LOCK:
+                _AUDIT_TABLE_CACHE[identity] = monotonic()
 
 
 def _read_audit_row(connection, task_id):
@@ -328,7 +350,9 @@ def enqueue(path, kind, parameters, *, idempotency_key=None, parent_task_id=None
             parent_task_id,created_at,updated_at,progress_json) VALUES (?,?,'queued',?,?,?,?,?,?,?)""",
             (task_id, kind, encoded, digest, idempotency_key, parent_task_id, now, now,
              canonical_json({"stage": "queued", "completed": 0, "total": None, "unit": "items"})))
-        return {"task": _task(_read(connection, task_id)), "reused": False}
+        created_task = _task(_read(connection, task_id))
+    notify_queue_update()
+    return {"task": created_task, "reused": False}
 
 
 def worker_started(path, worker_id):
@@ -351,11 +375,30 @@ def heartbeat(path, worker_id, *, stopped=False):
                            (now, now if stopped else None, worker_id))
 
 
-def claim_task(path, worker_id):
+def claim_task(path, worker_id, *, kinds=None, exclude_kinds=None):
+    if kinds is not None and exclude_kinds is not None:
+        raise ValueError("kinds 与 exclude_kinds 不能同时指定。")
+    filter_sql = ""
+    filter_values = ()
+    if kinds is not None:
+        selected = tuple(dict.fromkeys(kinds))
+        if not selected or any(item not in KINDS for item in selected):
+            raise ReviewDataError("无效的任务类型筛选。")
+        filter_sql = " AND kind IN (" + ",".join("?" for _ in selected) + ")"
+        filter_values = selected
+    elif exclude_kinds is not None:
+        excluded = tuple(dict.fromkeys(exclude_kinds))
+        if not excluded or any(item not in KINDS for item in excluded):
+            raise ReviewDataError("无效的任务类型排除。")
+        filter_sql = " AND kind NOT IN (" + ",".join("?" for _ in excluded) + ")"
+        filter_values = excluded
     with closing(connect_task_database(path)) as connection, connection:
         connection.execute("BEGIN IMMEDIATE")
         order = "created_at,task_id" if isinstance(connection, PostgresConnection) else "rowid"
-        row = connection.execute("SELECT * FROM tasks WHERE status='queued' ORDER BY " + order + " LIMIT 1").fetchone()
+        row = connection.execute(
+            "SELECT * FROM tasks WHERE status='queued'" + filter_sql + " ORDER BY " + order + " LIMIT 1",
+            filter_values,
+        ).fetchone()
         if row is None:
             return None
         now = utc_now()

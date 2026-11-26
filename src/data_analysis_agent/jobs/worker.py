@@ -19,6 +19,7 @@ from data_analysis_agent.core.database import (
     database_target,
     is_postgres,
 )
+from data_analysis_agent.jobs.events import notify_queue_update, queue_event_version, wait_queue_update
 from data_analysis_agent.jobs.parameters import PARAMETERS
 # 保留这些导出，兼容旧入口；模型 SDK 仅在执行标注或 Agent 问答时加载。
 from data_analysis_agent.jobs.submission import configured_agent_identity, configured_identity, import_path, prepare_parameters, retry_task
@@ -31,6 +32,11 @@ from data_analysis_agent.jobs.store import (
 )
 
 logger = logging.getLogger(__name__)
+
+INTERACTIVE_KINDS = ("analysis",)
+DEFAULT_ANALYSIS_CONCURRENCY_POSTGRES = 3
+DEFAULT_ANALYSIS_CONCURRENCY_SQLITE = 2
+MAX_ANALYSIS_CONCURRENCY = 8
 
 
 class TaskInterrupted(RuntimeError):
@@ -107,7 +113,7 @@ class WorkerLock:
 
 
 class TaskWorker:
-    """串行领取持久任务，并维护 worker 心跳和任务最终状态。"""
+    """分通道领取持久任务：批处理通道串行执行，只读分析通道有限并发，消除队头阻塞。"""
 
     def __init__(
         self,
@@ -116,6 +122,7 @@ class TaskWorker:
         *,
         import_root: str | Path,
         env_file: str | Path,
+        analysis_concurrency: int | None = None,
     ) -> None:
         self.business_db = database_target(business_db)
         self.task_db = database_target(task_db)
@@ -123,9 +130,35 @@ class TaskWorker:
         self.env_file = Path(env_file).resolve()
         self.worker_id = uuid.uuid4().hex
         self.lock = WorkerLock(self.business_db)
+        self._lock_guard = threading.Lock()
         self.stop_requested = threading.Event()
         self.heartbeat_stop = threading.Event()
         self.thread = None
+        self._lane_threads: list[threading.Thread] = []
+        self.analysis_concurrency = self._resolve_analysis_concurrency(analysis_concurrency)
+
+    def _resolve_analysis_concurrency(self, explicit: int | None) -> int:
+        if explicit is not None:
+            if type(explicit) is not int or not 1 <= explicit <= MAX_ANALYSIS_CONCURRENCY:
+                raise ValueError(f"analysis_concurrency 必须为 1 至 {MAX_ANALYSIS_CONCURRENCY} 的整数。")
+            return explicit
+        default = DEFAULT_ANALYSIS_CONCURRENCY_POSTGRES if is_postgres(self.task_db) else DEFAULT_ANALYSIS_CONCURRENCY_SQLITE
+        try:
+            from data_analysis_agent.core.config import read_settings
+
+            raw = read_settings(self.env_file).get("WORKER_ANALYSIS_CONCURRENCY", "").strip()
+            if raw:
+                parsed = int(raw)
+                if 1 <= parsed <= MAX_ANALYSIS_CONCURRENCY:
+                    return parsed
+        except (ConfigurationError, OSError, ValueError):
+            pass
+        return default
+
+    def _check_lock(self) -> None:
+        with self._lock_guard:
+            if isinstance(self.lock.handle, PostgresConnection):
+                self.lock.handle.execute("SELECT 1")
 
     def start(self) -> None:
         if self.thread is not None:
@@ -136,7 +169,11 @@ class TaskWorker:
         self.lock.acquire()
         try:
             worker_started(self.task_db, self.worker_id)
-            logger.info("后台执行器启动 worker_id=%s", self.worker_id)
+            logger.info(
+                "后台执行器启动 worker_id=%s batch_lanes=1 analysis_lanes=%d",
+                self.worker_id,
+                self.analysis_concurrency,
+            )
             self.thread = threading.Thread(target=self._loop, name="review-task-worker")
             self.thread.start()
             self._maybe_start_rag_warmup()
@@ -171,6 +208,7 @@ class TaskWorker:
 
     def stop(self) -> None:
         self.stop_requested.set()
+        notify_queue_update()
         if self.thread is not None:
             self.thread.join()
 
@@ -181,25 +219,73 @@ class TaskWorker:
             except Exception as exc:
                 logger.error("Worker heartbeat failed (%s)", type(exc).__name__)
                 self.stop_requested.set()
+                notify_queue_update()
                 return
+
+    def _lane_loop(self, lane_name: str, *, kinds=None, exclude_kinds=None) -> None:
+        try:
+            while not self.stop_requested.is_set():
+                self._check_lock()
+                version = queue_event_version()
+                task = claim_task(
+                    self.task_db,
+                    self.worker_id,
+                    kinds=kinds,
+                    exclude_kinds=exclude_kinds,
+                )
+                if task is None:
+                    if not self.stop_requested.is_set():
+                        wait_queue_update(version, timeout=1.0)
+                    continue
+                self._execute(task)
+        except Exception as exc:
+            # 不要记录异常文本：模型或服务商错误可能包含凭据。
+            logger.error(
+                "Worker lane %s stopped unexpectedly (%s); restart to recover task state",
+                lane_name,
+                type(exc).__name__,
+            )
+            self.stop_requested.set()
+            notify_queue_update()
 
     def _loop(self) -> None:
         pulse = threading.Thread(target=self._heartbeat, name="review-task-heartbeat")
         pulse.start()
+        lanes: list[threading.Thread] = []
         try:
-            while not self.stop_requested.is_set():
-                if isinstance(self.lock.handle, PostgresConnection):
-                    self.lock.handle.execute("SELECT 1")
-                task = claim_task(self.task_db, self.worker_id)
-                if task is None:
-                    self.stop_requested.wait(1)
-                    continue
-                self._execute(task)
+            if not self.stop_requested.is_set():
+                lanes.append(
+                    threading.Thread(
+                        target=self._lane_loop,
+                        args=("batch",),
+                        kwargs={"exclude_kinds": INTERACTIVE_KINDS},
+                        name="review-batch-worker",
+                    )
+                )
+                for idx in range(self.analysis_concurrency):
+                    lanes.append(
+                        threading.Thread(
+                            target=self._lane_loop,
+                            args=(f"analysis-{idx + 1}",),
+                            kwargs={"kinds": INTERACTIVE_KINDS},
+                            name=f"review-analysis-worker-{idx + 1}",
+                        )
+                    )
+                self._lane_threads = lanes
+                for lane in lanes:
+                    lane.start()
+                for lane in lanes:
+                    lane.join()
         except Exception as exc:
             # 不要记录异常文本：模型或服务商错误可能包含凭据。
             logger.error("Worker stopped unexpectedly (%s); restart to recover task state", type(exc).__name__)
         finally:
             self.stop_requested.set()
+            notify_queue_update()
+            for lane in lanes:
+                if lane.is_alive():
+                    lane.join()
+            self._lane_threads = []
             self.heartbeat_stop.set()
             pulse.join()
             try:
@@ -217,8 +303,7 @@ class TaskWorker:
         logger.info("任务开始 task_id=%s kind=%s", task["task_id"], task["kind"])
 
         def report_progress(value: dict[str, Any]) -> None:
-            if isinstance(self.lock.handle, PostgresConnection):
-                self.lock.handle.execute("SELECT 1")
+            self._check_lock()
             if self.stop_requested.is_set():
                 raise TaskInterrupted()
             update_progress(self.task_db, task["task_id"], self.worker_id, value)

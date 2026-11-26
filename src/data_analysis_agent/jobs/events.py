@@ -1,10 +1,13 @@
-"""进程内轻量任务状态变更通知中心，供 SSE 进度推送低延迟唤醒。"""
+"""进程内轻量任务状态与队列变更通知中心，供 SSE 进度推送与 Worker 低延迟唤醒。"""
 
 from threading import Condition
 
 _CONDITION = Condition()
 _VERSIONS: dict[str, int] = {}
 _MAX_TRACKED = 1024
+
+_QUEUE_CONDITION = Condition()
+_QUEUE_VERSION = 0
 
 
 def task_event_version(task_id: str) -> int:
@@ -31,3 +34,25 @@ def wait_task_update(task_id: str, last_version: int, *, timeout: float = 0.5) -
             return current
         _CONDITION.wait(timeout=timeout)
         return _VERSIONS.get(task_id, 0)
+
+
+def queue_event_version() -> int:
+    with _QUEUE_CONDITION:
+        return _QUEUE_VERSION
+
+
+def notify_queue_update() -> None:
+    """标记新任务入队或 Worker 停止信号，低延迟唤醒所有等待中的任务通道。"""
+    global _QUEUE_VERSION
+    with _QUEUE_CONDITION:
+        _QUEUE_VERSION += 1
+        _QUEUE_CONDITION.notify_all()
+
+
+def wait_queue_update(last_version: int, *, timeout: float = 1.0) -> int:
+    """等待队列新任务通知或超时；跨进程提交仍按 timeout 兜底轮询。"""
+    with _QUEUE_CONDITION:
+        if _QUEUE_VERSION != last_version:
+            return _QUEUE_VERSION
+        _QUEUE_CONDITION.wait(timeout=timeout)
+        return _QUEUE_VERSION

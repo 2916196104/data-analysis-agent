@@ -61,7 +61,8 @@ product_mentions 只能原样引用本轮用户文本或 explicit_user_mentions�
 
 
 def _llm_intent(question, scope, context, mentions, settings, diagnostics, *, conditions=None):
-    from openai import OpenAI
+    from data_analysis_agent.core.llm_gateway import chat_completion
+
     previous = (context or {}).get('validated') or {}
     requested = conditions or {}
     requested_queries = requested.get('queries', [])
@@ -84,11 +85,16 @@ def _llm_intent(question, scope, context, mentions, settings, diagnostics, *, co
     if len(content.encode('utf-8')) > 16000:
         raise QuestionScopeError('本轮语义输入过长，请缩短问题并明确商品及查询目标。')
     diagnostics.update(method='llm', input_bytes=len(content.encode('utf-8')), model_calls=1)
-    with OpenAI(api_key=settings.api_key, base_url=settings.base_url,
-                timeout=min(settings.timeout_seconds, 30), max_retries=0) as client:
-        response = client.chat.completions.create(model=settings.model, temperature=0, max_tokens=1000,
-            response_format={'type': 'json_object'}, messages=[{'role': 'system', 'content': PARSER_PROMPT},
-                                                              {'role': 'user', 'content': content}])
+    response = chat_completion(
+        settings,
+        role='intent',
+        messages=[{'role': 'system', 'content': PARSER_PROMPT}, {'role': 'user', 'content': content}],
+        timeout=min(settings.timeout_seconds, 30),
+        max_retries=0,
+        temperature=0,
+        max_tokens=1000,
+        response_format={'type': 'json_object'},
+    )
     choice = response.choices[0]
     if choice.finish_reason != 'stop' or choice.message.tool_calls:
         raise ValueError('语义解析响应未完成。')

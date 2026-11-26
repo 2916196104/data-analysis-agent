@@ -20,6 +20,7 @@ from openai import (
 
 from data_analysis_agent.core.config import AgentSettings, read_settings
 from data_analysis_agent.core.errors import ReviewDataError
+from data_analysis_agent.core.llm_gateway import open_llm_client
 from data_analysis_agent.core.validation import validate_integer
 from data_analysis_agent.reviews.label_store import (
     RECOVERABLE_ERROR_CODES, check_labeling_schema, pending_reviews,
@@ -437,12 +438,12 @@ def run_labeling(
     # 工作线程只请求模型；数据库写入和批次计数留在当前线程，避免并发写入冲突。
     with (
         closing(connect_review_database(db_path)) as write_connection,
-        OpenAI(
-            api_key=settings.api_key,
-            base_url=settings.base_url,
+        open_llm_client(
+            settings,
             timeout=settings.timeout_seconds,
             # 首轮只记录失败，恢复轮或人工显式重试才使用 SDK 重试。
             max_retries=sdk_max_retries,
+            client_factory=OpenAI,
         ) as client,
         ThreadPoolExecutor(max_workers=workers) as executor,
     ):

@@ -15,8 +15,9 @@ from starlette.middleware.cors import CORSMiddleware
 from data_analysis_agent.api.responses import ErrorBody, ErrorResult, Result, error_response, ok_result
 from data_analysis_agent.api.routes import analytics, chat, monitoring, reviews, tasks, public_analysis
 from data_analysis_agent.core.config import ConfigurationError, read_settings
-from data_analysis_agent.core.database import DatabaseError, database_target
+from data_analysis_agent.core.database import DatabaseError, close_database_pools, database_target, is_postgres
 from data_analysis_agent.core.errors import ReviewDataError
+from data_analysis_agent.core.llm_gateway import close_llm_clients
 from data_analysis_agent.reviews.monitor_store import check_monitoring_schema
 from data_analysis_agent.reviews.store import connect_review_database
 from data_analysis_agent.jobs.label_metrics import queue_metrics
@@ -51,8 +52,15 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
         try:
             yield
         finally:
-            if worker:
-                worker.stop()
+            try:
+                if worker:
+                    worker.stop()
+            finally:
+                close_llm_clients()
+                if is_postgres(db):
+                    close_database_pools(db)
+                if is_postgres(task_db) and task_db != db:
+                    close_database_pools(task_db)
 
     app = FastAPI(title="商品口碑监控 API", version="1.0.0", lifespan=lifespan,
                   description="复用现有评论业务函数。长任务持久化到 SQLite / PostgreSQL，由串行 worker 执行。")

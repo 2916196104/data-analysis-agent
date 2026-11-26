@@ -8,44 +8,85 @@ import subprocess
 import atexit
 from queue import Queue, Empty
 from threading import Lock, Thread, local
-from time import monotonic
+from time import monotonic, sleep
 from uuid import uuid4
 
 from data_analysis_agent.reviews.embedding_store import EmbeddingStoreError
 
 logger = logging.getLogger(__name__)
 
+MAX_QUERY_BATCH = 8
+DEFAULT_MAX_RESTARTS = 3
+DEFAULT_RESTART_BACKOFF_SECONDS = 0.5
+MAX_RESTART_BACKOFF_SECONDS = 30.0
+
 
 class PersistentEmbeddingProcess:
-    """Serial JSON-lines RPC. Fail closed on crash/timeout; no automatic restart."""
-    def __init__(self, python, cache_dir, *, timeout=600, worker=None):
+    """Serial JSON-lines RPC with optional bounded self-healing and batch encoding."""
+
+    supports_batch_encode = True
+
+    def __init__(
+        self,
+        python,
+        cache_dir,
+        *,
+        timeout=600,
+        worker=None,
+        max_restarts=0,
+        restart_backoff_seconds=DEFAULT_RESTART_BACKOFF_SECONDS,
+    ):
         from data_analysis_agent.reviews.embedding_store import SPACE
         if not 0 < timeout <= 600: raise ValueError('invalid_embedding_timeout')
+        if type(max_restarts) is not int or max_restarts < 0: raise ValueError('invalid_max_restarts')
+        if isinstance(restart_backoff_seconds, bool) or restart_backoff_seconds < 0:
+            raise ValueError('invalid_restart_backoff')
         self.space = SPACE
         self.python, self.cache_dir = str(Path(python).resolve()), str(Path(cache_dir).resolve())
         self.worker = Path(worker) if worker else Path(__file__).resolve().parents[3]/'scripts/persistent_embedding_worker.py'
         self.timeout = timeout
+        self.max_restarts = max_restarts
+        self.restart_backoff_seconds = float(restart_backoff_seconds)
         self.lock = Lock()
         self.process = None
         self.reader = None
         self.writer = None
         self.responses = Queue(maxsize=2)
         self.failed = self.closed = False
+        self.consecutive_failures = 0
+        self.restart_count = 0
+        self._last_failure_at = None
         self._metrics = local()
 
     @property
     def last_metrics(self):return getattr(self._metrics,'value',{})
 
-    def _read(self, process):
+    def _can_restart(self):
+        return not self.closed and self.max_restarts > 0 and self.consecutive_failures <= self.max_restarts
+
+    def _wait_restart_backoff(self, deadline):
+        if self._last_failure_at is None or self.restart_backoff_seconds <= 0:
+            return
+        delay = min(
+            MAX_RESTART_BACKOFF_SECONDS,
+            self.restart_backoff_seconds * (2 ** max(0, self.consecutive_failures - 1)),
+        )
+        remaining_wait = delay - (monotonic() - self._last_failure_at)
+        if remaining_wait > 0:
+            if monotonic() + remaining_wait >= deadline:
+                raise TimeoutError('restart_backoff_exceeds_deadline')
+            sleep(remaining_wait)
+
+    def _read(self, process, responses):
         try:
             while True:
                 line = process.stdout.readline(1024*1024)
                 if not line or not line.endswith('\n'): break
-                self.responses.put_nowait(json.loads(line))
+                responses.put_nowait(json.loads(line))
         except Exception:
             pass
         finally:
-            try:self.responses.put_nowait(None)
+            try:responses.put_nowait(None)
             except Exception:pass
 
     def _dispose(self):
@@ -82,8 +123,23 @@ class PersistentEmbeddingProcess:
         deadline = monotonic()+self.timeout
         if not self.lock.acquire(timeout=self.timeout):
             raise EmbeddingStoreError('embedding_worker_busy')
+        already_latched = False
         try:
-            if self.closed or self.failed:raise ValueError('worker_unavailable')
+            if self.closed:
+                already_latched = True
+                raise ValueError('worker_unavailable')
+            if self.failed:
+                if not self._can_restart():
+                    already_latched = True
+                    raise ValueError('worker_unavailable')
+                self._wait_restart_backoff(deadline)
+                self.failed = False
+                self.restart_count += 1
+                logger.warning(
+                    "语义检索编码子进程自动重建 attempt=%d/%d",
+                    self.consecutive_failures,
+                    self.max_restarts,
+                )
             cold = self.process is None
             if cold:
                 env={k:v for k,v in os.environ.items() if k.upper() in (
@@ -91,11 +147,12 @@ class PersistentEmbeddingProcess:
                     'APPDATA','HOMEDRIVE','HOMEPATH','NUMBER_OF_PROCESSORS','PROCESSOR_ARCHITECTURE')}
                 env.update(PYTHONIOENCODING='utf-8',HF_HUB_OFFLINE='1',TRANSFORMERS_OFFLINE='1',
                            HF_HUB_DISABLE_TELEMETRY='1',HF_HUB_DISABLE_IMPLICIT_TOKEN='1')
+                self.responses = Queue(maxsize=2)
                 self.process=subprocess.Popen([self.python,'-B',str(self.worker)],stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,encoding='utf-8',env=env,
                     cwd=Path(__file__).resolve().parents[3],bufsize=1,
                     creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
-                self.reader=Thread(target=self._read,args=(self.process,),daemon=True)
+                self.reader=Thread(target=self._read,args=(self.process,self.responses),daemon=True)
                 self.reader.start()
                 ready=self._rpc(dict(operation='initialize',cache_dir=self.cache_dir),deadline)
                 if ready.get('status')!='ready':raise ValueError('not_ready')
@@ -104,8 +161,10 @@ class PersistentEmbeddingProcess:
                 if self.process.poll() is not None:raise ValueError('worker_exited')
                 load_ms=0
             result=self._rpc(dict(operation=operation,**({'texts':texts} if texts is not None else {})),deadline)
+            self.consecutive_failures = 0
+            self._last_failure_at = None
             self._metrics.value=dict(result.get('metrics',{}),cold_start=cold,model_load_ms=load_ms,
-                                   process_id=self.process.pid)
+                                   process_id=self.process.pid,restarts=self.restart_count)
             if operation=='encode':
                 from data_analysis_agent.reviews.embedding_store import validate_vector
                 vectors=result['vectors']
@@ -115,13 +174,17 @@ class PersistentEmbeddingProcess:
             if result.get('status')!='healthy':raise ValueError('unhealthy')
             return True
         except Exception:
+            if not already_latched:
+                self.consecutive_failures += 1
+                self._last_failure_at = monotonic()
             self.failed=True
             self._dispose()
             raise EmbeddingStoreError('local_embedding_process_failed') from None
         finally:self.lock.release()
 
     def embed_texts(self,texts):
-        if not isinstance(texts,list) or len(texts)!=1 or not isinstance(texts[0],str) or not texts[0].strip() or len(texts[0])>4000:
+        if (not isinstance(texts,list) or not 1<=len(texts)<=MAX_QUERY_BATCH
+                or any(not isinstance(text,str) or not text.strip() or len(text)>4000 for text in texts)):
             raise ValueError('invalid_query_text')
         return self._call('encode',texts)
 
@@ -136,12 +199,40 @@ class PersistentEmbeddingProcess:
 _processes = {}
 _process_lock = Lock()
 
-def shared_embedding_process(python,cache_dir,timeout=600):
+def shared_embedding_process(
+    python,
+    cache_dir,
+    timeout=600,
+    *,
+    max_restarts=DEFAULT_MAX_RESTARTS,
+    restart_backoff_seconds=DEFAULT_RESTART_BACKOFF_SECONDS,
+):
     key=(str(Path(python).resolve()),str(Path(cache_dir).resolve()),timeout)
     with _process_lock:
         if key not in _processes:
-            _processes[key]=PersistentEmbeddingProcess(python,cache_dir,timeout=timeout)
+            _processes[key]=PersistentEmbeddingProcess(
+                python,
+                cache_dir,
+                timeout=timeout,
+                max_restarts=max_restarts,
+                restart_backoff_seconds=restart_backoff_seconds,
+            )
         return _processes[key]
+
+
+def evict_failed_embedding_process(python, cache_dir, timeout=600):
+    """移除已失败的共享实例，避免预热阶段瞬时失败污染后续首次检索。"""
+    key = (str(Path(python).resolve()), str(Path(cache_dir).resolve()), timeout)
+    removed = None
+    with _process_lock:
+        candidate = _processes.get(key)
+        if candidate is not None and candidate.failed:
+            removed = _processes.pop(key)
+    if removed is not None:
+        removed.close()
+        return True
+    return False
+
 
 def close_embedding_processes():
     with _process_lock:
@@ -160,12 +251,13 @@ def warmup_embedding_process(python, cache_dir, *, timeout=600):
 
 
 def start_embedding_warmup(python, cache_dir, *, timeout=600):
-    """在后台守护线程中异步预热编码进程，不阻塞 API/Worker 启动；失败仅记日志不中断主服务。"""
+    """在后台守护线程中异步预热编码进程，不阻塞 API/Worker 启动；失败仅记日志并清理失败实例，不中断主服务。"""
     def _run():
         try:
             warmup_embedding_process(python, cache_dir, timeout=timeout)
         except Exception as exc:
-            logger.warning("语义检索编码进程启动预热跳过/失败（%s），首次检索将按需回退。", type(exc).__name__)
+            evict_failed_embedding_process(python, cache_dir, timeout=timeout)
+            logger.warning("语义检索编码进程启动预热跳过/失败（%s），首次检索将按需重建。", type(exc).__name__)
 
     thread = Thread(target=_run, name="rag-embedding-warmup", daemon=True)
     thread.start()

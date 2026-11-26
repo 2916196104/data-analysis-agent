@@ -1,16 +1,22 @@
 """为应用固定的 SQLite/PostgreSQL 查询提供小型 DB-API 桥接层。"""
 
+import atexit
+from collections import deque
 import hashlib
 import logging
+import os
 import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from time import perf_counter
+from threading import Lock
+from time import monotonic, perf_counter
 from urllib.parse import quote, urlunsplit
 
 import psycopg
 from psycopg.pq import TransactionStatus
+
+_REAL_PSYCOPG_CONNECT = psycopg.connect
 
 from data_analysis_agent.core.errors import ReviewDataError
 
@@ -126,14 +132,222 @@ def postgres_schema(statement):
     return re.sub(r"\bREAL\b", "DOUBLE PRECISION", statement)
 
 
+_DEFAULT_POOL_MAX_SIZE = 8
+_DEFAULT_POOL_IDLE_SECONDS = 300.0
+_DEFAULT_POOL_MAX_LIFETIME_SECONDS = 1800.0
+_DEFAULT_POOL_PING_IDLE_SECONDS = 15.0
+_DEFAULT_SCHEMA_CACHE_TTL_SECONDS = 60.0
+
+_POOL_LOCK = Lock()
+_POOLS: dict[tuple[str, bool, str], "_PostgresPool"] = {}
+_POOL_STATS = {"hits": 0, "misses": 0, "discards": 0}
+_SCHEMA_CACHE_LOCK = Lock()
+_SCHEMA_CACHE: dict[tuple[str, str], float] = {}
+
+
+def _pool_enabled() -> bool:
+    return os.environ.get("DATABASE_POOL_ENABLED", "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def _pool_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.environ.get(name, str(default)).strip())
+        return max(minimum, min(maximum, value))
+    except ValueError:
+        return default
+
+
+def _pool_float(name: str, default: float, minimum: float, maximum: float) -> float:
+    try:
+        value = float(os.environ.get(name, str(default)).strip())
+        return max(minimum, min(maximum, value))
+    except ValueError:
+        return default
+
+
+def _schema_cache_ttl() -> float:
+    return _pool_float("DATABASE_SCHEMA_CACHE_TTL_SECONDS", _DEFAULT_SCHEMA_CACHE_TTL_SECONDS, 0.0, 3600.0)
+
+
+def _safe_close_raw(raw) -> None:
+    if raw is None:
+        return
+    try:
+        raw.close()
+    except Exception:
+        pass
+
+
+class _PostgresPool:
+    """线程安全的轻量 PostgreSQL 连接池，按 (target, readonly, namespace) 严格隔离。"""
+
+    def __init__(self, target: str, *, readonly: bool, namespace: str):
+        self.target = target
+        self.identity = database_identity(target)
+        self.readonly = bool(readonly)
+        self.namespace = namespace
+        self._lock = Lock()
+        self._idle: deque[tuple[object, float, float]] = deque()
+        self._closed = False
+
+    def acquire(self) -> "PostgresConnection":
+        idle_limit = _pool_float("DATABASE_POOL_IDLE_SECONDS", _DEFAULT_POOL_IDLE_SECONDS, 5.0, 3600.0)
+        lifetime_limit = _pool_float("DATABASE_POOL_MAX_LIFETIME_SECONDS", _DEFAULT_POOL_MAX_LIFETIME_SECONDS, 30.0, 86400.0)
+        ping_after = _pool_float("DATABASE_POOL_PING_IDLE_SECONDS", _DEFAULT_POOL_PING_IDLE_SECONDS, 1.0, 600.0)
+        while True:
+            with self._lock:
+                if self._closed or not self._idle:
+                    entry = None
+                else:
+                    entry = self._idle.pop()
+            if entry is None:
+                with _POOL_LOCK:
+                    _POOL_STATS["misses"] += 1
+                return PostgresConnection(self.target, readonly=self.readonly, namespace=self.namespace, _pool=self)
+            raw, created_at, last_used = entry
+            now = monotonic()
+            expired = (now - last_used > idle_limit) or (now - created_at > lifetime_limit)
+            unhealthy = (
+                getattr(raw, "closed", False) is True
+                or getattr(raw, "broken", False) is True
+                or raw.info.transaction_status != TransactionStatus.IDLE
+            )
+            if expired or unhealthy:
+                _safe_close_raw(raw)
+                with _POOL_LOCK:
+                    _POOL_STATS["discards"] += 1
+                continue
+            if now - last_used >= ping_after:
+                try:
+                    raw.execute("SELECT 1")
+                except Exception:
+                    _safe_close_raw(raw)
+                    with _POOL_LOCK:
+                        _POOL_STATS["discards"] += 1
+                    continue
+            with _POOL_LOCK:
+                _POOL_STATS["hits"] += 1
+            return PostgresConnection(
+                self.target,
+                readonly=self.readonly,
+                namespace=self.namespace,
+                _raw=raw,
+                _pool=self,
+                _created_at=created_at,
+            )
+
+    def release(self, raw, created_at: float) -> None:
+        if raw is None:
+            return
+        max_size = _pool_int("DATABASE_POOL_MAX_SIZE", _DEFAULT_POOL_MAX_SIZE, 1, 32)
+        lifetime_limit = _pool_float("DATABASE_POOL_MAX_LIFETIME_SECONDS", _DEFAULT_POOL_MAX_LIFETIME_SECONDS, 30.0, 86400.0)
+        if (
+            getattr(raw, "closed", False) is True
+            or getattr(raw, "broken", False) is True
+            or (monotonic() - created_at > lifetime_limit)
+        ):
+            _safe_close_raw(raw)
+            with _POOL_LOCK:
+                _POOL_STATS["discards"] += 1
+            return
+        try:
+            if raw.info.transaction_status != TransactionStatus.IDLE:
+                raw.rollback()
+            if raw.info.transaction_status != TransactionStatus.IDLE:
+                raise psycopg.OperationalError("connection_not_idle")
+        except Exception:
+            _safe_close_raw(raw)
+            with _POOL_LOCK:
+                _POOL_STATS["discards"] += 1
+            return
+        with self._lock:
+            if self._closed or len(self._idle) >= max_size:
+                _safe_close_raw(raw)
+                return
+            self._idle.append((raw, created_at, monotonic()))
+
+    def close_idle(self) -> int:
+        with self._lock:
+            entries = list(self._idle)
+            self._idle.clear()
+        for raw, _, _ in entries:
+            _safe_close_raw(raw)
+        return len(entries)
+
+
+def _get_pool(target: str, *, readonly: bool, namespace: str) -> _PostgresPool:
+    key = (target, bool(readonly), namespace)
+    with _POOL_LOCK:
+        pool = _POOLS.get(key)
+        if pool is None:
+            pool = _PostgresPool(target, readonly=readonly, namespace=namespace)
+            _POOLS[key] = pool
+        return pool
+
+
+def close_database_pools(target=None) -> int:
+    """关闭空闲 PostgreSQL 连接池并失效对应 Schema 缓存；传入 target 时仅清理该目标。"""
+    target_identity = database_identity(target) if (target is not None and is_postgres(target)) else None
+    with _POOL_LOCK:
+        selected = [
+            (key, pool)
+            for key, pool in _POOLS.items()
+            if target is None or key[0] == target or (target_identity is not None and pool.identity == target_identity)
+        ]
+        for key, _ in selected:
+            _POOLS.pop(key, None)
+    closed = 0
+    for _, pool in selected:
+        with pool._lock:
+            pool._closed = True
+        closed += pool.close_idle()
+    invalidate_schema_cache(target)
+    return closed
+
+
+def database_pool_stats() -> dict[str, int]:
+    """返回连接池只读统计，用于观测连接复用率与测试验证。"""
+    with _POOL_LOCK:
+        pools = list(_POOLS.values())
+        stats = dict(_POOL_STATS)
+    idle = 0
+    for pool in pools:
+        with pool._lock:
+            idle += len(pool._idle)
+    return {"active_pools": len(pools), "idle_connections": idle, **stats}
+
+
+def invalidate_schema_cache(target=None, namespace=None) -> None:
+    """失效已缓存的 PostgreSQL schema 校验状态。"""
+    target_identity = database_identity(target) if (target is not None and is_postgres(target)) else None
+    with _SCHEMA_CACHE_LOCK:
+        if target is None and namespace is None:
+            _SCHEMA_CACHE.clear()
+            return
+        for key in list(_SCHEMA_CACHE):
+            identity, cached_ns = key
+            if (target_identity is None or identity == target_identity) and (namespace is None or cached_ns == namespace):
+                _SCHEMA_CACHE.pop(key, None)
+
+
+atexit.register(close_database_pools)
+
+
 class PostgresConnection:
     """匹配现有固定 SQL 语句使用的事务和行对象子集。"""
 
-    def __init__(self, target, *, readonly=False, namespace="business"):
+    def __init__(self, target, *, readonly=False, namespace="business", _raw=None, _pool=None, _created_at=None):
         identity = database_identity(target)
+        self.identity = identity
         self.namespace = namespace
         self.readonly = readonly
-        self.raw = None
+        self.read_statement_count = 0
+        self._pool = _pool
+        self._created_at = monotonic() if _created_at is None else _created_at
+        self._closed = False
+        self.raw = _raw
+        if self.raw is not None:
+            return
         try:
             with _trace_sql(self.namespace, "CONNECT " + identity):
                 self.raw = psycopg.connect(target, autocommit=True, row_factory=_row_factory,
@@ -212,7 +426,15 @@ class PostgresConnection:
             raise DatabaseError("PostgreSQL 回滚失败，请检查连接。") from None
 
     def close(self):
-        self.raw.close()
+        if self._closed:
+            return
+        self._closed = True
+        raw, pool = self.raw, self._pool
+        self._pool = None
+        if pool is not None:
+            pool.release(raw, self._created_at)
+        elif raw is not None:
+            raw.close()
 
     def __enter__(self):
         return self
@@ -224,13 +446,22 @@ class PostgresConnection:
             self.rollback()
 
 
-def connect_database(target, *, readonly=False, namespace="business", timeout=5):
+def connect_database(target, *, readonly=False, namespace="business", timeout=5, pooled=None):
     """打开已有数据库；数据表检查、事务和 close() 由调用方负责。
 
     SQLite files are never created implicitly. Explicit initializers create the
     empty file before calling this factory; PostgreSQL namespaces scope locks.
+    PostgreSQL connections reuse an in-process pool by default except for
+    session-lock worker connections (namespace='worker').
     """
     if is_postgres(target):
+        use_pool = (
+            _pool_enabled() and namespace != "worker" and psycopg.connect is _REAL_PSYCOPG_CONNECT
+            if pooled is None
+            else bool(pooled)
+        )
+        if use_pool:
+            return _get_pool(target, readonly=readonly, namespace=namespace).acquire()
         return PostgresConnection(target, readonly=readonly, namespace=namespace)
     path = Path(target).resolve()
     mode = "ro" if readonly else "rw"
@@ -258,17 +489,28 @@ def insert_id(connection, query, parameters):
 
 
 def check_postgres_schema(connection, namespace):
+    ttl = _schema_cache_ttl()
+    identity = getattr(connection, "identity", None)
+    if identity and ttl > 0:
+        with _SCHEMA_CACHE_LOCK:
+            verified_at = _SCHEMA_CACHE.get((identity, namespace))
+        if verified_at is not None and monotonic() - verified_at < ttl:
+            return
     if "review_database_schema" not in table_names(connection):
         raise ReviewDataError("PostgreSQL 表未初始化，请先执行 review_api_cli init。")
     row = connection.execute("SELECT version FROM review_database_schema WHERE namespace=?", (namespace,)).fetchone()
     if row is None or row[0] != 1:
         raise ReviewDataError("PostgreSQL 数据库版本不支持或未初始化。")
+    if identity and ttl > 0:
+        with _SCHEMA_CACHE_LOCK:
+            _SCHEMA_CACHE[(identity, namespace)] = monotonic()
 
 
 def init_postgres(target, schema, *, namespace="business", context=None):
     from contextlib import closing
 
-    with closing(connect_database(target, namespace=namespace)) as connection, connection:
+    invalidate_schema_cache(target, namespace)
+    with closing(connect_database(target, namespace=namespace, pooled=False)) as connection, connection:
         connection.execute("BEGIN IMMEDIATE")
         connection.execute("CREATE TABLE IF NOT EXISTS review_database_schema "
                            "(namespace TEXT PRIMARY KEY, version INTEGER NOT NULL)")

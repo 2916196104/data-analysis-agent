@@ -49,6 +49,12 @@ class AgentSettings:
     rag_multi_query: bool = False
     rag_citation_rerank: bool = True
     rag_warmup_on_start: bool = True
+    topic_classification_concurrency: int = 3
+    chat_model: str | None = None
+    intent_model: str | None = None
+    answer_model: str | None = None
+    topic_model: str | None = None
+    planner_model: str | None = None
 
     @classmethod
     def from_values(cls, values: dict[str, str]) -> "AgentSettings":
@@ -113,6 +119,12 @@ class AgentSettings:
             p6_preparation_enabled=bool(integer('AGENT_P6_PREPARATION_ENABLED', 0, 0, 1)),
             p6_execution_enabled=bool(integer('AGENT_P6_EXECUTION_ENABLED', 0, 0, 1)),
             p6_publication_enabled=bool(integer('AGENT_P6_PUBLICATION_ENABLED', 0, 0, 1)),
+            topic_classification_concurrency=integer('AGENT_TOPIC_CONCURRENCY', 3, 1, 4),
+            chat_model=values.get('LLM_CHAT_MODEL_ID', '').strip() or None,
+            intent_model=values.get('LLM_INTENT_MODEL_ID', '').strip() or None,
+            answer_model=values.get('LLM_ANSWER_MODEL_ID', '').strip() or None,
+            topic_model=values.get('LLM_TOPIC_MODEL_ID', '').strip() or None,
+            planner_model=values.get('LLM_PLANNER_MODEL_ID', '').strip() or None,
         )
 
 

@@ -10,11 +10,12 @@ from time import perf_counter
 
 from data_analysis_agent.core.database import DatabaseError, PostgresConnection, is_postgres
 from data_analysis_agent.core.errors import ReviewDataError
+from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.reviews.analytics import _snapshot
 from data_analysis_agent.reviews.embedding import EmbeddingSpace, MODEL_NAME, MODEL_REVISION
 from data_analysis_agent.reviews.rag_corpus import RagOpinionDocument, TEXT_BUILDER_VERSION, read_effective_corpus
 from data_analysis_agent.reviews.opinions import ASPECTS, SENTIMENTS
-from data_analysis_agent.reviews.scope import review_scope
+from data_analysis_agent.reviews.scope import analysis_scope, review_scope
 from data_analysis_agent.reviews.store import connect_review_database
 from data_analysis_agent.reviews.embedding_budget import Frozen053Budget
 
@@ -55,7 +56,7 @@ def _connect(db, *, readonly=False):
     return connect_review_database(db, readonly=readonly)
 
 
-def migrate_embedding_store(db, *, rollback=False):
+def migrate_embedding_store(db, *, rollback=False, with_hnsw_index=False):
     """仅供已获 DDL 授权的显式命令调用；既不安装扩展，也不自动迁移。"""
     script = MIGRATION_ROOT / ('003_review_opinion_embeddings.down.sql' if rollback
                                else '003_review_opinion_embeddings.up.sql')
@@ -64,6 +65,24 @@ def migrate_embedding_store(db, *, rollback=False):
             c.execute('BEGIN ISOLATION LEVEL READ COMMITTED')
             c.execute("SET LOCAL lock_timeout='3s'")
             c.execute("SET LOCAL statement_timeout='15s'")
+            c.raw.execute(script.read_text(encoding='utf-8'), prepare=False)
+    except DatabaseError:
+        raise EmbeddingStoreError('migration_failed') from None
+    except Exception:
+        raise EmbeddingStoreError('migration_failed') from None
+    if not rollback and with_hnsw_index:
+        migrate_embedding_index(db, rollback=False)
+
+
+def migrate_embedding_index(db, *, rollback=False):
+    """显式创建或回滚 pgvector HNSW 余弦索引及活跃范围索引（004 增量迁移）。"""
+    script = MIGRATION_ROOT / ('004_review_opinion_embeddings_hnsw.down.sql' if rollback
+                               else '004_review_opinion_embeddings_hnsw.up.sql')
+    try:
+        with closing(_connect(db)) as c, c:
+            c.execute('BEGIN ISOLATION LEVEL READ COMMITTED')
+            c.execute("SET LOCAL lock_timeout='3s'")
+            c.execute("SET LOCAL statement_timeout='120s'")
             c.raw.execute(script.read_text(encoding='utf-8'), prepare=False)
     except DatabaseError:
         raise EmbeddingStoreError('migration_failed') from None
@@ -300,10 +319,18 @@ def search_effective_opinions(db, vector, *, options, embedding_space_id, top_k=
                                     top_k=top_k,aspect=aspect,sentiment=sentiment)
 
 
+_PROVENANCE_FIELDS = (
+    'source', 'dataset_version', 'product_id', 'review_id', 'annotation_id', 'label_profile_key',
+    'opinion_source', 'model_opinion_id', 'human_opinion_id', 'human_revision_id', 'aspect',
+    'sentiment', 'quote_start', 'quote_end', 'review_content_sha256', 'embedding_input_sha256',
+    'text_builder_version', 'published_at',
+)
+
+
 def _search_effective_opinions(db, vector, *, options, embedding_space_id, top_k=5,
-                               aspect=None, sentiment=None, corpus=None):
-    """同一个只读快照中回连有效语料，再由 PostgreSQL <=> 做精确排序。"""
-    _scope(options)
+                               aspect=None, sentiment=None, corpus=None, corpus_loader=None):
+    """同一只读快照内先由 pgvector（HNSW 友好 SQL）召回候选，再按候选 review_id 定向核验有效快照。"""
+    options = _scope(options)
     vector = validate_vector(vector)
     if embedding_space_id != SPACE_ID:
         raise EmbeddingStoreError('embedding_space_mismatch')
@@ -312,32 +339,86 @@ def _search_effective_opinions(db, vector, *, options, embedding_space_id, top_k
     if aspect is not None and aspect not in ASPECTS or sentiment is not None and sentiment not in SENTIMENTS:
         raise EmbeddingStoreError('invalid_filter')
     try:
+        identity, _, _, normalized_scope = analysis_scope(**options)
+        profile_key = content_sha256(list(identity))
+        where, filters, _ = review_scope(**{k: normalized_scope[k] for k in RANGE_FIELDS}, alias='r')
+    except ReviewDataError:
+        raise EmbeddingStoreError('invalid_retrieval_scope') from None
+    vector_json = _json(vector)
+    bounded_sql = (
+        'WITH candidates AS ('
+        'SELECT r.*, (r.embedding <=> ?::vector(1024)) AS distance '
+        'FROM review_opinion_embeddings r '
+        'WHERE ' + where + ' AND r.embedding_space_id=? AND r.text_builder_version=? AND r.label_profile_key=? '
+        'AND r.invalidated_at IS NULL AND (?::text IS NULL OR r.aspect=?) '
+        'AND (?::text IS NULL OR r.sentiment=?) '
+        'ORDER BY r.embedding <=> ?::vector(1024) LIMIT ?'
+        ') SELECT * FROM candidates ORDER BY distance, id'
+    )
+    unbounded_sql = (
+        'SELECT r.*, (r.embedding <=> ?::vector(1024)) AS distance '
+        'FROM review_opinion_embeddings r '
+        'WHERE ' + where + ' AND r.embedding_space_id=? AND r.text_builder_version=? AND r.label_profile_key=? '
+        'AND r.invalidated_at IS NULL AND (?::text IS NULL OR r.aspect=?) '
+        'AND (?::text IS NULL OR r.sentiment=?) '
+        'ORDER BY distance, r.id'
+    )
+    try:
         with _snapshot(db) as c:
             if not isinstance(c, PostgresConnection):
                 raise EmbeddingStoreError('postgres_required')
-            corpus = read_effective_corpus(c, **options) if corpus is None else corpus
-            eligible = _eligible(corpus)
-            documents = {d.stable_versioned_opinion_key: d for d in corpus.documents}
-            where, filters = _range(corpus, alias='r')
-            rows = c.execute('''SELECT r.*,r.embedding <=> ?::vector(1024) AS distance
-                FROM review_opinion_embeddings r JOIN jsonb_to_recordset(?::jsonb) v(key text,snapshot text)
-                ON r.stable_versioned_opinion_key=v.key AND r.effective_snapshot_sha256=v.snapshot
-                WHERE ''' + where + ''' AND r.embedding_space_id=? AND r.text_builder_version=? AND r.label_profile_key=?
-                AND r.invalidated_at IS NULL AND (?::text IS NULL OR r.aspect=?)
-                AND (?::text IS NULL OR r.sentiment=?) ORDER BY distance,r.id LIMIT ?''',
-                (_json(vector), _json(eligible), *filters, SPACE_ID, TEXT_BUILDER_VERSION, corpus.label_profile_key,
-                 aspect, aspect, sentiment, sentiment, top_k)).fetchall()
-            matches = []
-            for row in rows:
-                doc = documents[row['stable_versioned_opinion_key']]
-                # 显式校验全部持久化来源元数据，手工篡改派生行时整次查询失败。
-                fields = ('source','dataset_version','product_id','review_id','annotation_id','label_profile_key',
-                          'opinion_source','model_opinion_id','human_opinion_id','human_revision_id','aspect',
-                          'sentiment','quote_start','quote_end','review_content_sha256','embedding_input_sha256',
-                          'text_builder_version','published_at')
-                if any(row[f] != getattr(doc, f) for f in fields) or not math.isfinite(row['distance']):
-                    raise EmbeddingStoreError('stored_provenance_mismatch')
-                matches.append(OpinionMatch(doc, row['distance']))
-            return tuple(matches)
+            fetch_limits = []
+            current_limit = min(max(top_k * 4, 32), 400)
+            while current_limit < 2000:
+                fetch_limits.append(current_limit)
+                current_limit *= 2
+            fetch_limits.append(2000)
+            fetch_limits.append(None)
+
+            for fetch_limit in fetch_limits:
+                if fetch_limit is not None:
+                    rows = c.execute(
+                        bounded_sql,
+                        (vector_json, *filters, SPACE_ID, TEXT_BUILDER_VERSION, profile_key,
+                         aspect, aspect, sentiment, sentiment, vector_json, fetch_limit),
+                    ).fetchall()
+                else:
+                    rows = c.execute(
+                        unbounded_sql,
+                        (vector_json, *filters, SPACE_ID, TEXT_BUILDER_VERSION, profile_key,
+                         aspect, aspect, sentiment, sentiment),
+                    ).fetchall()
+                if not rows:
+                    return ()
+                candidate_review_ids = tuple(sorted({row['review_id'] for row in rows}))
+                if corpus is not None:
+                    active_corpus = corpus
+                elif corpus_loader is not None:
+                    active_corpus = corpus_loader(candidate_review_ids)
+                else:
+                    active_corpus = read_effective_corpus(c, **options, review_ids=candidate_review_ids)
+                documents = {d.stable_versioned_opinion_key: d for d in active_corpus.documents}
+                snapshots = {r.review_id: r.effective_snapshot_sha256 for r in active_corpus.reviews}
+                matches = []
+                for row in rows:
+                    key = row['stable_versioned_opinion_key']
+                    doc = documents.get(key)
+                    if doc is None:
+                        continue
+                    row_keys = set(row.keys())
+                    if 'effective_snapshot_sha256' in row_keys:
+                        if row['effective_snapshot_sha256'] != snapshots.get(doc.review_id):
+                            continue
+                    elif not isinstance(row, dict):
+                        raise EmbeddingStoreError('stored_provenance_mismatch')
+                    # 显式校验全部持久化来源元数据，手工篡改派生行时整次查询失败。
+                    if any(row[f] != getattr(doc, f) for f in _PROVENANCE_FIELDS) or not math.isfinite(row['distance']):
+                        raise EmbeddingStoreError('stored_provenance_mismatch')
+                    matches.append(OpinionMatch(doc, row['distance']))
+                    if len(matches) >= top_k:
+                        return tuple(matches)
+                if fetch_limit is None or len(rows) < fetch_limit:
+                    return tuple(matches)
+            return ()
     except DatabaseError:
         raise EmbeddingStoreError('search_database_error') from None

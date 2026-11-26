@@ -25,7 +25,7 @@ from data_analysis_agent.reviews.embedding_store import (
 from data_analysis_agent.reviews.opinions import Aspect, Sentiment
 from data_analysis_agent.reviews.parameters import AnalysisScope
 from data_analysis_agent.reviews.rag_corpus import (
-    TEXT_BUILDER_VERSION, RagOpinionDocument, RagReviewState,
+    TEXT_BUILDER_VERSION, RagCorpus, RagOpinionDocument, RagReviewState,
     _document, _review_state, read_effective_corpus,
 )
 from data_analysis_agent.reviews.scope import analysis_scope
@@ -314,18 +314,22 @@ class SemanticRetrievalService:
             raise SemanticRetrievalError('encoder_embedding_space_mismatch') from None
 
     def _encode_query(self, text):
-        try: text.encode('utf-8')
-        except UnicodeError: raise SemanticRetrievalError('invalid_retrieval_request') from None
+        return self._encode_queries((text,))[0]
+
+    def _encode_queries(self, texts):
+        for text in texts:
+            try: text.encode('utf-8')
+            except UnicodeError: raise SemanticRetrievalError('invalid_retrieval_request') from None
         self._check_embedding_space()
-        try: vectors = self.encoder.embed_texts([text])
+        try: vectors = self.encoder.embed_texts(list(texts))
         except Exception: raise SemanticRetrievalError('embedding_failed') from None
         try:
-            _require(isinstance(vectors,(list,tuple)) and len(vectors)==1, 'invalid_query_vector')
-            vector = validate_vector(vectors[0])
+            _require(isinstance(vectors,(list,tuple)) and len(vectors)==len(texts), 'invalid_query_vector')
+            validated = tuple(validate_vector(vector) for vector in vectors)
             self._check_embedding_space()
         except SemanticRetrievalError: raise
         except Exception: raise SemanticRetrievalError('invalid_query_vector') from None
-        return vector
+        return validated
 
     def prepare(self, request, *, query_variants=()):
         self._prepared = None
@@ -335,14 +339,24 @@ class SemanticRetrievalService:
         texts = (query.question, *query_variants)
         _require(len(texts) <= min(3, query.top_k) and all(isinstance(text, str) and text.strip() for text in texts)
                  and len(texts) == len(set(texts)), 'invalid_query_variants')
-        vector = self._encode_query(query.question)
-        variants = ()
-        if query_variants:
+        if query_variants and getattr(self.encoder, 'supports_batch_encode', False):
             try:
-                variants = tuple(self._encode_query(text) for text in query_variants)
+                all_vectors = self._encode_queries(texts)
+                vector, variants = all_vectors[0], all_vectors[1:]
             except SemanticRetrievalError:
                 # An optional expansion failure leaves the original query usable.
                 self._check_embedding_space()
+                vector = self._encode_query(query.question)
+                variants = ()
+        else:
+            vector = self._encode_query(query.question)
+            variants = ()
+            if query_variants:
+                try:
+                    variants = tuple(self._encode_query(text) for text in query_variants)
+                except SemanticRetrievalError:
+                    # An optional expansion failure leaves the original query usable.
+                    self._check_embedding_space()
         self._prepared = (query, query_variants, (vector, *variants))
         self.timings = {'encoding_total_ms':(perf_counter()-started)*1000}
         return query
@@ -444,36 +458,98 @@ class _PostgresSnapshot:
     def __init__(self, connection, scope, info):
         self.connection,self.scope,self.info = connection,scope,info
         self._corpus = None
+        self._partial_documents = {}
+        self._partial_reviews = {}
+        self._candidate_review_ids = {}
         self.active = True
         self.timings = {}
 
-    def corpus(self):
+    def _verify_snapshot(self):
         _require(self.active and self.connection.in_transaction,'expired_retrieval_snapshot')
         row=self.connection.execute('SELECT txid_current_snapshot(), transaction_timestamp()').fetchone()
         observed=row[1].isoformat() if isinstance(row[1],datetime) else str(row[1])
         _require((str(row[0]),observed)==(self.info.transaction_snapshot,self.info.observed_at),
                  'snapshot_identity_changed')
-        if self._corpus is None:
-            started=perf_counter()
-            self._corpus = read_effective_corpus(self.connection,**self.scope.options())
-            self.timings['effective_corpus_ms']=(perf_counter()-started)*1000
-        corpus = self._corpus
+
+    def _validate_corpus(self, corpus):
         _require(corpus.scope == analysis_scope(**self.scope.options())[3], 'repository_scope_mismatch')
         _require(corpus.label_profile_key == content_sha256([self.scope.model,self.scope.base_url,self.scope.prompt_version]),
                  'source_label_profile_mismatch')
         return corpus
 
+    def corpus(self):
+        self._verify_snapshot()
+        if self._corpus is None:
+            started=perf_counter()
+            self._corpus = self._validate_corpus(read_effective_corpus(self.connection,**self.scope.options()))
+            self.timings['effective_corpus_ms']=(perf_counter()-started)*1000
+        return self._corpus
+
+    def load_corpus_for_reviews(self, review_ids):
+        """按候选 review_id 定向加载有效观点快照，避免每次检索扫描全商品语料。"""
+        self._verify_snapshot()
+        if self._corpus is not None:
+            return self._corpus
+        target_ids = sorted(set(review_ids))
+        missing = tuple(rid for rid in target_ids if rid not in self._partial_reviews)
+        if missing:
+            started = perf_counter()
+            subset = self._validate_corpus(
+                read_effective_corpus(self.connection, **self.scope.options(), review_ids=missing)
+            )
+            self.timings['effective_corpus_ms'] = self.timings.get('effective_corpus_ms', 0.0) + (
+                (perf_counter() - started) * 1000
+            )
+            for state in subset.reviews:
+                self._partial_reviews[state.review_id] = state
+            for doc in subset.documents:
+                self._partial_documents[doc.stable_versioned_opinion_key] = doc
+            # 若目标评论已删除或不在范围，也记入空标记避免重复查询。
+            loaded_reviews = tuple(self._partial_reviews[rid] for rid in target_ids if rid in self._partial_reviews)
+            loaded_docs = tuple(
+                doc for doc in self._partial_documents.values() if doc.review_id in set(target_ids)
+            )
+            return RagCorpus(subset.scope, subset.label_profile_key, loaded_docs, loaded_reviews)
+        scope_dict = analysis_scope(**self.scope.options())[3]
+        profile_key = content_sha256([self.scope.model, self.scope.base_url, self.scope.prompt_version])
+        target_set = set(target_ids)
+        loaded_reviews = tuple(self._partial_reviews[rid] for rid in target_ids if rid in self._partial_reviews)
+        loaded_docs = tuple(doc for doc in self._partial_documents.values() if doc.review_id in target_set)
+        return RagCorpus(scope_dict, profile_key, loaded_docs, loaded_reviews)
+
     def search(self, vector, *, top_k, aspect, sentiment):
-        corpus=self.corpus()
+        self._verify_snapshot()
         started=perf_counter()
         try:
-            return search_effective_opinions(self.connection,vector,options=self.scope.options(),
-                embedding_space_id=SPACE_ID,top_k=top_k,aspect=aspect,sentiment=sentiment,corpus=corpus)
+            matches = search_effective_opinions(
+                self.connection,
+                vector,
+                options=self.scope.options(),
+                embedding_space_id=SPACE_ID,
+                top_k=top_k,
+                aspect=aspect,
+                sentiment=sentiment,
+                corpus=self._corpus,
+                corpus_loader=None if self._corpus is not None else self.load_corpus_for_reviews,
+            )
+            for match in matches:
+                self._candidate_review_ids[match.document.stable_versioned_opinion_key] = match.document.review_id
+            return matches
         finally:self.timings['pgvector_fetch_validate_ms']=(perf_counter()-started)*1000
 
     def load_sources(self, keys):
         # Sources are rebuilt from the DB, never from the search result's document.
-        corpus = self.corpus()
+        self._verify_snapshot()
+        if self._corpus is not None:
+            corpus = self._corpus
+        elif keys and set(keys) <= set(self._partial_documents):
+            ids = tuple(sorted({self._partial_documents[k].review_id for k in keys}))
+            corpus = self.load_corpus_for_reviews(ids)
+        elif keys and set(keys) <= set(self._candidate_review_ids):
+            ids = tuple(sorted({self._candidate_review_ids[k] for k in keys}))
+            corpus = self.load_corpus_for_reviews(ids)
+        else:
+            corpus = self.corpus()
         by_key = {d.stable_versioned_opinion_key:d for d in corpus.documents}
         _require(len(by_key)==len(corpus.documents) and set(keys)<=set(by_key), 'missing_source')
         ids = {by_key[k].review_id for k in keys}; sources=[]
@@ -518,6 +594,9 @@ class PostgresSemanticRepository:
             finally:
                 snapshot.active=False
                 snapshot._corpus=None
+                snapshot._partial_documents.clear()
+                snapshot._partial_reviews.clear()
+                snapshot._candidate_review_ids.clear()
         finally:
             if owned:
                 try: connection.rollback()

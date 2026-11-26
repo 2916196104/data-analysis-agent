@@ -142,10 +142,12 @@ def read_effective_corpus(
     db_path, *, model: str, base_url: str, prompt_version: str, source: str,
     dataset_version: str, date_from: str, date_to: str,
     product_ids: list[str] | tuple[str, ...] | None = None, as_of: str | None = None,
+    review_ids: list[int] | tuple[int, ...] | None = None,
 ) -> RagCorpus:
     """读取一个明确范围及标注配置；路径使用只读连接，共享连接必须已有事务。
 
     任何无效观点使整次读取失败。返回结果仅表示本次快照，不是后续写入授权或同步水位。
+    传入 review_ids 时仅加载指定评论的完整有效观点集合，保持单条评论快照摘要语义不变。
     """
     if any(not isinstance(value, str) or not value.strip() for value in (source, dataset_version)):
         raise ReviewDataError("语料读取必须指定非空 source 和 dataset_version。")
@@ -155,6 +157,14 @@ def read_effective_corpus(
         product_ids=product_ids, as_of=as_of,
     )
     profile_key = content_sha256(list(identity))
+    target_review_ids = None
+    if review_ids is not None:
+        if (not isinstance(review_ids, (list, tuple, set))
+                or any(type(rid) is not int or rid <= 0 for rid in review_ids)):
+            raise ReviewDataError("review_ids 必须是正整数评论 ID 集合。")
+        target_review_ids = sorted(set(review_ids))
+        if not target_review_ids:
+            return RagCorpus(scope, profile_key, (), ())
     documents, reviews = [], []
     # 与现有统计共用快照管理，既不提交共享事务，也不触发初始化。
     with _snapshot(db_path) as connection:
@@ -167,6 +177,11 @@ def read_effective_corpus(
             if set(scope["product_ids"]) - {row[0] for row in products}:
                 raise ReviewDataError("部分已选商品不属于当前数据集，请重新确认商品范围。")
         cte, parameters = current_reviews_sql(connection, identity, include_opinion_provenance=True)
+        review_filter_sql = ""
+        review_filter_params: list[int] = []
+        if target_review_ids is not None:
+            review_filter_sql = " AND c.id IN (" + ",".join("?" for _ in target_review_ids) + ")"
+            review_filter_params = target_review_ids
         rows = connection.execute(cte + """SELECT c.source, c.dataset_version, c.product_id,
             c.id review_id, c.annotation_id, c.revision_id human_revision_id,
             c.processing_status, c.human_status, c.error_code,
@@ -175,9 +190,9 @@ def read_effective_corpus(
             o.opinion_source, o.model_opinion_id, o.human_opinion_id,
             o.aspect, o.sentiment, o.quote, o.quote_start, o.quote_end
             FROM current c JOIN import_runs i ON i.id=c.import_run_id
-            LEFT JOIN effective_opinions o ON o.review_id=c.id WHERE """ + where + """
+            LEFT JOIN effective_opinions o ON o.review_id=c.id WHERE """ + where + review_filter_sql + """
             ORDER BY c.id, o.quote_start, o.quote_end, o.aspect, o.sentiment,
-                o.model_opinion_id, o.human_opinion_id""", (*parameters, *filters))
+                o.model_opinion_id, o.human_opinion_id""", (*parameters, *filters, *review_filter_params))
         for _, group in groupby(rows, key=lambda row: row["review_id"]):
             first = next(group)
             current_documents = [_document(row, identity, profile_key) for row in chain((first,), group)

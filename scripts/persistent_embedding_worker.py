@@ -7,6 +7,9 @@ from time import perf_counter
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 
+MAX_QUERY_BATCH = 8
+
+
 def serve(stream, output, load):
     model=None
     for line in stream:
@@ -20,10 +23,11 @@ def serve(stream, output, load):
             elif op=='health' and model is not None:response=dict(status='healthy')
             elif op=='encode' and model is not None:
                 texts=request['texts']
-                if not isinstance(texts,list) or len(texts)!=1 or not isinstance(texts[0],str) or not texts[0].strip() or len(texts[0])>4000:
+                if (not isinstance(texts,list) or not 1<=len(texts)<=MAX_QUERY_BATCH
+                        or any(not isinstance(text,str) or not text.strip() or len(text)>4000 for text in texts)):
                     raise ValueError('invalid_query')
                 started=perf_counter();vectors=model.embed_texts(texts)
-                response=dict(vectors=vectors,metrics=dict(encode_ms=(perf_counter()-started)*1000))
+                response=dict(vectors=vectors,metrics=dict(encode_ms=(perf_counter()-started)*1000,batch_size=len(texts)))
             else:raise ValueError('invalid_operation')
             response.update(request_id=request['request_id'],space_id=model.space.space_id)
             output.write(json.dumps(response,ensure_ascii=False,allow_nan=False)+'\n');output.flush()

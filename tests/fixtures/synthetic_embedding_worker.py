@@ -11,12 +11,15 @@ from data_analysis_agent.reviews.embedding_store import SPACE
 class Encoder:
     space=SPACE
     def embed_texts(self,texts):
-        if texts==['crash']:os._exit(7)
-        if texts==['hang']:time.sleep(30)
-        if texts==['badvector']:return [[0.0]*1024]
-        vector=[0.0]*1024
-        vector[sum(map(ord,texts[0]))%1024]=1.0
-        return [vector]
+        if 'crash' in texts:os._exit(7)
+        if 'hang' in texts:time.sleep(30)
+        if 'badvector' in texts:return [[0.0]*1024 for _ in texts]
+        vectors=[]
+        for text in texts:
+            vector=[0.0]*1024
+            vector[sum(map(ord,text))%1024]=1.0
+            vectors.append(vector)
+        return vectors
 
 def load(cache):
     assert 'LLM_API_KEY' not in os.environ and 'DATABASE_URL' not in os.environ

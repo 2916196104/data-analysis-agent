@@ -37,6 +37,8 @@ class EmbeddingSpace:
 
 
 class LocalBgeM3Embedder:
+    supports_batch_encode = True
+
     def __init__(self, cache_dir: str | Path, *, batch_size: int = 8,
                  max_input_tokens: int = 512, device: str = "cpu"):
         if type(batch_size) is not int or batch_size < 1:

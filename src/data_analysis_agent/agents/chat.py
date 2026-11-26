@@ -3,6 +3,7 @@
 from pydantic import Field
 
 from data_analysis_agent.core.config import AgentSettings
+from data_analysis_agent.core.llm_gateway import chat_completion, redact_secret
 from data_analysis_agent.core.validation import Input, validate_text
 
 MAX_HISTORY_TURNS, MAX_HISTORY_CHARS = 6, 12000
@@ -46,7 +47,7 @@ def answer_message(message: str, *, settings: AgentSettings, history=None) -> st
     """返回实际模型文本；SDK 异常和不完整输出不能冒充成功回答。"""
     # 延迟加载 SDK，保持 API 组装及原有任务提交的依赖边界。
     from openai import (
-        APIConnectionError, APIError, APITimeoutError, AuthenticationError, OpenAI, RateLimitError,
+        APIConnectionError, APIError, APITimeoutError, AuthenticationError, RateLimitError,
     )
 
     question = validate_text(message, "问题", maximum=4000)
@@ -55,12 +56,13 @@ def answer_message(message: str, *, settings: AgentSettings, history=None) -> st
         messages.extend([{"role":"user", "content":turn.question}, {"role":"assistant", "content":turn.answer}])
     messages.append({"role":"user", "content":question})
     try:
-        with OpenAI(api_key=settings.api_key, base_url=settings.base_url,
-                    timeout=settings.timeout_seconds, max_retries=settings.max_retries) as client:
-            response = client.chat.completions.create(
-                model=settings.model,
-                messages=messages,
-            )
+        response = chat_completion(
+            settings,
+            role="chat",
+            messages=messages,
+            timeout=settings.timeout_seconds,
+            max_retries=settings.max_retries,
+        )
     except APITimeoutError as exc:
         raise ChatError("model_timeout", "模型回答超时，请稍后重新发送。") from exc
     except AuthenticationError as exc:
@@ -79,4 +81,4 @@ def answer_message(message: str, *, settings: AgentSettings, history=None) -> st
     if (getattr(choice, "finish_reason", None) != "stop" or getattr(reply, "tool_calls", None)
             or not isinstance(content, str) or not content.strip()):
         raise ChatError("invalid_model_response", "模型未返回完整的文本回答，请重新发送。")
-    return content.strip().replace(settings.api_key, "[REDACTED]")
+    return redact_secret(content.strip(), settings.api_key)
