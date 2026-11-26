@@ -14,6 +14,9 @@ export const stageLabels: Record<string, string> = {
   queued: '任务已进入队列', starting: '准备执行', analysis: '计算统计并保存分析快照',
   agent_tools: '查询评论统计与原文证据', agent_thinking: 'Agent 正在选择分析工具',
   agent_completed: 'Agent 分析结果已保存',
+  topic_classifying: '正在进行主题归属复核',
+  evidence_supplement: '正在补充核验原文证据',
+  semantic_retrieving: '正在执行混合语义检索',
   answer_generating: '正在整理分析回答',
   hashing_reviews: '校验评论文件', hashing_meta: '校验商品文件',
   importing_reviews: '导入评论', importing_meta: '导入商品',
@@ -21,6 +24,29 @@ export const stageLabels: Record<string, string> = {
   committing_import: '提交数据到数据库',
   imported: '导入完成', labeling: '处理评论标注', replaying: '按月回放',
 };
+const unitLabels: Record<string, string> = {
+  opinions: '条观点',
+  tools: '次查询',
+  reviews: '条评论',
+  answers: '份回答',
+  windows: '个窗口',
+  lines: '行',
+  items: '项',
+};
+export function progressDetail(progress: Progress): string {
+  const unit = unitLabels[progress.unit] ?? progress.unit ?? '';
+  const parts: string[] = [];
+  if (progress.total !== null && progress.total > 0 && Number.isFinite(progress.total) && Number.isFinite(progress.completed)) {
+    const pct = progressPercent(progress);
+    parts.push(`${progress.completed}/${progress.total}${unit ? ` ${unit}` : ''}${pct !== undefined ? `（${pct}%）` : ''}`);
+  } else if (Number.isFinite(progress.completed) && progress.completed > 0) {
+    parts.push(`已完成 ${progress.completed}${unit ? ` ${unit}` : ''}`);
+  }
+  if (typeof progress.tool === 'string' && progress.tool.trim()) {
+    parts.push(progress.tool.trim());
+  }
+  return parts.join(' · ');
+}
 export interface TaskState { id: string | null; task: Task | null; run: Run | null; loading: boolean; error: string | null }
 export const emptyTaskState: TaskState = { id: null, task: null, run: null, loading: false, error: null };
 export type TaskAction = { type: 'select'; id: string | null } | { type: 'task'; id: string; task: Task }

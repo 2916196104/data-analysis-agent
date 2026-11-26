@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canRetry, emptyTaskState, isActive, progressPercent, taskReducer } from './task-state';
+import { canRetry, emptyTaskState, isActive, progressDetail, progressPercent, stageLabels, taskReducer } from './task-state';
 import type { Task } from './types';
 
 export const exampleTask = (status: Task['status']): Task => ({
@@ -49,5 +49,13 @@ describe('真实任务状态', () => {
     state = taskReducer(state, { type: 'select', id: 'task-a' });
     expect(state.task?.status).toBe('succeeded');
     expect(state.loading).toBe(false);
+  });
+  it('补全主题复核与证据补充阶段文案，并格式化实时数值与工具进度', () => {
+    expect(stageLabels.topic_classifying).toBe('正在进行主题归属复核');
+    expect(stageLabels.evidence_supplement).toBe('正在补充核验原文证据');
+    expect(progressDetail({ stage: 'topic_classifying', completed: 40, total: 60, unit: 'opinions' }))
+      .toBe('40/60 条观点（67%）');
+    expect(progressDetail({ stage: 'agent_tools', completed: 2, total: null, unit: 'tools', tool: 'get_top_issues' }))
+      .toBe('已完成 2 次查询 · get_top_issues');
   });
 });

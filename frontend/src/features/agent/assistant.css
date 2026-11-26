@@ -81,7 +81,15 @@
 .chat-avatar { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0; color: var(--color-primary); background: var(--color-primary-soft); }
 .chat-reply { flex: 1; min-width: 0; font-size: 14px; line-height: 1.85; overflow-wrap: anywhere; }
 .chat-reply > p { margin: 0; }
-.chat-status { display: flex; align-items: center; gap: 8px; }
+.chat-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.chat-stream-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; color: var(--color-text-secondary); font-size: 12px; }
+.chat-stream-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary); animation: chat-stream-pulse 1.2s ease-in-out infinite; flex-shrink: 0; }
+@keyframes chat-stream-pulse { 0%, 100% { opacity: 0.35; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.1); } }
+.chat-partial-answer { margin-bottom: 12px; opacity: 0.82; }
+.chat-task-progress { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--color-primary-border); border-radius: 10px; background: var(--color-primary-soft); max-width: 100%; }
+.chat-progress-meta { color: var(--color-text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
+.chat-progress-track { width: 100%; max-width: 360px; height: 6px; border-radius: 999px; background: var(--color-border); overflow: hidden; }
+.chat-progress-fill { height: 100%; border-radius: 999px; background: var(--color-primary); transition: width 0.25s ease; }
 .chat-markdown p, .chat-markdown blockquote { margin: 0 0 12px; white-space: pre-wrap; }
 .chat-markdown .markdown-heading { font-size: 16px; font-weight: 600; }
 .chat-markdown .level-1, .chat-markdown .level-2 { font-size: 19px; }

@@ -20,7 +20,7 @@ export interface BasicChatTurn {
   kind: 'basic';
   id: string;
   question: string;
-  status: 'pending' | 'succeeded' | 'failed';
+  status: 'pending' | 'streaming' | 'succeeded' | 'failed';
   answer?: string;
   error?: string;
 }

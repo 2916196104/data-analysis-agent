@@ -350,6 +350,86 @@ def chat_completion(
         return _invoke(active_client)
 
 
+def chat_completion_stream(
+    settings: AgentSettings,
+    *,
+    messages: list[dict[str, Any]],
+    role: str = "default",
+    model: str | None = None,
+    timeout: float | None = None,
+    max_retries: int | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    extra_body: dict[str, Any] | None = None,
+    pooled: bool | None = None,
+    client: Any = None,
+    client_factory: Any = None,
+    http_client_factory: Any = None,
+    pool_tag: str = "",
+):
+    """统一的流式 Chat Completions 生成器：复用连接池、安全关闭上游流并记录观测统计。"""
+    target_model = (model or resolve_model(settings, role)).strip()
+    request_kwargs: dict[str, Any] = {
+        "model": target_model,
+        "messages": messages,
+        "stream": True,
+    }
+    if temperature is not None:
+        request_kwargs["temperature"] = temperature
+    if max_tokens is not None:
+        request_kwargs["max_tokens"] = max_tokens
+
+    merged_extra = provider_extra_body(settings, role=role, model=target_model)
+    if extra_body:
+        merged_extra = {**merged_extra, **extra_body}
+    if merged_extra:
+        request_kwargs["extra_body"] = merged_extra
+
+    def _iterate(active_client: Any):
+        started = perf_counter()
+        last_usage_chunk = None
+        stream = None
+        failed = False
+        try:
+            stream = active_client.chat.completions.create(**request_kwargs)
+            for chunk in stream:
+                if getattr(chunk, "usage", None) is not None:
+                    last_usage_chunk = chunk
+                yield chunk
+        except GeneratorExit:
+            raise
+        except Exception:
+            failed = True
+            raise
+        finally:
+            if stream is not None and hasattr(stream, "close"):
+                try:
+                    stream.close()
+                except Exception:
+                    pass
+            _record_call_telemetry(
+                role,
+                (perf_counter() - started) * 1000,
+                response=last_usage_chunk,
+                failed=failed,
+            )
+
+    if client is not None:
+        yield from _iterate(client)
+        return
+
+    with open_llm_client(
+        settings,
+        timeout=timeout,
+        max_retries=max_retries,
+        pooled=pooled,
+        client_factory=client_factory,
+        http_client_factory=http_client_factory,
+        pool_tag=pool_tag,
+    ) as active_client:
+        yield from _iterate(active_client)
+
+
 def close_llm_clients(base_url: str | None = None) -> int:
     """关闭并释放缓存的 Keep-Alive HTTP 客户端；可在进程退出或 FastAPI lifespan 结束时调用。"""
     to_close: list[_PooledClientEntry] = []

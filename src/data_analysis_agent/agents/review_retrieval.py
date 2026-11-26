@@ -218,6 +218,16 @@ def retrieval_query_variants(question, scope, settings, *, rules=None):
     )
 
 
+def create_reranker(settings):
+    """构建语义检索重排器：配置了本地 Cross-Encoder 缓存目录时优先使用，否则使用零依赖融合重排器。"""
+    from data_analysis_agent.reviews.hybrid_retrieval import CrossEncoderReranker, LexicalSemanticReranker
+
+    cache = getattr(settings, 'rag_rerank_model_cache', None)
+    if cache:
+        return CrossEncoderReranker(cache_dir=cache)
+    return LexicalSemanticReranker()
+
+
 def execute_retrieval(context, scope):
     if not context.question or not wants_semantic_search(context.question):
         raise SemanticRetrievalError('semantic_query_not_bound')
@@ -233,12 +243,22 @@ def execute_retrieval(context, scope):
     policy = evidence_policy(context.question, scope)
     fact_question = evidence_question(context.question, scope, fact_policy=policy)
     variants = retrieval_query_variants(context.question, scope, context.settings)
+    hybrid_bm25 = bool(getattr(context.settings, 'rag_hybrid_bm25', False))
+    rerank_enabled = bool(getattr(context.settings, 'rag_rerank_enabled', False))
     if variants:
         result = service.search(request, query_variants=variants)
     elif (getattr(context.settings, 'rag_cooling_keyword_fallback', False)
             and policy == cooling.POLICY and cooling.is_single_slow(fact_question)):
         result = service.search(request, keyword_fallback=lambda query, snapshot, baseline:
                                 _cooling_keyword_fallback(fact_question, query, snapshot, baseline))
+    elif hybrid_bm25 or rerank_enabled:
+        reranker = create_reranker(context.settings) if rerank_enabled else None
+        result = service.search(
+            request,
+            hybrid_bm25=hybrid_bm25,
+            reranker=reranker,
+            rrf_k=getattr(context.settings, 'rag_hybrid_rrf_k', 60),
+        )
     else:
         result = service.search(request)
     require_source_validated_result(result)
@@ -268,10 +288,12 @@ def validate_retrieval(data, question):
         scope = _scope(data['scope']); raw = data['retrieval']; query = retrieval_request(question,policy=data['assessment']['policy'])
         hybrid = raw['version'] == 'semantic-retrieval-v2'
         multi_query = raw['version'] == 'semantic-retrieval-v3'
+        hybrid_v4 = raw['version'] == 'semantic-retrieval-v4'
         if raw['query'] != query.model_dump(mode='json') or raw['version'] not in (
-                'semantic-retrieval-v1', 'semantic-retrieval-v2', 'semantic-retrieval-v3'): return False
+                'semantic-retrieval-v1', 'semantic-retrieval-v2', 'semantic-retrieval-v3', 'semantic-retrieval-v4'): return False
         if hybrid != ('vector_baseline' in raw): return False
         if multi_query != ('query_channels' in raw): return False
+        if hybrid_v4 != ('hybrid_retrieval' in raw): return False
         if 'citation_rerank' in data and data['citation_rerank'] != CITATION_RERANK_POLICY: return False
         if raw['scope'] != scope.model_dump(mode='json', exclude={'base_url'}): return False
         if (raw['embedding_space_id'], raw['text_builder_version'], raw['source_policy'], raw['context_policy'], raw['context_version']) != (
@@ -287,7 +309,15 @@ def validate_retrieval(data, question):
                 if type(row['rank']) is not int or row['rank'] != rank or row['source'] != scope.source or row['dataset_version'] != scope.dataset_version: return False
                 if not _in_scope(RagReviewState(**row['review_state']),scope): return False
                 distance = row['cosine_distance']
-                if channels and row['channel'] == 'keyword':
+                if hybrid_v4 and rows is evidence:
+                    row_channel = row.get('channel')
+                    if row_channel == 'bm25':
+                        if distance is not None: return False
+                    elif row_channel in ('vector', 'hybrid'):
+                        if type(distance) not in (int, float) or not math.isfinite(distance): return False
+                    else:
+                        return False
+                elif channels and row['channel'] == 'keyword':
                     if distance is not None: return False
                 elif (channels and row['channel'] != 'vector') or type(distance) not in (int,float) or not math.isfinite(distance):
                     return False
@@ -311,6 +341,8 @@ def validate_retrieval(data, question):
         if multi_query and not _validate_query_channels(query, fact_question, data['assessment']['policy'],
                                                         raw['query_channels'], evidence):
             return False
+        if hybrid_v4 and not _validate_hybrid_v4(raw['hybrid_retrieval'], evidence):
+            return False
         return data['assessment'] == assess_retrieval(fact_question,evidence,policy=data['assessment']['policy'])
     except (KeyError,ValueError,TypeError,AttributeError,UnicodeError,SemanticRetrievalError):
         return False
@@ -331,6 +363,47 @@ def _validate_query_channels(query, fact_question, policy, channels, evidence):
             return False
         lists.append(keys)
     return merge_query_channels(lists,key=lambda key:key) == tuple(row['key'] for row in evidence)
+
+
+def _validate_hybrid_v4(meta, evidence):
+    if not isinstance(meta, dict):
+        return False
+    if set(meta) != {'rrf_k', 'bm25_enabled', 'vector_keys', 'bm25_keys', 'rerank_policy'}:
+        return False
+    rrf_k = meta['rrf_k']
+    if type(rrf_k) is not int or not 1 <= rrf_k <= 200 or type(meta['bm25_enabled']) is not bool:
+        return False
+    vector_keys, bm25_keys = meta['vector_keys'], meta['bm25_keys']
+    if (not isinstance(vector_keys, list) or not isinstance(bm25_keys, list)
+            or any(not isinstance(k, str) for k in (*vector_keys, *bm25_keys))
+            or len(vector_keys) != len(set(vector_keys)) or len(bm25_keys) != len(set(bm25_keys))):
+        return False
+    rerank_policy = meta['rerank_policy']
+    if rerank_policy is not None and (not isinstance(rerank_policy, str) or not rerank_policy.strip()):
+        return False
+    vec_rank_map = {key: idx for idx, key in enumerate(vector_keys, 1)}
+    bm25_rank_map = {key: idx for idx, key in enumerate(bm25_keys, 1)}
+    for row in evidence:
+        channel = row.get('channel')
+        rrf_score = row.get('rrf_score')
+        if channel not in ('hybrid', 'vector', 'bm25'):
+            return False
+        if type(rrf_score) not in (int, float) or not math.isfinite(rrf_score) or rrf_score <= 0:
+            return False
+        v_rank, b_rank = row.get('vector_rank'), row.get('bm25_rank')
+        if channel in ('hybrid', 'vector') and v_rank != vec_rank_map.get(row['key']):
+            return False
+        if channel == 'bm25' and v_rank is not None:
+            return False
+        if channel in ('hybrid', 'bm25') and b_rank != bm25_rank_map.get(row['key']):
+            return False
+        if channel == 'vector' and b_rank is not None:
+            return False
+        if rerank_policy is not None:
+            r_score = row.get('rerank_score')
+            if type(r_score) not in (int, float) or not math.isfinite(r_score):
+                return False
+    return True
 
 
 def _validate_keyword_fallback(question, policy, query, baseline, evidence):

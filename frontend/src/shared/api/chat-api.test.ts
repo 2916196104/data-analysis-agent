@@ -120,6 +120,52 @@ describe('基础聊天 API', () => {
     controller.abort(reason);
     await rejected;
   });
+
+  it('chatStream 按 SSE 分片增量回调 onDelta 并在 done 返回完整回答', async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('event: start\ndata: {"mode":"basic"}\n\n'));
+        controller.enqueue(encoder.encode('event: delta\ndata: {"delta":"第一段"}\n\nevent: del'));
+        controller.enqueue(encoder.encode('ta\ndata: {"delta":"，第二段"}\n\n'));
+        controller.enqueue(encoder.encode('event: done\ndata: {"answer":"第一段，第二段"}\n\n'));
+        controller.close();
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(stream, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream; charset=utf-8' },
+    })));
+    const deltas: string[] = [];
+    const reply = await api.chatStream('你好', [], { onDelta: chunk => deltas.push(chunk) });
+    expect(deltas).toEqual(['第一段', '，第二段']);
+    expect(reply).toEqual({ answer: '第一段，第二段' });
+  });
+
+  it('chatStream 收到 SSE error 事件时抛出带后端错误码的 ApiError，404 自动降级到 POST /chat', async () => {
+    const encoder = new TextEncoder();
+    const errorStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('event: error\ndata: {"code":"model_timeout","message":"模型超时"}\n\n'));
+        controller.close();
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response(errorStream, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    })));
+    await expect(api.chatStream('超时')).rejects.toMatchObject({
+      body: { code: 'model_timeout', message: '模型超时' },
+    });
+
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response('Not Found', { status: 404 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok', result: { answer: '兼容降级回答' } })));
+    vi.stubGlobal('fetch', fetcher);
+    expect(await api.chatStream('旧后端')).toEqual({ answer: '兼容降级回答' });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls[1][0]).toBe(`${API_BASE}/chat`);
+  });
 });
 
 function mockTimeouts() {

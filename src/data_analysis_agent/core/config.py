@@ -49,6 +49,10 @@ class AgentSettings:
     rag_multi_query: bool = False
     rag_citation_rerank: bool = True
     rag_warmup_on_start: bool = True
+    rag_hybrid_bm25: bool = False
+    rag_rerank_enabled: bool = False
+    rag_rerank_model_cache: str | None = None
+    rag_hybrid_rrf_k: int = 60
     topic_classification_concurrency: int = 3
     chat_model: str | None = None
     intent_model: str | None = None
@@ -116,6 +120,10 @@ class AgentSettings:
             rag_multi_query=bool(integer('RAG_MULTI_QUERY', 0, 0, 1)),
             rag_citation_rerank=bool(integer('RAG_CITATION_RERANK', 1, 0, 1)),
             rag_warmup_on_start=bool(integer('RAG_WARMUP_ON_START', 1, 0, 1)),
+            rag_hybrid_bm25=bool(integer('RAG_HYBRID_BM25', 0, 0, 1)),
+            rag_rerank_enabled=bool(integer('RAG_RERANK_ENABLED', 0, 0, 1)),
+            rag_rerank_model_cache=values.get('RAG_RERANK_MODEL_CACHE', '').strip() or None,
+            rag_hybrid_rrf_k=integer('RAG_HYBRID_RRF_K', 60, 1, 200),
             p6_preparation_enabled=bool(integer('AGENT_P6_PREPARATION_ENABLED', 0, 0, 1)),
             p6_execution_enabled=bool(integer('AGENT_P6_EXECUTION_ENABLED', 0, 0, 1)),
             p6_publication_enabled=bool(integer('AGENT_P6_PUBLICATION_ENABLED', 0, 0, 1)),

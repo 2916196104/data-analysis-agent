@@ -106,6 +106,7 @@ class SemanticEvidence:
     review_state: RagReviewState
     review_text: str = field(repr=False)
     review_text_sha256: str
+    hybrid_metadata: dict | None = None
 
     @property
     def key(self): return self.document.stable_versioned_opinion_key
@@ -117,9 +118,12 @@ class SemanticEvidence:
         # Do not publish the labeling endpoint or repeat embedding_input=quote.
         document = asdict(self.document)
         for name in ('base_url', 'embedding_input', 'stable_versioned_opinion_key'): document.pop(name)
-        return dict(rank=self.rank, key=self.key, cosine_distance=self.cosine_distance, **document,
+        payload = dict(rank=self.rank, key=self.key, cosine_distance=self.cosine_distance, **document,
             effective_snapshot_sha256=self.effective_snapshot_sha256, review_state=asdict(self.review_state),
             review_text=self.review_text, review_text_sha256=self.review_text_sha256)
+        if self.hybrid_metadata is not None:
+            payload.update(self.hybrid_metadata)
+        return payload
 
 
 @dataclass(frozen=True)
@@ -136,6 +140,7 @@ class SemanticResult:
     _source_validation: object = field(default=None, repr=False, compare=False)
     vector_baseline: tuple[SemanticEvidence, ...] | None = None
     query_channels: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    hybrid_retrieval: dict | None = None
 
     def to_dict(self):
         data = dict(version='semantic-retrieval-v1', query=self.query.model_dump(mode='json'),
@@ -159,6 +164,9 @@ class SemanticResult:
         if self.query_channels:
             data['version'] = 'semantic-retrieval-v3'
             data['query_channels'] = [dict(question=text, keys=list(keys)) for text,keys in self.query_channels]
+        if self.hybrid_retrieval is not None:
+            data['version'] = 'semantic-retrieval-v4'
+            data['hybrid_retrieval'] = dict(self.hybrid_retrieval)
         return data
 
 
@@ -383,11 +391,24 @@ class SemanticRetrievalService:
                 sha256(source.review_text.encode('utf-8')).hexdigest()))
         return tuple(rows)
 
-    def search(self, request, *, keyword_fallback=None, query_variants=()) -> SemanticResult:
+    def search(
+        self,
+        request,
+        *,
+        keyword_fallback=None,
+        query_variants=(),
+        hybrid_bm25: bool = False,
+        reranker=None,
+        rrf_k: int = 60,
+    ) -> SemanticResult:
         query = _parse(request,SemanticQuery,'invalid_retrieval_request')
         scope = self.scope
         query_variants = tuple(query_variants)
+        hybrid_mode = bool(hybrid_bm25) or reranker is not None
         _require(not (query_variants and keyword_fallback), 'conflicting_retrieval_modes')
+        _require(not (hybrid_mode and (query_variants or keyword_fallback)), 'conflicting_retrieval_modes')
+        if hybrid_mode:
+            _require(type(rrf_k) is int and 1 <= rrf_k <= 200, 'invalid_retrieval_request')
         if self._prepared is None:self.prepare(query, query_variants=query_variants)
         prepared,self._prepared = self._prepared,None
         _require(prepared[:2]==(query,query_variants),'prepared_query_mismatch')
@@ -398,6 +419,124 @@ class SemanticRetrievalService:
                 _snapshot_identity(snapshot,scope)
                 info = snapshot.info
                 started=perf_counter()
+                if hybrid_mode:
+                    from data_analysis_agent.reviews.hybrid_retrieval import (
+                        BM25Index,
+                        RerankItem,
+                        reciprocal_rank_fusion,
+                    )
+
+                    recall_k = min(100, max(query.top_k * 3, 15))
+                    vector_hits = tuple(
+                        snapshot.search(vectors[0], top_k=recall_k, aspect=query.aspect, sentiment=query.sentiment)
+                    )
+                    _require(
+                        len(vector_hits) <= recall_k and all(isinstance(hit, OpinionMatch) for hit in vector_hits),
+                        'invalid_candidate_list',
+                    )
+                    _require(
+                        all(type(hit.cosine_distance) in (int, float) and math.isfinite(hit.cosine_distance)
+                            for hit in vector_hits),
+                        'invalid_candidate_distance',
+                    )
+                    bm25_hits = ()
+                    if hybrid_bm25:
+                        bm25_started = perf_counter()
+                        scoped_docs = tuple(
+                            doc for doc in snapshot.corpus().documents
+                            if (query.aspect is None or doc.aspect == query.aspect)
+                            and (query.sentiment is None or doc.sentiment == query.sentiment)
+                        )
+                        bm25_hits = BM25Index(scoped_docs).search(query.question, top_k=recall_k)
+                        self.timings['bm25_search_ms'] = (perf_counter() - bm25_started) * 1000
+                    fusion_started = perf_counter()
+                    fusion_limit = recall_k if reranker is not None else query.top_k
+                    fused = reciprocal_rank_fusion(vector_hits, bm25_hits, k=rrf_k, top_k=fusion_limit)
+                    self.timings['rrf_fusion_ms'] = (perf_counter() - fusion_started) * 1000
+                    self.timings['search_including_corpus_ms'] = (perf_counter() - started) * 1000
+                    _snapshot_identity(snapshot, scope, info)
+
+                    hydrated = self._hydrate(
+                        snapshot,
+                        scope,
+                        info,
+                        query,
+                        tuple(item.document for item in fused),
+                        tuple(item.cosine_distance for item in fused),
+                        track_timing=True,
+                    )
+                    meta_by_key = {
+                        item.document.stable_versioned_opinion_key: {
+                            'channel': item.channel,
+                            'vector_rank': item.vector_rank,
+                            'bm25_rank': item.bm25_rank,
+                            'bm25_score': item.bm25_score,
+                            'rrf_score': item.rrf_score,
+                        }
+                        for item in fused
+                    }
+                    evidence = tuple(
+                        replace(row, hybrid_metadata=dict(meta_by_key[row.key]))
+                        for row in hydrated
+                    )
+                    rerank_policy = None
+                    if reranker is not None:
+                        rerank_started = perf_counter()
+                        rerank_policy = str(getattr(reranker, 'policy', '') or '').strip()
+                        _require(bool(rerank_policy), 'invalid_reranker')
+                        rerank_items = [
+                            RerankItem(
+                                key=row.key,
+                                quote=row.document.quote,
+                                review_text=row.review_text,
+                                cosine_distance=row.cosine_distance,
+                                bm25_score=meta_by_key[row.key]['bm25_score'],
+                                rrf_score=meta_by_key[row.key]['rrf_score'],
+                                channel=meta_by_key[row.key]['channel'],
+                            )
+                            for row in evidence
+                        ]
+                        try:
+                            score_map = reranker.score(query.question, rerank_items)
+                        except Exception:
+                            raise SemanticRetrievalError('rerank_failed') from None
+                        _require(
+                            isinstance(score_map, dict)
+                            and set(score_map) == {row.key for row in evidence}
+                            and all(type(v) in (int, float) and math.isfinite(v) for v in score_map.values()),
+                            'invalid_reranker_scores',
+                        )
+                        ordered = sorted(
+                            evidence,
+                            key=lambda row: (-float(score_map[row.key]), row.rank),
+                        )[:query.top_k]
+                        evidence = tuple(
+                            replace(
+                                row,
+                                rank=rank,
+                                hybrid_metadata={**row.hybrid_metadata, 'rerank_score': round(float(score_map[row.key]), 6)},
+                            )
+                            for rank, row in enumerate(ordered, 1)
+                        )
+                        self.timings['rerank_ms'] = (perf_counter() - rerank_started) * 1000
+                    else:
+                        evidence = tuple(
+                            replace(row, rank=rank)
+                            for rank, row in enumerate(evidence[:query.top_k], 1)
+                        )
+                    self.timings.update(getattr(snapshot, 'timings', {}))
+                    hybrid_summary = {
+                        'rrf_k': rrf_k,
+                        'bm25_enabled': bool(hybrid_bm25),
+                        'vector_keys': [hit.document.stable_versioned_opinion_key for hit in vector_hits],
+                        'bm25_keys': [hit.document.stable_versioned_opinion_key for hit in bm25_hits],
+                        'rerank_policy': rerank_policy,
+                    }
+                    result = SemanticResult(query, scope, info, evidence, hybrid_retrieval=hybrid_summary)
+                    result = replace(result, _source_validation=_SourceValidation(
+                        _SOURCE_VALIDATOR, _result_integrity(result)))
+                    return result
+
                 channels = []
                 for vector, limit in zip(vectors, query_channel_limits(query.top_k,len(vectors)), strict=True):
                     hits = tuple(snapshot.search(vector,top_k=limit,aspect=query.aspect,sentiment=query.sentiment))

@@ -4,7 +4,7 @@ import { RobotOutlined } from '@ant-design/icons';
 import AgentResults from '../../AgentResults';
 import { api, errorMessage } from '../../api';
 import { exportResult } from '../../local-history';
-import { canRetry, isActive, stageLabels } from '../../task-state';
+import { canRetry, isActive, progressDetail, progressPercent, stageLabels } from '../../task-state';
 import { useTask } from '../../useTask';
 import type { AgentResult } from '../../types';
 import type { BasicChatTurn, ChatTurn, ConversationTurn } from './chat-state';
@@ -36,10 +36,24 @@ function MessageFrame({ turn, children }: { turn: ConversationTurn; children: Re
 
 function BasicMessage({ turn, chat }: { turn: BasicChatTurn; chat: AgentChat }) {
   return <MessageFrame turn={turn}>
-    {turn.status === 'pending' && <div className="chat-status" role="status"><Spin size="small" /> 正在等待回答…</div>}
+    {turn.status === 'pending' && <div className="chat-status" role="status">
+      <Spin size="small" /> <span>正在等待回答…</span>
+      {typeof chat.stopBasicStream === 'function' && <Button size="small" type="link" onClick={chat.stopBasicStream}>停止生成</Button>}
+    </div>}
+    {turn.status === 'streaming' && <>
+      {turn.answer && <Markdown text={turn.answer} />}
+      <div className="chat-stream-bar" role="status">
+        <span className="chat-stream-dot" aria-hidden="true" />
+        <span>正在流式生成…</span>
+        {typeof chat.stopBasicStream === 'function' && <Button size="small" type="link" onClick={chat.stopBasicStream}>停止生成</Button>}
+      </div>
+    </>}
     {turn.status === 'succeeded' && turn.answer && <Markdown text={turn.answer} />}
-    {turn.status === 'failed' && <Alert type="error" showIcon message="回答未完成" description={turn.error}
-      action={<Button disabled={chat.pending} onClick={() => void chat.sendBasic(turn.question)}>重新发送</Button>} />}
+    {turn.status === 'failed' && <>
+      {turn.answer && <div className="chat-partial-answer"><Markdown text={turn.answer} /></div>}
+      <Alert type="error" showIcon message="回答未完成" description={turn.error}
+        action={<Button disabled={chat.pending} onClick={() => void chat.sendBasic(turn.question)}>重新发送</Button>} />
+    </>}
   </MessageFrame>;
 }
 
@@ -170,7 +184,23 @@ function AnalysisMessage({ turn, chat, onPrepare, onSuggestQuestion }: {
             action={<Button disabled={chat.pending} onClick={() => void chat.retry(turn)}>重试提交</Button>} />)}
         {turn.taskId && !task && !state.error && <div className="chat-status" role="status"><Spin size="small" /> 正在读取任务…</div>}
         {state.error && <Alert type="error" showIcon message="任务连接异常" description={state.error} action={<Button onClick={state.refresh}>重新连接</Button>} />}
-        {task && isActive(task.status) && <div className="chat-status" role="status"><Spin size="small" /> {task.progress.stage === 'starting' ? '正在准备分析，首次本地检索可能需要加载模型，请稍候…' : stageLabels[task.progress.stage] || '正在分析…'}</div>}
+        {task && isActive(task.status) && (() => {
+          const pct = progressPercent(task.progress);
+          const detailText = progressDetail(task.progress);
+          const headline = task.progress.stage === 'starting'
+            ? '正在准备分析，首次本地检索可能需要加载模型，请稍候…'
+            : stageLabels[task.progress.stage] || '正在分析…';
+          return <div className="chat-task-progress" role="status">
+            <div className="chat-status">
+              <Spin size="small" />
+              <span>{headline}</span>
+              {detailText && <span className="chat-progress-meta">{detailText}</span>}
+            </div>
+            {pct !== undefined && <div className="chat-progress-track" aria-label={`任务进度 ${pct}%`}>
+              <div className="chat-progress-fill" style={{ width: `${pct}%` }} />
+            </div>}
+          </div>;
+        })()}
         {task?.error && task.status !== 'partial' && !p6Result && <Alert type="error" showIcon message={topicFailures.length ? '主题分析未完成' : task.error.message === 'embedding_failed' ? '本地语义检索暂不可用，请检查模型运行配置后重试。' : task.error.message}
           description={failureDetails} />}
         {task?.status === 'partial' && !p6Result && <Alert type="warning" showIcon message="任务部分完成"

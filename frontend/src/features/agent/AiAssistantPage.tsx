@@ -43,7 +43,7 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
     if (!stickToBottom.current) return;
     element.scrollTop = element.scrollHeight;
     setShowLatest(false);
-  }, [chat.conversation, chat.focusedTaskId, chat.activeTurn, chat.activeState.task?.status, chat.activeState.task?.result, chat.errors]);
+  }, [mode, chat.conversation, chat.focusedTaskId, chat.activeTurn, chat.activeState.task?.status, chat.activeState.task?.progress, chat.activeState.task?.result, chat.errors]);
   function onMessagesScroll() {
     const element = messages.current;
     if (!element) return;

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { api, errorMessage } from '../../api';
+import { chatApi } from '../../shared/api/chat-api';
 import { isAgentScope } from '../../analysis-draft';
 import { isActive } from '../../task-state';
 import { useTask } from '../../useTask';
@@ -355,6 +356,17 @@ export function useAgentChat(
     await submitTurn(next);
   }
 
+  const basicStreamAbort = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    basicStreamAbort.current?.abort();
+    basicStreamAbort.current = null;
+  }, []);
+
+  function stopBasicStream(): void {
+    basicStreamAbort.current?.abort(new DOMException('已停止生成', 'AbortError'));
+  }
+
   async function sendBasic(question: string): Promise<boolean> {
     const text = question.trim();
     if (!text || text.length > 4000 || postLock.current || resolving.current || pending) return false;
@@ -368,8 +380,25 @@ export function useAgentChat(
       status: 'pending',
     };
     commit(current => ({ ...current, turns: [...current.turns, turn], activeId: turn.id }));
+    const useStream = api.chat === chatApi.chat && typeof api.chatStream === 'function';
+    const controller = useStream ? new AbortController() : null;
+    basicStreamAbort.current = controller;
     try {
-      const reply = await api.chat(text, history);
+      const reply = useStream
+        ? await api.chatStream(text, history, {
+          signal: controller!.signal,
+          onDelta: delta => {
+            commit(current => ({
+              ...current,
+              turns: current.turns.map(item => (
+                item.kind === 'basic' && item.id === turn.id
+                  ? { ...item, status: 'streaming', answer: (item.answer ?? '') + delta }
+                  : item
+              )),
+            }));
+          },
+        })
+        : await api.chat(text, history);
       if (!reply || typeof reply.answer !== 'string' || !reply.answer.trim()) {
         throw new Error('模型未返回有效回答，请重新发送。');
       }
@@ -383,16 +412,22 @@ export function useAgentChat(
       }));
       return true;
     } catch (error) {
+      const stopped = Boolean(controller?.signal.aborted);
       commit(current => ({
         ...current,
         turns: current.turns.map(item => (
           item.kind === 'basic' && item.id === turn.id
-            ? { ...item, status: 'failed', error: errorMessage(error) }
+            ? {
+              ...item,
+              status: 'failed',
+              error: stopped ? '已手动停止生成，可点击重新发送获取完整回答。' : errorMessage(error),
+            }
             : item
         )),
       }));
       return false;
     } finally {
+      if (basicStreamAbort.current === controller) basicStreamAbort.current = null;
       postLock.current = false;
       setPosting(false);
     }
@@ -436,6 +471,7 @@ export function useAgentChat(
     restoreError,
     send,
     sendBasic,
+    stopBasicStream,
     retry,
     clarify,
     focusedTaskId: focusedRoute,

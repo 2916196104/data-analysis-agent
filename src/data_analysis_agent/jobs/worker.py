@@ -292,9 +292,13 @@ class TaskWorker:
                 heartbeat(self.task_db, self.worker_id, stopped=True)
             finally:
                 try:
+                    from data_analysis_agent.core.llm_gateway import close_llm_clients
                     from data_analysis_agent.reviews.embedding_process import close_embedding_processes
+
                     close_embedding_processes()
-                finally:self.lock.release()
+                    close_llm_clients()
+                finally:
+                    self.lock.release()
                 logger.info("后台执行器停止 worker_id=%s", self.worker_id)
 
     def _execute(self, task: dict[str, Any]) -> None:

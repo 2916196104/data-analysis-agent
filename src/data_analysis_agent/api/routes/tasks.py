@@ -62,10 +62,12 @@ def create_router(task_db, business_db, *, import_root, env_file):
     @router.get("/tasks/{task_id}/events", tags=["后台任务"])
     async def task_events(request: Request, task_id: Annotated[str, Path(min_length=1, max_length=1000)]):
         """SSE 任务进度推送端点；仅推送轻量进度与终态，客户端收到 done 后按需读取完整结果。"""
+        # 先捕获事件版本号再读数据库，避免读取与订阅之间错过 worker 唤醒通知。
+        initial_version = task_event_version(task_id)
         initial = await run_in_threadpool(get_task_summary, task_db, task_id)
 
-        def _format_sse(event_name: str, payload: dict) -> str:
-            return f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+        def _format_sse(event_name: str, payload: dict, event_id: int) -> str:
+            return f"id: {event_id}\nevent: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
         def _fingerprint(summary: dict) -> str:
             return json.dumps(
@@ -75,10 +77,12 @@ def create_router(task_db, business_db, *, import_root, env_file):
             )
 
         async def _stream():
+            seq = 1
             current = initial
-            version = task_event_version(task_id)
+            version = initial_version
             terminal = current["status"] in ("succeeded", "partial", "failed")
-            yield _format_sse("done" if terminal else "progress", current)
+            yield "retry: 1500\n\n"
+            yield _format_sse("done" if terminal else "progress", current, seq)
             if terminal:
                 return
             last_fingerprint = _fingerprint(current)
@@ -93,12 +97,14 @@ def create_router(task_db, business_db, *, import_root, env_file):
                 fp = _fingerprint(current)
                 terminal = current["status"] in ("succeeded", "partial", "failed")
                 if terminal:
-                    yield _format_sse("done", current)
+                    seq += 1
+                    yield _format_sse("done", current, seq)
                     return
                 if fp != last_fingerprint:
                     last_fingerprint = fp
                     last_emit = monotonic()
-                    yield _format_sse("progress", current)
+                    seq += 1
+                    yield _format_sse("progress", current, seq)
                 elif monotonic() - last_emit >= 15:
                     last_emit = monotonic()
                     yield ": keep-alive\n\n"
