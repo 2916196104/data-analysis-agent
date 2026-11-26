@@ -5,7 +5,7 @@ import { emptyTaskState } from '../../task-state';
 import { useTask } from '../../useTask';
 import type { AnalysisParameters, Task } from '../../types';
 import { CHAT_KEY, type ChatStore } from './chat-state';
-import { readChatStore } from './useChatSessions';
+import { MAX_BACKUPS, MAX_SESSIONS, newSession, readChatStore } from './useChatSessions';
 import { useAgentChat } from './useAgentChat';
 
 vi.mock('../../useTask', () => ({ useTask: vi.fn() }));
@@ -184,4 +184,48 @@ it('切换全局范围后不能点击历史澄清选项提交旧范围', async (
   await act(async () => { await hook.result.current.clarify(turn, turn.clarification!.choices[0]); });
   expect(submit).not.toHaveBeenCalled();
   expect(hook.result.current.activeTurn?.clarification?.message).toContain('当前选择范围已改变');
+});
+
+it('支持会话重命名、删除及最后会话重建，且自定义标题不被后续消息覆盖', async () => {
+  vi.spyOn(api, 'chat').mockResolvedValue({ answer: '收到' });
+  const hook = renderHook(() => useAgentChat());
+  const first = hook.result.current.activeSessionId;
+  await act(async () => { await hook.result.current.sendBasic('第一条提问'); });
+  act(() => hook.result.current.renameSession(first, '  制冷专题复盘  '));
+  expect(hook.result.current.conversation.title).toBe('制冷专题复盘');
+  await act(async () => { await hook.result.current.sendBasic('第二条追问'); });
+  expect(hook.result.current.conversation.title).toBe('制冷专题复盘');
+  act(() => hook.result.current.createSession());
+  const second = hook.result.current.activeSessionId;
+  await act(async () => { await hook.result.current.sendBasic('另一条会话'); });
+  act(() => hook.result.current.deleteSession(second));
+  expect(hook.result.current.activeSessionId).toBe(first);
+  expect(hook.result.current.sessions).toHaveLength(1);
+  act(() => hook.result.current.deleteSession(first));
+  expect(hook.result.current.sessions).toHaveLength(1);
+  expect(hook.result.current.activeSessionId).not.toBe(first);
+  expect(hook.result.current.conversation.turns).toEqual([]);
+  const reloaded = readChatStore();
+  expect(reloaded.error).toBe(false);
+  expect(reloaded.store.sessions).toHaveLength(1);
+});
+
+it('会话数量与历史备份键受上限约束，自动清理过期项并保留当前会话', async () => {
+  const existing = Array.from({ length: MAX_SESSIONS }, (_, index) => {
+    const item = newSession(`session-${index}`);
+    const stamp = new Date(Date.UTC(2025, 0, 1, 0, index)).toISOString();
+    return { ...item, title: `会话 ${index}`, createdAt: stamp, updatedAt: stamp, turns: [{ kind: 'basic' as const, id: `t-${index}`, question: `Q${index}`, status: 'succeeded' as const, answer: 'A' }] };
+  });
+  localStorage.setItem(CHAT_KEY, JSON.stringify({ version: 2, sessions: existing, activeSessionId: 'session-0' }));
+  for (let i = 0; i < MAX_BACKUPS + 3; i++) {
+    localStorage.setItem(`${CHAT_KEY}:backup:1000${i}-old`, '{"legacy":true}');
+  }
+  const hook = renderHook(() => useAgentChat());
+  act(() => hook.result.current.createSession());
+  expect(hook.result.current.sessions).toHaveLength(MAX_SESSIONS);
+  expect(saved().sessions.some(item => item.id === hook.result.current.activeSessionId)).toBe(true);
+  // 最旧的非当前会话（session-0 已不是当前，updatedAt 最早）被裁剪
+  expect(saved().sessions.some(item => item.id === 'session-0')).toBe(false);
+  const backups = Object.keys(localStorage).filter(key => key.startsWith(`${CHAT_KEY}:backup:`));
+  expect(backups.length).toBeLessThanOrEqual(MAX_BACKUPS);
 });

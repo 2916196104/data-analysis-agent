@@ -248,3 +248,37 @@ it('维度任务公开视图读取失败时不复用旧摘要，保留原始统�
   expect(rebuilt.result?.answer).toBeUndefined();
   expect(rebuilt.result?.results).toEqual(saved.result.results);
 });
+
+it('超过两条口径限制说明时默认折叠其余条数，复制正文仍保留全部说明', async () => {
+  const { default: View } = await import('./PublicAnswerView');
+  const multiCaveat: PublicAnswer = {
+    ...answer,
+    caveats: ['说明一：部分样本量较少。', '说明二：标注覆盖率不足。', '说明三：首末月非完整自然月。', '说明四：未核验数据采集完整性。'],
+  };
+  const { container } = render(<View answer={multiCaveat} />);
+  expect(screen.getByText('说明一：部分样本量较少。')).toBeTruthy();
+  expect(screen.getByText('说明二：标注覆盖率不足。')).toBeTruthy();
+  const details = container.querySelector('.public-answer-caveats-more') as HTMLDetailsElement;
+  expect(details).toBeTruthy();
+  expect(details.open).toBe(false);
+  expect(details.querySelector('summary')?.textContent).toContain('展开其余 2 条口径与限制说明');
+  expect(publicAnswerText(multiCaveat)).toContain('说明三：首末月非完整自然月。');
+  expect(publicAnswerText(multiCaveat)).toContain('说明四：未核验数据采集完整性。');
+});
+
+it('拒答回答区分受限类型并优先提取后端推荐问法作为可点击改写建议', async () => {
+  const { default: View } = await import('./PublicAnswerView');
+  const onSuggest = vi.fn();
+  const unsupported: PublicAnswer = {
+    ...answer,
+    status: 'unsupported',
+    summary: '当前不能准确统计该细分反馈的评论条数，缺少可核验的全量主题分类计数。可以先问：“有没有制冷差的反馈？”查看相关买家反馈。',
+    highlights: [],
+  };
+  render(<View answer={unsupported} question="制冷差评有多少条？" onSuggestQuestion={onSuggest} />);
+  expect(screen.getByText('查询受限说明')).toBeTruthy();
+  expect(screen.getByText('统计粒度限制')).toBeTruthy();
+  const rewriteButton = screen.getByRole('button', { name: '有没有制冷差的反馈？' });
+  fireEvent.click(rewriteButton);
+  expect(onSuggest).toHaveBeenCalledWith('有没有制冷差的反馈？');
+});

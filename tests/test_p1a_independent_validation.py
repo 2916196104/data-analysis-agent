@@ -1,6 +1,7 @@
 """独立验收：自建六维合成语料，经真实 Worker/任务库路径，不调用主题模型。"""
 from contextlib import closing
 from copy import deepcopy
+import csv
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -43,17 +44,22 @@ class IndependentStateValidation(unittest.TestCase):
         self.db, self.tasks = self.root / 'business.sqlite3', self.root / 'tasks.sqlite3'
         init_database(self.db)
         self.identity = {'model': 'independent-labels', 'base_url': 'https://labels.invalid/v1', 'prompt_version': 'independent-v1'}
-        self.scope = {**self.identity, 'source': 'amazon_reviews_2023', 'dataset_version': 'independent-state',
+        self.scope = {**self.identity, 'source': 'reviews_csv', 'dataset_version': 'reviews-csv',
                       'product_ids': [A, B], 'date_from': '2023-02-01', 'date_to': '2023-02-28', 'as_of': None,
                       'baseline_from': '2023-01-01', 'baseline_to': '2023-01-31'}
-        rows = [{'parent_asin': A, 'user_id': str(i), 'text': '。'.join(QUOTES[a] for a, n in COUNTS.items() if i < n) or '暂无明确反馈',
-                 'timestamp': int(datetime(2023, 2, 10, tzinfo=timezone.utc).timestamp() * 1000)} for i in range(6)]
-        rows.append({'parent_asin': B, 'user_id': 'B', 'text': '物流准时', 'timestamp': rows[0]['timestamp']})
-        source = self.root / 'reviews.jsonl'
-        source.write_text('\n'.join(json.dumps(row, ensure_ascii=False) for row in rows), encoding='utf-8')
-        import_amazon_jsonl(self.db, reviews_path=source, dataset_version='independent-state')
+        rows = [dict(product_id=A, product_name='合成商品A', user_id=str(i),
+                     text='。'.join(QUOTES[a] for a, n in COUNTS.items() if i < n) or '暂无明确反馈',
+                     published_at='2023-02-10') for i in range(6)]
+        rows.append(dict(product_id=B, product_name='合成商品B', user_id='B',
+                         text='物流准时', published_at='2023-02-10'))
+        source = self.root / 'reviews.csv'
+        with source.open('w', newline='', encoding='utf-8') as handle:
+            writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+            writer.writeheader()
+            writer.writerows(rows)
+        import_amazon_jsonl(self.db, reviews_path=source, dataset_version='reviews-csv')
         init_labeling(self.db)
-        for review in pending_reviews(self.db, **self.identity, dataset_version='independent-state', limit=100):
+        for review in pending_reviews(self.db, **self.identity, source='reviews_csv', dataset_version='reviews-csv', limit=100):
             values = [dict(aspect=a, sentiment='negative', quote=q) for a, q in QUOTES.items() if q in review['text']]
             if review['text'] == '物流准时':
                 values = [dict(aspect='logistics', sentiment='positive', quote='物流准时')]
@@ -210,12 +216,14 @@ class IndependentStateValidation(unittest.TestCase):
 
     def test_historical_integrity_does_not_prove_current_business_counts_are_unchanged(self):
         basis = self.basis(self.load())
-        row = {'parent_asin': A, 'user_id': 'new', 'text': '包装破损',
-               'timestamp': int(datetime(2023, 2, 11, tzinfo=timezone.utc).timestamp() * 1000)}
-        path = self.root / 'new.jsonl'
-        path.write_text(json.dumps(row, ensure_ascii=False), encoding='utf-8')
-        import_amazon_jsonl(self.db, reviews_path=path, dataset_version='independent-state')
-        review = next(r for r in pending_reviews(self.db, **self.identity, dataset_version='independent-state', limit=100)
+        row = dict(product_id=A, product_name='合成商品A', user_id='new', text='包装破损', published_at='2023-02-11')
+        path = self.root / 'new.csv'
+        with path.open('w', newline='', encoding='utf-8') as handle:
+            writer = csv.DictWriter(handle, fieldnames=row.keys())
+            writer.writeheader()
+            writer.writerow(row)
+        import_amazon_jsonl(self.db, reviews_path=path, dataset_version='reviews-csv')
+        review = next(r for r in pending_reviews(self.db, **self.identity, source='reviews_csv', dataset_version='reviews-csv', limit=100)
                       if r['text'] == '包装破损')
         save_annotation(self.db, review, **self.identity, status='success',
                         opinions=validate_opinions(json.dumps({'opinions': [dict(aspect='packaging', sentiment='negative', quote='包装破损')]}), review['text']))

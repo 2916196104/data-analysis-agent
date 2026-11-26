@@ -99,10 +99,13 @@ class SelectedProductTests(fixture.AssistantSemanticsFixture, unittest.TestCase)
         self.assertEqual(result['validation']['status'], 'passed')
 
     def test_comparison_never_discards_explicit_sentiment_or_topic(self):
-        for question in ('对比这两款商品的好评差别', '对比美的空调与小米空调的制冷好评'):
-            result = run_review_agent(self.db, question, scope=self.scope(product_ids=['100013588053', 'XIAOMI-TEST']), settings=SETTINGS)
-            self.assertEqual(result['status'], 'unsupported')
-            self.assertEqual(result['query_executions'], 0)
+        positive = run_review_agent(self.db, '对比这两款商品的好评差别', scope=self.scope(product_ids=['100013588053', 'XIAOMI-TEST']), settings=SETTINGS)
+        self.assertEqual(positive['status'], 'ok', positive.get('error'))
+        self.assertEqual(positive['query_plan']['required_tools'], ['compare_products'])
+        self.assertEqual(positive['results']['r1']['data']['sentiment'], 'positive')
+        result = run_review_agent(self.db, '对比美的空调与小米空调的制冷好评', scope=self.scope(product_ids=['100013588053', 'XIAOMI-TEST']), settings=SETTINGS)
+        self.assertEqual(result['status'], 'unsupported')
+        self.assertEqual(result['query_executions'], 0)
 
     def test_three_turns_inherit_product_sentiment_and_cooling(self):
         self.queue()

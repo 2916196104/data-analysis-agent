@@ -139,9 +139,35 @@ class TaskWorker:
             logger.info("后台执行器启动 worker_id=%s", self.worker_id)
             self.thread = threading.Thread(target=self._loop, name="review-task-worker")
             self.thread.start()
+            self._maybe_start_rag_warmup()
         except Exception:
             self.lock.release()
             raise
+
+    def _maybe_start_rag_warmup(self) -> None:
+        """若本地已配置可用的 RAG 编码解释器与模型缓存，则在后台预热 BGE-M3 子进程。"""
+        from data_analysis_agent.core.config import read_settings
+
+        try:
+            values = read_settings(self.env_file)
+        except (ConfigurationError, OSError):
+            return
+        if values.get("RAG_WARMUP_ON_START", "1").strip() == "0":
+            return
+        rag_python = values.get("RAG_PYTHON", "").strip()
+        rag_cache = values.get("RAG_MODEL_CACHE", "").strip()
+        if not rag_python or not rag_cache:
+            return
+        if not (Path(rag_python).is_file() and Path(rag_cache).is_dir()):
+            return
+        try:
+            timeout = int(values.get("RAG_TIMEOUT_SECONDS", "600"))
+            if not 0 < timeout <= 600:
+                timeout = 600
+        except ValueError:
+            timeout = 600
+        from data_analysis_agent.reviews.embedding_process import start_embedding_warmup
+        start_embedding_warmup(rag_python, rag_cache, timeout=timeout)
 
     def stop(self) -> None:
         self.stop_requested.set()

@@ -62,4 +62,77 @@ describe('任务轮询生命周期', () => {
     expect(api.task).toHaveBeenCalledTimes(1);
     unmount();
   });
+
+  it('浏览器支持 EventSource 时优先使用 SSE 推送进度，收到 done 后拉取完整结果并关闭连接', async () => {
+    const listeners = new Map<string, ((event: MessageEvent<string>) => void)[]>();
+    const close = vi.fn();
+    class FakeEventSource {
+      url: string;
+      constructor(url: string) { this.url = url; }
+      addEventListener(type: string, handler: (event: MessageEvent<string>) => void) {
+        listeners.set(type, [...(listeners.get(type) ?? []), handler]);
+      }
+      close = close;
+    }
+    vi.stubGlobal('EventSource', FakeEventSource);
+    (api as Record<string, unknown>).taskEventsUrl = (id: string) => `/api/v1/tasks/${id}/events`;
+    vi.mocked(api.task)
+      .mockResolvedValueOnce(task('running'))
+      .mockResolvedValueOnce({ ...task('succeeded'), result: { run_id: 'run-sse' } });
+    vi.mocked(api.run).mockResolvedValue({ run_id: 'run-sse' } as Run);
+    try {
+      const { result, unmount } = renderHook(() => useTask('a'));
+      await act(async () => {});
+      expect(api.task).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        const progress = { ...task('running'), progress: { stage: 'agent_tool', completed: 2, total: 3, unit: 'tools' } };
+        listeners.get('progress')?.forEach(fn => fn({ data: JSON.stringify(progress) } as MessageEvent<string>));
+      });
+      expect(result.current.task?.progress.completed).toBe(2);
+      // SSE 连接期间不触发 1.5s 轮询
+      await act(() => vi.advanceTimersByTimeAsync(6000));
+      expect(api.task).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        listeners.get('done')?.forEach(fn => fn({ data: JSON.stringify(task('succeeded')) } as MessageEvent<string>));
+      });
+      expect(close).toHaveBeenCalled();
+      expect(api.task).toHaveBeenCalledTimes(2);
+      expect(result.current.run?.run_id).toBe('run-sse');
+      unmount();
+    } finally {
+      delete (api as Record<string, unknown>).taskEventsUrl;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('SSE 连接异常时自动降级回轮询，不中断任务状态更新', async () => {
+    const listeners = new Map<string, ((event: Event) => void)[]>();
+    const close = vi.fn();
+    class FakeEventSource {
+      addEventListener(type: string, handler: (event: Event) => void) {
+        listeners.set(type, [...(listeners.get(type) ?? []), handler]);
+      }
+      close = close;
+    }
+    vi.stubGlobal('EventSource', FakeEventSource);
+    (api as Record<string, unknown>).taskEventsUrl = (id: string) => `/api/v1/tasks/${id}/events`;
+    vi.mocked(api.task)
+      .mockResolvedValueOnce(task('running'))
+      .mockResolvedValueOnce(task('succeeded'));
+    try {
+      const { result, unmount } = renderHook(() => useTask('a'));
+      await act(async () => {});
+      act(() => {
+        listeners.get('error')?.forEach(fn => fn(new Event('error')));
+      });
+      expect(close).toHaveBeenCalled();
+      await act(() => vi.advanceTimersByTimeAsync(1500));
+      expect(result.current.task?.status).toBe('succeeded');
+      expect(api.task).toHaveBeenCalledTimes(2);
+      unmount();
+    } finally {
+      delete (api as Record<string, unknown>).taskEventsUrl;
+      vi.unstubAllGlobals();
+    }
+  });
 });

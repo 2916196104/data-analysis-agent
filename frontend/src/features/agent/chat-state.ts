@@ -57,7 +57,7 @@ export function basicHistory(turns: ConversationTurn[]) {
 export interface ConversationUserIntent { task_id: string; question: string; product_ids: string[]; source?: string | null; dataset_version?: string | null }
 export interface AnalysisSession { turns: ChatTurn[]; activeId?: string; context?: ConversationAnalysisContext; intent?: ConversationUserIntent }
 export interface Conversation { turns: ConversationTurn[]; activeId?: string; context?: ConversationAnalysisContext; intent?: ConversationUserIntent }
-export interface ChatSession extends Conversation { id: string; title: string; createdAt: string; updatedAt: string }
+export interface ChatSession extends Conversation { id: string; title: string; customTitle?: boolean; createdAt: string; updatedAt: string }
 export interface ChatStore { version: 2; sessions: ChatSession[]; activeSessionId: string }
 export const CHAT_KEY = `review-agent-chat:${API_BASE}`;
 

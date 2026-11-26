@@ -267,12 +267,17 @@ class F01WorkerTests(unittest.TestCase):
 
     def add_positive_evidence(self):
         # 仅向隔离业务夹具补充正向证据，历史负面排名仍是原保存快照。
-        path = self.fixture.root / 'positive.jsonl'
-        path.write_text(json.dumps({'parent_asin': independent.A, 'user_id': 'positive',
-            'text': '客服回复及时', 'timestamp': 1675987200000}, ensure_ascii=False), encoding='utf-8')
-        independent.import_amazon_jsonl(self.fixture.db, reviews_path=path, dataset_version='independent-state')
+        import csv
+        row = dict(product_id=independent.A, product_name='合成商品A', user_id='positive',
+                   text='客服回复及时', published_at='2023-02-10')
+        path = self.fixture.root / 'positive.csv'
+        with path.open('w', newline='', encoding='utf-8') as handle:
+            writer = csv.DictWriter(handle, fieldnames=row.keys())
+            writer.writeheader()
+            writer.writerow(row)
+        independent.import_amazon_jsonl(self.fixture.db, reviews_path=path, dataset_version='reviews-csv')
         review = next(row for row in independent.pending_reviews(self.fixture.db, **self.fixture.identity,
-            dataset_version='independent-state', limit=100) if row['text'] == '客服回复及时')
+            source='reviews_csv', dataset_version='reviews-csv', limit=100) if row['text'] == '客服回复及时')
         independent.save_annotation(self.fixture.db, review, **self.fixture.identity, status='success',
             opinions=independent.validate_opinions(json.dumps({'opinions': [dict(aspect='service',
                 sentiment='positive', quote='客服回复及时')]}), review['text']))

@@ -77,6 +77,7 @@ class P6RequestGoal(RequestGoal):
         result.pop('selection_basis_json')
         return {**result, 'version': GOAL_VERSION, 'levels': list(self.levels),
                 'statistic_families': list(self.statistic_families),
+                'aspects': list(self.aspects),
                 'required_aspects': list(self.required_aspects), 'analysis_mode': MODE,
                 'per_aspect_level': 'themes', 'ranking_source': self.ranking_source,
                 'expected_scope': self.expected_scope, 'selection_basis': self.selection_basis}
@@ -85,8 +86,9 @@ class P6RequestGoal(RequestGoal):
     def from_dict(cls, value):
         """只解析 P6 版本；来源资格仍须由原始任务独立复核。"""
         try:
-            request = {key: value[key] for key in RequestGoal.__dataclass_fields__}
-            for key in ('levels', 'statistic_families'):
+            request = {key: value[key] for key in RequestGoal.__dataclass_fields__ if key in value}
+            request.setdefault('aspects', ())
+            for key in ('levels', 'statistic_families', 'aspects'):
                 request[key] = tuple(request[key])
             goal = cls(**request, required_aspects=tuple(value['required_aspects']),
                 selection_basis_json=canonical_json(value['selection_basis']),

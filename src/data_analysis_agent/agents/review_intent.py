@@ -137,6 +137,8 @@ def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False
         confirmed = '执行本轮已确认的只读查询\n' + json.dumps({'tool': 'get_aspect_drilldown', 'parameters': {
             **params, 'aspect': intent.aspect, 'sentiment': intent.sentiment}}, ensure_ascii=False)
         return build_query_plan(confirmed, scope)
+    if kind in {'comparison', 'window_comparison'} and intent.topic:
+        raise QuestionScopeError('当前没有该细分语义主题的独立对比统计，不能用上级维度或整体对比替代。')
     if intent.aspect and (kind in {'quality', 'ratings'} or (kind in {'comparison', 'window_comparison'} and intent.sentiment != 'positive')):
         raise QuestionScopeError('该统计类型不支持直接按评价维度筛选。要查看该维度的观点细分、原文还是趋势？')
     if kind == 'aspect_summary':
@@ -433,6 +435,7 @@ def _resolve_review_request(question, scope, products, *, settings, context=None
     diagnostics['scope_resolution']['effective_scope'] = dict(scope)
     if len(mentions) > 1 and re.search(r'比较|对比', question) and not groups and not re.search(r'基线|窗口|时间段', question):
         intent.query_type = 'comparison'
+        intent.topic = semantic['topic']
         intent_state.update(intent.model_dump())
         return scope, _intent_plan(intent, scope, question=question), True
     conditions = _user_conditions(context, scope, products)

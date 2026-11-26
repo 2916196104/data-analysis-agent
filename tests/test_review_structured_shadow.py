@@ -130,7 +130,7 @@ class ShadowTests(unittest.TestCase):
         self.assertEqual(run.outcome.reason_codes,('target_binding_mismatch',));self.assert_closed(run)
 
     def test_unsupported_unknown_cause_and_sql_never_run(self):
-        for q in ('有没有降温不给力的反馈？','有没有制冷好或物流很快的反馈？',
+        for q in ('有没有空调使用十年仍然耐用的反馈？','有没有先制冷好后噪音大的反馈？',
                   '为什么这款空调制冷不足，是否由压缩机故障导致？','好评主要集中在哪些方面？',
                   '制冷不足的反馈占全部评论多少？'):
             c=b1.contract(q);_,result,_=verified()

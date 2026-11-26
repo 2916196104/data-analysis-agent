@@ -197,7 +197,7 @@ class TrendTemplateTests(WorkbenchFixture, unittest.TestCase):
 
     def test_unsupported_positive_comparison_and_cause_do_not_fall_back_to_model(self):
         self.seed([('2023-01', 30, 3)])
-        for question in ('商品100013588055的好评与基线窗口对比',
+        for question in ('商品100013588055的制冷好评与基线窗口对比',
                          '商品100013588055物流负面评价增加是什么原因？'):
             with self.subTest(question=question):
                 result = run_review_agent(self.db, question, scope=self.scope, settings=SETTINGS)
@@ -213,7 +213,9 @@ class TrendTemplateTests(WorkbenchFixture, unittest.TestCase):
         from data_analysis_agent.agents.review_answer_facts import build_answer_facts
         context = CompactAnalysisContext.model_validate(raw)
         facts, _ = build_answer_facts(context)
-        self.assertEqual(AnswerGenerationStrategy.choose(context, facts), 'llm')
+        self.assertEqual(AnswerGenerationStrategy.choose(context, facts), 'template')
+        detailed = context.model_copy(update={'question': '比较两个商品的主要负面问题，请详细分析'})
+        self.assertEqual(AnswerGenerationStrategy.choose(detailed, facts), 'llm')
 
 
 if __name__ == '__main__':

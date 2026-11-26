@@ -6,52 +6,21 @@ add facts. Explicit entailment edges never infer speed, causes or population rat
 from hashlib import sha256
 import re
 
-POLICY = 'reported_experience_v3'
-COMPARATIVE_ADVERB = re.compile(
-    r'比较[ \t]*(?=(?:慢|快|差|好|大|小|高|低|贵|便宜|久|吵|安静)[ \t]*'
-    r'(?:$|的|了|吗|么|但|却|又|而且|[，,。！？?!；;、]))'
-)
-PATTERNS = {
-    'cooling_failure': r'(?:空调)?(?:完全|根本)?(?:不制冷|不降温|降不下温|无法降温|不能降温)',
-    'cooling_poor': r'(?:空调)?(?:制冷|降温)(?:效果|能力)?(?:不足|不行|差|很差|太差|不佳|不好|不太好|不理想|不给力|不够给力)|(?:空调)?冷气不足',
-    'cooling_good': r'(?:空调)?(?:制冷|降温)(?:效果)?(?:也)?(?:好|很好|非常好|特别好|不错|很不错|很棒)',
-    'cooling_slow': r'(?:空调)?(?:制冷|降温)(?:速度)?(?:慢|很慢|太慢|不快|较慢|缓慢|迟缓)',
-    'cooling_fast': r'(?:空调)?(?:制冷|降温)(?:速度)?(?:快|很快|非常快|迅速)',
-    'heating_failure': r'(?:空调)?(?:完全|根本)?不制热|(?:空调)?(?:无法升温|升不了温)',
-    'heating_poor': r'(?:空调)?(?:制热|升温)(?:效果)?(?:不足|不行|差|很差|不佳|不好|不理想|不给力|不够给力)',
-    'heating_good': r'(?:空调)?制热(?:效果)?(?:好|很好|不错)',
-    'heating_fast': r'(?:空调)?制热(?:速度)?(?:快|很快)',
-    'noise_high': (r'(?:空调)?(?:运行)?(?:噪音|噪声)(?:大|很大|太大|有点大|明显)'
-                   r'|(?:(?:空调)?运行声音|空调声音)(?:大|很大|太大|有点大|很吵)|(?:空调)?声音很吵'),
-    'noise_low': r'(?:空调)?(?:噪音|噪声)(?:小|很小|不大)|(?:空调)?很安静',
-    'delivery_fast': r'(?:物流|配送|到货|送货|快递|快递到货)(?:速度)?(?:很快|快|迅速)',
-    'delivery_slow': (r'(?:(?:物流|配送|到货|送货|快递|快递到货)(?:速度)?(?:很慢|太慢|慢|缓慢|迟缓)'
-                      r'|(?:商品|快递|包裹)?到货时间(?:太|很|特别|过于)(?:长|久))(?:了|啊|呀|呢)?'),
-    'service_good': r'客服(?:态度好|态度很好|很热情)',
-    'service_bad': r'客服(?:态度差|态度很差|不耐烦)',
-    'installer_good': r'安装师傅(?:态度好|态度很好|很热情)',
-    'installer_bad': r'安装师傅(?:态度差|态度很差|不耐烦)',
-    'packaging_bad': r'(?:包装|外包装)(?:破了|破损|损坏)',
-    'packaging_good': r'(?:包装|外包装)(?:完好|没有破损|结实|很结实|严实|很严实)',
-    'price_high': r'价格(?:太高|很高|偏高|贵|太贵)',
-    'price_low': r'价格(?:便宜|很便宜|不贵)',
-}
-EDGES = {'cooling_failure': {'cooling_poor'}, 'heating_failure': {'heating_poor'}}
-OPPOSITES = [('cooling_good','cooling_poor'),('cooling_fast','cooling_slow'),
-             ('heating_good','heating_poor'),('noise_high','noise_low'),
-             ('delivery_fast','delivery_slow'),('service_good','service_bad'),
-             ('installer_good','installer_bad'),('packaging_good','packaging_bad'),('price_high','price_low')]
-HAZARDS = r'不是|并非|并不|未必|不一定|不能说|不代表|没有觉得|没觉得|没发生|不存在|不属实|不是真的|谣言|假的|别人|他人|朋友说|听说|据说|客服说|广告|宣传|号称|假如|如果|要是|可能|也许|以为|更正|纠正|撤回|误会|误解|玩笑|反话|另一台|别的|其他机器|过去|以前|曾经|后来|现在|不再|说法|[？?“”「」"]'
-CONNECTIVES = r'但是|不过|然而|可是|并且|而且|但'
-DOMAINS = {'cooling':'制冷|冷气|降温','heating':'制热|升温','noise':'噪音|噪声|声音',
-           'delivery':'物流|配送|到货|送货|快递','service':'客服','installer':'安装师傅',
-           'packaging':'包装','price':'价格'}
+from data_analysis_agent.agents.review_domain_rules import domain_rules
+
+_RULES = domain_rules().reported_facts
+POLICY = _RULES.policy
+COMPARATIVE_ADVERB = re.compile(_RULES.comparative_adverb)
+PATTERNS = dict(_RULES.patterns)
+EDGES = {source: set(targets) for source, targets in _RULES.entailment_edges.items()}
+OPPOSITES = list(_RULES.opposites)
+HAZARDS = _RULES.hazards
+CONNECTIVES = _RULES.connectives
+DOMAINS = dict(_RULES.domains)
 # Retractions and references can govern earlier clauses even without a topic noun.
-RETRACTIONS = (r'忽略.*规则|给AI|提示词|系统指令|更正|纠正|撤回|误会|误解|玩笑|反话|反讽|另一台|其他机器'
-               r'|不对|错了|不实|其实|实际上|上述|那是|那只是|这只是|才怪|否认|这话|此话|前一句'
-               r'|不.*(?:认为|觉得|认同|认可)|没(?:有)?这回事|此事并未发生')
-CONTEXT_HAZARDS = HAZARDS + r'|说|声称|表示|转述|传闻|假设|假定|倘若|至于|别的'
-FORWARD_FRAMES = r'说|声称|表示|转述|传闻|听说|据说|广告|宣传|号称|假如|如果|要是|假设|假定|倘若|可能|也许|以为|过去|以前|曾经|后来|现在|不再'
+RETRACTIONS = _RULES.retractions
+CONTEXT_HAZARDS = HAZARDS + _RULES.context_hazards_extra
+FORWARD_FRAMES = _RULES.forward_frames
 
 
 def clauses(text):

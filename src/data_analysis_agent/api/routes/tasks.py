@@ -1,18 +1,22 @@
 """任务 HTTP 端点；业务操作仍位于各自服务中。"""
 
+import json
 import logging
+from time import monotonic
 import uuid
 from pathlib import Path as FilePath
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Body, Header, Path, Query, Request, Response
+from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from data_analysis_agent.api.responses import Result, ok_result
 from data_analysis_agent.api.schemas import TaskInput, TaskQuery
+from data_analysis_agent.jobs.events import task_event_version, wait_task_update
 from data_analysis_agent.jobs.store import TaskConflict
 from data_analysis_agent.jobs.store import (
-    delete_task, enqueue, get_task, list_tasks, mark_import_data_deleted,
+    delete_task, enqueue, get_task, get_task_audit, get_task_summary, list_tasks, mark_import_data_deleted,
 )
 from data_analysis_agent.jobs.submission import prepare_parameters, retry_task
 from data_analysis_agent.reviews.store import delete_import_runs
@@ -45,8 +49,65 @@ def create_router(task_db, business_db, *, import_root, env_file):
         return ok_result(list_tasks(task_db, **query.model_dump()))
 
     @router.get("/tasks/{task_id}", response_model=Result, tags=["后台任务"])
-    def task_detail(task_id: Annotated[str, Path(min_length=1, max_length=1000)]):
-        return ok_result(get_task(task_db, task_id))
+    def task_detail(
+        task_id: Annotated[str, Path(min_length=1, max_length=1000)],
+        include_audit: Annotated[bool, Query()] = True,
+    ):
+        return ok_result(get_task(task_db, task_id, include_audit=include_audit))
+
+    @router.get("/tasks/{task_id}/audit", response_model=Result, tags=["后台任务"])
+    def task_audit(task_id: Annotated[str, Path(min_length=1, max_length=1000)]):
+        return ok_result(get_task_audit(task_db, task_id))
+
+    @router.get("/tasks/{task_id}/events", tags=["后台任务"])
+    async def task_events(request: Request, task_id: Annotated[str, Path(min_length=1, max_length=1000)]):
+        """SSE 任务进度推送端点；仅推送轻量进度与终态，客户端收到 done 后按需读取完整结果。"""
+        initial = await run_in_threadpool(get_task_summary, task_db, task_id)
+
+        def _format_sse(event_name: str, payload: dict) -> str:
+            return f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+        def _fingerprint(summary: dict) -> str:
+            return json.dumps(
+                (summary["status"], summary["updated_at"], summary["progress"], summary["error"]),
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+
+        async def _stream():
+            current = initial
+            version = task_event_version(task_id)
+            terminal = current["status"] in ("succeeded", "partial", "failed")
+            yield _format_sse("done" if terminal else "progress", current)
+            if terminal:
+                return
+            last_fingerprint = _fingerprint(current)
+            last_emit = monotonic()
+            while True:
+                if await request.is_disconnected():
+                    return
+                version = await run_in_threadpool(wait_task_update, task_id, version, timeout=0.5)
+                if await request.is_disconnected():
+                    return
+                current = await run_in_threadpool(get_task_summary, task_db, task_id)
+                fp = _fingerprint(current)
+                terminal = current["status"] in ("succeeded", "partial", "failed")
+                if terminal:
+                    yield _format_sse("done", current)
+                    return
+                if fp != last_fingerprint:
+                    last_fingerprint = fp
+                    last_emit = monotonic()
+                    yield _format_sse("progress", current)
+                elif monotonic() - last_emit >= 15:
+                    last_emit = monotonic()
+                    yield ": keep-alive\n\n"
+
+        return StreamingResponse(
+            _stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+        )
 
     @router.post("/import-files", response_model=Result, status_code=201, tags=["后台任务"])
     async def upload_import_file(request: Request,

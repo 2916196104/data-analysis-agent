@@ -14,11 +14,12 @@ import PublicAnswerView from './PublicAnswerView';
 import P6Results from './P6Results';
 import { readP6Publication } from './p6-publication';
 
-export default function ChatMessage({ turn, chat, onPrepare }: {
+export default function ChatMessage({ turn, chat, onPrepare, onSuggestQuestion }: {
   turn: ConversationTurn; chat: AgentChat; onPrepare: (result: AgentResult, products: string[]) => void;
+  onSuggestQuestion?: (question: string) => void;
 }) {
   return turn.kind === 'basic' ? <BasicMessage turn={turn} chat={chat} />
-    : <AnalysisMessage turn={turn} chat={chat} onPrepare={onPrepare} />;
+    : <AnalysisMessage turn={turn} chat={chat} onPrepare={onPrepare} onSuggestQuestion={onSuggestQuestion} />;
 }
 
 function MessageFrame({ turn, children }: { turn: ConversationTurn; children: ReactNode }) {
@@ -40,8 +41,9 @@ function BasicMessage({ turn, chat }: { turn: BasicChatTurn; chat: AgentChat }) 
   </MessageFrame>;
 }
 
-function AnalysisMessage({ turn, chat, onPrepare }: {
+function AnalysisMessage({ turn, chat, onPrepare, onSuggestQuestion }: {
   turn: ChatTurn; chat: AgentChat; onPrepare: (result: AgentResult, products: string[]) => void;
+  onSuggestQuestion?: (question: string) => void;
 }) {
   const active = chat.session.activeId === turn.id;
   const archivedState = useTask(active ? null : turn.taskId ?? null);
@@ -127,10 +129,11 @@ function AnalysisMessage({ turn, chat, onPrepare }: {
         {p6Result && <P6Results result={p6Result} taskId={turn.taskId} />}
         {result && <>
           {result.public_answer && ['ok', 'unsupported'].includes(result.public_answer.status)
-            ? <PublicAnswerView answer={result.public_answer} evidence={(result.result_ids || []).flatMap(id => {
-              const item = result.results[id];
-              return item?.kind === 'semantic_evidence' ? item.data.retrieval.evidence : [];
-            })} />
+            ? <PublicAnswerView answer={result.public_answer} question={turn.question} onSuggestQuestion={onSuggestQuestion}
+              evidence={(result.result_ids || []).flatMap(id => {
+                const item = result.results[id];
+                return item?.kind === 'semantic_evidence' ? item.data.retrieval.evidence : [];
+              })} />
             : <p>{result.status === 'unsupported' ? '当前问题超出已有分析能力，请调整查询目标。'
               : '历史分析结果已保存，可展开统计详情查看已核验的指标与原文。'}</p>}
           <Button size="small" onClick={() => exportAgentReport(result, turn.taskId)}>导出分析报告</Button>

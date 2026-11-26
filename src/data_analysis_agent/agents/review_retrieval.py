@@ -13,6 +13,7 @@ from data_analysis_agent.core.serialization import content_sha256
 from data_analysis_agent.agents.review_reported_facts import COMPARATIVE_ADVERB, POLICY, assess as assess_reported_facts
 from data_analysis_agent.agents import review_reported_facts_v2, review_delivery_timing_evidence as timing
 from data_analysis_agent.agents import review_cooling_speed_evidence as cooling
+from data_analysis_agent.agents.review_domain_rules import domain_rules
 from data_analysis_agent.agents.review_evidence_ranking import CITATION_RERANK_POLICY
 from data_analysis_agent.reviews.embedding import LocalBgeM3Embedder
 from data_analysis_agent.reviews.embedding_store import SPACE_ID
@@ -25,8 +26,11 @@ from data_analysis_agent.reviews.semantic_retrieval import (
 TOOL = 'search_semantic_evidence'
 LEGACY_POLICY = 'literal_reported_statement_v1'
 FACT_POLICIES = (POLICY, review_reported_facts_v2.POLICY, timing.POLICY, *cooling.POLICIES)
-SLOW_QUERY_VARIANTS = ('有没有制冷速度迟缓的反馈？', '有没有空调开了好一会儿才凉快的评论？')
-MULTI_QUERY_FACT_POLICY = 'reported_cooling_speed_v4'
+QUERY_EXPANSION_VERSION = domain_rules().retrieval_query_expansion.version
+MULTI_QUERY_FACT_POLICY = cooling.POLICY
+SLOW_QUERY_VARIANTS = domain_rules().matching_query_variants(
+    policy=MULTI_QUERY_FACT_POLICY, fact_ids=(cooling.SLOW,), has_relation=False,
+)
 STATISTICS = r'占比|比例|百分比|多少|几条|数量|统计|趋势|排名|分布|覆盖率|数据质量|对比|比较|主要|最多'
 V2_COMPLEX = r'同时|同一|既.+又|不仅|而且|但|却|又|而是|不是|并非|或者|还是|之前|之后|先.+再|导致|原因|为什么|长期|耐用|睡眠|所有|每个|一定|和|以及|与|[、；;，,]'
 COMPLEX = V2_COMPLEX + r'|或|且'
@@ -178,19 +182,40 @@ def _cooling_keyword_fallback(fact_question, request, snapshot, baseline):
     return tuple(documents[:request.top_k - bool(baseline)])
 
 
-def _slow_query_variants(question, fact_question, policy):
-    if policy != MULTI_QUERY_FACT_POLICY or not cooling.is_single_slow(fact_question):
+def _fact_request_for_policy(fact_question, policy):
+    if policy == timing.POLICY:
+        return timing.target(fact_question)
+    if policy == review_reported_facts_v2.POLICY:
+        return review_reported_facts_v2.target(fact_question)
+    from data_analysis_agent.agents.review_reported_facts import target
+    return target(fact_question)
+
+
+def query_variants_for_fact_request(question, fact_question, policy, *, rules=None):
+    """通用配置驱动的多 Query 扩展：按版本化规则表匹配策略与事实 ID。"""
+    request = _fact_request_for_policy(fact_question, policy)
+    if not request:
+        return ()
+    bundle = domain_rules() if rules is None else rules
+    candidates = bundle.matching_query_variants(
+        policy=policy,
+        fact_ids=tuple(request['facts']),
+        has_relation=bool(request.get('relation')),
+    )
+    if not candidates:
         return ()
     existing = {text.strip().rstrip('？?。') for text in (question, fact_question)}
-    return tuple(text for text in SLOW_QUERY_VARIANTS if text.rstrip('？') not in existing)
+    return tuple(text for text in candidates if text.strip().rstrip('？?。') not in existing)
 
 
-def retrieval_query_variants(question, scope, settings):
+def retrieval_query_variants(question, scope, settings, *, rules=None):
     if not getattr(settings, 'rag_multi_query', False):
         return ()
     from data_analysis_agent.agents.review_task_contract import evidence_policy, evidence_question
     policy = evidence_policy(question, scope)
-    return _slow_query_variants(question, evidence_question(question, scope, fact_policy=policy), policy)
+    return query_variants_for_fact_request(
+        question, evidence_question(question, scope, fact_policy=policy), policy, rules=rules,
+    )
 
 
 def execute_retrieval(context, scope):
@@ -292,7 +317,7 @@ def validate_retrieval(data, question):
 
 
 def _validate_query_channels(query, fact_question, policy, channels, evidence):
-    variants = _slow_query_variants(query.question, fact_question, policy)
+    variants = query_variants_for_fact_request(query.question, fact_question, policy)
     texts = (query.question, *variants)
     if not variants or not isinstance(channels, list) or len(channels) != len(texts):
         return False

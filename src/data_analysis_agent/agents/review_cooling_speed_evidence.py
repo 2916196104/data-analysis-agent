@@ -3,39 +3,57 @@
 import re
 
 from data_analysis_agent.agents import review_reported_facts as base
+from data_analysis_agent.agents.review_domain_rules import domain_rules
 
+_CFG = domain_rules().cooling_speed
+PREVIOUS_POLICY = _CFG.policies.previous
+EXPLICIT_POLICY = _CFG.policies.explicit
+PROGRESS_POLICY = _CFG.policies.progress
+POLICY = _CFG.policies.current
+KEYWORD_POLICIES = _CFG.policies.keyword_policies
+POLICIES = _CFG.policies.all_policies
+SLOW = _CFG.fact_id
 
-PREVIOUS_POLICY = 'reported_cooling_speed_v1'
-EXPLICIT_POLICY = 'reported_cooling_speed_v2'
-PROGRESS_POLICY = 'reported_cooling_speed_v3'
-POLICY = 'reported_cooling_speed_v4'
-KEYWORD_POLICIES = (PROGRESS_POLICY, POLICY)
-POLICIES = (PREVIOUS_POLICY, EXPLICIT_POLICY, *KEYWORD_POLICIES)
-SLOW = 'cooling_slow'
-_SPEED = r'(?:很|太|挺|比较|较|特别|有点)?慢|不快|缓慢|迟缓'
-_SLOW_CLAUSE = re.compile(
-    r'(?:(?:冷暖效果|使用效果|使用体验)[：:]\s*)?'
-    r'(?:(?:我觉得|我感觉|实际用下来|用起来)\s*)?'
-    r'(?:(?:我家的?|我买的)?(?:这台|这款)?空调)?'
-    rf'(?:制冷|降温)(?:速度|效果)?(?:也|又|(?:很差|太差|差|不好)(?:也|又))?(?:{_SPEED})'
-    r'(?:了|啊|呀|呢)?'
+_SLOW_CLAUSE = re.compile(_CFG.slow_clause_pattern)
+_WAITING = re.compile(_CFG.waiting_pattern)
+_AMBIGUOUS_UNIT = re.compile(_CFG.ambiguous_unit_pattern)
+_CONTEXT_QUALIFIERS = _CFG.context_qualifiers_extra
+_DOMAINS = dict(base.DOMAINS, cooling=base.DOMAINS['cooling'] + _CFG.domain_cooling_extra)
+_CONFLICTS = (*base.OPPOSITES, *_CFG.extra_conflicts)
+
+# Older stored answers must be rechecked with the exact parser that licensed them.
+# _quote_facts and _context_ok below are also the frozen v1 ranker's features.
+ROOM_DROP = _CFG.room_drop
+_ROOM_SLOW = re.compile(ROOM_DROP + _CFG.room_slow_suffix)
+_EXPLICIT_SLOW = re.compile(_CFG.explicit_slow)
+_TIME = _CFG.time_pattern
+_COOLING_RUN = _CFG.cooling_run_prefix + _TIME
+_STILL_WARM = _CFG.still_warm
+_LOW_SETTING = _CFG.low_setting
+# The separator is inside the quote. A duration and an observation from different
+# sentences, or an embedded fragment of a condition, cannot create the timed fact.
+_TIMED = re.compile(rf'(?:^|[，,。！!；;\n])[ \t]*{_COOLING_RUN}[ \t]*[，,]?[ \t]*{_STILL_WARM}[ \t]*(?=$|[，,。！!；;\n])')
+_ACTIVE_COOLING = rf'(?:{_LOW_SETTING}|{_CFG.active_cooling_extra})'
+_SET_DROP = re.compile(rf'(?:^|[，,。！!；;\n])[ \t]*(?:{ROOM_DROP}了?[ \t]*[，,][ \t]*{_ACTIVE_COOLING}|'
+                       rf'{_ACTIVE_COOLING}[ \t]*[，,][ \t]*{ROOM_DROP}了?)[ \t]*(?=$|[，,。！!；;\n])')
+_COMPANION = re.compile(
+    rf'(?:{_COOLING_RUN}|{_STILL_WARM}|{_ACTIVE_COOLING}|{_TIME}(?:都|还)?降不下来|'
+    rf'{_LOW_SETTING}[ \t]*{_TIME}[ \t]*(?:室温|室内温度)(?:能|才|只能)?降到[1-3][0-9](?:\.[0-9]+)?(?:度|℃)|'
+    + '|'.join(_CFG.companion_extra) + ')'
 )
-_WAITING = re.compile(
-    r'(?:开了?|运行了|用了|吹了)(?:[1-9][0-9]*|[一二三四五六七八九十两几半]+)\s*'
-    r'(?:个\s*)?(?:分钟|小时|钟头)(?:了)?[ \t]*(?:房间)?(?:都)?(?:还|仍然?)?没(?:有)?(?:凉快|变凉)(?:了)?'
-)
-_AMBIGUOUS_UNIT = re.compile(
-    r'其他(?:品牌(?:的)?)?空调|另外(?:一个卧室|一台|一款)|(?:上一台|旧空调|老空调)'
-    r'|(?:隔壁|邻居家|旁边)(?:的)?(?:那台|这台)?空调'
-    r'|(?:[2-9][0-9]*|1[0-9]+|[两二三四五六七八九十几多]+)台(?:不同的)?空调'
-)
-_CONTEXT_QUALIFIERS = (
-    r'|(?:客服|售后|师傅|商家|朋友|邻居)(?:称|提到|认为|觉得|反馈)'
-    r'|(?:没(?:有)?|未)(?:实际|亲自)?(?:使用过|用过|用这台|开过机|开机)(?!多久|多长)'
-    r'|仅在|只在|仅限'
-)
-_DOMAINS = dict(base.DOMAINS, cooling=base.DOMAINS['cooling'] + '|凉快|变凉')
-_CONFLICTS = (*base.OPPOSITES, ('cooling_failure', SLOW))
+_OTHER_EXPERIENCE = re.compile(_CFG.other_experience)
+_V2_DOMAINS = dict(_DOMAINS, cooling=_DOMAINS['cooling'] + _CFG.v2_domain_cooling_extra)
+_CONDITION_CHANGE = re.compile(_CFG.condition_change)
+
+# Keep both times and both outcomes inside the same source quote.
+_MINUTE_BOUNDS = dict(_CFG.minute_bounds)
+_PROGRESS = re.compile(_CFG.progress_pattern)
+_TRAILING_REPORT = re.compile(_CFG.trailing_report)
+_PROGRESS_HAZARDS = re.compile(_CFG.progress_hazards)
+_PROGRESS_BEFORE_SPEAKERS = re.compile(_CFG.progress_before_speakers)
+_JOINED_EFFECT = re.compile(_CFG.joined_effect)
+_UNTESTED_HEATING = re.compile(_CFG.untested_heating)
+_COOLING_SENSATION = re.compile(_CFG.cooling_sensation)
 
 
 def _cooling_fact(clause):
@@ -60,37 +78,6 @@ def _context_ok(row, supported):
     return not _AMBIGUOUS_UNIT.search(row['review_text']) and base.context_ok(
         row, supported, fact_parser=_context_fact, domains=_DOMAINS, opposites=_CONFLICTS,
         hazards=base.CONTEXT_HAZARDS + _CONTEXT_QUALIFIERS, forward_frames=base.FORWARD_FRAMES + _CONTEXT_QUALIFIERS)
-
-
-# Older stored answers must be rechecked with the exact parser that licensed them.
-# _quote_facts and _context_ok above are also the frozen v1 ranker's features.
-ROOM_DROP = r'(?:室温|(?:(?:室内|房间|屋内)(?:的)?)?温度)(?:下?降)(?:速度|[得的])?(?:也)?(?:很|太|挺|比较|较|特别|有点)?慢'
-_ROOM_SLOW = re.compile(ROOM_DROP + r'(?:了|啊|呀)?')
-_EXPLICIT_SLOW = re.compile(
-    r'(?:这台空调|这款空调|空调)?(?:制冷|降温)(?:速度)?(?:很|太|有点)?慢'
-    r'(?:(?:得|的)(?:一塌糊涂|要命|离谱)|(?:而且)?效果(?:也)?(?:一般|差|不好))(?:了)?'
-)
-_TIME = r'(?:[1-9][0-9]{0,2}|[一二两三四五六七八九十几半]+)\s*(?:个\s*)?(?:分钟|小时|钟头)'
-_COOLING_RUN = r'(?:这台空调|空调)?(?:开启制冷|开制冷|制冷)(?:模式)?(?:运行)?(?:了)?\s*' + _TIME
-_STILL_WARM = r'(?:房间|室内|屋里)?(?:还|仍然?)没(?:有)?(?:凉下来|变凉|凉快)(?:了)?'
-_LOW_SETTING = r'(?:空调)?(?:开|调到|设为|设到)\s*(?:1[6-9]|2[0-6])\s*(?:度|℃)'
-# The separator is inside the quote. A duration and an observation from different
-# sentences, or an embedded fragment of a condition, cannot create the timed fact.
-_TIMED = re.compile(rf'(?:^|[，,。！!；;\n])[ \t]*{_COOLING_RUN}[ \t]*[，,]?[ \t]*{_STILL_WARM}[ \t]*(?=$|[，,。！!；;\n])')
-_ACTIVE_COOLING = rf'(?:{_LOW_SETTING}|(?:开着|打开|开启)(?:空调)?制冷(?:模式)?)'
-_SET_DROP = re.compile(rf'(?:^|[，,。！!；;\n])[ \t]*(?:{ROOM_DROP}了?[ \t]*[，,][ \t]*{_ACTIVE_COOLING}|'
-                       rf'{_ACTIVE_COOLING}[ \t]*[，,][ \t]*{ROOM_DROP}了?)[ \t]*(?=$|[，,。！!；;\n])')
-_COMPANION = re.compile(rf'(?:{_COOLING_RUN}|{_STILL_WARM}|{_ACTIVE_COOLING}|{_TIME}(?:都|还)?降不下来|'
-                        rf'{_LOW_SETTING}[ \t]*{_TIME}[ \t]*(?:室温|室内温度)(?:能|才|只能)?降到[1-3][0-9](?:\.[0-9]+)?(?:度|℃)|'
-                        r'制冷效果(?:很)?一般|(?:没有|不带)(?:省电|节能)模式|安装服务(?:不是很|不太|不)满意)')
-_OTHER_EXPERIENCE = re.compile(r'(?:也)?不知道别人(?:花了?)?(?:[0-9]+元?)?(?:买)?的空调'
-                               r'(?:是不是|是否)(?:也)?(?:是)?(?:这个|这样(?:的)?)效果[？?]?')
-_V2_DOMAINS = dict(_DOMAINS, cooling=_DOMAINS['cooling'] + r'|室温|温度(?:下)?降|凉下来')
-_CONDITION_CHANGE = re.compile(r'室外温度|室外气温|室外降温|自然降温|关机|没开空调|未开空调|室外机温度|'
-                               r'制热模式|开(?:了|着)?制热|暖气|切换模式|换了模式|没开制冷|未开制冷|'
-                               r'不算慢|算不上慢|(?:速度|耗时)(?:很)?正常|这(?:也|很|是)?正常|正常现象|'
-                               r'(?:同事|朋友|邻居|父母)家的空调|从未用过|尚未使用|没(?:有)?试过|'
-                               r'(?:完全|根本|一直)(?:不凉|不冷|不降温|不制冷)')
 
 
 def _quote_facts_v2(quote):
@@ -131,23 +118,6 @@ def _context_ok_v2(row, supported, *, fact_parser=_context_fact_v2, condition_ch
         hazards=base.CONTEXT_HAZARDS + _CONTEXT_QUALIFIERS, forward_frames=base.FORWARD_FRAMES + _CONTEXT_QUALIFIERS)
 
 
-# Keep both times and both outcomes inside the same source quote.
-_MINUTE_BOUNDS = {'半个小时': (30, 30), '大半个小时': (30, 60), '一个小时': (60, 60),
-                  '两小时': (120, 120), '两个小时': (120, 120), '三小时': (180, 180),
-                  '三个小时': (180, 180)}
-_DURATION = r'(?:[1-9][0-9]{0,2}(?:分钟|小时)|' + '|'.join(_MINUTE_BOUNDS) + ')'
-_PROGRESS = re.compile(
-    rf'{_LOW_SETTING}\s*[，,]\s*(?:开了|运行了)\s*(?P<early>{_DURATION})\s*[，,]\s*'
-    rf'(?:房间|室内|屋里)(?:没(?:有)?明显制冷效果|(?:还|仍然?)没(?:有)?凉下来)\s*[，,]\s*'
-    rf'(?P<late>{_DURATION})(?:后)?(?:降温|制冷)效果(?:一般|不明显|仍不明显|依然不明显)'
-)
-_TRAILING_REPORT = re.compile(r'[，,]\s*(?:连)?(?:空调)?(?:维修师傅|安装师傅|售后|客服)(?:都|也)?(?:说|称)')
-_PROGRESS_HAZARDS = re.compile(
-    r'不是|并非|并不|不算慢|听说|据说|如果|假如|要是|可能|也许|以为|只在|仅在|仅限|'
-    r'这(?:也|很|是)?正常|换了空调|换成|后来|之前|原来|广告|宣传|[？?“”「」"]'
-)
-
-
 def _minute_bounds(duration):
     if duration in _MINUTE_BOUNDS:
         return _MINUTE_BOUNDS[duration]
@@ -172,7 +142,7 @@ def _progress_context_ok(row, supported):
         return False
     if (_PROGRESS_HAZARDS.search(text) or re.search(base.RETRACTIONS, text) or
             _AMBIGUOUS_UNIT.search(text) or _CONDITION_CHANGE.search(text) or
-            re.search(r'客服|售后|师傅|朋友|邻居|他人|别人', before)):
+            _PROGRESS_BEFORE_SPEAKERS.search(before)):
         return False
     return not any(_context_fact_v2(clause) in ('cooling_fast', 'cooling_failure')
                    for _, _, clause in base.clauses(text))
@@ -180,11 +150,6 @@ def _progress_context_ok(row, supported):
 
 def _quote_facts_v3(quote):
     return _quote_facts_v2(quote) | ({SLOW} if reports_timed_progress(quote) else set())
-
-
-_JOINED_EFFECT = re.compile(r'(.+?)[ \t\u3000]+((?:制冷|降温)效果\S+)')
-_UNTESTED_HEATING = re.compile(r'制热(?:还|也|暂时)?没(?:有)?试过')
-_COOLING_SENSATION = re.compile(r'能感觉到凉|感觉不到冷')
 
 
 def _joined_slow(clause):

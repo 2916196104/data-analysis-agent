@@ -1,9 +1,38 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { CHAT_KEY, readChatSession, type ChatSession, type ChatStore, type Conversation } from './chat-state';
 
+export const MAX_SESSIONS = 30;
+export const MAX_BACKUPS = 3;
+const MAX_TITLE_LENGTH = 60;
+
 export function newSession(id: string = crypto.randomUUID()): ChatSession {
   const now = new Date().toISOString();
   return { id, title: '新会话', createdAt: now, updatedAt: now, turns: [] };
+}
+
+function pruneBackupKeys(keepKey?: string): void {
+  const prefix = `${CHAT_KEY}:backup:`;
+  const keys: string[] = [];
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (key && key.startsWith(prefix)) keys.push(key);
+  }
+  if (keys.length <= MAX_BACKUPS) return;
+  const removable = keys.filter(key => key !== keepKey).sort();
+  for (const key of removable.slice(0, keys.length - MAX_BACKUPS)) {
+    try { localStorage.removeItem(key); } catch { /* 清理失败不影响主流程 */ }
+  }
+}
+
+function trimSessions(next: ChatStore): ChatStore {
+  if (next.sessions.length <= MAX_SESSIONS) return next;
+  const active = next.sessions.find(item => item.id === next.activeSessionId);
+  const others = next.sessions
+    .filter(item => item.id !== next.activeSessionId)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, MAX_SESSIONS - (active ? 1 : 0));
+  const keptIds = new Set([...(active ? [active.id] : []), ...others.map(item => item.id)]);
+  return { ...next, sessions: next.sessions.filter(item => keptIds.has(item.id)) };
 }
 
 export function readChatStore(): { store: ChatStore; error: boolean; backup?: string } {
@@ -25,7 +54,9 @@ export function readChatStore(): { store: ChatStore; error: boolean; backup?: st
     const ids = new Set<string>();
     for (const session of saved.sessions as ChatSession[]) {
       if (!session || typeof session.id !== 'string' || !session.id || ids.has(session.id)
-        || typeof session.title !== 'string' || !Number.isFinite(Date.parse(session.createdAt))
+        || typeof session.title !== 'string'
+        || (session.customTitle !== undefined && typeof session.customTitle !== 'boolean')
+        || !Number.isFinite(Date.parse(session.createdAt))
         || !Number.isFinite(Date.parse(session.updatedAt)) || !Array.isArray(session.turns)) throw new Error('Invalid session');
       ids.add(session.id);
       const analysis = session.turns.filter(turn => turn?.kind !== 'basic');
@@ -65,21 +96,32 @@ export function useChatSessions() {
   // 回调绑定发起请求的会话，切换后的渲染不会改变旧回调的写入目标。
   const sessionRef = useMemo(() => ({ get current() { return storeRef.current.sessions.find(item => item.id === id)!; } }), [id]);
   const save = useCallback((next: ChatStore) => {
-    storeRef.current = next; setStore(next);
+    const trimmed = trimSessions(next);
+    const activeIds = new Set(trimmed.sessions.map(item => item.id));
+    for (const key of requests.current.keys()) {
+      if (!activeIds.has(key)) requests.current.delete(key);
+    }
+    storeRef.current = trimmed; setStore(trimmed);
     try {
       if (initial.error && initial.backup === undefined) throw new Error('History could not be read');
+      let latestBackupKey: string | undefined;
       if (backup.current !== undefined) {
-        localStorage.setItem(`${CHAT_KEY}:backup:${crypto.randomUUID()}`, backup.current);
+        latestBackupKey = `${CHAT_KEY}:backup:${Date.now()}-${crypto.randomUUID()}`;
+        localStorage.setItem(latestBackupKey, backup.current);
         backup.current = undefined;
       }
-      localStorage.setItem(CHAT_KEY, JSON.stringify(next)); setWriteError(false);
+      localStorage.setItem(CHAT_KEY, JSON.stringify(trimmed));
+      pruneBackupKeys(latestBackupKey);
+      setWriteError(false);
     } catch { setWriteError(true); }
   }, []);
   const commit = useCallback((update: (current: Conversation) => Conversation) => {
-    const current = storeRef.current.sessions.find(item => item.id === id)!;
+    const current = storeRef.current.sessions.find(item => item.id === id);
+    if (!current) return;
     const next = update(current);
     if (next === current) return;
-    const session = { ...current, ...next, title: next.turns[0]?.question.slice(0, 40) || current.title,
+    const autoTitle = next.turns[0]?.question.slice(0, 40) || current.title;
+    const session = { ...current, ...next, title: current.customTitle ? current.title : autoTitle,
       updatedAt: next.turns !== current.turns ? new Date().toISOString() : current.updatedAt };
     save({ ...storeRef.current, sessions: storeRef.current.sessions.map(item => item.id === id ? session : item) });
   }, [id, save]);
@@ -92,7 +134,33 @@ export function useChatSessions() {
     const session = storeRef.current.sessions.find(item => !item.turns.length) || newSession();
     save({ ...storeRef.current, sessions: storeRef.current.sessions.includes(session) ? storeRef.current.sessions : [...storeRef.current.sessions, session], activeSessionId: session.id });
   }, [save]);
-  return { store, storeRef, save, conversation, sessionRef, commit, selectSession, createSession,
+  const renameSession = useCallback((target: string, title: string) => {
+    const normalized = title.trim().slice(0, MAX_TITLE_LENGTH);
+    if (!normalized) return;
+    if (!storeRef.current.sessions.some(item => item.id === target)) return;
+    save({
+      ...storeRef.current,
+      sessions: storeRef.current.sessions.map(item => (
+        item.id === target ? { ...item, title: normalized, customTitle: true } : item
+      )),
+    });
+  }, [save]);
+  const deleteSession = useCallback((target: string) => {
+    const current = storeRef.current;
+    if (!current.sessions.some(item => item.id === target)) return;
+    requests.current.delete(target);
+    const remaining = current.sessions.filter(item => item.id !== target);
+    if (!remaining.length) {
+      const fresh = newSession();
+      save({ ...current, sessions: [fresh], activeSessionId: fresh.id });
+      return;
+    }
+    const nextActiveId = current.activeSessionId === target
+      ? [...remaining].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0].id
+      : current.activeSessionId;
+    save({ ...current, sessions: remaining, activeSessionId: nextActiveId });
+  }, [save]);
+  return { store, storeRef, save, conversation, sessionRef, commit, selectSession, createSession, renameSession, deleteSession,
     storageError: initial.error || writeError, recoveryRaw: initial.error ? initial.backup : undefined,
     postLock: request.postLock, resolving: request.resolving, posting: request.posting, errors: request.errors,
     setPosting: (value: boolean) => { request.posting = value; render(value => value + 1); },

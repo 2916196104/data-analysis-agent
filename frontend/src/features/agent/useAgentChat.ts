@@ -452,6 +452,16 @@ export function useAgentChat(
       dismissedRoute.current = routeTaskId;
       sessions.selectSession(id);
     },
+    renameSession: (id: string, title: string) => {
+      sessions.renameSession(id, title);
+    },
+    deleteSession: (id: string) => {
+      if (id === conversation.id) {
+        navigationEpoch.current++;
+        dismissedRoute.current = routeTaskId;
+      }
+      sessions.deleteSession(id);
+    },
     release: () => {
       navigationEpoch.current++;
       commit(current => ({ ...current, activeId: undefined }));

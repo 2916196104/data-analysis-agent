@@ -134,6 +134,22 @@ def task_limit(question):
         if subtopic:
             return ('statistics', '当前没有该细分语义主题的完整分类分子，无法计算其总体占比；不能用上级维度、数据质量或 Top-K 候选比例替代。')
     examples = bool(re.search(r'原文|原话|证据|举例|例子|(?:给我|列出|展示|找|看|来)\s*(?:\d+|几)\s*条', question))
+    comparison = bool(re.search(
+        r'对比|相比|基线|窗口|比较.*(?:商品|产品|窗口|基线|差异|差别|不同|区别|两款|两个|二者|两者)|'
+        r'(?:商品|产品|窗口|基线|两款|两个|二者|两者).*比较',
+        question,
+    ))
+    if comparison and not examples:
+        from data_analysis_agent.agents.review_semantics import opinion_request
+        semantic = opinion_request(question)
+        if _has_fine_subtopic(
+            question,
+            semantic,
+            boundary_pattern=r'比较|对比|相比|基线|窗口|好评|差评|正面|负面',
+            check_dimension=False,
+            check_modifier=False,
+        ):
+            return ('subtopic_comparison', '当前仅支持整体或六大评价维度的商品/窗口对比，没有该细分语义主题的完整分类统计；不能用上级维度或整体对比替代。')
     trend = bool(re.search(r'趋势|变化|按[日月天]|按月份', question))
     if trend and not examples:
         from data_analysis_agent.agents.review_semantics import opinion_request

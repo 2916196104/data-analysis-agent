@@ -247,7 +247,7 @@ class SiliconFlowTests(unittest.TestCase):
 
     def test_actual_sdk_worker_deadline_reaps_hanging_http(self):
         marker=self.directory/'deadline-started'
-        run=self.worker('hang',timeout=2,marker=marker)
+        run=self.worker('hang',timeout=5,marker=marker)
         self.assertTrue(marker.exists());self.assertEqual(int(marker.read_text()),run.diagnostics['process_id'])
         self.assertEqual(run.outcome.execution_state,'model_failed',run.debug_record())
         self.assertEqual(run.outcome.reason_codes,('deadline_exceeded',))

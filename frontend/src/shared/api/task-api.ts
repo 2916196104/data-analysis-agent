@@ -1,9 +1,24 @@
 import type { AgentResult, Page, Submission, Task, TaskInput, TaskSummary, PublicAnswer } from '../../types';
 import type { P6Publication } from '../../features/agent/p6-publication';
-import { query, request } from './http-client';
+import { API_BASE, query, request } from './http-client';
+
+export interface TaskAuditRecord {
+  task_id: string;
+  stored_separately: boolean;
+  storage_version: string | null;
+  audit_sha256: string | null;
+  audit_bytes: number;
+  fields: string[];
+  audit: Record<string, unknown> | null;
+}
 
 export const taskApi = {
   tasks: (page = 1) => request<Page<TaskSummary>>(`/tasks${query({ page, page_size: 15 })}`),
+  taskEventsUrl: (id: string) => `${API_BASE}/tasks/${encodeURIComponent(id)}/events`,
+  taskAudit: (id: string, signal?: AbortSignal) => request<TaskAuditRecord>(
+    `/tasks/${encodeURIComponent(id)}/audit`,
+    { signal },
+  ),
   task: async (id: string, signal?: AbortSignal) => {
     const task = await request<Task>(`/tasks/${encodeURIComponent(id)}`, { signal });
     if (task.result?.agent === true && task.result.p6_publication) {

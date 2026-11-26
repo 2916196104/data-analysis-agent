@@ -67,6 +67,8 @@ class P6AContractTests(unittest.TestCase):
                 for aspect, count in counts.items():
                     summary['aspects'][aspect].update(negative_review_count=count, negative_rate=round(count / 6, 6))
             if result['kind'] == 'issues':
+                result['data'].pop('rank_examples', None)
+                result['data'].pop('topic_statistics', None)
                 for row in result['data']['issues']:
                     row.update(negative_review_count=counts[row['aspect']], negative_rate=round(counts[row['aspect']] / 6, 6))
                 result['data']['issues'].sort(key=lambda r: (-r['negative_review_count'], r['aspect']))
@@ -346,7 +348,7 @@ class P6AContractTests(unittest.TestCase):
     def test_v1_fields_serialization_and_public_api_input_are_unchanged(self):
         request = build_request_goal('物流差评具体体现在哪里？')
         self.assertEqual(set(asdict(request)), {'original_question', 'levels', 'aspect', 'sentiment',
-                                              'topic', 'statistic_families', 'source'})
+                                              'topic', 'statistic_families', 'source', 'denominator', 'aspects'})
         goal = build_task_goal(request.original_question, self.scope,
             build_query_plan(request.original_question, self.scope), {}, request_goal=request)
         self.assertEqual(goal['version'], 'review-request-goal-v1')

@@ -136,7 +136,7 @@ class AnswerStabilityTests(fixture.answer_fixture.WorkbenchFixture, unittest.Tes
             self.assertFalse(answer['insights'])
 
     def test_product_identifiers_with_digits_bind_before_number_validation(self):
-        _, context = self.context('比较两个商品的主要负面问题', product_ids=['P1','P2'])
+        _, context = self.context('比较两个商品的主要负面问题，请详细分析', product_ids=['P1','P2'])
         def mention(draft,payload):
             draft['insights']=[{'kind':'interpretation','refs':payload['required_focus'],
                 'text':'P1与P2的评价差异不等于产品性能差异。'}]

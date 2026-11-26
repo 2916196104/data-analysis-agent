@@ -3,44 +3,37 @@
 import re
 
 from data_analysis_agent.agents import review_reported_facts as base
+from data_analysis_agent.agents.review_domain_rules import domain_rules
 
+_CFG = domain_rules().delivery_timing
+POLICY = _CFG.policy
+NOT_RECEIVED = _CFG.not_received_fact_id
+INSTALL_PENDING = _CFG.install_pending_fact_id
 
-POLICY = 'reported_delivery_timing_v1'
-NOT_RECEIVED = 'delivery_not_received'
-INSTALL_PENDING = 'installer_wait_after_receipt'
-
-_NOW = r'(?:截至(?:评价|评论)时|到现在|现在|目前|至今)'
-_GOODS = r'(?:货|商品|包裹|快递)'
-_BUYER = r'(?:我|我们)'
+_NOW = _CFG.now_pattern
+_GOODS = _CFG.goods_pattern
+_BUYER = _CFG.buyer_pattern
 _NOT_RECEIVED = (
     rf'(?:{_NOW}(?:{_BUYER})?|{_BUYER}(?:{_NOW})?)?(?:还|仍然?|一直|迟迟)?(?:没(?:有)?|未)(?:收到|拿到){_GOODS}'
     rf'|{_GOODS}(?:{_NOW})?(?:还|仍然?|一直|迟迟)?(?:没(?:有)?到(?:货)?|未送达|没送到|未收到)'
 )
-_SIGNED_WITHOUT_RECEIPT = r'没收(?:到)?货(?:却|就)?被签收了'
-_INSTALL_SLOW = r'安装(?:很慢|太慢|慢|不及时)'
+_SIGNED_WITHOUT_RECEIPT = _CFG.signed_without_receipt
+_INSTALL_SLOW = _CFG.install_slow
 _ARRIVAL = (
     rf'(?:{_NOW})?(?:(?:我|我们)?(?:已经|已)?(?:收货|收到货|收到商品)(?:了)?'
     rf'|{_GOODS}(?:已经|已)?(?:到了|收到了)|到货(?:了)?)'
 )
-_ELAPSED = r'(?:过了|过|已过|已经)?(?:[1-9][0-9]*|[一二三四五六七八九十两几]+)(?:天|日|小时|周|星期)(?:了)?'
-_WAIT_INSTALL = (
-    rf'(?:{_NOW})?(?:'
-    r'(?:都|还|仍|仍然|一直|也|却)?(?:无人|没人|没有人|没有师傅)(?:来|上门)?安装'
-    r'|(?:还在|仍在|一直在)(?:等待|等)(?:安装|(?:安装)?师傅上门(?:安装)?)'
-    r'|(?:还|仍然?|一直)(?:没(?:有)?|未)(?:等到(?:安装)?师傅上门|上门安装)'
-    r'|(?:都|还|仍|一直)?不过来安装)'
-)
+_ELAPSED = _CFG.elapsed_pattern
+_WAIT_INSTALL = rf'(?:{_NOW})?(?:{_CFG.wait_install_body})'
 _PENDING_AFTER_ARRIVAL = rf'{_ARRIVAL}(?:后)?(?:{_ELAPSED})?(?:[，,]|但|却)?(?:{_WAIT_INSTALL})'
 
 _QUOTE_PATTERNS = {
     NOT_RECEIVED: re.compile(rf'(?:{_SIGNED_WITHOUT_RECEIPT}[，,]\s*)?(?:{_NOT_RECEIVED})(?:了|啊|呀|呢)?'),
     INSTALL_PENDING: re.compile(rf'(?:{_INSTALL_SLOW}[，,]\s*)?{_PENDING_AFTER_ARRIVAL}'),
 }
-_OTHER_ORDER = r'退货|退回|退件|返修|寄回|换货|补发|补寄|重发|退款|上一单|上次|另一(?:单|件)|其他订单|邻居'
-_DOMAINS = {
-    'delivery': r'物流|配送|到货|送货|快递|收货|收到|送达|签收|拿到',
-    'installer': r'安装|师傅|上门|来装|装好|已装|收货|收到货|到货',
-}
+_OTHER_ORDER = _CFG.other_order
+_DOMAINS = dict(_CFG.domains)
+_OPPOSITES = _CFG.opposites
 _HAZARDS = base.CONTEXT_HAZARDS.replace('|现在|', '|')
 _FORWARD_FRAMES = base.FORWARD_FRAMES.replace('|现在|', '|')
 
@@ -89,7 +82,7 @@ def _context_ok(row, facts):
     if re.search(_OTHER_ORDER, row['review_text']):
         return False
     return base.context_ok(row, facts, fact_parser=_context_fact, domains=_DOMAINS,
-                           opposites=((NOT_RECEIVED, 'delivery_received'), (NOT_RECEIVED, 'delivery_fast')),
+                           opposites=_OPPOSITES,
                            hazards=_HAZARDS, forward_frames=_FORWARD_FRAMES)
 
 

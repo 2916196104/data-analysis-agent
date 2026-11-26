@@ -79,11 +79,11 @@ class AgentTests(unittest.TestCase):
         values = {"LLM_MODEL_ID": "test", "LLM_API_KEY": FAKE_KEY,
                   "LLM_BASE_URL": "https://offline.invalid/v1"}
         settings = AgentSettings.from_values(values)
-        self.assertTrue(settings.rag_multi_query)
+        self.assertFalse(settings.rag_multi_query)
         self.assertTrue(settings.rag_citation_rerank)
         self.assertFalse(settings.rag_cooling_keyword_fallback)
-        overrides = AgentSettings.from_values({**values, 'RAG_MULTI_QUERY': '0', 'RAG_CITATION_RERANK': '0'})
-        self.assertFalse(overrides.rag_multi_query)
+        overrides = AgentSettings.from_values({**values, 'RAG_MULTI_QUERY': '1', 'RAG_CITATION_RERANK': '0'})
+        self.assertTrue(overrides.rag_multi_query)
         self.assertFalse(overrides.rag_citation_rerank)
         self.assertNotIn(FAKE_KEY, repr(settings))
         self.assertNotIn(FAKE_KEY, safe_json({"error": FAKE_KEY}, FAKE_KEY))

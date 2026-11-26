@@ -1,6 +1,7 @@
 """业务环境与独立模型环境之间的本地进程边界。"""
 
 import json
+import logging
 import os
 from pathlib import Path
 import subprocess
@@ -11,6 +12,8 @@ from time import monotonic
 from uuid import uuid4
 
 from data_analysis_agent.reviews.embedding_store import EmbeddingStoreError
+
+logger = logging.getLogger(__name__)
 
 
 class PersistentEmbeddingProcess:
@@ -144,6 +147,29 @@ def close_embedding_processes():
     with _process_lock:
         for process in _processes.values():process.close()
         _processes.clear()
+
+
+def warmup_embedding_process(python, cache_dir, *, timeout=600):
+    """同步预热持久嵌入子进程（加载本地模型并执行健康检查），降低首次语义检索冷启动耗时。"""
+    started = monotonic()
+    process = shared_embedding_process(python, cache_dir, timeout=timeout)
+    ok = process.health()
+    elapsed_ms = round((monotonic() - started) * 1000, 1)
+    logger.info("语义检索编码进程预热完成 elapsed_ms=%.1f metrics=%s", elapsed_ms, process.last_metrics)
+    return bool(ok)
+
+
+def start_embedding_warmup(python, cache_dir, *, timeout=600):
+    """在后台守护线程中异步预热编码进程，不阻塞 API/Worker 启动；失败仅记日志不中断主服务。"""
+    def _run():
+        try:
+            warmup_embedding_process(python, cache_dir, timeout=timeout)
+        except Exception as exc:
+            logger.warning("语义检索编码进程启动预热跳过/失败（%s），首次检索将按需回退。", type(exc).__name__)
+
+    thread = Thread(target=_run, name="rag-embedding-warmup", daemon=True)
+    thread.start()
+    return thread
 
 atexit.register(close_embedding_processes)
 

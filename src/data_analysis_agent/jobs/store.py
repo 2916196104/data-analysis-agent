@@ -13,12 +13,32 @@ from data_analysis_agent.core.database import (PostgresConnection, check_postgre
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.core.serialization import canonical_json, content_sha256
 from data_analysis_agent.core.validation import validate_integer
+from data_analysis_agent.jobs.events import notify_task_update
 from data_analysis_agent.jobs.parameters import TaskKind, TaskStatus
+from data_analysis_agent.jobs.result_storage import (
+    AUDIT_SPLIT_THRESHOLD_BYTES,
+    audit_ref_from_result,
+    rehydrate_task_result,
+    split_task_result,
+)
 from data_analysis_agent.reviews.store import connect_review_database as business_connection
 
 APPLICATION_ID = 0x52544B31
 STATUSES = get_args(TaskStatus)
 KINDS = get_args(TaskKind)
+SUMMARY_COLUMNS = (
+    "task_id, kind, status, parent_task_id, created_at, started_at, "
+    "finished_at, updated_at, progress_json, error_json"
+)
+AUDIT_TABLE_DDL = """
+CREATE TABLE IF NOT EXISTS task_audit_blobs (
+    task_id TEXT PRIMARY KEY REFERENCES tasks(task_id) ON DELETE CASCADE,
+    storage_version TEXT NOT NULL,
+    audit_sha256 TEXT NOT NULL,
+    audit_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+"""
 SCHEMA = """
 CREATE TABLE task_context (business_path TEXT NOT NULL);
 CREATE TABLE tasks (
@@ -48,7 +68,7 @@ CREATE TABLE worker_state (
     heartbeat_at TEXT NOT NULL,
     stopped_at TEXT
 );
-"""
+""" + AUDIT_TABLE_DDL
 
 
 class TaskNotFound(ReviewDataError):
@@ -120,14 +140,48 @@ def init_tasks(path, business_path):
     return {"created": True, "task_database": str(path), "task_schema_version": 1}
 
 
-def _task(row, *, include_result=True):
+def _has_audit_table(connection):
+    if isinstance(connection, PostgresConnection):
+        row = connection.execute(
+            "SELECT 1 FROM information_schema.tables WHERE table_schema=current_schema() AND table_name='task_audit_blobs'"
+        ).fetchone()
+        return row is not None
+    row = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='task_audit_blobs'"
+    ).fetchone()
+    return row is not None
+
+
+def _ensure_audit_table(connection):
+    connection.execute(AUDIT_TABLE_DDL)
+
+
+def _read_audit_row(connection, task_id):
+    if not _has_audit_table(connection):
+        return None
+    return connection.execute(
+        "SELECT storage_version, audit_sha256, audit_json, created_at FROM task_audit_blobs WHERE task_id=?",
+        (task_id,),
+    ).fetchone()
+
+
+def _task(row, *, include_result=True, connection=None, include_audit=True):
     result = {key: row[key] for key in (
         "task_id", "kind", "status", "parent_task_id", "created_at", "started_at", "finished_at", "updated_at")}
     result["progress"] = json.loads(row["progress_json"])
     result["error"] = json.loads(row["error_json"]) if row["error_json"] else None
     if include_result:
         result["parameters"] = json.loads(row["parameters_json"])
-        result["result"] = json.loads(row["result_json"]) if row["result_json"] else None
+        parsed_result = json.loads(row["result_json"]) if row["result_json"] else None
+        if include_audit and connection is not None and audit_ref_from_result(parsed_result) is not None:
+            audit_row = _read_audit_row(connection, row["task_id"])
+            if audit_row is not None:
+                try:
+                    parsed_audit = json.loads(audit_row["audit_json"])
+                except (TypeError, ValueError):
+                    parsed_audit = None
+                parsed_result = rehydrate_task_result(parsed_result, parsed_audit)
+        result["result"] = parsed_result
     return result
 
 
@@ -138,9 +192,46 @@ def _read(connection, task_id):
     return row
 
 
-def get_task(path, task_id):
+def get_task(path, task_id, *, include_audit=True):
     with closing(connect_task_database(path, readonly=True)) as connection:
-        return _task(_read(connection, task_id))
+        return _task(_read(connection, task_id), connection=connection, include_audit=include_audit)
+
+
+def get_task_summary(path, task_id):
+    """仅读取任务状态、时间戳与进度元数据，不读取 result_json 或 parameters_json。"""
+    with closing(connect_task_database(path, readonly=True)) as connection:
+        row = connection.execute(f"SELECT {SUMMARY_COLUMNS} FROM tasks WHERE task_id=?", (task_id,)).fetchone()
+        if row is None:
+            raise TaskNotFound("任务不存在。")
+        return _task(row, include_result=False)
+
+
+def get_task_audit(path, task_id):
+    """按需读取分离存储的重型审计证据载荷。"""
+    with closing(connect_task_database(path, readonly=True)) as connection:
+        row = _read(connection, task_id)
+        light = json.loads(row["result_json"]) if row["result_json"] else None
+        ref = audit_ref_from_result(light)
+        audit_row = _read_audit_row(connection, task_id) if ref is not None else None
+        if ref is None or audit_row is None:
+            return {
+                "task_id": task_id,
+                "stored_separately": False,
+                "storage_version": None,
+                "audit_sha256": None,
+                "audit_bytes": 0,
+                "fields": [],
+                "audit": None,
+            }
+        return {
+            "task_id": task_id,
+            "stored_separately": True,
+            "storage_version": audit_row["storage_version"],
+            "audit_sha256": audit_row["audit_sha256"],
+            "audit_bytes": ref.get("audit_bytes", len(audit_row["audit_json"].encode("utf-8"))),
+            "fields": list(ref.get("fields", [])),
+            "audit": json.loads(audit_row["audit_json"]),
+        }
 
 
 def delete_task(path, task_id):
@@ -163,7 +254,10 @@ def delete_task(path, task_id):
         ).fetchone()
         if active:
             raise TaskConflict("运行中的任务不能删除，请等待任务结束后重试。")
+        has_audit = _has_audit_table(connection)
         for item in reversed(ids):
+            if has_audit:
+                connection.execute("DELETE FROM task_audit_blobs WHERE task_id=?", (item,))
             connection.execute("DELETE FROM tasks WHERE task_id=?", (item,))
         return {"deleted_task_ids": ids, "deleted_tasks": len(ids)}
 
@@ -195,7 +289,7 @@ def list_tasks(path, *, status=None, kind=None, page=1, page_size=20):
     with closing(connect_task_database(path, readonly=True)) as connection, connection:
         connection.execute("BEGIN")
         total = connection.execute("SELECT COUNT(*) FROM tasks WHERE " + where, values).fetchone()[0]
-        rows = connection.execute("SELECT * FROM tasks WHERE " + where
+        rows = connection.execute(f"SELECT {SUMMARY_COLUMNS} FROM tasks WHERE " + where
                                   + " ORDER BY created_at DESC,task_id DESC LIMIT ? OFFSET ?",
                                   (*values, page_size, (page - 1) * page_size))
         return {"total": total, "page": page, "page_size": page_size,
@@ -267,7 +361,9 @@ def claim_task(path, worker_id):
         now = utc_now()
         connection.execute("UPDATE tasks SET status='running',worker_id=?,started_at=?,updated_at=? WHERE task_id=?",
                            (worker_id, now, now, row["task_id"]))
-        return _task(_read(connection, row["task_id"]))
+        claimed = _task(_read(connection, row["task_id"]), connection=connection)
+    notify_task_update(claimed["task_id"])
+    return claimed
 
 
 def update_progress(path, task_id, worker_id, progress):
@@ -277,6 +373,7 @@ def update_progress(path, task_id, worker_id, progress):
                                      (canonical_json(progress), utc_now(), task_id, worker_id)).rowcount
         if not changed:
             raise TaskConflict("任务执行权已失效。")
+    notify_task_update(task_id)
 
 
 def analysis_result_integrity(task_id, status, parameters, result):
@@ -285,7 +382,8 @@ def analysis_result_integrity(task_id, status, parameters, result):
     return {'version': version, 'sha256': content_sha256([version, task_id, status, parameters, result])}
 
 
-def finish_task(path, task_id, worker_id, *, status, result=None, error=None):
+def finish_task(path, task_id, worker_id, *, status, result=None, error=None,
+                audit_split_threshold=AUDIT_SPLIT_THRESHOLD_BYTES):
     if status not in ("succeeded", "partial", "failed"):
         raise ValueError("Invalid terminal task status")
     now = utc_now()
@@ -297,12 +395,24 @@ def finish_task(path, task_id, worker_id, *, status, result=None, error=None):
         progress = json.loads(row['progress_json'])
         if row['kind'] == 'analysis' and isinstance(result, dict):
             progress['analysis_integrity'] = analysis_result_integrity(task_id, status, json.loads(row['parameters_json']), result)
+        stored_result, audit_payload, audit_sha256 = split_task_result(result, threshold_bytes=audit_split_threshold)
+        if audit_payload is not None and audit_sha256 is not None:
+            _ensure_audit_table(connection)
         changed = connection.execute("UPDATE tasks SET status=?,result_json=?,error_json=?,finished_at=?,updated_at=?,progress_json=? "
                                      "WHERE task_id=? AND status='running' AND worker_id=?",
-                                     (status, canonical_json(result) if result is not None else None,
+                                     (status, canonical_json(stored_result) if stored_result is not None else None,
                                       canonical_json(error) if error else None, now, now, canonical_json(progress), task_id, worker_id)).rowcount
         if not changed:
             raise TaskConflict("任务执行权已失效，结果没有覆盖原记录。")
+        if audit_payload is not None and audit_sha256 is not None:
+            connection.execute(
+                "INSERT INTO task_audit_blobs(task_id, storage_version, audit_sha256, audit_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?) ON CONFLICT(task_id) DO UPDATE SET "
+                "storage_version=excluded.storage_version, audit_sha256=excluded.audit_sha256, "
+                "audit_json=excluded.audit_json, created_at=excluded.created_at",
+                (task_id, audit_payload['version'], audit_sha256, canonical_json(audit_payload), now),
+            )
+    notify_task_update(task_id)
 
 
 def queue_health(path):

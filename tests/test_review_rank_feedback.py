@@ -69,7 +69,7 @@ class RankFeedbackTests(WorkbenchFixture, unittest.TestCase):
         self.assertEqual([row['aspect'] for row in data['rank_examples']], ['service', 'effectiveness', 'logistics'])
         self.assertTrue(all(len(row['items']) == 2 for row in data['rank_examples']))
         self.assertTrue(all('file_path' not in item for row in data['rank_examples'] for item in row['items']))
-        self.assertEqual(result['query_executions'], 5)
+        self.assertEqual(result['query_executions'], 6)
         self.assertEqual(len(result['public_answer']['evidence_refs']), 6)
         answer = result['public_answer']
         summary = answer['summary']
@@ -77,7 +77,7 @@ class RankFeedbackTests(WorkbenchFixture, unittest.TestCase):
         for text in ('客服沟通费劲', '运行声音大', '物流延迟'):
             self.assertIn(text, rendered)
         self.assertIn('评论 #', rendered)
-        self.assertIn('买家反馈样例', ''.join(answer['caveats']))
+        self.assertIn('原文样例', ''.join(answer['caveats']))
         self.assertNotIn('具体内容仍需查看', summary)
         self.assertLess(len(summary), 120)
         self.assertEqual(result['answer_generation']['attempts'], 0)
@@ -107,6 +107,7 @@ class RankFeedbackTests(WorkbenchFixture, unittest.TestCase):
         raw = get_top_issues(self.db, **{k: v for k, v in self.scope().items() if not k.startswith('baseline_')})
         data = deepcopy(result['results']['r1']['data'])
         data.pop('rank_examples')
+        data.pop('topic_statistics', None)
         self.assertEqual(data, raw)
 
     def test_explicit_numbers_only_keep_existing_query_cost_and_no_examples(self):
