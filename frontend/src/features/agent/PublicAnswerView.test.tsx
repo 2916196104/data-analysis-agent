@@ -7,7 +7,9 @@ import type { ChatTurn } from './chat-state';
 import type { AgentResult, AgentToolResult, PublicAnswer, Task } from '../../types';
 import { emptyTaskState } from '../../task-state';
 import { useTask } from '../../useTask';
+import { api } from '../../api';
 import { taskApi } from '../../shared/api/task-api';
+import * as reportExport from './report-export';
 import { buildAgentReport } from './report-export';
 import { publicAnswerText } from './public-answer';
 
@@ -281,4 +283,98 @@ it('拒答回答区分受限类型并优先提取后端推荐问法作为可点�
   const rewriteButton = screen.getByRole('button', { name: '有没有制冷差的反馈？' });
   fireEvent.click(rewriteButton);
   expect(onSuggest).toHaveBeenCalledWith('有没有制冷差的反馈？');
+});
+
+it('大任务首屏仅拉取轻量结果，展开详情或导出报告时才按需加载并无损合并 /audit', async () => {
+  const digest = 'a'.repeat(64);
+  const splitResult: AgentResult = {
+    ...result,
+    result_ids: ['e1'],
+    results: {
+      e1: { result_id: 'e1', kind: 'evidence', parameters: { page: 1 }, data: { total: 1, page: 1, items: [] } },
+    },
+    trace: [],
+    _audit_ref: {
+      version: 'task-audit-split-v1',
+      storage: 'task_audit_blobs',
+      audit_sha256: digest,
+      audit_bytes: 7_960_000,
+      fields: ['trace', 'results.e1.data.items'],
+    },
+  };
+  const taskAudit = vi.spyOn(api, 'taskAudit').mockResolvedValue({
+    task_id: 'task',
+    stored_separately: true,
+    storage_version: 'task-audit-split-v1',
+    audit_sha256: digest,
+    audit_bytes: 7_960_000,
+    fields: ['trace', 'results.e1.data.items'],
+    audit: {
+      version: 'task-audit-split-v1',
+      top_level: { trace: [{ event: 'tool', tool: 'get_evidence', status: 'ok' }] },
+      tool_data: {
+        e1: {
+          items: [{
+            review_id: 42, product_id: 'A', text: '按需加载后的真实原文证据', published_at: '2023-01-01',
+            evidence_ref: 'sha256:abc#line=1', opinion_source: 'model',
+            opinions: [{ aspect: 'logistics', sentiment: 'negative', quote: '按需加载后的真实原文证据', quote_start: 0, quote_end: 12 }],
+          }],
+        },
+      },
+    },
+  });
+  const exportSpy = vi.spyOn(reportExport, 'exportAgentReport').mockImplementation(() => {});
+
+  const { container } = show({ ...task, result: splitResult as unknown as Task['result'] });
+  expect(screen.getByText(answer.summary)).toBeTruthy();
+  expect(taskAudit).not.toHaveBeenCalled();
+
+  const details = container.querySelector('.chat-report') as HTMLDetailsElement;
+  expect(details.querySelector('summary')?.textContent).toContain('按需加载 7.59 MB');
+  details.open = true;
+  fireEvent(details, new Event('toggle'));
+
+  await waitFor(() => expect(taskAudit).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.getByText(/按需加载后的真实原文证据/)).toBeTruthy());
+
+  // 再次点击导出复用已水合的完整结果，不重复请求 /audit
+  fireEvent.click(screen.getByRole('button', { name: '导出分析报告' }));
+  expect(taskAudit).toHaveBeenCalledTimes(1);
+  expect(exportSpy).toHaveBeenCalledTimes(1);
+  const exported = exportSpy.mock.calls[0][0];
+  expect(exported._audit_ref).toBeUndefined();
+  expect(exported.trace).toHaveLength(1);
+});
+
+it('未展开详情时直接点击导出分析报告也会按需拉取 /audit 并导出完整报告', async () => {
+  const digest = 'b'.repeat(64);
+  const splitResult: AgentResult = {
+    ...result,
+    result_ids: ['e1'],
+    results: { e1: { result_id: 'e1', kind: 'evidence', parameters: { page: 1 }, data: { total: 1, page: 1, items: [] } } },
+    trace: [],
+    _audit_ref: {
+      version: 'task-audit-split-v1',
+      storage: 'task_audit_blobs',
+      audit_sha256: digest,
+      audit_bytes: 204800,
+      fields: ['trace'],
+    },
+  };
+  const taskAudit = vi.spyOn(api, 'taskAudit').mockResolvedValue({
+    task_id: 'task',
+    stored_separately: true,
+    storage_version: 'task-audit-split-v1',
+    audit_sha256: digest,
+    audit_bytes: 204800,
+    fields: ['trace'],
+    audit: { version: 'task-audit-split-v1', top_level: { trace: [{ event: 'tool', status: 'ok' }] }, tool_data: {} },
+  });
+  const exportSpy = vi.spyOn(reportExport, 'exportAgentReport').mockImplementation(() => {});
+
+  show({ ...task, result: splitResult as unknown as Task['result'] });
+  fireEvent.click(screen.getByRole('button', { name: '导出分析报告' }));
+  await waitFor(() => expect(taskAudit).toHaveBeenCalledWith('task'));
+  await waitFor(() => expect(exportSpy).toHaveBeenCalledTimes(1));
+  expect(exportSpy.mock.calls[0][0].trace).toEqual([{ event: 'tool', status: 'ok' }]);
 });

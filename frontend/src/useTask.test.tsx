@@ -63,6 +63,14 @@ describe('任务轮询生命周期', () => {
     unmount();
   });
 
+  it('传入 includeAudit: false 时向 api.task 透传轻量读取选项', async () => {
+    vi.mocked(api.task).mockResolvedValue(task('succeeded'));
+    const { unmount } = renderHook(() => useTask('a', { includeAudit: false }));
+    await act(async () => {});
+    expect(api.task).toHaveBeenCalledWith('a', expect.any(AbortSignal), { includeAudit: false });
+    unmount();
+  });
+
   it('浏览器支持 EventSource 时优先使用 SSE 推送进度，收到 done 后拉取完整结果并关闭连接', async () => {
     const listeners = new Map<string, ((event: MessageEvent<string>) => void)[]>();
     const close = vi.fn();

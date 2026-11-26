@@ -27,6 +27,8 @@ describe('阶段 0 API 请求契约', () => {
     ['默认任务页', () => api.tasks(), '/tasks?page=1&page_size=15', 'GET'],
     ['任务翻页', () => api.tasks(3), '/tasks?page=3&page_size=15', 'GET'],
     ['任务 ID 编码', () => api.task('task/a ?'), '/tasks/task%2Fa%20%3F', 'GET'],
+    ['任务轻量读取', () => api.task('task/a ?', undefined, { includeAudit: false }), '/tasks/task%2Fa%20%3F?include_audit=false', 'GET'],
+    ['任务审计证据读取', () => api.taskAudit('task/a ?'), '/tasks/task%2Fa%20%3F/audit', 'GET'],
     ['分析快照 ID 编码', () => api.run('run/a ?'), '/analysis-runs/run%2Fa%20%3F', 'GET'],
     ['评论范围', () => api.reviews(product, 2, 3), '/reviews?product_key=%5B%22a%26b%22%2C%22%E7%89%88%E6%9C%AC+1%22%2C%22p%2F1%22%5D&profile_id=2&page=3&page_size=8', 'GET'],
     ['评论省略版本', () => api.reviews('p', undefined, 1), '/reviews?product_key=p&page=1&page_size=8', 'GET'],

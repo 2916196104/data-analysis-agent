@@ -19,8 +19,9 @@ export const taskApi = {
     `/tasks/${encodeURIComponent(id)}/audit`,
     { signal },
   ),
-  task: async (id: string, signal?: AbortSignal) => {
-    const task = await request<Task>(`/tasks/${encodeURIComponent(id)}`, { signal });
+  task: async (id: string, signal?: AbortSignal, options?: { includeAudit?: boolean }) => {
+    const suffix = options?.includeAudit === false ? '?include_audit=false' : '';
+    const task = await request<Task>(`/tasks/${encodeURIComponent(id)}${suffix}`, { signal });
     if (task.result?.agent === true && task.result.p6_publication) {
       // P6 历史结果须经服务端封存复核；不能以原任务诊断 JSON 代替公开 DTO。
       try {

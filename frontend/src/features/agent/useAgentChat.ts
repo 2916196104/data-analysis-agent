@@ -70,7 +70,7 @@ export function useAgentChat(
   const activeMessage = conversation.turns.find(turn => turn.id === conversation.activeId);
   const activeTurn = activeMessage?.kind === 'analysis' ? activeMessage : undefined;
   const taskId = activeMessage?.kind === 'basic' ? null : focusedRoute ?? activeTurn?.taskId ?? null;
-  const activeState = useTask(taskId);
+  const activeState = useTask(taskId, { includeAudit: false });
   const task = activeState.id === taskId ? activeState.task : null;
   const restoreError = focusedRoute && task && !isAgentTask(task)
     ? '该任务不是 AI 助手查询，请从任务与报告查看。'

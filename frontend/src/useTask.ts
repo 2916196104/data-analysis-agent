@@ -3,7 +3,8 @@ import { api, errorMessage } from './api';
 import { emptyTaskState, isActive, taskReducer } from './task-state';
 import type { Task, TaskSummary } from './types';
 
-export function useTask(id: string | null) {
+export function useTask(id: string | null, options?: { includeAudit?: boolean }) {
+  const includeAudit = options?.includeAudit;
   const [state, dispatch] = useReducer(taskReducer, emptyTaskState);
   const [revision, refresh] = useState(0);
   useEffect(() => {
@@ -62,7 +63,9 @@ export function useTask(id: string | null) {
 
     async function poll(preferStream = true) {
       try {
-        const task = await api.task(id!, controller.signal);
+        const task = includeAudit === false
+          ? await api.task(id!, controller.signal, { includeAudit: false })
+          : await api.task(id!, controller.signal);
         if (controller.signal.aborted) return;
         latestTask = task;
         dispatch({ type: 'task', id: id!, task });
@@ -91,6 +94,6 @@ export function useTask(id: string | null) {
       closeStream();
       clearTimeout(timer);
     };
-  }, [id, revision]);
+  }, [id, revision, includeAudit]);
   return { ...state, refresh: () => refresh(v => v + 1) };
 }

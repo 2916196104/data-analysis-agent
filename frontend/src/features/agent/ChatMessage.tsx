@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert, Button, Space, Spin } from 'antd';
 import { RobotOutlined } from '@ant-design/icons';
 import AgentResults from '../../AgentResults';
+import { api, errorMessage } from '../../api';
 import { exportResult } from '../../local-history';
 import { canRetry, isActive, stageLabels } from '../../task-state';
 import { useTask } from '../../useTask';
@@ -13,6 +14,7 @@ import { exportAgentReport } from './report-export';
 import PublicAnswerView from './PublicAnswerView';
 import P6Results from './P6Results';
 import { readP6Publication } from './p6-publication';
+import { auditSizeLabel, needsAuditHydration, rehydrateAgentResult } from './audit-hydration';
 
 export default function ChatMessage({ turn, chat, onPrepare, onSuggestQuestion }: {
   turn: ConversationTurn; chat: AgentChat; onPrepare: (result: AgentResult, products: string[]) => void;
@@ -46,7 +48,7 @@ function AnalysisMessage({ turn, chat, onPrepare, onSuggestQuestion }: {
   onSuggestQuestion?: (question: string) => void;
 }) {
   const active = chat.session.activeId === turn.id;
-  const archivedState = useTask(active ? null : turn.taskId ?? null);
+  const archivedState = useTask(active ? null : turn.taskId ?? null, { includeAudit: false });
   const state = active ? chat.activeState : archivedState;
   const task = state.id === turn.taskId ? state.task : null;
   const savedResult = task?.result?.agent === true ? task.result as unknown as AgentResult : undefined;
@@ -57,6 +59,57 @@ function AnalysisMessage({ turn, chat, onPrepare, onSuggestQuestion }: {
     && ['ok', 'unsupported'].includes(savedResult.status) && savedResult.validation?.status !== 'failed'
     && (!savedResult.public_answer || ['ok', 'unsupported'].includes(savedResult.public_answer.status)) ? savedResult : undefined;
   const [detail, setDetail] = useState<{ value: unknown; title: string }>();
+  const [hydrated, setHydrated] = useState<{ taskId: string; digest: string; result: AgentResult }>();
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const auditInFlight = useRef<Promise<AgentResult | undefined> | null>(null);
+  const auditDigest = result?._audit_ref?.audit_sha256 || '';
+  const effectiveResult = (result && hydrated && hydrated.taskId === turn.taskId && hydrated.digest === auditDigest)
+    ? hydrated.result
+    : result;
+  const pendingAudit = needsAuditHydration(effectiveResult);
+
+  async function ensureFullResult(): Promise<AgentResult | undefined> {
+    if (!result) return undefined;
+    if (hydrated && hydrated.taskId === turn.taskId && hydrated.digest === auditDigest) {
+      return hydrated.result;
+    }
+    if (!needsAuditHydration(result) || !turn.taskId) return result;
+    if (auditInFlight.current) return auditInFlight.current;
+    setAuditLoading(true);
+    setAuditError('');
+    const job = (async () => {
+      try {
+        const record = await api.taskAudit(turn.taskId!);
+        const restored = record.stored_separately
+          ? rehydrateAgentResult(result, record)
+          : ((await api.task(turn.taskId!)).result as unknown as AgentResult) || result;
+        setHydrated({ taskId: turn.taskId!, digest: auditDigest, result: restored });
+        return restored;
+      } catch (error) {
+        setAuditError(`审计证据加载失败：${errorMessage(error)}`);
+        return undefined;
+      } finally {
+        auditInFlight.current = null;
+        setAuditLoading(false);
+      }
+    })();
+    auditInFlight.current = job;
+    return job;
+  }
+
+  // 若语义证据任务超阈值拆分了 retrieval，则自动补齐以保证正文引用原文完整可展开。
+  useEffect(() => {
+    if (!pendingAudit || !effectiveResult) return;
+    const hasMissingSemanticRetrieval = (effectiveResult.result_ids || []).some(rid => {
+      const entry = effectiveResult.results[rid];
+      return entry?.kind === 'semantic_evidence' && !entry.data?.retrieval;
+    });
+    if (hasMissingSemanticRetrieval) {
+      void ensureFullResult();
+    }
+  }, [pendingAudit, turn.taskId, auditDigest]);
   // 执行范围是任务元数据；失败时仍展示，正文继续受成功校验约束。
   const scope = savedResult?.scope || turn.parameters;
   const topicFailures = Object.values(savedResult?.results || {}).flatMap(item => {
@@ -105,7 +158,7 @@ function AnalysisMessage({ turn, chat, onPrepare, onSuggestQuestion }: {
           <Button size="small" onClick={() => exportResult({ question: turn.question, parameters: turn.parameters, selection: turn.selection,
             query: turn.query, clarification: turn.clarification, taskId: turn.taskId,
             snapshot_at: savedResult?.snapshot_at, resolved_scope: savedResult?.scope,
-            failure_reasons: topicFailures, results: result?.results }, 'query-snapshot')}>下载查询快照</Button>
+            failure_reasons: topicFailures, results: effectiveResult?.results }, 'query-snapshot')}>下载查询快照</Button>
         </details>}
         {turn.clarification && <Alert type="info" showIcon message={turn.clarification.resolved ? '已确认查询目标' : '需要澄清'}
           description={<><p>{turn.clarification.message}</p><div className="chat-clarification-choices">
@@ -127,23 +180,46 @@ function AnalysisMessage({ turn, chat, onPrepare, onSuggestQuestion }: {
         {chat.errors[turn.id] && turn.taskId && <Alert type="error" showIcon message="重试未完成" description={chat.errors[turn.id]} />}
         {task && canRetry(task.status) && <Button className="spaced" loading={active && chat.posting} disabled={chat.pending} onClick={() => void chat.retry(turn)}>重试任务</Button>}
         {p6Result && <P6Results result={p6Result} taskId={turn.taskId} />}
-        {result && <>
-          {result.public_answer && ['ok', 'unsupported'].includes(result.public_answer.status)
-            ? <PublicAnswerView answer={result.public_answer} question={turn.question} onSuggestQuestion={onSuggestQuestion}
-              evidence={(result.result_ids || []).flatMap(id => {
-                const item = result.results[id];
-                return item?.kind === 'semantic_evidence' ? item.data.retrieval.evidence : [];
+        {effectiveResult && <>
+          {effectiveResult.public_answer && ['ok', 'unsupported'].includes(effectiveResult.public_answer.status)
+            ? <PublicAnswerView answer={effectiveResult.public_answer} question={turn.question} onSuggestQuestion={onSuggestQuestion}
+              evidence={(effectiveResult.result_ids || []).flatMap(id => {
+                const item = effectiveResult.results[id];
+                return item?.kind === 'semantic_evidence' ? (item.data.retrieval?.evidence ?? []) : [];
               })} />
-            : <p>{result.status === 'unsupported' ? '当前问题超出已有分析能力，请调整查询目标。'
+            : <p>{effectiveResult.status === 'unsupported' ? '当前问题超出已有分析能力，请调整查询目标。'
               : '历史分析结果已保存，可展开统计详情查看已核验的指标与原文。'}</p>}
-          <Button size="small" onClick={() => exportAgentReport(result, turn.taskId)}>导出分析报告</Button>
-          <details className="chat-report"><summary>查看统计、证据与执行记录</summary>
-            <AgentResults result={result} idPrefix={`agent-${turn.id}`} onDetail={(value, title) => setDetail({ value, title })}
-              onPrepare={products => onPrepare(result, products)}
-              onEvidenceNext={active && !chat.pending ? () => void chat.send(turn.parameters, '继续查原文') : undefined} />
+          <Button size="small" loading={exporting} onClick={() => {
+            if (!pendingAudit) {
+              exportAgentReport(effectiveResult, turn.taskId);
+              return;
+            }
+            setExporting(true);
+            void ensureFullResult().then(full => {
+              if (full) exportAgentReport(full, turn.taskId);
+            }).finally(() => setExporting(false));
+          }}>导出分析报告</Button>
+          {auditError && !auditLoading && <Alert className="chat-notice" type="warning" showIcon message={auditError}
+            action={<Button size="small" onClick={() => void ensureFullResult()}>重试加载</Button>} />}
+          <details className="chat-report" onToggle={event => {
+            if (event.currentTarget.open && pendingAudit) {
+              void ensureFullResult();
+            }
+          }}><summary>查看统计、证据与执行记录{pendingAudit && effectiveResult._audit_ref?.audit_bytes
+            ? `（按需加载 ${auditSizeLabel(effectiveResult._audit_ref.audit_bytes)}）` : ''}</summary>
+            {pendingAudit
+              ? (auditLoading
+                ? <div className="chat-status" role="status"><Spin size="small" /> 正在按需加载完整统计与审计证据…</div>
+                : auditError
+                  ? <Alert type="warning" showIcon message={auditError}
+                    action={<Button size="small" onClick={() => void ensureFullResult()}>重试加载</Button>} />
+                  : <div className="chat-status" role="status"><Spin size="small" /> 准备加载审计证据…</div>)
+              : <AgentResults result={effectiveResult} idPrefix={`agent-${turn.id}`} onDetail={(value, title) => setDetail({ value, title })}
+                onPrepare={products => onPrepare(effectiveResult, products)}
+                onEvidenceNext={active && !chat.pending ? () => void chat.send(turn.parameters, '继续查原文') : undefined} />}
           </details>
         </>}
-        {result && detail && <section className="chat-inline-detail" aria-label="数据详情">
+        {effectiveResult && detail && <section className="chat-inline-detail" aria-label="数据详情">
           <h3>{detail.title}</h3><Space wrap><Button aria-label="关闭数据详情" onClick={() => setDetail(undefined)}>关闭详情</Button><Button onClick={() => exportResult(detail.value, 'agent-detail')}>下载 JSON</Button></Space>
           <pre className="json-view">{JSON.stringify(detail.value, null, 2)}</pre>
         </section>}

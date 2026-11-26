@@ -299,6 +299,7 @@ export interface AgentResult {
   performance?: { planning_duration_ms: number; query_duration_ms: number; validation_duration_ms: number;
     compression_duration_ms: number; answer_duration_ms: number; total_duration_ms: number };
   trace: { event: string; tool?: string; status?: string; elapsed_ms?: number; result_id?: string }[];
+  _audit_ref?: { version: string; storage: string; audit_sha256: string; audit_bytes: number; fields: string[] };
 }
 export interface Run {
   run_id: string;

@@ -87,7 +87,7 @@ describe('AI 聊天提交与恢复', () => {
     hook.unmount();
     const refreshed = renderHook(() => useAgentChat());
     expect(refreshed.result.current.session.turns).toHaveLength(2);
-    expect(useTask).toHaveBeenCalledWith('two');
+    expect(useTask).toHaveBeenCalledWith('two', { includeAudit: false });
     expect(submit).toHaveBeenCalledTimes(2);
   });
 
@@ -196,7 +196,7 @@ describe('基础问答与分析消息隔离', () => {
     expect(submit).not.toHaveBeenCalled();
     expect(retry).not.toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
-    expect(useTask).toHaveBeenLastCalledWith(null);
+    expect(useTask).toHaveBeenLastCalledWith(null, { includeAudit: false });
     expect(hook.result.current.conversation.turns).toEqual([{
       kind: 'basic', id: expect.any(String), question: '你能做什么？', status: 'succeeded', answer: '普通回答',
     }]);
@@ -244,7 +244,7 @@ describe('基础问答与分析消息隔离', () => {
     expect(hook.result.current.pending).toBe(true);
     await act(async () => { expect(await hook.result.current.sendBasic('普通问题')).toBe(false); });
     expect(chat).not.toHaveBeenCalled();
-    expect(useTask).toHaveBeenLastCalledWith('running');
+    expect(useTask).toHaveBeenLastCalledWith('running', { includeAudit: false });
   });
 
   it('普通问答失败保留错误，手动重发创建新消息且不使用分析重试接口', async () => {
@@ -318,7 +318,7 @@ describe('基础问答与分析消息隔离', () => {
     const chat = vi.spyOn(api, 'chat');
     const hook = renderHook(() => useAgentChat());
     expect(hook.result.current.activeTurn).toMatchObject({ kind: 'analysis', id: 'old', taskId: 'old-task', requestKey: 'old-key' });
-    expect(useTask).toHaveBeenCalledWith('old-task');
+    expect(useTask).toHaveBeenCalledWith('old-task', { includeAudit: false });
     expect(submit).not.toHaveBeenCalled();
     expect(chat).not.toHaveBeenCalled();
   });
@@ -375,14 +375,14 @@ describe('基础问答与分析消息隔离', () => {
     const hook = renderHook(({ taskId }) => useAgentChat(taskId), { initialProps: { taskId: 'existing' as string | undefined } });
     await waitFor(() => expect(hook.result.current.activeTurn?.taskId).toBe('existing'));
     await act(async () => { await hook.result.current.sendBasic('普通问题'); });
-    expect(useTask).toHaveBeenLastCalledWith(null);
+    expect(useTask).toHaveBeenLastCalledWith(null, { includeAudit: false });
     expect(hook.result.current.activeMessage?.kind).toBe('basic');
     hook.rerender({ taskId: undefined });
     hook.rerender({ taskId: 'existing' });
     await waitFor(() => expect(hook.result.current.activeTurn?.taskId).toBe('existing'));
     expect(hook.result.current.session.turns).toHaveLength(1);
     expect(hook.result.current.conversation.turns).toHaveLength(2);
-    expect(useTask).toHaveBeenLastCalledWith('existing');
+    expect(useTask).toHaveBeenLastCalledWith('existing', { includeAudit: false });
   });
 
   it('普通回答延迟返回时不会覆盖用户后来选中的历史任务', async () => {
