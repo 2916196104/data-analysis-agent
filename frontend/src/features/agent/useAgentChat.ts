@@ -299,6 +299,7 @@ export function useAgentChat(
       ...resolution,
       parameters: resolution.parameters || frozen,
     };
+    dismissedRoute.current = routeTaskId;
     commit(current => ({ ...current, turns: [...current.turns, turn], activeId: turn.id }));
     if (turn.clarification) return true;
     return submitTurn(turn);
@@ -356,15 +357,18 @@ export function useAgentChat(
     await submitTurn(next);
   }
 
-  const basicStreamAbort = useRef<AbortController | null>(null);
+  const basicStreamAborts = useRef(new Map<string, AbortController>());
 
   useEffect(() => () => {
-    basicStreamAbort.current?.abort();
-    basicStreamAbort.current = null;
+    for (const controller of basicStreamAborts.current.values()) {
+      controller.abort();
+    }
+    basicStreamAborts.current.clear();
   }, []);
 
-  function stopBasicStream(): void {
-    basicStreamAbort.current?.abort(new DOMException('已停止生成', 'AbortError'));
+  function stopBasicStream(targetSessionId?: string): void {
+    const sid = typeof targetSessionId === 'string' ? targetSessionId : conversationId;
+    basicStreamAborts.current.get(sid)?.abort(new DOMException('已停止生成', 'AbortError'));
   }
 
   async function sendBasic(question: string): Promise<boolean> {
@@ -372,6 +376,7 @@ export function useAgentChat(
     if (!text || text.length > 4000 || postLock.current || resolving.current || pending) return false;
     postLock.current = true;
     setPosting(true);
+    const targetSessionId = conversationId;
     const history = basicHistory(sessionRef.current.turns);
     const turn: BasicChatTurn = {
       kind: 'basic',
@@ -379,15 +384,23 @@ export function useAgentChat(
       question: text,
       status: 'pending',
     };
+    dismissedRoute.current = routeTaskId;
     commit(current => ({ ...current, turns: [...current.turns, turn], activeId: turn.id }));
     const useStream = api.chat === chatApi.chat && typeof api.chatStream === 'function';
     const controller = useStream ? new AbortController() : null;
-    basicStreamAbort.current = controller;
+    if (controller) {
+      basicStreamAborts.current.get(targetSessionId)?.abort(new DOMException('已替换为新请求', 'AbortError'));
+      basicStreamAborts.current.set(targetSessionId, controller);
+    }
+    let lastStreamPersistAt = 0;
     try {
       const reply = useStream
         ? await api.chatStream(text, history, {
           signal: controller!.signal,
           onDelta: delta => {
+            const now = Date.now();
+            const shouldPersist = now - lastStreamPersistAt >= 400;
+            if (shouldPersist) lastStreamPersistAt = now;
             commit(current => ({
               ...current,
               turns: current.turns.map(item => (
@@ -395,7 +408,7 @@ export function useAgentChat(
                   ? { ...item, status: 'streaming', answer: (item.answer ?? '') + delta }
                   : item
               )),
-            }));
+            }), { persist: shouldPersist });
           },
         })
         : await api.chat(text, history);
@@ -427,7 +440,9 @@ export function useAgentChat(
       }));
       return false;
     } finally {
-      if (basicStreamAbort.current === controller) basicStreamAbort.current = null;
+      if (controller && basicStreamAborts.current.get(targetSessionId) === controller) {
+        basicStreamAborts.current.delete(targetSessionId);
+      }
       postLock.current = false;
       setPosting(false);
     }
@@ -492,6 +507,11 @@ export function useAgentChat(
       sessions.renameSession(id, title);
     },
     deleteSession: (id: string) => {
+      const activeAbort = basicStreamAborts.current.get(id);
+      if (activeAbort) {
+        activeAbort.abort(new DOMException('会话已删除', 'AbortError'));
+        basicStreamAborts.current.delete(id);
+      }
       if (id === conversation.id) {
         navigationEpoch.current++;
         dismissedRoute.current = routeTaskId;

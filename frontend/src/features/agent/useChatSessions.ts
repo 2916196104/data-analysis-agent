@@ -67,10 +67,12 @@ export function readChatStore(): { store: ChatStore; error: boolean; backup?: st
         if (!turn || turnIds.has(turn.id)) throw new Error('Invalid turn');
         turnIds.add(turn.id);
         if (turn.kind !== 'basic') return { ...turn, kind: 'analysis' };
-        if (typeof turn.id !== 'string' || typeof turn.question !== 'string' || !['pending', 'succeeded', 'failed'].includes(turn.status)
+        if (typeof turn.id !== 'string' || typeof turn.question !== 'string' || !['pending', 'streaming', 'succeeded', 'failed'].includes(turn.status)
           || (turn.answer !== undefined && typeof turn.answer !== 'string') || (turn.error !== undefined && typeof turn.error !== 'string')) throw new Error('Invalid basic message');
-        // 基础问答没有服务端任务引用，刷新后不能自动重发模型请求。
-        return turn.status === 'pending' ? { ...turn, status: 'failed', error: '页面已刷新，回答未确认，请重新发送。' } : turn;
+        // 基础问答没有服务端任务引用，刷新后不能自动重发模型请求；流式中断同样恢复为未确认失败态并保留已收文本。
+        return turn.status === 'pending' || turn.status === 'streaming'
+          ? { ...turn, status: 'failed', error: '页面已刷新，回答未确认，请重新发送。' }
+          : turn;
       });
       if (session.activeId && !turnIds.has(session.activeId)) throw new Error('Invalid active turn');
     }
@@ -95,13 +97,14 @@ export function useChatSessions() {
   const conversation = store.sessions.find(item => item.id === id)!;
   // 回调绑定发起请求的会话，切换后的渲染不会改变旧回调的写入目标。
   const sessionRef = useMemo(() => ({ get current() { return storeRef.current.sessions.find(item => item.id === id)!; } }), [id]);
-  const save = useCallback((next: ChatStore) => {
+  const save = useCallback((next: ChatStore, options?: { persist?: boolean }) => {
     const trimmed = trimSessions(next);
     const activeIds = new Set(trimmed.sessions.map(item => item.id));
     for (const key of requests.current.keys()) {
       if (!activeIds.has(key)) requests.current.delete(key);
     }
     storeRef.current = trimmed; setStore(trimmed);
+    if (options?.persist === false) return;
     try {
       if (initial.error && initial.backup === undefined) throw new Error('History could not be read');
       let latestBackupKey: string | undefined;
@@ -115,7 +118,7 @@ export function useChatSessions() {
       setWriteError(false);
     } catch { setWriteError(true); }
   }, []);
-  const commit = useCallback((update: (current: Conversation) => Conversation) => {
+  const commit = useCallback((update: (current: Conversation) => Conversation, options?: { persist?: boolean }) => {
     const current = storeRef.current.sessions.find(item => item.id === id);
     if (!current) return;
     const next = update(current);
@@ -123,7 +126,7 @@ export function useChatSessions() {
     const autoTitle = next.turns[0]?.question.slice(0, 40) || current.title;
     const session = { ...current, ...next, title: current.customTitle ? current.title : autoTitle,
       updatedAt: next.turns !== current.turns ? new Date().toISOString() : current.updatedAt };
-    save({ ...storeRef.current, sessions: storeRef.current.sessions.map(item => item.id === id ? session : item) });
+    save({ ...storeRef.current, sessions: storeRef.current.sessions.map(item => item.id === id ? session : item) }, options);
   }, [id, save]);
   const selectSession = useCallback((target: string) => {
     if (storeRef.current.sessions.some(item => item.id === target)) save({ ...storeRef.current, activeSessionId: target });

@@ -28,7 +28,7 @@ from data_analysis_agent.reviews.monitoring import replay_monthly, run_analysis
 from data_analysis_agent.reviews.store import import_amazon_jsonl
 from data_analysis_agent.jobs.store import (
     TaskConflict, check_task_database, claim_task, finish_task,
-    heartbeat, update_progress, worker_started,
+    heartbeat, is_task_cancelled, update_progress, worker_started,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,10 +37,20 @@ INTERACTIVE_KINDS = ("analysis",)
 DEFAULT_ANALYSIS_CONCURRENCY_POSTGRES = 3
 DEFAULT_ANALYSIS_CONCURRENCY_SQLITE = 2
 MAX_ANALYSIS_CONCURRENCY = 8
+DEFAULT_MAX_HEARTBEAT_FAILURES = 6
+DEFAULT_MAX_LANE_DB_FAILURES = 6
+DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
+MAX_RETRY_BACKOFF_SECONDS = 15.0
 
 
 class TaskInterrupted(RuntimeError):
     """worker 停止时中断当前任务的进度回调。"""
+
+    pass
+
+
+class TaskCancelled(RuntimeError):
+    """任务已被用户或外部接口手动取消。"""
 
     pass
 
@@ -123,6 +133,10 @@ class TaskWorker:
         import_root: str | Path,
         env_file: str | Path,
         analysis_concurrency: int | None = None,
+        heartbeat_interval_seconds: float = 5.0,
+        max_heartbeat_failures: int = DEFAULT_MAX_HEARTBEAT_FAILURES,
+        max_lane_db_failures: int = DEFAULT_MAX_LANE_DB_FAILURES,
+        retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
     ) -> None:
         self.business_db = database_target(business_db)
         self.task_db = database_target(task_db)
@@ -136,6 +150,10 @@ class TaskWorker:
         self.thread = None
         self._lane_threads: list[threading.Thread] = []
         self.analysis_concurrency = self._resolve_analysis_concurrency(analysis_concurrency)
+        self.heartbeat_interval_seconds = max(0.01, float(heartbeat_interval_seconds))
+        self.max_heartbeat_failures = max(1, int(max_heartbeat_failures))
+        self.max_lane_db_failures = max(1, int(max_lane_db_failures))
+        self.retry_backoff_seconds = max(0.0, float(retry_backoff_seconds))
 
     def _resolve_analysis_concurrency(self, explicit: int | None) -> int:
         if explicit is not None:
@@ -213,26 +231,67 @@ class TaskWorker:
             self.thread.join()
 
     def _heartbeat(self) -> None:
-        while not self.heartbeat_stop.wait(5):
+        consecutive_failures = 0
+        while not self.heartbeat_stop.wait(self.heartbeat_interval_seconds):
             try:
                 heartbeat(self.task_db, self.worker_id)
+                consecutive_failures = 0
             except Exception as exc:
-                logger.error("Worker heartbeat failed (%s)", type(exc).__name__)
-                self.stop_requested.set()
-                notify_queue_update()
-                return
+                consecutive_failures += 1
+                logger.warning(
+                    "Worker heartbeat failed (%s) attempt=%d/%d",
+                    type(exc).__name__,
+                    consecutive_failures,
+                    self.max_heartbeat_failures,
+                )
+                if consecutive_failures >= self.max_heartbeat_failures:
+                    logger.error("Worker heartbeat exceeded failure limit (%s); stopping worker", type(exc).__name__)
+                    self.stop_requested.set()
+                    notify_queue_update()
+                    return
+                delay = min(MAX_RETRY_BACKOFF_SECONDS, self.retry_backoff_seconds * (2 ** (consecutive_failures - 1)))
+                if delay > 0 and self.heartbeat_stop.wait(delay):
+                    return
 
     def _lane_loop(self, lane_name: str, *, kinds=None, exclude_kinds=None) -> None:
+        consecutive_db_failures = 0
         try:
             while not self.stop_requested.is_set():
-                self._check_lock()
-                version = queue_event_version()
-                task = claim_task(
-                    self.task_db,
-                    self.worker_id,
-                    kinds=kinds,
-                    exclude_kinds=exclude_kinds,
-                )
+                try:
+                    self._check_lock()
+                    version = queue_event_version()
+                    task = claim_task(
+                        self.task_db,
+                        self.worker_id,
+                        kinds=kinds,
+                        exclude_kinds=exclude_kinds,
+                    )
+                    consecutive_db_failures = 0
+                except (*DATABASE_ERRORS, OSError) as exc:
+                    consecutive_db_failures += 1
+                    logger.warning(
+                        "Worker lane %s transient DB error (%s) attempt=%d/%d",
+                        lane_name,
+                        type(exc).__name__,
+                        consecutive_db_failures,
+                        self.max_lane_db_failures,
+                    )
+                    if consecutive_db_failures >= self.max_lane_db_failures:
+                        logger.error(
+                            "Worker lane %s exceeded transient DB failure limit (%s); stopping worker",
+                            lane_name,
+                            type(exc).__name__,
+                        )
+                        self.stop_requested.set()
+                        notify_queue_update()
+                        return
+                    delay = min(
+                        MAX_RETRY_BACKOFF_SECONDS,
+                        self.retry_backoff_seconds * (2 ** (consecutive_db_failures - 1)),
+                    )
+                    if delay > 0 and self.stop_requested.wait(delay):
+                        return
+                    continue
                 if task is None:
                     if not self.stop_requested.is_set():
                         wait_queue_update(version, timeout=1.0)
@@ -301,6 +360,17 @@ class TaskWorker:
                     self.lock.release()
                 logger.info("后台执行器停止 worker_id=%s", self.worker_id)
 
+    def _safe_finish_task(self, task_id: str, *, status: str, result=None, error=None) -> bool:
+        """提交任务终态；若任务在执行期间已被手动取消，不覆盖取消状态且不导致 worker 通道退出。"""
+        try:
+            finish_task(self.task_db, task_id, self.worker_id, status=status, result=result, error=error)
+            return True
+        except TaskConflict:
+            if is_task_cancelled(self.task_db, task_id):
+                logger.info("任务在完成前已被取消，跳过终态写入 task_id=%s", task_id)
+                return False
+            raise
+
     def _execute(self, task: dict[str, Any]) -> None:
         """执行一个已领取任务；所有异常都转换成可持久化的稳定错误码。"""
         started = time.monotonic()
@@ -310,7 +380,12 @@ class TaskWorker:
             self._check_lock()
             if self.stop_requested.is_set():
                 raise TaskInterrupted()
-            update_progress(self.task_db, task["task_id"], self.worker_id, value)
+            try:
+                update_progress(self.task_db, task["task_id"], self.worker_id, value)
+            except TaskConflict:
+                if is_task_cancelled(self.task_db, task["task_id"]):
+                    raise TaskCancelled() from None
+                raise
             if value["stage"] == "labeling":
                 logger.info(
                     "标注进度 task_id=%s %s/%s 成功=%s 失败=%s 模型调用=%s",
@@ -387,10 +462,9 @@ class TaskWorker:
                         # 部分工具结果保留用于排障；未经确认的正文不发布。
                         result.pop("answer", None)
                         result.pop("answer_sections", None)
-                        finish_task(self.task_db, task["task_id"], self.worker_id,
-                                    status="failed", result=result, error=result["error"])
-                        logger.warning("任务失败 task_id=%s kind=analysis error_code=%s 耗时=%.2fs",
-                                       task["task_id"], result["error"]["code"], time.monotonic() - started)
+                        if self._safe_finish_task(task["task_id"], status="failed", result=result, error=result["error"]):
+                            logger.warning("任务失败 task_id=%s kind=analysis error_code=%s 耗时=%.2fs",
+                                           task["task_id"], result["error"]["code"], time.monotonic() - started)
                         return
                     report_progress({"stage": "agent_completed", "completed": result["tool_calls"],
                                      "total": result["tool_calls"], "unit": "tools"})
@@ -413,14 +487,13 @@ class TaskWorker:
                     "code": "partial_result",
                     "message": "部分记录或月份未完成，请查看 result 后显式重试。",
                 }
-            finish_task(
-                self.task_db,
+            if not self._safe_finish_task(
                 task["task_id"],
-                self.worker_id,
                 status="partial" if partial else "succeeded",
                 result=result,
                 error=partial_error,
-            )
+            ):
+                return
             for item in result.get("imports", []):
                 logger.info("导入结果 task_id=%s kind=%s 新增=%s 重复=%s 无效=%s",
                             task["task_id"], item["kind"], item["inserted_records"],
@@ -429,6 +502,9 @@ class TaskWorker:
                        "任务结束 task_id=%s kind=%s status=%s 耗时=%.2fs stopped_reason=%s",
                        task["task_id"], task["kind"], "partial" if partial else "succeeded",
                        time.monotonic() - started, result.get("stopped_reason") or "-")
+        except TaskCancelled:
+            logger.info("任务已手动取消 task_id=%s kind=%s 耗时=%.2fs",
+                        task["task_id"], task["kind"], time.monotonic() - started)
         except Exception as exc:
             if isinstance(exc, TaskInterrupted):
                 error = {"code": "worker_interrupted", "message": "worker 正在停止；已提交的业务结果保留，请核查后显式重试。"}
@@ -443,6 +519,6 @@ class TaskWorker:
                 error = {"code": "validation_error", "message": "已保存的任务参数不符合当前版本，请重新提交任务。"}
             else:
                 error = {"code": "execution_error", "message": "任务执行失败，请检查文件、数据库及服务配置后重试。"}
-            finish_task(self.task_db, task["task_id"], self.worker_id, status="failed", error=error)
-            logger.warning("任务失败 task_id=%s kind=%s error_code=%s exception=%s 耗时=%.2fs",
-                           task["task_id"], task["kind"], error["code"], type(exc).__name__, time.monotonic() - started)
+            if self._safe_finish_task(task["task_id"], status="failed", error=error):
+                logger.warning("任务失败 task_id=%s kind=%s error_code=%s exception=%s 耗时=%.2fs",
+                               task["task_id"], task["kind"], error["code"], type(exc).__name__, time.monotonic() - started)

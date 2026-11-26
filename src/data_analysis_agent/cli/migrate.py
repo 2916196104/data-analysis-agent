@@ -29,7 +29,7 @@ BUSINESS_TABLES = (
     "review_human_reviews", "review_human_opinions", "review_analysis_runs", "review_alerts",
     "review_alert_occurrences", "review_alert_actions",
 )
-TASK_TABLES = ("tasks",)
+TASK_TABLES = ("tasks", "task_audit_blobs")
 VERSION_TABLES = ("review_labeling_schema", "review_workbench_schema", "review_monitor_schema")
 
 
@@ -126,7 +126,8 @@ def migrate_sqlite(source_db, target_db, *, source_tasks=None):
             target.execute("INSERT INTO task_context VALUES (?)", (database_identity(target_db),))
             copied = {table: _copy_table(source, target, table) for table in BUSINESS_TABLES if table in names}
             if tasks is not None:
-                copied.update({table: _copy_table(tasks, target, table) for table in TASK_TABLES})
+                task_table_names = table_names(tasks)
+                copied.update({table: _copy_table(tasks, target, table) for table in TASK_TABLES if table in task_table_names})
             check_labeling_schema(target)
             check_workbench_schema(target)
             check_monitoring_schema(target)

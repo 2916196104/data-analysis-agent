@@ -16,7 +16,7 @@ from data_analysis_agent.api.schemas import TaskInput, TaskQuery
 from data_analysis_agent.jobs.events import task_event_version, wait_task_update
 from data_analysis_agent.jobs.store import TaskConflict
 from data_analysis_agent.jobs.store import (
-    delete_task, enqueue, get_task, get_task_audit, get_task_summary, list_tasks, mark_import_data_deleted,
+    cancel_task, delete_task, enqueue, get_task, get_task_audit, get_task_summary, list_tasks, mark_import_data_deleted,
 )
 from data_analysis_agent.jobs.submission import prepare_parameters, retry_task
 from data_analysis_agent.reviews.store import delete_import_runs
@@ -171,6 +171,12 @@ def create_router(task_db, business_db, *, import_root, env_file):
         deletion = delete_task(task_db, task_id)
         logger.info("删除任务记录 task_id=%s deleted_tasks=%s", task_id, deletion["deleted_tasks"])
         return ok_result(deletion)
+
+    @router.post("/tasks/{task_id}/cancel", response_model=Result, tags=["后台任务"])
+    def cancel(task_id: Annotated[str, Path(min_length=1, max_length=1000)]):
+        result = cancel_task(task_db, task_id)
+        logger.info("取消任务 task_id=%s already_terminal=%s", task_id, result["already_terminal"])
+        return ok_result(result)
 
     @router.post("/tasks/{task_id}/retry", response_model=Result, status_code=202, tags=["后台任务"])
     def retry(task_id: Annotated[str, Path(min_length=1, max_length=1000)], response: Response,

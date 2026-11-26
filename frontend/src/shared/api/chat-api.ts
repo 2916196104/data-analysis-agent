@@ -33,11 +33,16 @@ function parseSseBlock(block: string): { event: string; data: string } | null {
 }
 
 export const chatApi = {
-  chat: (message: string, history: ChatHistoryTurn[] = []) => request<ChatReply>('/chat', {
+  chat: (
+    message: string,
+    history: ChatHistoryTurn[] = [],
+    options?: { signal?: AbortSignal; timeoutMs?: number },
+  ) => request<ChatReply>('/chat', {
     method: 'POST',
     body: JSON.stringify({ message, ...(history.length ? { history } : {}) }),
+    ...(options?.signal ? { signal: options.signal } : {}),
   }, {
-    timeoutMs: 90_000,
+    timeoutMs: options?.timeoutMs ?? 90_000,
     networkErrorMessage: CHAT_NETWORK_ERROR,
   }),
 
@@ -67,9 +72,9 @@ export const chatApi = {
       throw networkError();
     }
 
-    // 兼容未部署流式端点的旧后端，自动降级为原 POST /chat。
+    // 兼容未部署流式端点的旧后端，自动降级为原 POST /chat 并透传取消信号。
     if (response.status === 404 || response.status === 405) {
-      return chatApi.chat(message, history);
+      return chatApi.chat(message, history, { signal: options.signal, timeoutMs: options.timeoutMs });
     }
 
     const contentType = response.headers.get('content-type') || '';

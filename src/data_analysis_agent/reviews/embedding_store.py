@@ -132,6 +132,44 @@ def _select(documents, limit):
     return selected
 
 
+def _current_indexed_keys(db, corpus):
+    """返回当前在库且快照摘要完全匹配的有效观点键集合，用于多批增量同步跳过已完成评论组。"""
+    if not corpus.documents:
+        return set()
+    snapshots = {r.review_id: r.effective_snapshot_sha256 for r in corpus.reviews}
+    keys = [d.stable_versioned_opinion_key for d in corpus.documents]
+    with closing(_connect(db, readonly=True)) as c:
+        rows = c.execute(
+            '''SELECT stable_versioned_opinion_key, effective_snapshot_sha256
+               FROM review_opinion_embeddings
+               WHERE embedding_space_id=? AND text_builder_version=?
+                 AND invalidated_at IS NULL
+                 AND stable_versioned_opinion_key=ANY(?::text[])''',
+            (SPACE_ID, TEXT_BUILDER_VERSION, keys),
+        ).fetchall()
+    existing = {r[0]: r[1] for r in rows}
+    return {
+        d.stable_versioned_opinion_key
+        for d in corpus.documents
+        if existing.get(d.stable_versioned_opinion_key) == snapshots[d.review_id]
+    }
+
+
+def _select_uncovered(documents, limit, covered_keys):
+    """优先选择尚未完整入库或快照已过时的完整评论组，避免反复卡在前 limit 条观点。"""
+    if not covered_keys:
+        return _select(documents, limit)
+    uncovered = []
+    for _, rows in groupby(documents, key=lambda d: d.review_id):
+        group = list(rows)
+        if all(d.stable_versioned_opinion_key in covered_keys for d in group):
+            continue
+        uncovered.extend(group)
+    if not uncovered:
+        return _select(documents, limit)
+    return _select(uncovered, limit)
+
+
 def _cached(db, documents):
     keys = [d.stable_versioned_opinion_key for d in documents]
     with closing(_connect(db, readonly=True)) as c:
@@ -247,8 +285,8 @@ def sync_effective_opinions(db, *, options, encoder=None, limit=200, budget=None
         raise EmbeddingStoreError('explicit_local_encoding_authorization_required')
     started = perf_counter()
     before = read_effective_corpus(db, **options)
-    selected = _select(before.documents, limit)
     if budget is not None:
+        selected = _select(before.documents, limit)
         budget.check_corpus(before, selected)
         with closing(_connect(db, readonly=True)) as check:
             try:
@@ -256,6 +294,9 @@ def sync_effective_opinions(db, *, options, encoder=None, limit=200, budget=None
                 budget.check_database(check, before, selected, *_range(before))
             finally:
                 check.rollback()
+    else:
+        covered_keys = _current_indexed_keys(db, before)
+        selected = _select_uncovered(before.documents, limit, covered_keys)
     metrics = dict(scope_opinion_count=len(before.documents), selected_opinion_count=len(selected),
                    attempted_count=0, successful_count=0, reused_count=0, overlength_count=0,
                    invalid_input_count=0, failed_count=0, published_count=0, invalidated_count=0)
@@ -327,6 +368,31 @@ _PROVENANCE_FIELDS = (
 )
 
 
+def _configure_hnsw_search(connection, top_k):
+    """在真实 PostgreSQL 只读事务内启用 pgvector HNSW 迭代扫描与 ef_search 调优，防止高选择性过滤召回饥饿。"""
+    if getattr(connection, 'raw', None) is None:
+        return True
+    try:
+        rows = connection.execute(
+            "SELECT name, setting FROM pg_settings WHERE name IN ('hnsw.iterative_scan', 'hnsw.ef_search')"
+        ).fetchall()
+    except DatabaseError:
+        return False
+    settings = {row[0]: row[1] for row in rows}
+    if 'hnsw.ef_search' in settings:
+        try:
+            current_ef = int(settings['hnsw.ef_search'])
+        except (TypeError, ValueError):
+            current_ef = 40
+        target_ef = min(400, max(current_ef, top_k * 8, 64))
+        if target_ef > current_ef:
+            connection.execute("SELECT set_config('hnsw.ef_search', ?, true)", (str(target_ef),))
+    if 'hnsw.iterative_scan' in settings:
+        connection.execute("SELECT set_config('hnsw.iterative_scan', 'strict_order', true)")
+        return True
+    return False
+
+
 def _search_effective_opinions(db, vector, *, options, embedding_space_id, top_k=5,
                                aspect=None, sentiment=None, corpus=None, corpus_loader=None):
     """同一只读快照内先由 pgvector（HNSW 友好 SQL）召回候选，再按候选 review_id 定向核验有效快照。"""
@@ -367,6 +433,7 @@ def _search_effective_opinions(db, vector, *, options, embedding_space_id, top_k
         with _snapshot(db) as c:
             if not isinstance(c, PostgresConnection):
                 raise EmbeddingStoreError('postgres_required')
+            iterative_scan_enabled = _configure_hnsw_search(c, top_k)
             fetch_limits = []
             current_limit = min(max(top_k * 4, 32), 400)
             while current_limit < 2000:
@@ -375,21 +442,7 @@ def _search_effective_opinions(db, vector, *, options, embedding_space_id, top_k
             fetch_limits.append(2000)
             fetch_limits.append(None)
 
-            for fetch_limit in fetch_limits:
-                if fetch_limit is not None:
-                    rows = c.execute(
-                        bounded_sql,
-                        (vector_json, *filters, SPACE_ID, TEXT_BUILDER_VERSION, profile_key,
-                         aspect, aspect, sentiment, sentiment, vector_json, fetch_limit),
-                    ).fetchall()
-                else:
-                    rows = c.execute(
-                        unbounded_sql,
-                        (vector_json, *filters, SPACE_ID, TEXT_BUILDER_VERSION, profile_key,
-                         aspect, aspect, sentiment, sentiment),
-                    ).fetchall()
-                if not rows:
-                    return ()
+            def _verify_rows(rows):
                 candidate_review_ids = tuple(sorted({row['review_id'] for row in rows}))
                 if corpus is not None:
                     active_corpus = corpus
@@ -416,9 +469,40 @@ def _search_effective_opinions(db, vector, *, options, embedding_space_id, top_k
                         raise EmbeddingStoreError('stored_provenance_mismatch')
                     matches.append(OpinionMatch(doc, row['distance']))
                     if len(matches) >= top_k:
-                        return tuple(matches)
-                if fetch_limit is None or len(rows) < fetch_limit:
-                    return tuple(matches)
+                        return tuple(matches), True
+                return tuple(matches), False
+
+            index = 0
+            while index < len(fetch_limits):
+                fetch_limit = fetch_limits[index]
+                if fetch_limit is not None:
+                    rows = c.execute(
+                        bounded_sql,
+                        (vector_json, *filters, SPACE_ID, TEXT_BUILDER_VERSION, profile_key,
+                         aspect, aspect, sentiment, sentiment, vector_json, fetch_limit),
+                    ).fetchall()
+                else:
+                    rows = c.execute(
+                        unbounded_sql,
+                        (vector_json, *filters, SPACE_ID, TEXT_BUILDER_VERSION, profile_key,
+                         aspect, aspect, sentiment, sentiment),
+                    ).fetchall()
+                if not rows:
+                    if fetch_limit is not None and not iterative_scan_enabled:
+                        # 旧版 pgvector 无迭代扫描时，HNSW 过滤可能返回空集；直接跳至精确扫描核验。
+                        index = len(fetch_limits) - 1
+                        continue
+                    return ()
+                matches, reached_top_k = _verify_rows(rows)
+                if reached_top_k or fetch_limit is None:
+                    return matches
+                if len(rows) < fetch_limit:
+                    if iterative_scan_enabled:
+                        return matches
+                    # 非迭代 HNSW 提前截断且不足 top_k：直接跳至末尾 exact scan 兜底。
+                    index = len(fetch_limits) - 1
+                    continue
+                index += 1
             return ()
     except DatabaseError:
         raise EmbeddingStoreError('search_database_error') from None

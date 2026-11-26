@@ -64,4 +64,37 @@ describe('Agent 可读结果与标注补齐', () => {
     await waitFor(() => expect(submit).toHaveBeenCalledWith({ ...window, source: scope.source, dataset_version: scope.dataset_version,
       product_ids: ['A'], limit: 100, workers: 2, retry_failed: true }));
   });
+
+  it('证据分页在尾页不足 page_size 时不错误展示下一页按钮', () => {
+    const makeRow = (id: number) => ({
+      review_id: id, product_id: 'A', text: `评论 ${id}`, published_at: '2023-01-01T00:00:00Z',
+      evidence_ref: `sha256:abc#line=${id}`, opinion_source: 'model',
+      opinions: [{ aspect: 'logistics', sentiment: 'negative', quote: '物流慢', quote_start: 0, quote_end: 3 }],
+    });
+    const lastPageResult: AgentResult = {
+      ...result,
+      results: {
+        overview: result.results.overview,
+        r1: {
+          result_id: 'r1', parameters: {}, kind: 'evidence',
+          data: { total: 12, page: 3, page_size: 5, items: [makeRow(11), makeRow(12)] },
+        },
+      },
+    };
+    const { rerender } = render(<AgentResults result={lastPageResult} onDetail={vi.fn()} onEvidenceNext={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: '继续查看下一页' })).toBeNull();
+
+    const firstPageResult: AgentResult = {
+      ...result,
+      results: {
+        overview: result.results.overview,
+        r1: {
+          result_id: 'r1', parameters: {}, kind: 'evidence',
+          data: { total: 12, page: 1, page_size: 5, pages: 3, items: [makeRow(1), makeRow(2), makeRow(3), makeRow(4), makeRow(5)] },
+        },
+      },
+    };
+    rerender(<AgentResults result={firstPageResult} onDetail={vi.fn()} onEvidenceNext={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '继续查看下一页' })).toBeTruthy();
+  });
 });

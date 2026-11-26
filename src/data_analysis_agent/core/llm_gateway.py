@@ -361,19 +361,22 @@ def chat_completion_stream(
     temperature: float | None = None,
     max_tokens: int | None = None,
     extra_body: dict[str, Any] | None = None,
+    include_usage: bool = True,
     pooled: bool | None = None,
     client: Any = None,
     client_factory: Any = None,
     http_client_factory: Any = None,
     pool_tag: str = "",
 ):
-    """统一的流式 Chat Completions 生成器：复用连接池、安全关闭上游流并记录观测统计。"""
+    """统一的流式 Chat Completions 生成器：复用连接池、默认请求 usage 计量、兼容旧网关降级并安全关闭上游流。"""
     target_model = (model or resolve_model(settings, role)).strip()
     request_kwargs: dict[str, Any] = {
         "model": target_model,
         "messages": messages,
         "stream": True,
     }
+    if include_usage:
+        request_kwargs["stream_options"] = {"include_usage": True}
     if temperature is not None:
         request_kwargs["temperature"] = temperature
     if max_tokens is not None:
@@ -391,7 +394,15 @@ def chat_completion_stream(
         stream = None
         failed = False
         try:
-            stream = active_client.chat.completions.create(**request_kwargs)
+            try:
+                stream = active_client.chat.completions.create(**request_kwargs)
+            except Exception as exc:
+                # 兼容不支持 stream_options 的旧 OpenAI 兼容网关：仅在建流 400 时降级重试一次。
+                if "stream_options" in request_kwargs and getattr(exc, "status_code", None) == 400:
+                    fallback_kwargs = {k: v for k, v in request_kwargs.items() if k != "stream_options"}
+                    stream = active_client.chat.completions.create(**fallback_kwargs)
+                else:
+                    raise
             for chunk in stream:
                 if getattr(chunk, "usage", None) is not None:
                     last_usage_chunk = chunk

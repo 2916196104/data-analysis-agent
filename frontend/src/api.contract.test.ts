@@ -35,6 +35,7 @@ describe('阶段 0 API 请求契约', () => {
     ['评论详情', () => api.review(7, 0), '/reviews/7?profile_id=0', 'GET'],
     ['详情省略版本', () => api.review(7), '/reviews/7?', 'GET'],
     ['重试与幂等', () => api.retry('task/a ?', 'retry-key'), '/tasks/task%2Fa%20%3F/retry', 'POST', 'retry-key'],
+    ['取消任务', () => api.cancelTask('task/a ?'), '/tasks/task%2Fa%20%3F/cancel', 'POST'],
     ['删除任务', () => api.deleteTask('task/a ?'), '/tasks/task%2Fa%20%3F', 'DELETE'],
     ['删除导入数据', () => api.deleteImportedData('task/a ?'), '/tasks/task%2Fa%20%3F/imported-data', 'DELETE'],
   ];

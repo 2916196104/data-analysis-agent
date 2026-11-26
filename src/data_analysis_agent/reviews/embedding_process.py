@@ -19,6 +19,15 @@ MAX_QUERY_BATCH = 8
 DEFAULT_MAX_RESTARTS = 3
 DEFAULT_RESTART_BACKOFF_SECONDS = 0.5
 MAX_RESTART_BACKOFF_SECONDS = 30.0
+DEFAULT_RESTART_COOLDOWN_SECONDS = 60.0
+
+
+class _RecoverableWorkerError(ValueError):
+    """子进程返回的单请求输入错误；进程本身仍然健康，不触发销毁或故障计数。"""
+
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
 
 
 class PersistentEmbeddingProcess:
@@ -35,18 +44,25 @@ class PersistentEmbeddingProcess:
         worker=None,
         max_restarts=0,
         restart_backoff_seconds=DEFAULT_RESTART_BACKOFF_SECONDS,
+        restart_cooldown_seconds=DEFAULT_RESTART_COOLDOWN_SECONDS,
     ):
         from data_analysis_agent.reviews.embedding_store import SPACE
         if not 0 < timeout <= 600: raise ValueError('invalid_embedding_timeout')
         if type(max_restarts) is not int or max_restarts < 0: raise ValueError('invalid_max_restarts')
         if isinstance(restart_backoff_seconds, bool) or restart_backoff_seconds < 0:
             raise ValueError('invalid_restart_backoff')
+        if (
+            restart_cooldown_seconds is not None
+            and (isinstance(restart_cooldown_seconds, bool) or restart_cooldown_seconds < 0)
+        ):
+            raise ValueError('invalid_restart_cooldown')
         self.space = SPACE
         self.python, self.cache_dir = str(Path(python).resolve()), str(Path(cache_dir).resolve())
         self.worker = Path(worker) if worker else Path(__file__).resolve().parents[3]/'scripts/persistent_embedding_worker.py'
         self.timeout = timeout
         self.max_restarts = max_restarts
         self.restart_backoff_seconds = float(restart_backoff_seconds)
+        self.restart_cooldown_seconds = None if restart_cooldown_seconds is None else float(restart_cooldown_seconds)
         self.lock = Lock()
         self.process = None
         self.reader = None
@@ -62,7 +78,18 @@ class PersistentEmbeddingProcess:
     def last_metrics(self):return getattr(self._metrics,'value',{})
 
     def _can_restart(self):
-        return not self.closed and self.max_restarts > 0 and self.consecutive_failures <= self.max_restarts
+        if self.closed or self.max_restarts <= 0:
+            return False
+        if self.consecutive_failures <= self.max_restarts:
+            return True
+        if (
+            self.restart_cooldown_seconds is not None
+            and self.restart_cooldown_seconds > 0
+            and self._last_failure_at is not None
+            and monotonic() - self._last_failure_at >= self.restart_cooldown_seconds
+        ):
+            return True
+        return False
 
     def _wait_restart_backoff(self, deadline):
         if self._last_failure_at is None or self.restart_backoff_seconds <= 0:
@@ -114,6 +141,9 @@ class PersistentEmbeddingProcess:
         if not written.get(timeout=max(0,deadline-monotonic())):raise ValueError('worker_pipe_failed')
         self.writer.join()
         result = self.responses.get(timeout=max(0,deadline-monotonic()))
+        if (isinstance(result, dict) and result.get('request_id') == request_id
+                and result.get('recoverable') is True and 'error' in result):
+            raise _RecoverableWorkerError(str(result.get('error') or 'query_input_rejected'))
         if (not isinstance(result,dict) or result.get('request_id')!=request_id
                 or result.get('space_id')!=self.space.space_id or 'error' in result):
             raise ValueError('invalid_worker_response')
@@ -132,13 +162,16 @@ class PersistentEmbeddingProcess:
                 if not self._can_restart():
                     already_latched = True
                     raise ValueError('worker_unavailable')
-                self._wait_restart_backoff(deadline)
+                cooldown_probe = self.consecutive_failures > self.max_restarts
+                if not cooldown_probe:
+                    self._wait_restart_backoff(deadline)
                 self.failed = False
                 self.restart_count += 1
                 logger.warning(
-                    "语义检索编码子进程自动重建 attempt=%d/%d",
+                    "语义检索编码子进程自动重建 attempt=%d/%d cooldown_probe=%s",
                     self.consecutive_failures,
                     self.max_restarts,
+                    cooldown_probe,
                 )
             cold = self.process is None
             if cold:
@@ -173,6 +206,9 @@ class PersistentEmbeddingProcess:
                 return vectors
             if result.get('status')!='healthy':raise ValueError('unhealthy')
             return True
+        except _RecoverableWorkerError:
+            # 单次输入超长或非法不破坏常驻模型进程，直接返回安全错误码。
+            raise EmbeddingStoreError('local_embedding_query_rejected') from None
         except Exception:
             if not already_latched:
                 self.consecutive_failures += 1

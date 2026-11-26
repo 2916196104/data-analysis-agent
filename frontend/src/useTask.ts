@@ -84,7 +84,13 @@ export function useTask(id: string | null, options?: { includeAudit?: boolean })
         if (controller.signal.aborted) return;
         closeStream();
         dispatch({ type: 'error', id: id!, error: errorMessage(error) });
-        timer = setTimeout(() => void poll(true), 5000);
+        const status = typeof (error as { status?: unknown })?.status === 'number'
+          ? (error as { status: number }).status
+          : 0;
+        const permanentClientError = status >= 400 && status < 500 && status !== 408 && status !== 429;
+        if (!permanentClientError) {
+          timer = setTimeout(() => void poll(true), 5000);
+        }
       }
     }
 

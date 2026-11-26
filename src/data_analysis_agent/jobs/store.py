@@ -147,10 +147,10 @@ _AUDIT_TABLE_CACHE: dict[str, float] = {}
 _AUDIT_TABLE_CACHE_TTL_SECONDS = 60.0
 
 
-def _has_audit_table(connection):
+def _has_audit_table(connection, *, use_cache=True):
     if isinstance(connection, PostgresConnection):
         identity = getattr(connection, "identity", None)
-        if identity:
+        if use_cache and identity:
             with _AUDIT_TABLE_CACHE_LOCK:
                 verified_at = _AUDIT_TABLE_CACHE.get(identity)
             if verified_at is not None and monotonic() - verified_at < _AUDIT_TABLE_CACHE_TTL_SECONDS:
@@ -159,9 +159,12 @@ def _has_audit_table(connection):
             "SELECT 1 FROM information_schema.tables WHERE table_schema=current_schema() AND table_name='task_audit_blobs'"
         ).fetchone()
         exists = row is not None
-        if exists and identity:
+        if identity:
             with _AUDIT_TABLE_CACHE_LOCK:
-                _AUDIT_TABLE_CACHE[identity] = monotonic()
+                if exists:
+                    _AUDIT_TABLE_CACHE[identity] = monotonic()
+                else:
+                    _AUDIT_TABLE_CACHE.pop(identity, None)
         return exists
     row = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='task_audit_blobs'"
@@ -276,12 +279,51 @@ def delete_task(path, task_id):
         ).fetchone()
         if active:
             raise TaskConflict("运行中的任务不能删除，请等待任务结束后重试。")
-        has_audit = _has_audit_table(connection)
+        has_audit = _has_audit_table(connection, use_cache=False)
         for item in reversed(ids):
             if has_audit:
                 connection.execute("DELETE FROM task_audit_blobs WHERE task_id=?", (item,))
             connection.execute("DELETE FROM tasks WHERE task_id=?", (item,))
         return {"deleted_task_ids": ids, "deleted_tasks": len(ids)}
+
+
+def cancel_task(path, task_id):
+    """手动取消排队或运行中的任务；复用 failed 终态 + task_cancelled 错误码以保持库表兼容并支持重试。"""
+    error = {"code": "task_cancelled", "message": "任务已手动取消。"}
+    with closing(connect_task_database(path)) as connection, connection:
+        connection.execute("BEGIN IMMEDIATE")
+        row = _read(connection, task_id)
+        if row["status"] in ("succeeded", "partial", "failed"):
+            existing_error = json.loads(row["error_json"]) if row["error_json"] else None
+            if (
+                row["status"] == "failed"
+                and isinstance(existing_error, dict)
+                and existing_error.get("code") == "task_cancelled"
+            ):
+                return {"task": _task(row, include_result=False), "cancelled": True, "already_terminal": True}
+            raise TaskConflict("已结束的任务不能取消。")
+        now = utc_now()
+        changed = connection.execute(
+            "UPDATE tasks SET status='failed',finished_at=?,updated_at=?,error_json=? "
+            "WHERE task_id=? AND status IN ('queued','running')",
+            (now, now, canonical_json(error), task_id),
+        ).rowcount
+        if not changed:
+            raise TaskConflict("任务状态已变化，无法取消。")
+        cancelled = _task(_read(connection, task_id), include_result=False)
+    notify_task_update(task_id)
+    notify_queue_update()
+    return {"task": cancelled, "cancelled": True, "already_terminal": False}
+
+
+def is_task_cancelled(path, task_id) -> bool:
+    """检查任务是否已被手动取消。"""
+    try:
+        summary = get_task_summary(path, task_id)
+    except TaskNotFound:
+        return False
+    err = summary.get("error")
+    return summary["status"] == "failed" and isinstance(err, dict) and err.get("code") == "task_cancelled"
 
 
 def mark_import_data_deleted(path, task_id, deletion):

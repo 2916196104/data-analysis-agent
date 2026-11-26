@@ -143,4 +143,14 @@ describe('任务轮询生命周期', () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it('遇到 404 等永久客户端错误时停止无限轮询重试', async () => {
+    vi.mocked(api.task).mockRejectedValueOnce(Object.assign(new Error('任务不存在。'), { status: 404 }));
+    const { result, unmount } = renderHook(() => useTask('missing-task'));
+    await act(async () => {});
+    expect(result.current.error).toBe('任务不存在。');
+    await act(() => vi.advanceTimersByTimeAsync(20_000));
+    expect(api.task).toHaveBeenCalledTimes(1);
+    unmount();
+  });
 });

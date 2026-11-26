@@ -60,6 +60,10 @@ export const taskApi = {
     `/tasks/${encodeURIComponent(id)}/retry`,
     { method: 'POST', headers: { 'Idempotency-Key': key } },
   ),
+  cancelTask: (id: string) => request<{ task: TaskSummary; cancelled: boolean; already_terminal: boolean }>(
+    `/tasks/${encodeURIComponent(id)}/cancel`,
+    { method: 'POST' },
+  ),
   deleteTask: (id: string) => request<{ deleted_task_ids: string[]; deleted_tasks: number }>(
     `/tasks/${encodeURIComponent(id)}`, { method: 'DELETE' },
   ),

@@ -38,14 +38,14 @@ function BasicMessage({ turn, chat }: { turn: BasicChatTurn; chat: AgentChat }) 
   return <MessageFrame turn={turn}>
     {turn.status === 'pending' && <div className="chat-status" role="status">
       <Spin size="small" /> <span>正在等待回答…</span>
-      {typeof chat.stopBasicStream === 'function' && <Button size="small" type="link" onClick={chat.stopBasicStream}>停止生成</Button>}
+      {typeof chat.stopBasicStream === 'function' && <Button size="small" type="link" onClick={() => chat.stopBasicStream()}>停止生成</Button>}
     </div>}
     {turn.status === 'streaming' && <>
       {turn.answer && <Markdown text={turn.answer} />}
       <div className="chat-stream-bar" role="status">
         <span className="chat-stream-dot" aria-hidden="true" />
         <span>正在流式生成…</span>
-        {typeof chat.stopBasicStream === 'function' && <Button size="small" type="link" onClick={chat.stopBasicStream}>停止生成</Button>}
+        {typeof chat.stopBasicStream === 'function' && <Button size="small" type="link" onClick={() => chat.stopBasicStream()}>停止生成</Button>}
       </div>
     </>}
     {turn.status === 'succeeded' && turn.answer && <Markdown text={turn.answer} />}
@@ -77,6 +77,8 @@ function AnalysisMessage({ turn, chat, onPrepare, onSuggestQuestion }: {
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
   const auditInFlight = useRef<Promise<AgentResult | undefined> | null>(null);
   const auditDigest = result?._audit_ref?.audit_sha256 || '';
   const effectiveResult = (result && hydrated && hydrated.taskId === turn.taskId && hydrated.digest === auditDigest)
@@ -195,10 +197,24 @@ function AnalysisMessage({ turn, chat, onPrepare, onSuggestQuestion }: {
               <Spin size="small" />
               <span>{headline}</span>
               {detailText && <span className="chat-progress-meta">{detailText}</span>}
+              {typeof api.cancelTask === 'function' && <Button size="small" type="link" loading={cancelling} disabled={cancelling}
+                onClick={async () => {
+                  setCancelling(true);
+                  setCancelError('');
+                  try {
+                    await api.cancelTask(task.task_id);
+                    state.refresh();
+                  } catch (error) {
+                    setCancelError(errorMessage(error));
+                  } finally {
+                    setCancelling(false);
+                  }
+                }}>取消任务</Button>}
             </div>
             {pct !== undefined && <div className="chat-progress-track" aria-label={`任务进度 ${pct}%`}>
               <div className="chat-progress-fill" style={{ width: `${pct}%` }} />
             </div>}
+            {cancelError && <p className="muted" role="alert">取消失败：{cancelError}</p>}
           </div>;
         })()}
         {task?.error && task.status !== 'partial' && !p6Result && <Alert type="error" showIcon message={topicFailures.length ? '主题分析未完成' : task.error.message === 'embedding_failed' ? '本地语义检索暂不可用，请检查模型运行配置后重试。' : task.error.message}
@@ -244,7 +260,7 @@ function AnalysisMessage({ turn, chat, onPrepare, onSuggestQuestion }: {
                   ? <Alert type="warning" showIcon message={auditError}
                     action={<Button size="small" onClick={() => void ensureFullResult()}>重试加载</Button>} />
                   : <div className="chat-status" role="status"><Spin size="small" /> 准备加载审计证据…</div>)
-              : <AgentResults result={effectiveResult} idPrefix={`agent-${turn.id}`} onDetail={(value, title) => setDetail({ value, title })}
+              : <AgentResults result={effectiveResult} idPrefix={`agent-${turn.id}`} taskId={turn.taskId} onDetail={(value, title) => setDetail({ value, title })}
                 onPrepare={products => onPrepare(effectiveResult, products)}
                 onEvidenceNext={active && !chat.pending ? () => void chat.send(turn.parameters, '继续查原文') : undefined} />}
           </details>

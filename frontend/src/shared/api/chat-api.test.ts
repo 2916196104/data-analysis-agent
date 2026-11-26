@@ -165,6 +165,19 @@ describe('基础聊天 API', () => {
     expect(await api.chatStream('旧后端')).toEqual({ answer: '兼容降级回答' });
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(fetcher.mock.calls[1][0]).toBe(`${API_BASE}/chat`);
+
+    // 404 降级到 /chat 时透传取消信号，点击停止生成仍可中止降级请求。
+    const controller = new AbortController();
+    const fallbackFetch = vi.fn()
+      .mockResolvedValueOnce(new Response('Not Found', { status: 404 }))
+      .mockImplementationOnce((_url, init: RequestInit) => waitForAbort(init.signal!));
+    vi.stubGlobal('fetch', fallbackFetch);
+    const reason = new DOMException('已停止生成', 'AbortError');
+    const pending = api.chatStream('可取消降级', [], { signal: controller.signal });
+    await Promise.resolve();
+    await Promise.resolve();
+    controller.abort(reason);
+    await expect(pending).rejects.toBe(reason);
   });
 });
 

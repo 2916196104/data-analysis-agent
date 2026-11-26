@@ -229,7 +229,7 @@ export type AgentToolResult = { result_id: string; parameters: Record<string, un
   | { kind: 'trend'; data: { sentiment?: 'positive' | 'negative'; period: string; summary: Summary; buckets: (Summary & { bucket: string })[] } }
   | { kind: 'comparison'; data: ComparisonMetadata & { products: (ComparisonSummary & { product_id: string })[]; no_reviews_product_ids?: string[] } }
   | { kind: 'issues'; data: { issues: Issue[]; current?: Summary; baseline?: Summary } }
-  | { kind: 'evidence'; data: { total: number; page: number; items: AgentEvidence[] } }
+  | { kind: 'evidence'; data: { total: number; page: number; page_size?: number; pages?: number; items: AgentEvidence[] } }
   | { kind: 'aspect_drilldown'; data: AspectDrilldown }
   | { kind: 'topic_statistics'; data: { scope: AnalysisScope; summary: Summary; aspect: string | null; sentiment: string;
       version: string; rule_sha256: string; items: AgentEvidence[];

@@ -457,11 +457,14 @@ export default function App() {
   const sendChat = async () => {
     const question = (chatMode === 'basic' ? basicInput : draft.agentQuestion)?.trim();
     if (!question || chat.pending || (chatMode === 'analysis' && !chatParameters)) return;
-    if (route.page === 'assistant' && route.taskId) navigate({ page: 'assistant' });
+    const hadRouteTask = route.page === 'assistant' && Boolean(route.taskId);
+    if (chatMode === 'basic' && hadRouteTask) navigate({ page: 'assistant' });
     const sent = chatMode === 'basic'
       ? await chat.sendBasic(question)
       : await chat.send(chatParameters!, question);
-    if (!sent || activeChatId.current !== chat.activeSessionId) return;
+    if (!sent) return;
+    if (chatMode === 'analysis' && hadRouteTask) navigate({ page: 'assistant' });
+    if (activeChatId.current !== chat.activeSessionId) return;
     if (chatMode === 'basic') {
       setBasicInput(previous => (previous.trim() === question ? '' : previous));
     } else {

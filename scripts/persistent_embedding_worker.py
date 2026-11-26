@@ -10,29 +10,58 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 MAX_QUERY_BATCH = 8
 
 
+class _RecoverableRequestError(ValueError):
+    """单次查询输入非法或超长等可恢复错误，返回安全错误码但不杀死常驻模型进程。"""
+
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
 def serve(stream, output, load):
-    model=None
+    model = None
     for line in stream:
-        request={}
+        request = {}
         try:
-            request=json.loads(line)
-            op=request['operation']
-            if op=='initialize' and model is None:
-                started=perf_counter();model=load(request['cache_dir'])
-                response=dict(status='ready',model_load_ms=(perf_counter()-started)*1000)
-            elif op=='health' and model is not None:response=dict(status='healthy')
-            elif op=='encode' and model is not None:
-                texts=request['texts']
-                if (not isinstance(texts,list) or not 1<=len(texts)<=MAX_QUERY_BATCH
-                        or any(not isinstance(text,str) or not text.strip() or len(text)>4000 for text in texts)):
-                    raise ValueError('invalid_query')
-                started=perf_counter();vectors=model.embed_texts(texts)
-                response=dict(vectors=vectors,metrics=dict(encode_ms=(perf_counter()-started)*1000,batch_size=len(texts)))
-            else:raise ValueError('invalid_operation')
-            response.update(request_id=request['request_id'],space_id=model.space.space_id)
-            output.write(json.dumps(response,ensure_ascii=False,allow_nan=False)+'\n');output.flush()
+            request = json.loads(line)
+            op = request['operation']
+            if op == 'initialize' and model is None:
+                started = perf_counter()
+                model = load(request['cache_dir'])
+                response = dict(status='ready', model_load_ms=(perf_counter() - started) * 1000)
+            elif op == 'health' and model is not None:
+                response = dict(status='healthy')
+            elif op == 'encode' and model is not None:
+                texts = request['texts']
+                if (not isinstance(texts, list) or not 1 <= len(texts) <= MAX_QUERY_BATCH
+                        or any(not isinstance(text, str) or not text.strip() or len(text) > 4000 for text in texts)):
+                    raise _RecoverableRequestError('invalid_query')
+                started = perf_counter()
+                try:
+                    vectors = model.embed_texts(texts)
+                except ValueError:
+                    raise _RecoverableRequestError('query_input_rejected') from None
+                response = dict(
+                    vectors=vectors,
+                    metrics=dict(encode_ms=(perf_counter() - started) * 1000, batch_size=len(texts)),
+                )
+            elif model is not None:
+                raise _RecoverableRequestError('invalid_operation')
+            else:
+                raise ValueError('invalid_operation')
+            response.update(request_id=request['request_id'], space_id=model.space.space_id)
+            output.write(json.dumps(response, ensure_ascii=False, allow_nan=False) + '\n')
+            output.flush()
+        except _RecoverableRequestError as exc:
+            output.write(json.dumps(dict(
+                request_id=request.get('request_id'),
+                error=exc.code,
+                recoverable=True,
+            )) + '\n')
+            output.flush()
+            continue
         except Exception:
-            output.write(json.dumps(dict(request_id=request.get('request_id'),error='local_embedding_worker_failed'))+'\n')
+            output.write(json.dumps(dict(request_id=request.get('request_id'), error='local_embedding_worker_failed')) + '\n')
             output.flush()
             return 1
     return 0

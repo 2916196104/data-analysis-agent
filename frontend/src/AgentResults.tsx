@@ -69,11 +69,12 @@ function ProductComparison({ item, titles, onPrepare }: {
   </>;
 }
 
-export default function AgentResults({ result, onDetail, onPrepare, onEvidenceNext, idPrefix = 'agent' }: {
+export default function AgentResults({ result, onDetail, onPrepare, onEvidenceNext, idPrefix = 'agent', taskId }: {
   result: AgentResult; onDetail: (value: unknown, title: string) => void;
   onPrepare?: (productIds: string[]) => void;
   onEvidenceNext?: () => void;
   idPrefix?: string;
+  taskId?: string;
 }) {
   const selected = (result.result_ids || []).map(id => result.results[id]).filter(Boolean);
   if (result.p6_publication) return <P6Results result={result} />;
@@ -123,7 +124,14 @@ export default function AgentResults({ result, onDetail, onPrepare, onEvidenceNe
             {Array.from(new Set(row.opinions.map(opinion => opinion.quote))).map((quote, index) => <blockquote key={index}>{quote}</blockquote>)}
             <Button type="link" onClick={() => onDetail(row, `原文证据 #${row.review_id}`)}>查看原文 #{row.review_id}</Button>
           </article>)}</div> : <Alert type="info" message="当前条件没有匹配证据，可检查标注覆盖率、维度、情感和时间范围。" />}
-          {onEvidenceNext && item.data.items.length > 0 && item.data.total > item.data.page * item.data.items.length &&
+          {onEvidenceNext && item.data.items.length > 0 && (
+            typeof item.data.pages === 'number'
+              ? item.data.page < item.data.pages
+              : (() => {
+                const pageSize = item.data.page_size ?? item.data.items.length;
+                return item.data.items.length >= pageSize && (item.data.page - 1) * pageSize + item.data.items.length < item.data.total;
+              })()
+          ) &&
             <Button className="spaced" onClick={onEvidenceNext}>继续查看下一页</Button>}
         </> : item.kind === 'issues' ? <>
           <p className="muted">成功标注分母：当前 {item.data.current?.successful_reviews ?? '未知'} 条{item.data.baseline ? `，基线 ${item.data.baseline.successful_reviews} 条；任一窗口无成功标注时不计算占比变化。` : '；本轮未进行基线对比。'}</p>
@@ -155,7 +163,7 @@ export default function AgentResults({ result, onDetail, onPrepare, onEvidenceNe
           {result.warnings?.map(warning => <p key={warning} className="muted">{warning}</p>)}
         </details>
         <Button className="spaced" aria-label="下载 Agent JSON" icon={<DownloadOutlined />} onClick={() => exportResult(result, 'review-agent')}>下载 Agent JSON</Button>
-        <Button className="spaced" icon={<DownloadOutlined />} onClick={() => exportAgentReport(result)}>导出 Markdown 报告</Button>
+        <Button className="spaced" icon={<DownloadOutlined />} onClick={() => exportAgentReport(result, taskId)}>导出 Markdown 报告</Button>
       </Card>
       <p className="result-footnote">标注版本：{result.scope.model} / {result.scope.prompt_version} · 范围：{result.scope.date_from} — {result.scope.date_to}（UTC） · 查询时刻 {result.snapshot_at} · 准备新数据后需重新分析。</p>
     </details>
