@@ -24,7 +24,13 @@ export default function PublicAnswerView({
   const primaryCaveats = caveats.slice(0, VISIBLE_CAVEATS);
   const extraCaveats = caveats.slice(VISIBLE_CAVEATS);
   const unsupported = answer.status === 'unsupported';
-  const guidance = unsupported ? classifyUnsupportedAnswer(answer.summary, question) : undefined;
+  const guidance = unsupported
+    ? classifyUnsupportedAnswer(answer.summary, question, {
+        unsupportedCode: answer.unsupported_code,
+        suggestedQuestions: answer.suggested_questions,
+        clarificationChoices: answer.clarification_choices,
+      })
+    : undefined;
 
   async function copyAnswer() {
     const text = publicAnswerText(answer);
@@ -54,10 +60,13 @@ export default function PublicAnswerView({
     <p className="public-answer-summary">{answer.status === 'partial' ? `部分完成：${answer.summary}` : answer.summary}</p>
     {guidance && <div className="public-answer-guidance">
       <p className="muted">{guidance.hint}</p>
-      {onSuggestQuestion && !!guidance.suggestions.length && <div className="public-answer-rewrites" aria-label="推荐改写问法">
-        <span className="public-answer-rewrites-label">试试这样问：</span>
-        {guidance.suggestions.map(suggestion => <Button key={suggestion} size="small"
-          onClick={() => onSuggestQuestion(suggestion)}>{suggestion}</Button>)}
+      {onSuggestQuestion && !!(guidance.choices?.length || guidance.suggestions.length) && <div className="public-answer-rewrites" aria-label="推荐改写问法">
+        <span className="public-answer-rewrites-label">{guidance.choices?.length ? '选择查询目标：' : '试试这样问：'}</span>
+        {guidance.choices?.length
+          ? guidance.choices.map(choice => <Button key={`${choice.label}:${choice.question}`} size="small"
+              onClick={() => onSuggestQuestion(choice.question)}>{choice.label}</Button>)
+          : guidance.suggestions.map(suggestion => <Button key={suggestion} size="small"
+              onClick={() => onSuggestQuestion(suggestion)}>{suggestion}</Button>)}
       </div>}
     </div>}
     {answer.status === 'ok' && <>

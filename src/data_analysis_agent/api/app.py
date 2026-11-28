@@ -20,6 +20,7 @@ from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.core.llm_gateway import close_llm_clients
 from data_analysis_agent.reviews.monitor_store import check_monitoring_schema
 from data_analysis_agent.reviews.store import connect_review_database
+from data_analysis_agent.jobs.events import ensure_pg_task_listener, stop_pg_task_listeners
 from data_analysis_agent.jobs.label_metrics import queue_metrics
 from data_analysis_agent.jobs.store import TaskConflict, TaskNotFound, check_task_database, queue_health
 from data_analysis_agent.jobs.worker import TaskWorker
@@ -47,6 +48,8 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
         check_task_database(task_db, db)
         if not import_root.is_dir():
             raise ReviewDataError("import-root 目录不存在。")
+        if is_postgres(task_db):
+            ensure_pg_task_listener(task_db)
         if worker:
             worker.start()
         try:
@@ -56,6 +59,7 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
                 if worker:
                     worker.stop()
             finally:
+                stop_pg_task_listeners(task_db)
                 close_llm_clients()
                 if is_postgres(db):
                     close_database_pools(db)
@@ -66,7 +70,7 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
                   description="复用现有评论业务函数。长任务持久化到 SQLite / PostgreSQL，由串行 worker 执行。")
     if origins:
         app.add_middleware(CORSMiddleware, allow_origins=sorted(origins), allow_methods=["GET", "POST", "DELETE"],
-                           allow_headers=["Content-Type", "Idempotency-Key"], expose_headers=["Location"])
+                           allow_headers=["Content-Type", "Idempotency-Key", "Last-Event-ID"], expose_headers=["Location"])
 
     @app.middleware("http")
     async def local_request(request: Request, call_next):

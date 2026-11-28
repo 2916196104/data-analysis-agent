@@ -15,7 +15,7 @@ from data_analysis_agent.core.database import (PostgresConnection, check_postgre
 from data_analysis_agent.core.errors import ReviewDataError
 from data_analysis_agent.core.serialization import canonical_json, content_sha256
 from data_analysis_agent.core.validation import validate_integer
-from data_analysis_agent.jobs.events import notify_queue_update, notify_task_update
+from data_analysis_agent.jobs.events import PG_TASK_EVENT_CHANNEL, notify_queue_update, notify_task_update
 from data_analysis_agent.jobs.parameters import TaskKind, TaskStatus
 from data_analysis_agent.jobs.result_storage import (
     AUDIT_SPLIT_THRESHOLD_BYTES,
@@ -287,6 +287,12 @@ def delete_task(path, task_id):
         return {"deleted_task_ids": ids, "deleted_tasks": len(ids)}
 
 
+def _pg_notify_task(connection, task_id):
+    """在 PostgreSQL 事务内发送事务型 NOTIFY，提交后立即唤醒跨进程 API 的 SSE 监听。"""
+    if isinstance(connection, PostgresConnection) and task_id:
+        connection.execute("SELECT pg_notify(?, ?)", (PG_TASK_EVENT_CHANNEL, str(task_id)))
+
+
 def cancel_task(path, task_id):
     """手动取消排队或运行中的任务；复用 failed 终态 + task_cancelled 错误码以保持库表兼容并支持重试。"""
     error = {"code": "task_cancelled", "message": "任务已手动取消。"}
@@ -311,6 +317,7 @@ def cancel_task(path, task_id):
         if not changed:
             raise TaskConflict("任务状态已变化，无法取消。")
         cancelled = _task(_read(connection, task_id), include_result=False)
+        _pg_notify_task(connection, task_id)
     notify_task_update(task_id)
     notify_queue_update()
     return {"task": cancelled, "cancelled": True, "already_terminal": False}
@@ -447,6 +454,7 @@ def claim_task(path, worker_id, *, kinds=None, exclude_kinds=None):
         connection.execute("UPDATE tasks SET status='running',worker_id=?,started_at=?,updated_at=? WHERE task_id=?",
                            (worker_id, now, now, row["task_id"]))
         claimed = _task(_read(connection, row["task_id"]), connection=connection)
+        _pg_notify_task(connection, claimed["task_id"])
     notify_task_update(claimed["task_id"])
     return claimed
 
@@ -458,6 +466,7 @@ def update_progress(path, task_id, worker_id, progress):
                                      (canonical_json(progress), utc_now(), task_id, worker_id)).rowcount
         if not changed:
             raise TaskConflict("任务执行权已失效。")
+        _pg_notify_task(connection, task_id)
     notify_task_update(task_id)
 
 
@@ -497,6 +506,7 @@ def finish_task(path, task_id, worker_id, *, status, result=None, error=None,
                 "audit_json=excluded.audit_json, created_at=excluded.created_at",
                 (task_id, audit_payload['version'], audit_sha256, canonical_json(audit_payload), now),
             )
+        _pg_notify_task(connection, task_id)
     notify_task_update(task_id)
 
 

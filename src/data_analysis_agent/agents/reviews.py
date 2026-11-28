@@ -393,6 +393,7 @@ def _prepare_semantic_retrieval(
     semantic_service_factory,
     result,
     timings,
+    report=None,
 ):
     from data_analysis_agent.agents.review_retrieval import (
         create_semantic_service,
@@ -405,6 +406,8 @@ def _prepare_semantic_retrieval(
         _scope,
     )
 
+    if report is not None:
+        report({"stage": "semantic_retrieving", "completed": 0, "total": 1, "unit": "queries"})
     bound = context.query_scope()
     # Scope planning is finished; release its snapshot before loading/encoding.
     connection.rollback()
@@ -437,6 +440,8 @@ def _prepare_semantic_retrieval(
     }
     if not set(bound["product_ids"]) <= current_ids:
         raise ReviewDataError("product_scope_changed")
+    if report is not None:
+        report({"stage": "semantic_retrieving", "completed": 1, "total": 1, "unit": "queries"})
 
 
 def _execute_planned_tools(
@@ -601,10 +606,16 @@ def _run_post_query_stages(
             reason = result["evidence_completion"]["clarification"]
             result.update(
                 status="unsupported",
+                unsupported_code="clarification_needed",
                 answer=reason,
                 result_ids=[],
                 public_analysis=empty_public("unsupported").model_dump(),
-                public_answer=unavailable_answer("unsupported", reason),
+                public_answer=unavailable_answer(
+                    "unsupported",
+                    reason,
+                    question=result.get("question"),
+                    unsupported_code="clarification_needed",
+                ),
             )
 
     if result["status"] == "ok" and any(
@@ -636,10 +647,16 @@ def _run_post_query_stages(
         if acceptance["status"] == "insufficient_evidence":
             result.update(
                 status="unsupported",
+                unsupported_code="insufficient_evidence",
                 answer=acceptance["message"],
                 result_ids=[],
                 public_analysis=empty_public("unsupported").model_dump(),
-                public_answer=unavailable_answer("unsupported", acceptance["message"]),
+                public_answer=unavailable_answer(
+                    "unsupported",
+                    acceptance["message"],
+                    question=result.get("question"),
+                    unsupported_code="insufficient_evidence",
+                ),
             )
 
     if result["status"] == "ok":
@@ -801,8 +818,16 @@ def _finalize_review_result(
     fallback_status = "unsupported" if result["status"] == "unsupported" else "failed"
     result.setdefault(
         "public_answer",
-        unavailable_answer(fallback_status, reason=result.get("answer"), question=question),
+        unavailable_answer(
+            fallback_status,
+            reason=result.get("answer"),
+            question=question,
+            unsupported_code=result.get("unsupported_code"),
+        ),
     )
+    if result["status"] == "unsupported" and isinstance(result.get("public_answer"), dict):
+        if result["public_answer"].get("unsupported_code"):
+            result.setdefault("unsupported_code", result["public_answer"]["unsupported_code"])
     return json.loads(safe_json(result, settings.api_key))
 
 
@@ -896,6 +921,7 @@ def run_review_agent(
                 settings,
             )
 
+            report({"stage": "intent_resolving", "completed": 0, "total": 1, "unit": "steps"})
             scope, plan, semantic_direct = resolve_review_request(
                 question,
                 scope,
@@ -969,6 +995,7 @@ def run_review_agent(
                     semantic_service_factory,
                     result,
                     timings,
+                    report=report,
                 )
 
             registry = create_review_registry(context)
@@ -996,6 +1023,7 @@ def run_review_agent(
                     raise TopicAnalysisError(item["data"])
 
             if status == "ok":
+                report({"stage": "validating", "completed": 0, "total": 1, "unit": "checks"})
                 validation_started = perf_counter()
                 result["validation"] = validate_report(
                     context.results,
@@ -1008,6 +1036,7 @@ def run_review_agent(
                 timings["validation_duration_ms"] = round((perf_counter() - validation_started) * 1000, 3)
                 if result["validation"]["status"] != "passed":
                     raise AgentExecutionError("统计或引用校验未通过，请检查执行记录。")
+                report({"stage": "validating", "completed": 1, "total": 1, "unit": "checks"})
                 result["answer_sections"] = [
                     {
                         "result_id": item["result_id"],
@@ -1047,8 +1076,12 @@ def run_review_agent(
             verified_topics,
         )
     except QuestionScopeError as exc:
+        from data_analysis_agent.agents.review_task_contract import task_limit
+
+        limit = task_limit(question) if isinstance(question, str) else None
+        scope_code = limit[0] if limit and limit[0] == "missing_product" else "missing_scope"
         result["user_intent"].update(needs_clarification=True, clarification_question=str(exc))
-        result.update(status="unsupported", answer=str(exc), result_ids=[])
+        result.update(status="unsupported", unsupported_code=scope_code, answer=str(exc), result_ids=[])
     except UnsupportedReviewQuery as exc:
         result.update(status="unsupported", answer=str(exc), result_ids=[])
         _handle_deferred_p6_execution(exc, result, settings)

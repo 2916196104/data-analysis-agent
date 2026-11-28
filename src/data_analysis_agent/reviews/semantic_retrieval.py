@@ -28,7 +28,7 @@ from data_analysis_agent.reviews.rag_corpus import (
     TEXT_BUILDER_VERSION, RagCorpus, RagOpinionDocument, RagReviewState,
     _document, _review_state, read_effective_corpus,
 )
-from data_analysis_agent.reviews.scope import analysis_scope
+from data_analysis_agent.reviews.scope import analysis_scope, current_reviews_sql
 from data_analysis_agent.reviews.store import connect_review_database
 
 
@@ -406,7 +406,7 @@ class SemanticRetrievalService:
         query_variants = tuple(query_variants)
         hybrid_mode = bool(hybrid_bm25) or reranker is not None
         _require(not (query_variants and keyword_fallback), 'conflicting_retrieval_modes')
-        _require(not (hybrid_mode and (query_variants or keyword_fallback)), 'conflicting_retrieval_modes')
+        _require(not (hybrid_mode and keyword_fallback), 'conflicting_retrieval_modes')
         if hybrid_mode:
             _require(type(rrf_k) is int and 1 <= rrf_k <= 200, 'invalid_retrieval_request')
         if self._prepared is None:self.prepare(query, query_variants=query_variants)
@@ -423,31 +423,66 @@ class SemanticRetrievalService:
                     from data_analysis_agent.reviews.hybrid_retrieval import (
                         BM25Index,
                         RerankItem,
+                        fuse_vector_channels,
                         reciprocal_rank_fusion,
                     )
 
                     recall_k = min(100, max(query.top_k * 3, 15))
-                    vector_hits = tuple(
-                        snapshot.search(vectors[0], top_k=recall_k, aspect=query.aspect, sentiment=query.sentiment)
-                    )
-                    _require(
-                        len(vector_hits) <= recall_k and all(isinstance(hit, OpinionMatch) for hit in vector_hits),
-                        'invalid_candidate_list',
-                    )
-                    _require(
-                        all(type(hit.cosine_distance) in (int, float) and math.isfinite(hit.cosine_distance)
-                            for hit in vector_hits),
-                        'invalid_candidate_distance',
-                    )
+                    if len(vectors) == 1:
+                        vector_hits = tuple(
+                            snapshot.search(vectors[0], top_k=recall_k, aspect=query.aspect, sentiment=query.sentiment)
+                        )
+                        _require(
+                            len(vector_hits) <= recall_k and all(isinstance(hit, OpinionMatch) for hit in vector_hits),
+                            'invalid_candidate_list',
+                        )
+                        _require(
+                            all(type(hit.cosine_distance) in (int, float) and math.isfinite(hit.cosine_distance)
+                                for hit in vector_hits),
+                            'invalid_candidate_distance',
+                        )
+                    else:
+                        per_channel_k = min(100, max(query.top_k * 2, math.ceil(recall_k / len(vectors)) + 4))
+                        vector_channels = []
+                        for vector in vectors:
+                            hits = tuple(
+                                snapshot.search(vector, top_k=per_channel_k, aspect=query.aspect, sentiment=query.sentiment)
+                            )
+                            _require(
+                                len(hits) <= per_channel_k and all(isinstance(hit, OpinionMatch) for hit in hits),
+                                'invalid_candidate_list',
+                            )
+                            _require(
+                                all(type(hit.cosine_distance) in (int, float) and math.isfinite(hit.cosine_distance)
+                                    for hit in hits),
+                                'invalid_candidate_distance',
+                            )
+                            vector_channels.append(hits)
+                        vector_hits = fuse_vector_channels(vector_channels, k=rrf_k, top_k=recall_k)
                     bm25_hits = ()
                     if hybrid_bm25:
                         bm25_started = perf_counter()
-                        scoped_docs = tuple(
-                            doc for doc in snapshot.corpus().documents
-                            if (query.aspect is None or doc.aspect == query.aspect)
-                            and (query.sentiment is None or doc.sentiment == query.sentiment)
+                        if hasattr(snapshot, 'lexical_documents'):
+                            scoped_docs = tuple(
+                                snapshot.lexical_documents(
+                                    query.question,
+                                    query_variants=query_variants,
+                                    aspect=query.aspect,
+                                    sentiment=query.sentiment,
+                                    limit=min(400, max(recall_k * 6, 120)),
+                                )
+                            )
+                        else:
+                            scoped_docs = tuple(
+                                doc for doc in snapshot.corpus().documents
+                                if (query.aspect is None or doc.aspect == query.aspect)
+                                and (query.sentiment is None or doc.sentiment == query.sentiment)
+                            )
+                        bm25_hits = BM25Index(scoped_docs).search(
+                            query.question,
+                            query_variants=query_variants,
+                            top_k=recall_k,
                         )
-                        bm25_hits = BM25Index(scoped_docs).search(query.question, top_k=recall_k)
                         self.timings['bm25_search_ms'] = (perf_counter() - bm25_started) * 1000
                     fusion_started = perf_counter()
                     fusion_limit = recall_k if reranker is not None else query.top_k
@@ -532,6 +567,8 @@ class SemanticRetrievalService:
                         'bm25_keys': [hit.document.stable_versioned_opinion_key for hit in bm25_hits],
                         'rerank_policy': rerank_policy,
                     }
+                    if query_variants:
+                        hybrid_summary['query_variants'] = list(query_variants)
                     result = SemanticResult(query, scope, info, evidence, hybrid_retrieval=hybrid_summary)
                     result = replace(result, _source_validation=_SourceValidation(
                         _SOURCE_VALIDATOR, _result_integrity(result)))
@@ -655,6 +692,62 @@ class _PostgresSnapshot:
         loaded_reviews = tuple(self._partial_reviews[rid] for rid in target_ids if rid in self._partial_reviews)
         loaded_docs = tuple(doc for doc in self._partial_documents.values() if doc.review_id in target_set)
         return RagCorpus(scope_dict, profile_key, loaded_docs, loaded_reviews)
+
+    def lexical_documents(self, query_text, *, query_variants=(), aspect=None, sentiment=None, limit=200):
+        """在同一只读快照内先由 PostgreSQL 参数化词法预筛候选 review_id，再定向加载并核验有效观点。"""
+        self._verify_snapshot()
+        if self._corpus is not None:
+            return tuple(
+                doc for doc in self._corpus.documents
+                if (aspect is None or doc.aspect == aspect)
+                and (sentiment is None or doc.sentiment == sentiment)
+            )
+        from data_analysis_agent.reviews.hybrid_retrieval import extract_lexical_terms
+
+        terms = extract_lexical_terms(query_text, extra_queries=query_variants, max_terms=24)
+        if not terms:
+            self.timings['bm25_candidate_reviews'] = 0
+            return ()
+        started = perf_counter()
+        identity, where, filters, _ = analysis_scope(**self.scope.options())
+        cte, cte_params = current_reviews_sql(self.connection, identity, include_opinion_provenance=True)
+        score_parts = [
+            f"(CASE WHEN strpos(lower(o.quote), ?) > 0 THEN {2 if len(term) >= 2 else 1} ELSE 0 END)"
+            for term in terms
+        ]
+        sql = (
+            cte
+            + "SELECT review_id FROM ("
+            + "SELECT c.id AS review_id, c.published_at AS published_at, ("
+            + " + ".join(score_parts)
+            + ") AS lexical_hits "
+            + "FROM current c JOIN effective_opinions o ON o.review_id = c.id "
+            + "WHERE "
+            + where
+            + " AND (?::text IS NULL OR o.aspect = ?) AND (?::text IS NULL OR o.sentiment = ?)"
+            + ") scored WHERE lexical_hits > 0 "
+            + "GROUP BY review_id "
+            + "ORDER BY MAX(lexical_hits) DESC, MAX(published_at) DESC, review_id DESC "
+            + "LIMIT ?"
+        )
+        rows = self.connection.execute(
+            sql,
+            (*cte_params, *terms, *filters, aspect, aspect, sentiment, sentiment, int(limit)),
+        ).fetchall()
+        self.timings['bm25_sql_prefilter_ms'] = (perf_counter() - started) * 1000
+        candidate_ids = tuple(int(row['review_id']) for row in rows)
+        self.timings['bm25_candidate_reviews'] = len(candidate_ids)
+        if not candidate_ids:
+            return ()
+        subset = self.load_corpus_for_reviews(candidate_ids)
+        docs = tuple(
+            doc for doc in subset.documents
+            if (aspect is None or doc.aspect == aspect)
+            and (sentiment is None or doc.sentiment == sentiment)
+        )
+        for doc in docs:
+            self._candidate_review_ids[doc.stable_versioned_opinion_key] = doc.review_id
+        return docs
 
     def search(self, vector, *, top_k, aspect, sentiment):
         self._verify_snapshot()

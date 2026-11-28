@@ -213,6 +213,10 @@ export interface SemanticEvidence {
   key: string; rank: number; review_id: number; product_id: string; annotation_id: number;
   quote: string; quote_start: number; quote_end: number; review_text: string;
   effective_snapshot_sha256: string; file_sha256: string; line_number: number;
+  channel?: 'hybrid' | 'vector' | 'bm25' | 'keyword';
+  bm25_score?: number | null;
+  rrf_score?: number | null;
+  rerank_score?: number | null;
 }
 export interface ComparisonSummary extends Summary {
   comparison_count?: number; comparison_denominator?: number; comparison_rate?: number | null;
@@ -267,6 +271,9 @@ export interface PublicAnswer {
   scope_summary: Record<string, unknown>[];
   details_available: boolean;
   insights?: { kind: 'interpretation' | 'suggestion'; text: string; finding_refs: string[]; evidence_ids: string[] }[];
+  unsupported_code?: string | null;
+  suggested_questions?: string[];
+  clarification_choices?: { label: string; question: string }[];
 }
 export interface AgentResult {
   agent: true;

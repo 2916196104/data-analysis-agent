@@ -14,6 +14,8 @@ export function useTask(id: string | null, options?: { includeAudit?: boolean })
     let timer: ReturnType<typeof setTimeout> | undefined;
     let source: EventSource | undefined;
     let latestTask: Task | undefined;
+    let sseFailures = 0;
+    let pollsUntilSseRetry = 0;
 
     function closeStream() {
       if (source) {
@@ -31,6 +33,8 @@ export function useTask(id: string | null, options?: { includeAudit?: boolean })
       source = stream;
       stream.addEventListener('progress', event => {
         if (controller.signal.aborted || !latestTask) return;
+        sseFailures = 0;
+        pollsUntilSseRetry = 0;
         try {
           const summary = JSON.parse((event as MessageEvent<string>).data) as TaskSummary;
           latestTask = {
@@ -48,11 +52,16 @@ export function useTask(id: string | null, options?: { includeAudit?: boolean })
         }
       });
       stream.addEventListener('done', () => {
+        sseFailures = 0;
+        pollsUntilSseRetry = 0;
         closeStream();
         if (!controller.signal.aborted) void poll(true);
       });
       stream.addEventListener('error', () => {
         closeStream();
+        sseFailures += 1;
+        // 短暂降级为轮询并在指数退避周期（2 -> 4 -> 8 轮）后自动尝试恢复 SSE 推送。
+        pollsUntilSseRetry = Math.min(8, 2 ** Math.min(sseFailures, 3));
         if (!controller.signal.aborted) {
           clearTimeout(timer);
           timer = setTimeout(() => void poll(false), 1500);
@@ -74,8 +83,16 @@ export function useTask(id: string | null, options?: { includeAudit?: boolean })
           if (!controller.signal.aborted) dispatch({ type: 'run', id: id!, run });
         }
         if (isActive(task.status)) {
-          if (!preferStream || !openStream()) {
-            timer = setTimeout(() => void poll(preferStream), 1500);
+          if (preferStream) {
+            if (!openStream()) {
+              timer = setTimeout(() => void poll(true), 1500);
+            }
+          } else {
+            pollsUntilSseRetry = Math.max(0, pollsUntilSseRetry - 1);
+            if (pollsUntilSseRetry === 0 && openStream()) {
+              return;
+            }
+            timer = setTimeout(() => void poll(false), 1500);
           }
         } else {
           closeStream();

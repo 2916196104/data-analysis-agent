@@ -1,5 +1,23 @@
 import type { PublicAnswer, SemanticEvidence } from '../../types';
 
+const CHANNEL_LABELS: Record<NonNullable<SemanticEvidence['channel']>, string> = {
+  hybrid: '向量 + BM25 混合',
+  vector: '向量语义',
+  bm25: 'BM25 词法',
+  keyword: '关键词补充',
+};
+
+function retrievalProvenance(row: SemanticEvidence): string {
+  const parts: string[] = [];
+  if (row.channel && CHANNEL_LABELS[row.channel]) {
+    parts.push(`召回通道：${CHANNEL_LABELS[row.channel]}`);
+  }
+  if (typeof row.rerank_score === 'number' && Number.isFinite(row.rerank_score)) {
+    parts.push(`重排得分：${row.rerank_score.toFixed(2)}`);
+  }
+  return parts.join(' · ');
+}
+
 export default function AnswerEvidence({ answer, evidence }: { answer: PublicAnswer; evidence: SemanticEvidence[] }) {
   // Only the answer's permitted references may open context, never the entire candidate list.
   const quotes = answer.evidence_refs.flatMap(ref => Array.isArray(ref.opinions) ? ref.opinions.flatMap(opinion => {
@@ -18,13 +36,14 @@ export default function AnswerEvidence({ answer, evidence }: { answer: PublicAns
   return <div className="answer-evidence" aria-label="回答原文引用">
     {quotes.map(row => {
       const text = Array.from(row.review_text);
+      const provenance = retrievalProvenance(row);
       return <details key={row.key} className="answer-evidence-item">
         <summary>查看原文 · 评论 #{row.review_id}</summary>
         <p>商品 {row.product_id}</p>
         <blockquote>{row.quote}</blockquote>
         <p className="answer-review-context">{text.slice(0, row.quote_start).join('')}<mark>{text.slice(row.quote_start, row.quote_end).join('')}</mark>{text.slice(row.quote_end).join('')}</p>
         <p className="muted">高亮部分为本次引用；其余评论仅用于理解上下文，不作为新增支持事实。</p>
-        <details><summary>引用信息</summary><p>观点：{row.key}</p><p>原文区间：[{row.quote_start}, {row.quote_end}) · 标注：{row.annotation_id}</p><p>来源：sha256:{row.file_sha256}#line={row.line_number}</p></details>
+        <details><summary>引用信息</summary><p>观点：{row.key}</p><p>原文区间：[{row.quote_start}, {row.quote_end}) · 标注：{row.annotation_id}</p>{provenance && <p>{provenance}</p>}<p>来源：sha256:{row.file_sha256}#line={row.line_number}</p></details>
       </details>;
     })}
   </div>;

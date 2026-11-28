@@ -12,11 +12,13 @@ export function progressPercent(progress: Progress): number | undefined {
 }
 export const stageLabels: Record<string, string> = {
   queued: '任务已进入队列', starting: '准备执行', analysis: '计算统计并保存分析快照',
+  intent_resolving: '正在解析问题与查询范围',
   agent_tools: '查询评论统计与原文证据', agent_thinking: 'Agent 正在选择分析工具',
   agent_completed: 'Agent 分析结果已保存',
   topic_classifying: '正在进行主题归属复核',
   evidence_supplement: '正在补充核验原文证据',
   semantic_retrieving: '正在执行混合语义检索',
+  validating: '正在核验统计口径与引用',
   answer_generating: '正在整理分析回答',
   hashing_reviews: '校验评论文件', hashing_meta: '校验商品文件',
   importing_reviews: '导入评论', importing_meta: '导入商品',
@@ -30,6 +32,9 @@ const unitLabels: Record<string, string> = {
   reviews: '条评论',
   answers: '份回答',
   windows: '个窗口',
+  steps: '步',
+  queries: '次检索',
+  checks: '项校验',
   lines: '行',
   items: '项',
 };

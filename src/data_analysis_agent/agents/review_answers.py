@@ -62,6 +62,9 @@ class PublicAnswer(AnalysisModel):
     details_available: bool = False
     insights: list[dict] = Field(default_factory=list)
     evidence_relations: list[dict] = Field(default_factory=list)
+    unsupported_code: str | None = None
+    suggested_questions: list[str] = Field(default_factory=list)
+    clarification_choices: list[dict] = Field(default_factory=list)
 
 
 class AnswerGenerationStrategy:
@@ -429,39 +432,214 @@ class NaturalLanguageAnswerGenerator:
         return answer.model_dump(), diagnostics
 
 
-def unavailable_answer(status="failed", reason=None, *, question=None):
+_SUGGESTION_ASPECT_PATTERNS = (
+    (re.compile(r"物流|配送|快递|发货|送货"), "物流"),
+    (re.compile(r"客服|售后|安装|维修|师傅"), "客服"),
+    (re.compile(r"制冷|制热|效果|静音|噪音|声音|风力|耗电|省电"), "使用效果"),
+    (re.compile(r"质量|做工|材质|故障|坏了|漏水"), "商品质量"),
+    (re.compile(r"价格|性价比|划算|贵|便宜"), "价格"),
+    (re.compile(r"包装|破损|外箱"), "包装"),
+)
+_QUOTED_SUGGESTION_PATTERN = re.compile(r'(?:可以先问|例如回复|可改为问|可以问)[：:]\s*[“"]([^”"]+)[”"]')
+
+
+def _detect_suggestion_aspect(question: str | None) -> str | None:
+    if not isinstance(question, str) or not question:
+        return None
+    for pattern, label in _SUGGESTION_ASPECT_PATTERNS:
+        if pattern.search(question):
+            return label
+    return None
+
+
+def _infer_unsupported_code(reason: str | None, question: str | None) -> str:
+    if isinstance(question, str) and question.strip():
+        from data_analysis_agent.agents.review_task_contract import task_limit
+
+        limit = task_limit(question)
+        if limit:
+            return limit[0]
+    text = reason or ""
+    if re.search(r"分母", text):
+        return "denominator_conflict"
+    if re.search(r"销量|销售额|成交金额|预测", text):
+        return "forecast"
+    if re.search(r"因果|故障原因|不能证明.*原因", text):
+        return "cause_check"
+    if re.search(r"细分", text) and re.search(r"计数|条数", text):
+        return "subtopic_count"
+    if re.search(r"细分", text) and re.search(r"时间序列|趋势", text):
+        return "subtopic_trend"
+    if re.search(r"细分", text) and re.search(r"对比|比较", text):
+        return "subtopic_comparison"
+    if re.search(r"细分语义主题|细分反馈|独立细分标签|固定版本规则|分类分子|分类计数|分类时间序列|分类统计", text):
+        return "statistics"
+    if re.search(r"不存在的商品|未给出具体商品", text):
+        return "missing_product"
+    if re.search(r"商品\s*ID|指定一款商品|两款商品|起止日期|选择.*维度|请先确认|请明确", text):
+        return "missing_scope"
+    if re.search(r"证据不足|没有足够", text):
+        return "insufficient_evidence"
+    return "unsupported_capability"
+
+
+def _build_suggested_questions(code: str, question: str | None, summary: str, alternatives: list[str]) -> list[str]:
+    aspect = _detect_suggestion_aspect(question)
+    quoted = [match.group(1).strip() for match in _QUOTED_SUGGESTION_PATTERN.finditer(summary) if match.group(1).strip()]
+    defaults_by_code = {
+        "statistics": [
+            f"按月分析{aspect}好评占比趋势" if aspect else "按月分析使用效果好评占比趋势",
+            f"{aspect}差评具体体现在哪里？" if aspect else "主要差评集中在哪些维度？",
+        ],
+        "subtopic_count": [
+            f"按月分析{aspect}好评占比趋势" if aspect else "按月分析使用效果好评占比趋势",
+            f"{aspect}差评具体体现在哪里？" if aspect else "主要差评集中在哪些维度？",
+        ],
+        "subtopic_trend": [
+            f"按月分析{aspect}好评占比趋势" if aspect else "按月分析使用效果好评占比趋势",
+            f"{aspect}差评具体体现在哪里？" if aspect else "主要差评集中在哪些维度？",
+        ],
+        "subtopic_comparison": [
+            f"对比当前窗口与基线的{aspect}好评占比" if aspect else "对比当前窗口与基线的物流好评占比",
+            f"{aspect}差评具体体现在哪里？" if aspect else "主要差评集中在哪些维度？",
+        ],
+        "cause_check": [
+            f"{aspect}差评具体体现在哪里？" if aspect else "主要差评集中在哪些维度？",
+            f"给我看 3 条{aspect}差评原文" if aspect else "给我看 3 条差评原文",
+            "查看缺失正文、失败标注和覆盖率",
+        ],
+        "forecast": [
+            "按月分析整体好评占比趋势",
+            "主要好评和差评集中在哪些维度？",
+            "查看缺失正文、失败标注和覆盖率",
+        ],
+        "denominator_conflict": [
+            f"按月分析{aspect}好评占比趋势" if aspect else "按月分析物流好评占比趋势",
+            f"按月分析{aspect}好评占成功标注评论的比例趋势" if aspect else "按月分析物流好评占成功标注评论的比例趋势",
+            "对比当前窗口与基线的物流好评占比",
+        ],
+        "missing_product": [
+            "查看缺失正文、失败标注和覆盖率",
+            "主要差评集中在哪些维度？",
+            "按月分析物流好评占比趋势",
+        ],
+        "missing_scope": [
+            "查看缺失正文、失败标注和覆盖率",
+            "主要差评集中在哪些维度？",
+            "按月分析物流好评占比趋势",
+        ],
+        "clarification_needed": [
+            f"{aspect}差评具体体现在哪里？" if aspect else "主要差评集中在哪些维度？",
+            f"给我看 3 条{aspect}差评原文" if aspect else "给我看 3 条差评原文",
+            "查看缺失正文、失败标注和覆盖率",
+        ],
+        "insufficient_evidence": [
+            f"{aspect}差评具体体现在哪里？" if aspect else "主要差评集中在哪些维度？",
+            f"给我看 3 条{aspect}差评原文" if aspect else "给我看 3 条差评原文",
+            "查看缺失正文、失败标注和覆盖率",
+        ],
+    }
+    fallback = [
+        f"{aspect}差评具体体现在哪里？" if aspect else "主要差评集中在哪些维度？",
+        f"给我看 3 条{aspect}差评原文" if aspect else "给我看 3 条差评原文",
+        "查看缺失正文、失败标注和覆盖率",
+    ]
+    candidates = [*alternatives, *quoted, *defaults_by_code.get(code, fallback)]
+    unique: list[str] = []
+    for item in candidates:
+        if isinstance(item, str):
+            text = item.strip()
+            if text and text not in unique:
+                unique.append(text)
+        if len(unique) >= 3:
+            break
+    return unique
+
+
+def unavailable_answer(
+    status="failed",
+    reason=None,
+    *,
+    question=None,
+    unsupported_code=None,
+    suggested_questions=None,
+    clarification_choices=None,
+):
     reason = reason if isinstance(reason, str) else None
     summary = (reason or "当前问题超出已有分析能力，请调整查询目标。") if status == "unsupported" else ""
-    if status == 'unsupported' and isinstance(question, str):
-        from data_analysis_agent.agents.review_task_contract import task_limit
-        limit = task_limit(question)
-        if limit and reason == limit[1] and limit[0] in ('cause_check', 'statistics', 'subtopic_count', 'subtopic_trend'):
-            if limit[0] == 'cause_check':
-                summary = ('仅凭评论不能确认客观故障原因，也不能认定是否由某个零部件损坏导致。'
-                           '评论可提供买家自述和原文线索，实际原因需要维修检测记录核验。')
-            elif limit[0] == 'subtopic_count':
-                summary = ('当前不能准确统计该细分反馈的评论条数，缺少可核验的全量主题分类计数。'
-                           '上级维度数量、数据质量总评论数或少量检索样例均不能替代该主题的准确条数。')
-            elif limit[0] == 'subtopic_trend':
-                summary = ('当前仅支持整体或六大评价维度的趋势分析，缺少该细分主题的完整分类时间序列，'
-                           '不能用整体或上级维度趋势替代。')
-            else:
-                summary = ('当前不能准确计算该反馈占全部评论的比例，缺少可核验的全量主题计数。'
-                           '计算前需在当前范围内逐条判定该主题，说明缺失正文、未判定数量并明确分母；'
-                           '上级维度数量或少量检索样例不能替代该主题的总数。')
-            # 建议只复用已有完整命题语法，不执行改写后的目标或放宽原问题验收。
-            from data_analysis_agent.agents.review_reported_facts import PATTERNS, target
-            alternatives = {}
-            for pattern in PATTERNS.values():
-                for match in re.finditer(pattern, question):
-                    alternative = f'有没有{match[0].removeprefix("空调")}的反馈？'
-                    request = target(alternative)
-                    if request:
-                        alternatives[tuple(request['facts'])] = alternative
-            if len(alternatives) == 1:
-                summary += f'可以先问：“{next(iter(alternatives.values()))}”查看相关买家反馈；这项查询只核查原文。'
-            else:
-                summary += '可以先明确一个反馈现象，再查询对应的评论原文。'
+    alternatives: dict = {}
+    resolved_code: str | None = None
+    if status == "unsupported":
+        if isinstance(question, str):
+            from data_analysis_agent.agents.review_task_contract import task_limit
+
+            limit = task_limit(question)
+            if limit and reason == limit[1] and limit[0] in ("cause_check", "statistics", "subtopic_count", "subtopic_trend"):
+                resolved_code = limit[0]
+                if limit[0] == "cause_check":
+                    summary = ("仅凭评论不能确认客观故障原因，也不能认定是否由某个零部件损坏导致。"
+                               "评论可提供买家自述和原文线索，实际原因需要维修检测记录核验。")
+                elif limit[0] == "subtopic_count":
+                    summary = ("当前不能准确统计该细分反馈的评论条数，缺少可核验的全量主题分类计数。"
+                               "上级维度数量、数据质量总评论数或少量检索样例均不能替代该主题的准确条数。")
+                elif limit[0] == "subtopic_trend":
+                    summary = ("当前仅支持整体或六大评价维度的趋势分析，缺少该细分主题的完整分类时间序列，"
+                               "不能用整体或上级维度趋势替代。")
+                else:
+                    summary = ("当前不能准确计算该反馈占全部评论的比例，缺少可核验的全量主题计数。"
+                               "计算前需在当前范围内逐条判定该主题，说明缺失正文、未判定数量并明确分母；"
+                               "上级维度数量或少量检索样例不能替代该主题的总数。")
+                # 建议只复用已有完整命题语法，不执行改写后的目标或放宽原问题验收。
+                from data_analysis_agent.agents.review_reported_facts import PATTERNS, target
+
+                for pattern in PATTERNS.values():
+                    for match in re.finditer(pattern, question):
+                        alternative = f'有没有{match[0].removeprefix("空调")}的反馈？'
+                        request = target(alternative)
+                        if request:
+                            alternatives[tuple(request["facts"])] = alternative
+                if len(alternatives) == 1:
+                    summary += f'可以先问：“{next(iter(alternatives.values()))}”查看相关买家反馈；这项查询只核查原文。'
+                else:
+                    summary += "可以先明确一个反馈现象，再查询对应的评论原文。"
+        if isinstance(unsupported_code, str) and unsupported_code.strip():
+            resolved_code = unsupported_code.strip()
+        elif resolved_code is None:
+            resolved_code = _infer_unsupported_code(reason, question)
+
+        if isinstance(suggested_questions, (list, tuple)):
+            resolved_suggestions = []
+            for item in suggested_questions:
+                if isinstance(item, str) and item.strip() and item.strip() not in resolved_suggestions:
+                    resolved_suggestions.append(item.strip())
+                if len(resolved_suggestions) >= 3:
+                    break
+        else:
+            resolved_suggestions = _build_suggested_questions(
+                resolved_code,
+                question,
+                summary,
+                list(alternatives.values()) if len(alternatives) == 1 else [],
+            )
+
+        resolved_choices: list[dict] = []
+        if isinstance(clarification_choices, (list, tuple)):
+            for item in clarification_choices:
+                if isinstance(item, dict):
+                    label = item.get("label")
+                    choice_question = item.get("question")
+                    if isinstance(label, str) and label.strip() and isinstance(choice_question, str) and choice_question.strip():
+                        resolved_choices.append({"label": label.strip(), "question": choice_question.strip()})
+                if len(resolved_choices) >= 5:
+                    break
+
+        return PublicAnswer(
+            status=status,
+            summary=summary,
+            unsupported_code=resolved_code,
+            suggested_questions=resolved_suggestions,
+            clarification_choices=resolved_choices,
+        ).model_dump()
     return PublicAnswer(status=status, summary=summary).model_dump()
 
 
@@ -585,7 +763,14 @@ def read_public_answer(task, *, public_analysis=None):
     result = task.get("result")
     result = result if isinstance(result, dict) else {}
     if public["status"] != "ok":
-        return unavailable_answer(public["status"], reason=result.get("answer"), question=result.get('question'))
+        return unavailable_answer(
+            public["status"],
+            reason=result.get("answer"),
+            question=result.get("question") or (task.get("parameters") or {}).get("question"),
+            unsupported_code=result.get("unsupported_code"),
+            suggested_questions=result.get("suggested_questions"),
+            clarification_choices=result.get("clarification_choices"),
+        )
     context = CompactAnalysisContext(question=result.get("analysis_question") or result.get("question") or task.get("parameters", {}).get("question", "历史分析"),
         analysis_type=result.get("analysis_intent") or "composite", sentiment=result.get("sentiment_intent"),
         scope_summary=public["scope_summary"], sample_summary=public["summary_metrics"], key_findings=public["highlights"],

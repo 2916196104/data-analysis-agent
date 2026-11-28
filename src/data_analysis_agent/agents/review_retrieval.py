@@ -245,20 +245,21 @@ def execute_retrieval(context, scope):
     variants = retrieval_query_variants(context.question, scope, context.settings)
     hybrid_bm25 = bool(getattr(context.settings, 'rag_hybrid_bm25', False))
     rerank_enabled = bool(getattr(context.settings, 'rag_rerank_enabled', False))
-    if variants:
+    if hybrid_bm25 or rerank_enabled:
+        reranker = create_reranker(context.settings) if rerank_enabled else None
+        result = service.search(
+            request,
+            query_variants=variants,
+            hybrid_bm25=hybrid_bm25,
+            reranker=reranker,
+            rrf_k=getattr(context.settings, 'rag_hybrid_rrf_k', 60),
+        )
+    elif variants:
         result = service.search(request, query_variants=variants)
     elif (getattr(context.settings, 'rag_cooling_keyword_fallback', False)
             and policy == cooling.POLICY and cooling.is_single_slow(fact_question)):
         result = service.search(request, keyword_fallback=lambda query, snapshot, baseline:
                                 _cooling_keyword_fallback(fact_question, query, snapshot, baseline))
-    elif hybrid_bm25 or rerank_enabled:
-        reranker = create_reranker(context.settings) if rerank_enabled else None
-        result = service.search(
-            request,
-            hybrid_bm25=hybrid_bm25,
-            reranker=reranker,
-            rrf_k=getattr(context.settings, 'rag_hybrid_rrf_k', 60),
-        )
     else:
         result = service.search(request)
     require_source_validated_result(result)
@@ -341,7 +342,13 @@ def validate_retrieval(data, question):
         if multi_query and not _validate_query_channels(query, fact_question, data['assessment']['policy'],
                                                         raw['query_channels'], evidence):
             return False
-        if hybrid_v4 and not _validate_hybrid_v4(raw['hybrid_retrieval'], evidence):
+        if hybrid_v4 and not _validate_hybrid_v4(
+            raw['hybrid_retrieval'],
+            evidence,
+            query=query,
+            fact_question=fact_question,
+            policy=data['assessment']['policy'],
+        ):
             return False
         return data['assessment'] == assess_retrieval(fact_question,evidence,policy=data['assessment']['policy'])
     except (KeyError,ValueError,TypeError,AttributeError,UnicodeError,SemanticRetrievalError):
@@ -365,11 +372,22 @@ def _validate_query_channels(query, fact_question, policy, channels, evidence):
     return merge_query_channels(lists,key=lambda key:key) == tuple(row['key'] for row in evidence)
 
 
-def _validate_hybrid_v4(meta, evidence):
+def _validate_hybrid_v4(meta, evidence, *, query=None, fact_question=None, policy=None):
     if not isinstance(meta, dict):
         return False
-    if set(meta) != {'rrf_k', 'bm25_enabled', 'vector_keys', 'bm25_keys', 'rerank_policy'}:
+    base_keys = {'rrf_k', 'bm25_enabled', 'vector_keys', 'bm25_keys', 'rerank_policy'}
+    if not (base_keys <= set(meta) <= (base_keys | {'query_variants'})):
         return False
+    if 'query_variants' in meta:
+        variants = meta['query_variants']
+        if (not isinstance(variants, list) or not variants
+                or any(not isinstance(item, str) or not item.strip() for item in variants)
+                or len(variants) != len(set(variants))):
+            return False
+        if query is not None and fact_question is not None and policy is not None:
+            expected_variants = list(query_variants_for_fact_request(query.question, fact_question, policy))
+            if variants != expected_variants:
+                return False
     rrf_k = meta['rrf_k']
     if type(rrf_k) is not int or not 1 <= rrf_k <= 200 or type(meta['bm25_enabled']) is not bool:
         return False

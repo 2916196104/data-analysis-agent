@@ -51,8 +51,17 @@ describe('真实任务状态', () => {
     expect(state.loading).toBe(false);
   });
   it('补全主题复核与证据补充阶段文案，并格式化实时数值与工具进度', () => {
+    expect(stageLabels.intent_resolving).toBe('正在解析问题与查询范围');
+    expect(stageLabels.semantic_retrieving).toBe('正在执行混合语义检索');
+    expect(stageLabels.validating).toBe('正在核验统计口径与引用');
     expect(stageLabels.topic_classifying).toBe('正在进行主题归属复核');
     expect(stageLabels.evidence_supplement).toBe('正在补充核验原文证据');
+    expect(progressDetail({ stage: 'intent_resolving', completed: 0, total: 1, unit: 'steps' }))
+      .toBe('0/1 步（0%）');
+    expect(progressDetail({ stage: 'semantic_retrieving', completed: 1, total: 1, unit: 'queries' }))
+      .toBe('1/1 次检索（100%）');
+    expect(progressDetail({ stage: 'validating', completed: 1, total: 1, unit: 'checks' }))
+      .toBe('1/1 项校验（100%）');
     expect(progressDetail({ stage: 'topic_classifying', completed: 40, total: 60, unit: 'opinions' }))
       .toBe('40/60 条观点（67%）');
     expect(progressDetail({ stage: 'agent_tools', completed: 2, total: null, unit: 'tools', tool: 'get_top_issues' }))

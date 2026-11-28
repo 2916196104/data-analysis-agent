@@ -26,3 +26,12 @@ it('拦截跨评论、商品、版本、来源和区间不一致的引用，不�
   const view = render(<AnswerEvidence answer={{ ...answer, evidence_refs: [] }} evidence={[evidence]} />);
   expect(view.container.textContent).toBe('');
 });
+it('在引用信息详情内可选展示混合召回通道与重排得分，不影响无字段的历史数据', () => {
+  const hybridEvidence: SemanticEvidence = {
+    ...evidence,
+    channel: 'hybrid',
+    rerank_score: 0.864,
+  };
+  render(<AnswerEvidence answer={answer} evidence={[hybridEvidence]} />);
+  expect(screen.getByText('召回通道：向量 + BM25 混合 · 重排得分：0.86')).toBeTruthy();
+});

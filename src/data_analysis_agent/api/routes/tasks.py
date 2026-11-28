@@ -13,7 +13,13 @@ from starlette.concurrency import run_in_threadpool
 
 from data_analysis_agent.api.responses import Result, ok_result
 from data_analysis_agent.api.schemas import TaskInput, TaskQuery
-from data_analysis_agent.jobs.events import task_event_version, wait_task_update
+from data_analysis_agent.core.database import is_postgres
+from data_analysis_agent.jobs.events import (
+    async_wait_task_update,
+    ensure_pg_task_listener,
+    pg_task_listener_active,
+    task_event_version,
+)
 from data_analysis_agent.jobs.store import TaskConflict
 from data_analysis_agent.jobs.store import (
     cancel_task, delete_task, enqueue, get_task, get_task_audit, get_task_summary, list_tasks, mark_import_data_deleted,
@@ -60,11 +66,28 @@ def create_router(task_db, business_db, *, import_root, env_file):
         return ok_result(get_task_audit(task_db, task_id))
 
     @router.get("/tasks/{task_id}/events", tags=["后台任务"])
-    async def task_events(request: Request, task_id: Annotated[str, Path(min_length=1, max_length=1000)]):
-        """SSE 任务进度推送端点；仅推送轻量进度与终态，客户端收到 done 后按需读取完整结果。"""
+    async def task_events(
+        request: Request,
+        task_id: Annotated[str, Path(min_length=1, max_length=1000)],
+        last_event_id: Annotated[str | None, Header(alias="Last-Event-ID", max_length=64)] = None,
+    ):
+        """SSE 任务进度推送端点；纯异步事件唤醒不占线程池，支持 Last-Event-ID 序号续传与跨进程 PG LISTEN。"""
+        pg_mode = is_postgres(task_db)
+        if pg_mode:
+            ensure_pg_task_listener(task_db)
         # 先捕获事件版本号再读数据库，避免读取与订阅之间错过 worker 唤醒通知。
         initial_version = task_event_version(task_id)
         initial = await run_in_threadpool(get_task_summary, task_db, task_id)
+
+        def _parse_last_event_id(raw: str | None) -> int:
+            if not raw:
+                return 0
+            cleaned = raw.strip()
+            if cleaned.isdigit():
+                parsed = int(cleaned)
+                if 0 <= parsed <= 10**12:
+                    return parsed
+            return 0
 
         def _format_sse(event_name: str, payload: dict, event_id: int) -> str:
             return f"id: {event_id}\nevent: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
@@ -77,7 +100,7 @@ def create_router(task_db, business_db, *, import_root, env_file):
             )
 
         async def _stream():
-            seq = 1
+            seq = _parse_last_event_id(last_event_id) + 1
             current = initial
             version = initial_version
             terminal = current["status"] in ("succeeded", "partial", "failed")
@@ -86,27 +109,44 @@ def create_router(task_db, business_db, *, import_root, env_file):
             if terminal:
                 return
             last_fingerprint = _fingerprint(current)
-            last_emit = monotonic()
+            now = monotonic()
+            last_emit = now
+            last_db_check = now
             while True:
                 if await request.is_disconnected():
                     return
-                version = await run_in_threadpool(wait_task_update, task_id, version, timeout=0.5)
+                listen_active = pg_mode and pg_task_listener_active(task_db)
+                poll_interval = 15.0 if listen_active else 2.0
+                elapsed_check = monotonic() - last_db_check
+                elapsed_emit = monotonic() - last_emit
+                wait_timeout = min(
+                    max(0.05, poll_interval - elapsed_check),
+                    max(0.05, 15.0 - elapsed_emit),
+                    1.0,
+                )
+                next_version = await async_wait_task_update(task_id, version, timeout=wait_timeout)
                 if await request.is_disconnected():
                     return
-                current = await run_in_threadpool(get_task_summary, task_db, task_id)
-                fp = _fingerprint(current)
-                terminal = current["status"] in ("succeeded", "partial", "failed")
-                if terminal:
-                    seq += 1
-                    yield _format_sse("done", current, seq)
-                    return
-                if fp != last_fingerprint:
-                    last_fingerprint = fp
-                    last_emit = monotonic()
-                    seq += 1
-                    yield _format_sse("progress", current, seq)
-                elif monotonic() - last_emit >= 15:
-                    last_emit = monotonic()
+                version_changed = next_version != version
+                version = next_version
+                now = monotonic()
+                if version_changed or (now - last_db_check >= poll_interval):
+                    last_db_check = now
+                    current = await run_in_threadpool(get_task_summary, task_db, task_id)
+                    fp = _fingerprint(current)
+                    terminal = current["status"] in ("succeeded", "partial", "failed")
+                    if terminal:
+                        seq += 1
+                        yield _format_sse("done", current, seq)
+                        return
+                    if fp != last_fingerprint:
+                        last_fingerprint = fp
+                        last_emit = now
+                        seq += 1
+                        yield _format_sse("progress", current, seq)
+                        continue
+                if now - last_emit >= 15.0:
+                    last_emit = now
                     yield ": keep-alive\n\n"
 
         return StreamingResponse(

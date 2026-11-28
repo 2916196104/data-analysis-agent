@@ -144,6 +144,62 @@ describe('任务轮询生命周期', () => {
     }
   });
 
+  it('SSE 异常降级轮询后，任务仍活跃时按退避周期自动重连 SSE 并恢复推送', async () => {
+    const instances: { listeners: Map<string, ((event: Event) => void)[]>; close: ReturnType<typeof vi.fn> }[] = [];
+    class FakeEventSource {
+      listeners = new Map<string, ((event: Event) => void)[]>();
+      close = vi.fn();
+      constructor() {
+        instances.push({ listeners: this.listeners, close: this.close });
+      }
+      addEventListener(type: string, handler: (event: Event) => void) {
+        this.listeners.set(type, [...(this.listeners.get(type) ?? []), handler]);
+      }
+    }
+    vi.stubGlobal('EventSource', FakeEventSource);
+    (api as Record<string, unknown>).taskEventsUrl = (id: string) => `/api/v1/tasks/${id}/events`;
+    vi.mocked(api.task)
+      .mockResolvedValueOnce(task('running'))
+      .mockResolvedValueOnce(task('running'))
+      .mockResolvedValueOnce(task('running'))
+      .mockResolvedValueOnce({ ...task('succeeded'), result: { run_id: 'run-reconnected' } });
+    vi.mocked(api.run).mockResolvedValue({ run_id: 'run-reconnected' } as Run);
+    try {
+      const { result, unmount } = renderHook(() => useTask('a'));
+      await act(async () => {});
+      expect(instances).toHaveLength(1);
+      // 首次 SSE 异常：关闭流并降级轮询 2 轮（1500ms x 2）
+      act(() => {
+        instances[0].listeners.get('error')?.forEach(fn => fn(new Event('error')));
+      });
+      expect(instances[0].close).toHaveBeenCalledTimes(1);
+      await act(() => vi.advanceTimersByTimeAsync(1500));
+      expect(api.task).toHaveBeenCalledTimes(2);
+      expect(instances).toHaveLength(1);
+      await act(() => vi.advanceTimersByTimeAsync(1500));
+      expect(api.task).toHaveBeenCalledTimes(3);
+      // 退避 2 轮后自动重建第 2 条 SSE 连接
+      expect(instances).toHaveLength(2);
+      await act(async () => {
+        const progress = { ...task('running'), progress: { stage: 'validating', completed: 0, total: 1, unit: 'checks' } };
+        instances[1].listeners.get('progress')?.forEach(fn => fn({ data: JSON.stringify(progress) } as unknown as Event));
+      });
+      expect(result.current.task?.progress.stage).toBe('validating');
+      // 恢复 SSE 后不再触发定时轮询
+      await act(() => vi.advanceTimersByTimeAsync(6000));
+      expect(api.task).toHaveBeenCalledTimes(3);
+      await act(async () => {
+        instances[1].listeners.get('done')?.forEach(fn => fn({ data: JSON.stringify(task('succeeded')) } as unknown as Event));
+      });
+      expect(instances[1].close).toHaveBeenCalledTimes(1);
+      expect(result.current.run?.run_id).toBe('run-reconnected');
+      unmount();
+    } finally {
+      delete (api as Record<string, unknown>).taskEventsUrl;
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('遇到 404 等永久客户端错误时停止无限轮询重试', async () => {
     vi.mocked(api.task).mockRejectedValueOnce(Object.assign(new Error('任务不存在。'), { status: 404 }));
     const { result, unmount } = renderHook(() => useTask('missing-task'));

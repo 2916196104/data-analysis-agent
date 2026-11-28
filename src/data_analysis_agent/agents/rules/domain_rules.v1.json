@@ -143,6 +143,76 @@
           "有没有制冷速度迟缓的反馈？",
           "有没有空调开了好一会儿才凉快的评论？"
         ]
+      },
+      {
+        "id": "noise_high_v3",
+        "fact_policy": "reported_experience_v3",
+        "fact_id": "noise_high",
+        "single_fact_only": true,
+        "variants": [
+          "有没有空调运行声音很吵的反馈？",
+          "有没有外机或室内机嗡嗡响声音大的评论？"
+        ]
+      },
+      {
+        "id": "packaging_bad_v3",
+        "fact_policy": "reported_experience_v3",
+        "fact_id": "packaging_bad",
+        "single_fact_only": true,
+        "variants": [
+          "有没有外包装箱摔坏或挤压变形的反馈？",
+          "有没有快递纸箱破损的评论？"
+        ]
+      },
+      {
+        "id": "service_bad_v3",
+        "fact_policy": "reported_experience_v3",
+        "fact_id": "service_bad",
+        "single_fact_only": true,
+        "variants": [
+          "有没有客服回应敷衍或不耐烦的反馈？",
+          "有没有售后沟通态度不好的评论？"
+        ]
+      },
+      {
+        "id": "installer_bad_v3",
+        "fact_policy": "reported_experience_v3",
+        "fact_id": "installer_bad",
+        "single_fact_only": true,
+        "variants": [
+          "有没有安装师傅服务态度不好的反馈？",
+          "有没有上门安装沟通体验差的评论？"
+        ]
+      },
+      {
+        "id": "heating_poor_v3",
+        "fact_policy": "reported_experience_v3",
+        "fact_id": "heating_poor",
+        "single_fact_only": true,
+        "variants": [
+          "有没有制热不暖和或升温效果不理想的反馈？",
+          "有没有开暖风房间不热的评论？"
+        ]
+      },
+      {
+        "id": "delivery_not_received_v1",
+        "fact_policy": "reported_delivery_timing_v1",
+        "fact_id": "delivery_not_received",
+        "single_fact_only": true,
+        "variants": [
+          "有没有下单很久还没收到货的反馈？",
+          "有没有物流迟迟未送达的评论？"
+        ]
+      },
+      {
+        "id": "installer_wait_v1",
+        "fact_policy": "reported_delivery_timing_v1",
+        "fact_id": "installer_wait_after_receipt",
+        "single_fact_only": true,
+        "variants": [
+          "有没有收到货后一直等师傅上门安装的反馈？",
+          "有没有空调到货了但迟迟没人来安装的评论？"
+        ]
       }
     ]
   },

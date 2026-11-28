@@ -285,6 +285,41 @@ it('拒答回答区分受限类型并优先提取后端推荐问法作为可点�
   expect(onSuggest).toHaveBeenCalledWith('有没有制冷差的反馈？');
 });
 
+it('拒答回答优先消费后端结构化 unsupported_code、suggested_questions 与 clarification_choices', async () => {
+  const { default: View } = await import('./PublicAnswerView');
+  const onSuggest = vi.fn();
+  const structuredUnsupported: PublicAnswer = {
+    ...answer,
+    status: 'unsupported',
+    summary: '这是一条不含任何旧正则关键词的自定义说明。',
+    highlights: [],
+    unsupported_code: 'forecast',
+    suggested_questions: ['按月分析整体好评占比趋势', '查看缺失正文、失败标注和覆盖率'],
+  };
+  const { unmount } = render(<View answer={structuredUnsupported} question="帮我看看未来情况" onSuggestQuestion={onSuggest} />);
+  expect(screen.getByText('不支持销量预测')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: '按月分析整体好评占比趋势' }));
+  expect(onSuggest).toHaveBeenCalledWith('按月分析整体好评占比趋势');
+  unmount();
+
+  const withChoices: PublicAnswer = {
+    ...answer,
+    status: 'unsupported',
+    summary: '请先选择要查看的评价维度。',
+    highlights: [],
+    unsupported_code: 'clarification_needed',
+    clarification_choices: [
+      { label: '看物流差评', question: '物流差评具体体现在哪里？' },
+      { label: '看客服差评', question: '客服差评具体体现在哪里？' },
+    ],
+  };
+  render(<View answer={withChoices} question="帮我分析一下" onSuggestQuestion={onSuggest} />);
+  expect(screen.getByText('需要进一步澄清')).toBeTruthy();
+  expect(screen.getByText('选择查询目标：')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: '看物流差评' }));
+  expect(onSuggest).toHaveBeenCalledWith('物流差评具体体现在哪里？');
+});
+
 it('大任务首屏仅拉取轻量结果，展开详情或导出报告时才按需加载并无损合并 /audit', async () => {
   const digest = 'a'.repeat(64);
   const splitResult: AgentResult = {
