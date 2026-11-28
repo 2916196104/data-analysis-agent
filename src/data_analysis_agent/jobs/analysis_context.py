@@ -1,6 +1,7 @@
 """从有限任务链恢复分析条件；失败轮次只贡献用户请求，不贡献查询结果。"""
 
 from data_analysis_agent.agents.review_validation import validate_report, expected_result_scopes
+from data_analysis_agent.jobs.result_storage import audit_ref_from_result
 from data_analysis_agent.jobs.store import TaskNotFound, get_task
 from data_analysis_agent.jobs.analysis_state import (
     empty_analysis_state, has_saved_integrity, restore_ranking, restore_pending_goal, analysis_state_for_scope, restore_focus,
@@ -8,8 +9,16 @@ from data_analysis_agent.jobs.analysis_state import (
 from data_analysis_agent.reviews.parameters import BaselineScope
 
 
+def _fetch_context_task(task_db, task_id, *, include_audit=False):
+    """优先轻量读取历史任务；兼容测试中仅接收两个位置参数的 get_task Mock。"""
+    try:
+        return get_task(task_db, task_id, include_audit=include_audit)
+    except TypeError:
+        return get_task(task_db, task_id)
+
+
 def load_analysis_context(task_db, parameters, *, max_turns=4):
-    max_turns=min(max_turns,4)
+    max_turns = max(1, min(int(max_turns), 8))
     task_id = parameters.get('context_task_id')
     conversation_id = parameters.get('conversation_id')
     selection = parameters.get('selection_scope')
@@ -28,7 +37,7 @@ def load_analysis_context(task_db, parameters, *, max_turns=4):
     while task_id and task_id not in visited and context['turns_read'] < max_turns:
         visited.add(task_id)
         try:
-            task = get_task(task_db, task_id)
+            task = _fetch_context_task(task_db, task_id, include_audit=False)
         except (TaskNotFound, ValueError, TypeError):
             break
         previous = task['parameters']
@@ -38,6 +47,13 @@ def load_analysis_context(task_db, parameters, *, max_turns=4):
         # 无会话归属的旧任务只能查看，不能作为任意新会话的上下文入口。
         if previous.get('conversation_id') != conversation_id:
             break
+        if (task.get('progress', {}).get('analysis_integrity') is not None
+                and audit_ref_from_result(task.get('result')) is not None):
+            # 仅对通过会话与类型初筛的拆分大任务按需水合完整结果以校验 analysis_integrity。
+            try:
+                task = _fetch_context_task(task_db, task_id, include_audit=True)
+            except (TaskNotFound, ValueError, TypeError):
+                break
         if task.get('progress', {}).get('analysis_integrity') is not None and not has_saved_integrity(task):
             break
         result = task.get('result') or {}
@@ -98,7 +114,6 @@ def load_analysis_context(task_db, parameters, *, max_turns=4):
                         ranking=restore_ranking(task)
                         if ranking is not None:
                             context['analysis_state']['ranking_basis']=ranking
-                            # 历史排名可查看，但不能替换最近一轮的分析焦点。
                             context.update(ranking_task=task, conversation_id=conversation_id)
             except (ValueError, KeyError, TypeError, ArithmeticError, AttributeError, IndexError):
                 pass

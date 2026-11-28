@@ -156,8 +156,25 @@ export default function AgentResults({ result, onDetail, onPrepare, onEvidenceNe
         </> : <p className="muted">此历史结果未保存自动校验记录；可通过统计依据核对分子、分母和原文。</p>}
         <details><summary>查看工具任务清单与执行记录</summary>
           <p className="muted">此清单记录实际查询及结果引用，不代表对问题语义的完整性保证。模型调用 {result.total_model_calls ?? result.model_calls} 次
-            {result.answer_model_calls !== undefined && `（规划 ${result.model_calls} 次，解释 ${result.answer_model_calls} 次）`} · 工具调用 {result.tool_calls} 次 · 耗时 {result.elapsed_seconds.toFixed(1)} 秒</p>
-          {result.performance && <p className="muted">阶段耗时：规划 {result.performance.planning_duration_ms.toFixed(1)} ms · 查询 {result.performance.query_duration_ms.toFixed(1)} ms · 校验 {result.performance.validation_duration_ms.toFixed(1)} ms · 压缩 {result.performance.compression_duration_ms.toFixed(1)} ms · 回答 {result.performance.answer_duration_ms.toFixed(1)} ms。</p>}
+            {result.answer_model_calls !== undefined && `（规划 ${result.model_calls} 次，解释 ${result.answer_model_calls} 次${result.intent_model_calls ? `，意图 ${result.intent_model_calls} 次` : ''}${result.topic_model_calls ? `，主题 ${result.topic_model_calls} 次` : ''}）`} · 工具调用 {result.tool_calls} 次 · 耗时 {result.elapsed_seconds.toFixed(1)} 秒</p>
+          {(() => {
+            const tokens = result.llm_telemetry?.total_tokens || result.usage?.total_tokens || 0;
+            if (!tokens) return null;
+            const promptTokens = result.llm_telemetry?.prompt_tokens ?? result.usage?.prompt_tokens ?? 0;
+            const completionTokens = result.llm_telemetry?.completion_tokens ?? result.usage?.completion_tokens ?? 0;
+            const llmMs = result.llm_telemetry?.duration_ms;
+            return <p className="muted">模型 Token 消耗：总计 {tokens}（输入 {promptTokens} / 输出 {completionTokens}）{llmMs ? ` · LLM 累计耗时 ${llmMs.toFixed(1)} ms` : ''}。</p>;
+          })()}
+          {result.performance && <p className="muted">阶段耗时：{typeof result.performance.queue_duration_ms === 'number' && result.performance.queue_duration_ms > 0 ? `排队 ${result.performance.queue_duration_ms.toFixed(1)} ms · ` : ''}{typeof result.performance.intent_resolution_duration_ms === 'number' && result.performance.intent_resolution_duration_ms > 0 ? `意图 ${result.performance.intent_resolution_duration_ms.toFixed(1)} ms · ` : ''}{typeof result.performance.embedding_preparation_duration_ms === 'number' && result.performance.embedding_preparation_duration_ms > 0 ? `向量 ${result.performance.embedding_preparation_duration_ms.toFixed(1)} ms · ` : ''}规划 {result.performance.planning_duration_ms.toFixed(1)} ms · 查询 {result.performance.query_duration_ms.toFixed(1)} ms · 校验 {result.performance.validation_duration_ms.toFixed(1)} ms · 压缩 {result.performance.compression_duration_ms.toFixed(1)} ms · 回答 {result.performance.answer_duration_ms.toFixed(1)} ms。</p>}
+          {selected.map(item => {
+            if (item.kind !== 'semantic_evidence' || !item.data.retrieval?.hybrid_retrieval) return null;
+            const hybrid = item.data.retrieval.hybrid_retrieval;
+            const vectorKeys = hybrid.vector_keys || [];
+            const bm25Keys = hybrid.bm25_keys || [];
+            const vectorSet = new Set(vectorKeys);
+            const bm25Rescued = bm25Keys.filter(key => !vectorSet.has(key)).length;
+            return <p key={`hybrid-${item.result_id}`} className="muted">混合检索诊断：向量命中 {vectorKeys.length} 条 · BM25 命中 {bm25Keys.length} 条（词法捞回 {bm25Rescued} 条）{hybrid.query_variants?.length ? ` · 查询改写 ${hybrid.query_variants.length} 路` : ''}{hybrid.rerank_policy ? ` · 重排 ${hybrid.rerank_policy}` : ''}。</p>;
+          })}
           {result.trace.filter(event => event.event === 'tool_call').map((event, index) =>
             <p key={index}>{index + 1}. {toolNames[event.tool || ''] || event.tool} · {event.status === 'success' ? '成功' : '失败'}{event.result_id ? ` [${event.result_id}]` : ''}</p>)}
           {result.warnings?.map(warning => <p key={warning} className="muted">{warning}</p>)}

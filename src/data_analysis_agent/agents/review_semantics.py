@@ -9,7 +9,12 @@ from data_analysis_agent.core.errors import ReviewDataError
 
 
 class QuestionScopeError(ReviewDataError):
-    """商品目标不完整时要求补充，不能退回页面商品冒充完整比较。"""
+    """商品目标不完整时要求补充，不能退回页面商品冒充完整比较；支持附带结构化澄清选项。"""
+
+    def __init__(self, message: str, *, code: str | None = None, choices=()):
+        super().__init__(message)
+        self.code = code
+        self.choices = tuple(choices)
 
 
 def requested_denominator(question):

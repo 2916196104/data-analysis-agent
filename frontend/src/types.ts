@@ -82,6 +82,23 @@ export interface Task extends TaskSummary {
   result: ({ run_id?: string; [key: string]: unknown }) | null;
 }
 export interface Submission { task: Task; reused: boolean }
+export interface ServerConversationSummary {
+  conversation_id: string;
+  title: string;
+  turn_count: number;
+  last_task_id: string;
+  last_status: TaskStatus;
+  created_at: string;
+  updated_at: string;
+  source?: string | null;
+  dataset_version?: string | null;
+  product_ids: string[];
+}
+export interface ServerConversationDetail {
+  conversation_id: string;
+  total: number;
+  items: Task[];
+}
 export interface Product {
   key: string;
   source: string;
@@ -121,9 +138,58 @@ export interface Options {
 export interface Health {
   worker_available: boolean;
   business_database: string;
+  pg_listener_active?: boolean;
   redis_worker_required?: boolean;
   redis_worker_available?: boolean | null;
   redis_queue?: { backlog_reviews: number | null; processing_reviews: number | null };
+}
+export interface DurationStats {
+  count: number;
+  avg: number | null;
+  p50: number | null;
+  p95: number | null;
+}
+export interface ObservabilitySummary {
+  generated_at: string;
+  llm_gateway: {
+    calls: number;
+    errors: number;
+    pool_hits: number;
+    pool_misses: number;
+    direct_clients: number;
+    pooled_clients: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    total_duration_ms: number;
+    by_role: Record<string, number>;
+  };
+  events: {
+    active_sse_subscribers: number;
+    tracked_task_versions: number;
+    pg_listener_configured: boolean;
+    pg_listener_active: boolean;
+    pg_listener_reconnects: number;
+  };
+  embedding_process: {
+    total_instances: number;
+    alive_instances: number;
+    failed_instances: number;
+    closed_instances: number;
+    total_restarts: number;
+  };
+  reranker_cache: { cached_models: number };
+  tasks: {
+    counts_by_status: Record<string, number>;
+    counts_by_kind: Record<string, number>;
+    recent_window_size: number;
+    recent_terminal_count: number;
+    recent_failed_count: number;
+    recent_cancelled_count: number;
+    recent_failure_rate: number | null;
+    analysis_duration_ms: DurationStats;
+    analysis_queue_wait_ms: DurationStats;
+  };
 }
 export interface Quality {
   review_count: number;
@@ -226,7 +292,9 @@ export interface ComparisonMetadata {
   rate_denominator?: 'successful_reviews' | 'positive_review_count';
 }
 export type AgentToolResult = { result_id: string; parameters: Record<string, unknown> } & (
-  { kind: 'semantic_evidence'; data: { retrieval: { evidence: SemanticEvidence[] };
+  { kind: 'semantic_evidence'; data: { retrieval: { evidence: SemanticEvidence[];
+      hybrid_retrieval?: { rrf_k?: number; bm25_enabled?: boolean; vector_keys?: string[];
+        bm25_keys?: string[]; rerank_policy?: string | null; query_variants?: string[] } };
     assessment: { status: 'sufficient' | 'limited' | 'insufficient'; reason: string } } }
   |
   { kind: 'context'; data: { summary: Summary; products?: { product_id: string; title: string | null }[] } }
@@ -297,14 +365,40 @@ export interface AgentResult {
   validation?: { status: 'passed' | 'failed'; checks: { name: string; passed: boolean; detail: string }[] };
   model_calls: number;
   answer_model_calls?: number;
+  intent_model_calls?: number;
+  topic_model_calls?: number;
   total_model_calls?: number;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null;
+  llm_telemetry?: {
+    calls: number;
+    errors: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    duration_ms: number;
+    by_role: Record<string, {
+      calls: number; errors: number; prompt_tokens: number;
+      completion_tokens: number; total_tokens: number; duration_ms: number;
+    }>;
+  };
   tool_calls: number;
   model_tool_attempts?: number;
   cache_hits?: number;
   query_executions?: number;
   elapsed_seconds: number;
-  performance?: { planning_duration_ms: number; query_duration_ms: number; validation_duration_ms: number;
-    compression_duration_ms: number; answer_duration_ms: number; total_duration_ms: number };
+  performance?: {
+    scope_resolution_duration_ms?: number;
+    intent_resolution_duration_ms?: number;
+    embedding_preparation_duration_ms?: number;
+    evidence_completion_duration_ms?: number;
+    queue_duration_ms?: number;
+    planning_duration_ms: number;
+    query_duration_ms: number;
+    validation_duration_ms: number;
+    compression_duration_ms: number;
+    answer_duration_ms: number;
+    total_duration_ms: number;
+  };
   trace: { event: string; tool?: string; status?: string; elapsed_ms?: number; result_id?: string }[];
   _audit_ref?: { version: string; storage: string; audit_sha256: string; audit_bytes: number; fields: string[] };
 }

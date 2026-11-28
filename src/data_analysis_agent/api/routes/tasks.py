@@ -22,7 +22,8 @@ from data_analysis_agent.jobs.events import (
 )
 from data_analysis_agent.jobs.store import TaskConflict
 from data_analysis_agent.jobs.store import (
-    cancel_task, delete_task, enqueue, get_task, get_task_audit, get_task_summary, list_tasks, mark_import_data_deleted,
+    cancel_task, delete_task, enqueue, get_conversation_tasks, get_task, get_task_audit, get_task_summary,
+    list_conversations, list_tasks, mark_import_data_deleted,
 )
 from data_analysis_agent.jobs.submission import prepare_parameters, retry_task
 from data_analysis_agent.reviews.store import delete_import_runs
@@ -53,6 +54,19 @@ def create_router(task_db, business_db, *, import_root, env_file):
     @router.get("/tasks", response_model=Result, tags=["后台任务"])
     def tasks(query: Annotated[TaskQuery, Query()]):
         return ok_result(list_tasks(task_db, **query.model_dump()))
+
+    @router.get("/conversations", response_model=Result, tags=["AI 助手"])
+    def conversations(limit: Annotated[int, Query(ge=1, le=100)] = 30):
+        """列出服务端已持久化的分析会话摘要（只读，不加载重型审计载荷）。"""
+        return ok_result(list_conversations(task_db, limit=limit))
+
+    @router.get("/conversations/{conversation_id}", response_model=Result, tags=["AI 助手"])
+    def conversation_detail(
+        conversation_id: Annotated[str, Path(min_length=1, max_length=200)],
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    ):
+        """按时间正序返回指定分析会话的轻量任务链，支持换端或清缓存后无损恢复多轮对话。"""
+        return ok_result(get_conversation_tasks(task_db, conversation_id, limit=limit))
 
     @router.get("/tasks/{task_id}", response_model=Result, tags=["后台任务"])
     def task_detail(

@@ -1,6 +1,7 @@
 """在显式初始化的 SQLite/PostgreSQL 数据表中实现持久化单 worker 队列。"""
 
 import json
+from datetime import datetime
 from threading import Lock
 from time import monotonic
 import uuid
@@ -367,6 +368,81 @@ def list_tasks(path, *, status=None, kind=None, page=1, page_size=20):
                 "items": [_task(row, include_result=False) for row in rows]}
 
 
+def list_conversations(path, *, limit=30):
+    """按 conversation_id 聚合服务端已持久化的分析会话，只读轻量列，不加载重型审计载荷。"""
+    validate_integer(limit, "limit", maximum=100)
+    with closing(connect_task_database(path, readonly=True)) as connection, connection:
+        connection.execute("BEGIN")
+        rows = connection.execute(
+            "SELECT task_id, status, created_at, updated_at, finished_at, parameters_json "
+            "FROM tasks WHERE kind='analysis' ORDER BY created_at ASC, task_id ASC"
+        ).fetchall()
+    grouped: dict[str, dict] = {}
+    for row in rows:
+        try:
+            params = json.loads(row["parameters_json"]) if row["parameters_json"] else {}
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(params, dict):
+            continue
+        conversation_id = params.get("conversation_id")
+        question = params.get("question")
+        if not isinstance(conversation_id, str) or not conversation_id.strip() or not isinstance(question, str) or not question.strip():
+            continue
+        cid = conversation_id.strip()
+        entry = grouped.get(cid)
+        product_ids = list(params.get("product_ids")) if isinstance(params.get("product_ids"), list) else []
+        if entry is None:
+            grouped[cid] = {
+                "conversation_id": cid,
+                "title": question.strip()[:60],
+                "turn_count": 1,
+                "last_task_id": row["task_id"],
+                "last_status": row["status"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+                "source": params.get("source"),
+                "dataset_version": params.get("dataset_version"),
+                "product_ids": product_ids,
+            }
+        else:
+            entry["turn_count"] += 1
+            entry["last_task_id"] = row["task_id"]
+            entry["last_status"] = row["status"]
+            if row["updated_at"] >= entry["updated_at"]:
+                entry["updated_at"] = row["updated_at"]
+            entry["source"] = params.get("source")
+            entry["dataset_version"] = params.get("dataset_version")
+            entry["product_ids"] = product_ids
+    ordered = sorted(grouped.values(), key=lambda item: (item["updated_at"], item["conversation_id"]), reverse=True)
+    return {"total": len(ordered), "items": ordered[:limit]}
+
+
+def get_conversation_tasks(path, conversation_id, *, limit=50):
+    """按时间正序读取指定会话的轻量分析任务列表（include_audit=False），供跨端恢复多轮会话。"""
+    if not isinstance(conversation_id, str) or not 1 <= len(conversation_id.strip()) <= 200:
+        raise ReviewDataError("无效的会话 ID。")
+    validate_integer(limit, "limit", maximum=200)
+    cid = conversation_id.strip()
+    escaped = cid.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    with closing(connect_task_database(path, readonly=True)) as connection, connection:
+        connection.execute("BEGIN")
+        rows = connection.execute(
+            "SELECT * FROM tasks WHERE kind='analysis' AND parameters_json LIKE ? ESCAPE '\\' "
+            "ORDER BY created_at ASC, task_id ASC",
+            (f"%{escaped}%",),
+        ).fetchall()
+    matched = []
+    for row in rows:
+        task = _task(row, include_result=True, include_audit=False)
+        params = task.get("parameters") or {}
+        if params.get("conversation_id") == cid and isinstance(params.get("question"), str) and params["question"].strip():
+            matched.append(task)
+    if not matched:
+        raise TaskNotFound("会话不存在或暂无已保存的分析任务。")
+    return {"conversation_id": cid, "total": len(matched), "items": matched[-limit:]}
+
+
 def enqueue(path, kind, parameters, *, idempotency_key=None, parent_task_id=None):
     if kind not in KINDS:
         raise ReviewDataError("不支持的任务类型。")
@@ -517,3 +593,86 @@ def queue_health(path):
         counts.update(dict(connection.execute("SELECT status,COUNT(*) FROM tasks GROUP BY status")))
         row = connection.execute("SELECT * FROM worker_state WHERE singleton=1").fetchone()
         return {"counts": counts, "worker": dict(row) if row else None}
+
+
+def _percentile(values: list[float], ratio: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = min(len(ordered) - 1, max(0, int((len(ordered) - 1) * ratio + 0.999999)))
+    return round(ordered[index], 1)
+
+
+def _duration_stats(values: list[float]) -> dict:
+    if not values:
+        return {"count": 0, "avg": None, "p50": None, "p95": None}
+    return {
+        "count": len(values),
+        "avg": round(sum(values) / len(values), 1),
+        "p50": _percentile(values, 0.5),
+        "p95": _percentile(values, 0.95),
+    }
+
+
+def task_observability_summary(path, *, recent_limit: int = 200) -> dict:
+    """只读聚合任务队列状态、类型分布与近期分析任务耗时/失败率（零 DDL、不读重型 result_json）。"""
+    validate_integer(recent_limit, "recent_limit", maximum=1000)
+    with closing(connect_task_database(path, readonly=True)) as connection, connection:
+        connection.execute("BEGIN")
+        by_status = {status: 0 for status in STATUSES}
+        by_status.update(dict(connection.execute("SELECT status, COUNT(*) FROM tasks GROUP BY status")))
+        by_kind = {kind: 0 for kind in KINDS}
+        by_kind.update(dict(connection.execute("SELECT kind, COUNT(*) FROM tasks GROUP BY kind")))
+        recent_rows = connection.execute(
+            "SELECT kind, status, created_at, started_at, finished_at, error_json "
+            "FROM tasks WHERE status IN ('succeeded', 'partial', 'failed') "
+            "ORDER BY finished_at DESC, task_id DESC LIMIT ?",
+            (recent_limit,),
+        ).fetchall()
+
+    terminal_count = len(recent_rows)
+    failed_count = 0
+    cancelled_count = 0
+    analysis_durations_ms: list[float] = []
+    analysis_queue_wait_ms: list[float] = []
+
+    for row in recent_rows:
+        status = row["status"]
+        if status == "failed":
+            failed_count += 1
+            try:
+                err = json.loads(row["error_json"]) if row["error_json"] else None
+            except (TypeError, ValueError):
+                err = None
+            if isinstance(err, dict) and err.get("code") == "task_cancelled":
+                cancelled_count += 1
+        if row["kind"] == "analysis":
+            try:
+                if row["started_at"] and row["finished_at"]:
+                    elapsed = (
+                        datetime.fromisoformat(row["finished_at"]) - datetime.fromisoformat(row["started_at"])
+                    ).total_seconds() * 1000
+                    if elapsed >= 0:
+                        analysis_durations_ms.append(elapsed)
+                if row["created_at"] and row["started_at"]:
+                    waited = (
+                        datetime.fromisoformat(row["started_at"]) - datetime.fromisoformat(row["created_at"])
+                    ).total_seconds() * 1000
+                    if waited >= 0:
+                        analysis_queue_wait_ms.append(waited)
+            except (TypeError, ValueError):
+                pass
+
+    non_cancelled_failed = max(0, failed_count - cancelled_count)
+    failure_rate = round(non_cancelled_failed / terminal_count, 4) if terminal_count else None
+    return {
+        "counts_by_status": by_status,
+        "counts_by_kind": by_kind,
+        "recent_window_size": recent_limit,
+        "recent_terminal_count": terminal_count,
+        "recent_failed_count": failed_count,
+        "recent_cancelled_count": cancelled_count,
+        "recent_failure_rate": failure_rate,
+        "analysis_duration_ms": _duration_stats(analysis_durations_ms),
+        "analysis_queue_wait_ms": _duration_stats(analysis_queue_wait_ms),
+    }

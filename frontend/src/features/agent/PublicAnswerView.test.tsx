@@ -413,3 +413,64 @@ it('未展开详情时直接点击导出分析报告也会按需拉取 /audit �
   await waitFor(() => expect(exportSpy).toHaveBeenCalledTimes(1));
   expect(exportSpy.mock.calls[0][0].trace).toEqual([{ event: 'tool', status: 'ok' }]);
 });
+
+it('折叠调试区展示单任务 Token 耗时、扩展阶段耗时与混合检索诊断，且不污染主结论区', () => {
+  const richResult: AgentResult = {
+    ...result,
+    intent_model_calls: 1,
+    answer_model_calls: 1,
+    total_model_calls: 2,
+    llm_telemetry: {
+      calls: 2,
+      errors: 0,
+      prompt_tokens: 320,
+      completion_tokens: 110,
+      total_tokens: 430,
+      duration_ms: 812.5,
+      by_role: {},
+    },
+    performance: {
+      queue_duration_ms: 14.2,
+      intent_resolution_duration_ms: 120.5,
+      embedding_preparation_duration_ms: 48.0,
+      planning_duration_ms: 125.0,
+      query_duration_ms: 35.0,
+      validation_duration_ms: 6.2,
+      compression_duration_ms: 4.1,
+      answer_duration_ms: 690.0,
+      total_duration_ms: 910.0,
+    },
+    result_ids: ['s1'],
+    results: {
+      s1: {
+        result_id: 's1',
+        kind: 'semantic_evidence',
+        parameters: {},
+        data: {
+          retrieval: {
+            evidence: [],
+            hybrid_retrieval: {
+              bm25_enabled: true,
+              vector_keys: ['k1', 'k2'],
+              bm25_keys: ['k2', 'k3', 'k4'],
+              query_variants: ['不制冷 差评', '吹热风'],
+              rerank_policy: 'lexical_semantic_v1',
+            },
+          },
+          assessment: { status: 'sufficient', reason: 'ok' },
+        },
+      },
+    },
+  };
+  const { container } = show({ ...task, result: richResult as unknown as Task['result'] });
+  const mainAnswer = screen.getByRole('region', { name: '分析回答' });
+  expect(mainAnswer.textContent).not.toContain('模型 Token 消耗');
+  expect(mainAnswer.textContent).not.toContain('混合检索诊断');
+
+  const auditText = container.querySelector('.agent-audit')?.textContent || '';
+  expect(auditText).toContain('模型 Token 消耗：总计 430（输入 320 / 输出 110）');
+  expect(auditText).toContain('排队 14.2 ms');
+  expect(auditText).toContain('意图 120.5 ms');
+  expect(auditText).toContain('向量 48.0 ms');
+  expect(auditText).toContain('混合检索诊断：向量命中 2 条 · BM25 命中 3 条（词法捞回 2 条） · 查询改写 2 路 · 重排 lexical_semantic_v1');
+});

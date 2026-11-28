@@ -133,7 +133,7 @@ export async function fetchFollowupParents({
     for (const candidate of candidates.slice(0, 4)) {
       const saved = activeTask?.task_id === candidate.taskId
         ? activeTask
-        : await api.task(candidate.taskId!);
+        : await api.task(candidate.taskId!, undefined, { includeAudit: false });
       if (!isCurrentEpoch()) return { aborted: true, readError: '' };
       if (saved?.parameters.conversation_id !== conversationId) continue;
       const candidateScope = candidate.selection || candidate.parameters;

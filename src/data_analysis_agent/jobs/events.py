@@ -92,6 +92,7 @@ class _PgTaskListener:
         self._identity = identity
         self._stop = ThreadEvent()
         self._connected = ThreadEvent()
+        self._reconnects = 0
         self._thread = Thread(target=self._run, name=f"pg-task-listen-{identity[-24:]}", daemon=True)
 
     def start(self) -> None:
@@ -125,6 +126,7 @@ class _PgTaskListener:
             except Exception as exc:
                 self._connected.clear()
                 if not self._stop.is_set():
+                    self._reconnects += 1
                     logger.debug(
                         "PostgreSQL LISTEN 断线，将在 %.1fs 后重试 (%s: %s)",
                         backoff,
@@ -166,6 +168,38 @@ def pg_task_listener_active(task_db) -> bool:
     with _PG_LOCK:
         listener = _PG_LISTENERS.get(identity)
         return bool(listener is not None and listener.active)
+
+
+def event_hub_stats(task_db=None) -> dict:
+    """返回任务事件中心与 PostgreSQL LISTEN 监听器的只读观测快照（不含连接串或凭据）。"""
+    with _CONDITION:
+        active_subscribers = sum(len(bucket) for bucket in _ASYNC_SUBSCRIBERS.values())
+        tracked_tasks = len(_VERSIONS)
+    pg_configured = bool(is_postgres(task_db)) if task_db is not None else False
+    pg_active = False
+    pg_reconnects = 0
+    if task_db is not None and pg_configured:
+        try:
+            identity = database_identity(task_db)
+        except Exception:
+            identity = None
+        if identity is not None:
+            with _PG_LOCK:
+                listener = _PG_LISTENERS.get(identity)
+                if listener is not None:
+                    pg_active = listener.active
+                    pg_reconnects = listener._reconnects
+    else:
+        with _PG_LOCK:
+            pg_active = any(listener.active for listener in _PG_LISTENERS.values())
+            pg_reconnects = sum(listener._reconnects for listener in _PG_LISTENERS.values())
+    return {
+        "active_sse_subscribers": active_subscribers,
+        "tracked_task_versions": tracked_tasks,
+        "pg_listener_configured": pg_configured,
+        "pg_listener_active": pg_active,
+        "pg_listener_reconnects": pg_reconnects,
+    }
 
 
 def stop_pg_task_listeners(task_db=None) -> int:

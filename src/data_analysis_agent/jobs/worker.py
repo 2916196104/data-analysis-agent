@@ -174,7 +174,12 @@ class TaskWorker:
         return default
 
     def _check_lock(self) -> None:
-        with self._lock_guard:
+        guard = getattr(self, "_lock_guard", None)
+        if guard is None:
+            if isinstance(self.lock.handle, PostgresConnection):
+                self.lock.handle.execute("SELECT 1")
+            return
+        with guard:
             if isinstance(self.lock.handle, PostgresConnection):
                 self.lock.handle.execute("SELECT 1")
 
@@ -498,10 +503,25 @@ class TaskWorker:
                 logger.info("导入结果 task_id=%s kind=%s 新增=%s 重复=%s 无效=%s",
                             task["task_id"], item["kind"], item["inserted_records"],
                             item["duplicate_records"], item["invalid_records"])
-            logger.log(logging.WARNING if partial else logging.INFO,
-                       "任务结束 task_id=%s kind=%s status=%s 耗时=%.2fs stopped_reason=%s",
-                       task["task_id"], task["kind"], "partial" if partial else "succeeded",
-                       time.monotonic() - started, result.get("stopped_reason") or "-")
+            conv_id = task["parameters"].get("conversation_id") if isinstance(task.get("parameters"), dict) else None
+            total_model_calls = result.get("total_model_calls") if isinstance(result, dict) else None
+            total_tokens = (
+                (result.get("llm_telemetry") or {}).get("total_tokens")
+                if isinstance(result, dict)
+                else None
+            )
+            logger.log(
+                logging.WARNING if partial else logging.INFO,
+                "任务结束 task_id=%s kind=%s status=%s conversation_id=%s model_calls=%s total_tokens=%s 耗时=%.2fs stopped_reason=%s",
+                task["task_id"],
+                task["kind"],
+                "partial" if partial else "succeeded",
+                conv_id or "-",
+                total_model_calls if total_model_calls is not None else "-",
+                total_tokens if total_tokens is not None else "-",
+                time.monotonic() - started,
+                result.get("stopped_reason") or "-",
+            )
         except TaskCancelled:
             logger.info("任务已手动取消 task_id=%s kind=%s 耗时=%.2fs",
                         task["task_id"], task["kind"], time.monotonic() - started)

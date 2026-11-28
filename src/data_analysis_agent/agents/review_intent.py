@@ -14,8 +14,23 @@ from data_analysis_agent.agents.review_semantics import (
     validate_product_identifiers,
 )
 from data_analysis_agent.core.validation import Input
-from data_analysis_agent.reviews.opinions import Aspect
+from data_analysis_agent.reviews.opinions import ASPECTS, Aspect
 from data_analysis_agent.reviews.parameters import BaselineScope
+
+
+def _aspect_clarification_choices(sentiment: str = 'negative') -> tuple[dict[str, str], ...]:
+    direction = '好评' if sentiment == 'positive' else '差评'
+    return tuple(
+        {'label': label, 'question': f'{label}{direction}具体体现在哪里？'}
+        for label in ASPECTS.values()
+    )
+
+
+_DEFAULT_CLARIFICATION_CHOICES: tuple[dict[str, str], ...] = (
+    {'label': '主要差评维度', 'question': '主要差评集中在哪些维度？'},
+    {'label': '物流好评趋势', 'question': '按月分析物流好评占比趋势'},
+    {'label': '数据质量与覆盖率', 'question': '查看缺失正文、失败标注和覆盖率'},
+)
 
 
 class IntentTimeRange(Input):
@@ -69,17 +84,43 @@ def _llm_intent(question, scope, context, mentions, settings, diagnostics, *, co
     aspects = {row['parameters'].get('aspect') for row in requested_queries}
     schema = ReviewIntent.model_json_schema()
     schema['required'] = ['query_type', 'needs_clarification']
+    validated_history = [
+        {
+            'question': str(row.get('question') or '')[:120],
+            'analysis_type': row.get('analysis_type'),
+            'sentiment': row.get('sentiment'),
+            'aspects': sorted({
+                q['parameters'].get('aspect')
+                for q in row.get('queries', [])
+                if isinstance(q, dict) and isinstance(q.get('parameters'), dict) and q['parameters'].get('aspect')
+            }),
+        }
+        for row in ((context or {}).get('validated_history') or [])[:3]
+    ]
+    ranking_basis = ((context or {}).get('analysis_state') or {}).get('ranking_basis') or {}
+    ranking_top_aspects = [
+        row['aspect']
+        for row in (ranking_basis.get('ranking') or [])[:3]
+        if isinstance(row, dict) and row.get('aspect') and (row.get('negative_review_count') or 0) > 0
+    ]
+    compact_context = {
+        'explicit_user_mentions': mentions,
+        'explicit_user_intent': {'query_type': KIND_TYPES.get(requested.get('analysis_type')),
+                                 'sentiment': requested.get('sentiment'), 'aspect': next(iter(aspects)) if len(aspects) == 1 else None,
+                                 'topic': requested_queries[0]['parameters'].get('topic') if len(requested_queries) == 1 else None,
+                                 'sub_intent': 'drill_down' if requested.get('analysis_type') == 'opinion_breakdown' else 'overview'},
+        'validated_query': {key: previous.get(key) for key in ('analysis_type', 'sentiment')},
+        'validated_windows': {key: previous.get('scope', {}).get(key) for key in ('date_from', 'date_to', 'baseline_from', 'baseline_to')},
+        'queries': [{'kind': row['kind'], 'aspect': row['parameters'].get('aspect'),
+                     **{key: row['parameters'].get(key) for key in ('sentiment', 'topic', 'window', 'period', 'page_size', 'group_by')}}
+                    for row in previous.get('queries', [])[:4]],
+    }
+    if validated_history:
+        compact_context['validated_history'] = validated_history
+    if ranking_top_aspects:
+        compact_context['ranking_top_aspects'] = ranking_top_aspects
     payload = {'question': question, 'bound_dates': {key: scope[key] for key in ('date_from', 'date_to')},
-        'compact_context': {'explicit_user_mentions': mentions,
-            'explicit_user_intent': {'query_type': KIND_TYPES.get(requested.get('analysis_type')),
-                                     'sentiment': requested.get('sentiment'), 'aspect': next(iter(aspects)) if len(aspects) == 1 else None,
-                                     'topic': requested_queries[0]['parameters'].get('topic') if len(requested_queries) == 1 else None,
-                                     'sub_intent': 'drill_down' if requested.get('analysis_type') == 'opinion_breakdown' else 'overview'},
-            'validated_query': {key: previous.get(key) for key in ('analysis_type', 'sentiment')},
-            'validated_windows': {key: previous.get('scope', {}).get(key) for key in ('date_from', 'date_to', 'baseline_from', 'baseline_to')},
-            'queries': [{'kind': row['kind'], 'aspect': row['parameters'].get('aspect'),
-                         **{key: row['parameters'].get(key) for key in ('sentiment', 'topic', 'window', 'period', 'page_size', 'group_by')}}
-                        for row in previous.get('queries', [])[:4]]},
+        'compact_context': compact_context,
         'schema': schema}
     content = json.dumps(payload, ensure_ascii=False)
     if len(content.encode('utf-8')) > 16000:
@@ -121,32 +162,68 @@ def _llm_intent(question, scope, context, mentions, settings, diagnostics, *, co
 
 def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False, question=None):
     if intent.needs_clarification or not intent.query_type:
-        raise QuestionScopeError(intent.clarification_question or '请明确要查看维度汇总、观点细分、趋势还是评论原文。')
+        raise QuestionScopeError(
+            intent.clarification_question or '请明确要查看维度汇总、观点细分、趋势还是评论原文。',
+            code='clarification_needed',
+            choices=_DEFAULT_CLARIFICATION_CHOICES,
+        )
     params = {'product_ids': scope['product_ids']}
     aspect = {'aspect': intent.aspect} if intent.aspect else {}
+    aspect_label = ASPECTS.get(intent.aspect, '该维度') if intent.aspect else ''
     if intent.sub_intent == 'drill_down' and intent.query_type not in {'aspect_summary', 'opinion_breakdown', 'aspect_drilldown'}:
-        raise QuestionScopeError('请明确要下钻的评价维度；数据质量、星级和商品对比不能直接替代观点细分。')
+        raise QuestionScopeError(
+            '请明确要下钻的评价维度；数据质量、星级和商品对比不能直接替代观点细分。',
+            code='clarification_needed',
+            choices=_aspect_clarification_choices(intent.sentiment or 'negative'),
+        )
     kind = {'drill_down': 'opinion_breakdown', 'evidence': 'evidence'}.get(intent.sub_intent, intent.query_type)
     if (kind == 'opinion_breakdown' and intent.sentiment in ('positive', 'negative') and not intent.topic and (
             (intent.aspect and not local_content) or (intent.sentiment == 'positive' and local_content))
             and len(scope['product_ids']) == 1) or intent.query_type == 'aspect_drilldown':
         if intent.sentiment not in ('positive', 'negative'):
-            raise QuestionScopeError('二级主题分析需要一个明确维度及正向或负向情感。')
+            raise QuestionScopeError(
+                '二级主题分析需要一个明确维度及正向或负向情感。',
+                code='clarification_needed',
+                choices=(
+                    {'label': f'{aspect_label or "主要"}差评主题', 'question': f'{aspect_label}差评具体体现在哪里？' if aspect_label else '主要差评集中在哪些维度？'},
+                    {'label': f'{aspect_label or "主要"}好评主题', 'question': f'{aspect_label}好评具体体现在哪里？' if aspect_label else '主要好评集中在哪些维度？'},
+                ),
+            )
         if len(scope['product_ids']) != 1:
             raise QuestionScopeError('二级主题分析首版仅支持一款商品，请指定具体商品 ID。')
         if not intent.aspect and intent.sentiment == 'negative':
-            raise QuestionScopeError(f"当前商品为 {scope['product_ids'][0]}，已保留差评条件。"
+            raise QuestionScopeError(
+                f"当前商品为 {scope['product_ids'][0]}，已保留差评条件。"
                 '尚未指定要展开的维度，请选择客服、使用效果、物流、商品质量、价格或包装；'
-                '例如回复“客服方面呢”或“物流差评具体体现在哪里”。')
+                '例如回复“客服方面呢”或“物流差评具体体现在哪里”。',
+                code='clarification_needed',
+                choices=_aspect_clarification_choices('negative'),
+            )
         if (previous_parameters or {}).get('window') == 'baseline':
-            raise QuestionScopeError('本轮要继续基线原文，还是对当前窗口做二级主题分析？')
+            direction = '好评' if intent.sentiment == 'positive' else '差评'
+            raise QuestionScopeError(
+                '本轮要继续基线原文，还是对当前窗口做二级主题分析？',
+                code='clarification_needed',
+                choices=(
+                    {'label': '继续看基线原文', 'question': f'给我看 3 条基线窗口{aspect_label}{direction}原文'},
+                    {'label': '当前窗口主题分析', 'question': f'当前窗口{aspect_label}{direction}具体体现在哪里？'},
+                ),
+            )
         confirmed = '执行本轮已确认的只读查询\n' + json.dumps({'tool': 'get_aspect_drilldown', 'parameters': {
             **params, 'aspect': intent.aspect, 'sentiment': intent.sentiment}}, ensure_ascii=False)
         return build_query_plan(confirmed, scope)
     if kind in {'comparison', 'window_comparison'} and intent.topic:
         raise QuestionScopeError('当前没有该细分语义主题的独立对比统计，不能用上级维度或整体对比替代。')
     if intent.aspect and (kind in {'quality', 'ratings'} or (kind in {'comparison', 'window_comparison'} and intent.sentiment != 'positive')):
-        raise QuestionScopeError('该统计类型不支持直接按评价维度筛选。要查看该维度的观点细分、原文还是趋势？')
+        raise QuestionScopeError(
+            '该统计类型不支持直接按评价维度筛选。要查看该维度的观点细分、原文还是趋势？',
+            code='clarification_needed',
+            choices=(
+                {'label': f'{aspect_label}差评主题', 'question': f'{aspect_label}差评具体体现在哪里？'},
+                {'label': f'{aspect_label}评论原文', 'question': f'给我看 3 条{aspect_label}差评原文'},
+                {'label': f'{aspect_label}月度趋势', 'question': f'按月分析{aspect_label}负面占比趋势'},
+            ),
+        )
     if kind == 'aspect_summary':
         if intent.sentiment not in {'positive', 'negative'}:
             kind = 'opinion_breakdown'
@@ -155,7 +232,14 @@ def _intent_plan(intent, scope, *, previous_parameters=None, local_content=False
             params.update(aspect)
     if kind == 'opinion_breakdown':
         if (previous_parameters or {}).get('window') == 'baseline':
-            raise QuestionScopeError('上轮查询的是基线原文。本轮要继续基线原文，还是切换当前窗口进行观点细分？')
+            raise QuestionScopeError(
+                '上轮查询的是基线原文。本轮要继续基线原文，还是切换当前窗口进行观点细分？',
+                code='clarification_needed',
+                choices=(
+                    {'label': '继续看基线原文', 'question': f'给我看 3 条基线窗口{aspect_label}评论原文'},
+                    {'label': '当前窗口观点细分', 'question': f'当前窗口{aspect_label}差评具体体现在哪里？'},
+                ),
+            )
         tool = 'get_opinion_breakdown'
         params.update(aspect=intent.aspect, sentiment=intent.sentiment or 'all', topic=intent.topic)
     elif kind == 'evidence':
@@ -203,35 +287,109 @@ def _followup_intent(question, conditions):
     question = active_request(question)
     if re.search(r'(?:所有|全部)(?:的)?(?:商品|产品|空调)|(?:整个|所有|全部)数据集', question):
         return None
+    stripped = question.strip()
     semantic = opinion_request(question)
-    short_aspect = bool(ASPECT_SWITCH.fullmatch(question.strip()) or re.fullmatch(r'(?:那|那么|再|也|只看|仅看)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面|问题)?(?:呢|怎么样)?[？?。]*', question.strip()))
-    short_sentiment = bool(re.fullmatch(r'(?:那|那么|然后)?(?:好评|差评|正面|负面|优点|缺点|投诉)(?:呢|吧)?[？?。]*', question.strip()))
-    short_period = re.fullmatch(r'(?:换成|改成|改为)?按(月|日|天)(?:看|查看|统计)?[？?。]*', question.strip())
-    summary_ref = bool(re.fullmatch(r'(?:那|那么)?(?:主要)?集中在(?:哪些|什么)(?:地方|方面)(?:呢)?[？?。]*', question.strip()))
-    detail_ref = bool(re.fullmatch(r'(?:这些|那些|上述)(?:好评|差评|评价|观点)(?:具体)?(?:反映|说明|表达)(?:了)?什么[？?。]*', question.strip()))
+    short_aspect = bool(ASPECT_SWITCH.fullmatch(stripped) or re.fullmatch(r'(?:那|那么|再|也|只看|仅看)?(?:使用效果|质量|效果|包装|物流|客服|服务|价格)(?:方面|问题)?(?:呢|怎么样)?[？?。]*', stripped))
+    short_sentiment = bool(re.fullmatch(r'(?:那|那么|然后)?(?:好评|差评|正面|负面|优点|缺点|投诉)(?:呢|吧)?[？?。]*', stripped))
+    short_period = re.fullmatch(r'(?:换成|改成|改为)?按(月|日|天)(?:看|查看|统计)?[？?。]*', stripped)
+    summary_ref = bool(re.fullmatch(r'(?:那|那么)?(?:主要)?集中在(?:哪些|什么)(?:地方|方面)(?:呢)?[？?。]*', stripped))
+    detail_ref = bool(re.fullmatch(r'(?:这些|那些|上述)(?:好评|差评|评价|观点)(?:具体)?(?:反映|说明|表达)(?:了)?什么[？?。]*', stripped))
+    short_window_compare = bool(re.fullmatch(r'(?:那|那么|再|也)?(?:和|与|跟)?(?:基线|上期|上一期|上个窗口|基线窗口)(?:比|对比|比较)(?:呢|怎么样|一下|看看)?[？?。]*', stripped))
+    short_quality = bool(re.fullmatch(r'(?:那|那么|再|也)?(?:看看|查看|看下)?(?:数据质量|覆盖率|标注覆盖率|缺失正文)(?:呢|怎么样)?[？?。]*', stripped))
+    short_ratings = bool(re.fullmatch(r'(?:那|那么|再|也)?(?:看看|查看|看下)?(?:星级|评分|星级分布|评分分布)(?:呢|怎么样)?[？?。]*', stripped))
+    more_examples = re.fullmatch(r'(?:再|多)(?:看|来|给我|给|展示)(?:几|(\d+))条(?:原文|评论|例子)?[？?。]*', stripped)
     count_ref = bool(re.search(r'数量|占比|比例|多少条|有多少|几条', question) and not semantic['examples'] and not semantic['theme_summary'])
     # 完整的新统计请求不受旧 RAG 追问约束；省略请求仍需唯一承接。
     if count_ref and semantic['aspect'] and detect_sentiment_intent(question) in ('negative', 'positive'):
         if conditions and any(row['kind'] == 'semantic_evidence' for row in conditions.get('queries', [])):
             return None
-    if not conditions or not ((semantic['aspect'] and (short_aspect or semantic['breakdown'])) or semantic['content_detail'] or count_ref or short_sentiment or short_period or summary_ref or detail_ref):
+    if not conditions or not (
+        (semantic['aspect'] and (short_aspect or semantic['breakdown']))
+        or semantic['content_detail']
+        or count_ref
+        or short_sentiment
+        or short_period
+        or summary_ref
+        or detail_ref
+        or short_window_compare
+        or short_quality
+        or short_ratings
+        or bool(more_examples)
+    ):
         return None
     queries = conditions.get('queries', [])
     selected = [row for row in queries if semantic['aspect'] and row['parameters'].get('aspect') == semantic['aspect']] if len(queries) > 1 else queries
     if len(selected) != 1:
         labels = '、'.join(dict.fromkeys(KIND_LABELS.get(row['kind'], row['kind']) for row in queries))
-        raise QuestionScopeError(f'上轮包含{labels}。这次要看该维度的汇总、趋势还是原文？')
+        aspect_label = ASPECTS.get(semantic['aspect'], '') if semantic['aspect'] else ''
+        raise QuestionScopeError(
+            f'上轮包含{labels}。这次要看该维度的汇总、趋势还是原文？',
+            code='clarification_needed',
+            choices=(
+                {'label': f'{aspect_label or "维度"}汇总', 'question': f'{aspect_label}主要差评统计' if aspect_label else '主要差评集中在哪些维度？'},
+                {'label': f'{aspect_label or "维度"}月度趋势', 'question': f'按月分析{aspect_label}负面占比趋势' if aspect_label else '按月分析整体好评占比趋势'},
+                {'label': f'{aspect_label or "维度"}评论原文', 'question': f'给我看 3 条{aspect_label}差评原文' if aspect_label else '给我看 3 条差评原文'},
+            ),
+        )
     last = selected[0]
     if last['kind'] == 'semantic_evidence':
         if short_aspect:
-            raise QuestionScopeError('这次要看该维度的统计、主题具体表现，还是检索某个具体反馈？请明确分析目标。')
+            aspect_label = ASPECTS.get(semantic['aspect'], '该维度')
+            raise QuestionScopeError(
+                '这次要看该维度的统计、主题具体表现，还是检索某个具体反馈？请明确分析目标。',
+                code='clarification_needed',
+                choices=(
+                    {'label': f'{aspect_label}差评统计', 'question': f'{aspect_label}主要有哪些问题？'},
+                    {'label': f'{aspect_label}主题表现', 'question': f'{aspect_label}差评具体体现在哪里？'},
+                    {'label': f'检索{aspect_label}反馈', 'question': f'有没有{aspect_label}相关的买家反馈？'},
+                ),
+            )
         raise QuestionScopeError('上轮为语义检索，请补充完整的检索问题；省略追问不能自动改为按时间浏览原文。')
+    if short_quality:
+        return ReviewIntent(query_type='quality'), dict(last['parameters'])
+    if short_ratings:
+        return ReviewIntent(query_type='ratings'), dict(last['parameters'])
+    if short_window_compare:
+        last_params = dict(last['parameters'])
+        inherited_sentiment = detect_sentiment_intent(question) or conditions.get('sentiment') or last_params.get('sentiment')
+        inherited_aspect = semantic['aspect'] or last_params.get('aspect')
+        return ReviewIntent(
+            query_type='window_comparison',
+            sentiment=inherited_sentiment,
+            aspect=inherited_aspect if inherited_sentiment == 'positive' else None,
+        ), last_params
+    if more_examples:
+        if last['kind'] != 'evidence':
+            return None
+        last_params = dict(last['parameters'])
+        requested_n = int(more_examples.group(1)) if more_examples.group(1) else int(last_params.get('page_size', 3)) + 3
+        last_params['page_size'] = max(1, min(10, requested_n))
+        return ReviewIntent(
+            query_type='evidence',
+            sub_intent='evidence',
+            sentiment=last_params.get('sentiment'),
+            aspect=last_params.get('aspect'),
+        ), last_params
     if (short_sentiment and conditions.get('pending_query_type') == 'aspect_drilldown'
             and last['kind'] in ('issues', 'positive_aspects') and not last['parameters'].get('aspect')):
         direction = '好评' if detect_sentiment_intent(question) == 'positive' else '差评'
-        raise QuestionScopeError(f'本轮要查看{direction}统计，还是{direction}的主题具体表现？原未完成的主题目标仍保留，请明确分析层次。')
+        raise QuestionScopeError(
+            f'本轮要查看{direction}统计，还是{direction}的主题具体表现？原未完成的主题目标仍保留，请明确分析层次。',
+            code='clarification_needed',
+            choices=(
+                {'label': f'查看{direction}维度统计', 'question': f'主要{direction}集中在哪些维度？'},
+                {'label': f'查看{direction}主题表现', 'question': f'客服{direction}具体体现在哪里？'},
+            ),
+        )
     if summary_ref and last['kind'] not in {'positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown'}:
-        raise QuestionScopeError('上轮是' + KIND_LABELS.get(last['kind'], last['kind']) + '。这次要继续该统计，还是查看评价维度和观点细分？')
+        raise QuestionScopeError(
+            '上轮是' + KIND_LABELS.get(last['kind'], last['kind']) + '。这次要继续该统计，还是查看评价维度和观点细分？',
+            code='clarification_needed',
+            choices=(
+                {'label': '主要差评维度', 'question': '主要差评集中在哪些维度？'},
+                {'label': '主要好评维度', 'question': '主要好评集中在哪些维度？'},
+            ),
+        )
     if short_period and last['kind'] not in {'trend', 'aspect_trend', 'ratings'}:
         raise QuestionScopeError('上轮不是时间序列或星级分布，请明确要按日/月查看哪个指标。')
     if short_period and last['kind'] == 'ratings' and short_period.group(1) != '月':
@@ -245,7 +403,15 @@ def _followup_intent(question, conditions):
     if count_ref and last['kind'] not in ('positive_aspects', 'issues', 'opinion_breakdown', 'aspect_drilldown', 'evidence'):
         return None
     if count_ref and last_params.get('window') == 'baseline':
-        raise QuestionScopeError('上轮为基线原文，请明确要统计基线还是当前窗口。')
+        aspect_label = ASPECTS.get(last_params.get('aspect'), '')
+        raise QuestionScopeError(
+            '上轮为基线原文，请明确要统计基线还是当前窗口。',
+            code='clarification_needed',
+            choices=(
+                {'label': '统计当前窗口', 'question': f'当前窗口{aspect_label}主要有哪些问题？'},
+                {'label': '对比基线与当前窗口', 'question': '对比当前窗口与基线的变化'},
+            ),
+        )
     whole_summary = semantic['positive_summary'] and bool(re.search(r'整体|总体|全部|所有|(?:商品|产品)的?好评', question))
     if short_period and last['kind'] == 'ratings':
         last_params['group_by'] = 'month'
@@ -482,7 +648,11 @@ def _resolve_review_request(question, scope, products, *, settings, context=None
     if not plan.unsupported_reason.startswith('无法确定本轮') or re.search(r'删除|更新|写入|SQL|数据库密码', question, re.I):
         return scope, plan, False
     if not settings.semantic_parser_enabled:
-        raise QuestionScopeError('请明确要查看维度汇总、观点细分、趋势还是原文；当前配置只启用了规则解析。')
+        raise QuestionScopeError(
+            '请明确要查看维度汇总、观点细分、趋势还是原文；当前配置只启用了规则解析。',
+            code='clarification_needed',
+            choices=_DEFAULT_CLARIFICATION_CHOICES,
+        )
     try:
         intent = _llm_intent(question, scope, context, prior_mentions, settings, diagnostics, conditions=conditions)
     except Exception as exc:

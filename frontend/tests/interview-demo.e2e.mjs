@@ -80,7 +80,16 @@ try {
   await capture('dashboard');
 
   await page.getByRole('button', { name: 'Agent 问答', exact: true }).click();
-  await page.getByLabel('问答模式').getByText('评论分析', { exact: true }).click();
+  // P1-3 / P1-4 真机验证：基础问答输入分析问句触发非侵入式模式建议，一键携带草稿转切评论分析
+  await page.getByLabel('问答模式').getByText('基础问答', { exact: true }).click();
+  await page.getByRole('textbox', { name: '基础问答问题', exact: true }).fill('按月分析物流好评占比趋势。');
+  await page.getByRole('status', { name: '模式切换建议', exact: true }).waitFor();
+  await capture('mode-suggestion');
+  await page.getByRole('button', { name: '切换到评论分析', exact: true }).click();
+  assert.equal(
+    await page.getByRole('textbox', { name: '评论分析问题', exact: true }).inputValue(),
+    '按月分析物流好评占比趋势。',
+  );
   const monthly = await ask('按月分析物流好评占比趋势。');
   await monthly.turn.getByText(/2023-01：正向评论 1 条，分母 2 条含正向观点评论，占比 50\.0%/).waitFor();
   const denominator = await ask('按月分析物流好评占成功标注评论的比例趋势。');
@@ -100,6 +109,32 @@ try {
   await capture('evidence', detail.getByRole('heading', { name: /原文证据 #/ }));
   await detail.getByRole('button', { name: '关闭数据详情', exact: true }).click();
   await detail.waitFor({ state: 'hidden' });
+
+  // P1-4 运行态可观测端点与 X-Request-ID 校验
+  const obsResponse = await page.request.get(apiUrl + '/observability/summary');
+  assert.equal(obsResponse.status(), 200);
+  assert.ok(obsResponse.headers()['x-request-id'], 'missing X-Request-ID header');
+  const obsBody = (await obsResponse.json()).result;
+  assert.ok(obsBody.tasks.recent_terminal_count >= 3, JSON.stringify(obsBody.tasks));
+
+  // P1-3 清空本地缓存后通过历史抽屉恢复服务端会话并无缝追问（零模型快路径）
+  await page.evaluate(() => localStorage.clear());
+  await page.goto(webUrl);
+  await page.getByRole('heading', { name: '评论分析', exact: true }).waitFor();
+  await page.getByRole('combobox', { name: '分析商品', exact: true }).click();
+  await page.locator('.ant-select-dropdown:visible').getByText('正向趋势合成商品（13 条）', { exact: true }).click();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Agent 问答', exact: true }).click();
+  await page.getByRole('button', { name: '历史会话', exact: true }).click();
+  const serverList = page.getByRole('navigation', { name: '服务端历史会话列表', exact: true });
+  await serverList.waitFor();
+  await capture('cloud-history');
+  await serverList.getByRole('button').first().click();
+  await page.waitForFunction(() => document.querySelectorAll('.chat-turn').length >= 3, undefined, { timeout: 10000 });
+  const restoredFollowup = await ask('那覆盖率呢？');
+  assert.equal(restoredFollowup.task.parameters.conversation_id, monthly.task.parameters.conversation_id);
+  assert.equal(restoredFollowup.task.parameters.context_task_id, evidence.task.task_id);
+  assert.equal(restoredFollowup.task.result.total_model_calls, 0);
   assert.deepEqual(errors, []);
   assert.deepEqual(externalRequests, []);
   await writeFile(path.join(artifacts, 'acceptance.json'), JSON.stringify({

@@ -16,7 +16,8 @@ class ChatHistoryTurn(Input):
     answer: str = Field(min_length=1, max_length=16000, pattern=r'\S', strict=True)
 
 
-def bounded_history(history):
+def bounded_history_with_meta(history) -> tuple[list[ChatHistoryTurn], dict]:
+    """按轮数与字符预算裁剪基础问答历史，并返回截断元信息供流式事件透出。"""
     turns = [ChatHistoryTurn.model_validate(turn) for turn in history or []]
     chosen = []
     used = 0
@@ -26,7 +27,20 @@ def bounded_history(history):
             break
         chosen.append(turn)
         used += size
-    return list(reversed(chosen))
+    selected = list(reversed(chosen))
+    return selected, {
+        "total_turns": len(turns),
+        "included_turns": len(selected),
+        "truncated": len(selected) < len(turns),
+        "used_chars": used,
+        "max_chars": MAX_HISTORY_CHARS,
+        "max_turns": MAX_HISTORY_TURNS,
+    }
+
+
+def bounded_history(history):
+    selected, _ = bounded_history_with_meta(history)
+    return selected
 
 
 SYSTEM_PROMPT = """你是观数商品评论分析系统的基础 AI 助手，请用中文清楚回答用户的问题。

@@ -222,8 +222,9 @@ def build_request_goal(question, context=None):
             (params.get('sentiment') or previous.get('sentiment')) in ('positive', 'negative'))
         inherit_aspect = not whole and (reference or count_target or bool(re.search(r'具体|体现|表现|抱怨|吐槽|往里挖', text)))
         inherit_topic = reference or bool(re.search(r'往里挖|^(?:这些|那些|上述)', text))
+        sentiment_neutral_family = bool(goal.statistic_families) and set(goal.statistic_families) <= {'quality', 'ratings'}
         goal = replace(goal, aspect=None if goal.aspects else aspect or (inherited_aspect if inherit_aspect else None),
-                       sentiment=sentiment or inherited_sentiment,
+                       sentiment=sentiment if sentiment_neutral_family else (sentiment or inherited_sentiment),
                        topic=topic or (inherited_topic if inherit_topic else None))
     return goal
 

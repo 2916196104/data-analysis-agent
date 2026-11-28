@@ -22,6 +22,9 @@ describe('阶段 0 API 请求契约', () => {
   const product = '["a&b","版本 1","p/1"]';
   const cases: [string, () => Promise<unknown>, string, string, string?][] = [
     ['健康状态', () => api.health(), '/health', 'GET'],
+    ['运行态可观测摘要', () => api.observabilitySummary(), '/observability/summary', 'GET'],
+    ['服务端会话列表', () => api.conversations(), '/conversations?limit=30', 'GET'],
+    ['服务端会话详情', () => api.conversationTasks('conv/a ?'), '/conversations/conv%2Fa%20%3F?limit=50', 'GET'],
     ['商品与标注目录', () => api.options(), '/options', 'GET'],
     ['数据质量', () => api.quality(), '/quality', 'GET'],
     ['默认任务页', () => api.tasks(), '/tasks?page=1&page_size=15', 'GET'],

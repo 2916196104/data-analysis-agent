@@ -229,3 +229,39 @@ it('会话数量与历史备份键受上限约束，自动清理过期项并保�
   const backups = Object.keys(localStorage).filter(key => key.startsWith(`${CHAT_KEY}:backup:`));
   expect(backups.length).toBeLessThanOrEqual(MAX_BACKUPS);
 });
+
+it('支持从服务端按 conversation_id 恢复多轮分析会话，且追问前置回查走轻量 includeAudit:false', async () => {
+  const remoteTasks = [
+    task('srv-1', 'remote-conv'),
+    {
+      ...task('srv-2', 'remote-conv'),
+      parameters: { ...scope, question: '追问物流', conversation_id: 'remote-conv', context_task_id: 'srv-1' },
+    },
+  ];
+  tasks.set('srv-1', remoteTasks[0]);
+  tasks.set('srv-2', remoteTasks[1]);
+  const convSpy = vi.spyOn(api, 'conversationTasks').mockResolvedValue({
+    conversation_id: 'remote-conv',
+    total: 2,
+    items: remoteTasks,
+  });
+  const taskSpy = vi.spyOn(api, 'task').mockImplementation(async id => tasks.get(id)!);
+  vi.spyOn(api, 'submit').mockResolvedValue({ task: task('srv-3', 'remote-conv'), reused: false });
+
+  const hook = renderHook(() => useAgentChat());
+  let restored = false;
+  await act(async () => {
+    restored = await hook.result.current.restoreServerSession('remote-conv');
+  });
+  expect(restored).toBe(true);
+  expect(convSpy).toHaveBeenCalledWith('remote-conv');
+  expect(hook.result.current.activeSessionId).toBe('remote-conv');
+  expect(hook.result.current.conversation.turns).toHaveLength(2);
+  expect(hook.result.current.conversation.context?.last_successful_task_id).toBe('srv-2');
+
+  // 引用第 1 轮（非当前激活任务 srv-2）发起追问时，前置回查应走轻量 includeAudit:false
+  await act(async () => {
+    await hook.result.current.send(scope, '第1轮：那物流呢');
+  });
+  expect(taskSpy).toHaveBeenCalledWith('srv-1', undefined, { includeAudit: false });
+});

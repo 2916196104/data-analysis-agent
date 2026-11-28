@@ -1,4 +1,14 @@
-import type { AgentResult, Page, Submission, Task, TaskInput, TaskSummary, PublicAnswer } from '../../types';
+import type {
+  AgentResult,
+  Page,
+  PublicAnswer,
+  ServerConversationDetail,
+  ServerConversationSummary,
+  Submission,
+  Task,
+  TaskInput,
+  TaskSummary,
+} from '../../types';
 import type { P6Publication } from '../../features/agent/p6-publication';
 import { API_BASE, query, request } from './http-client';
 
@@ -14,6 +24,14 @@ export interface TaskAuditRecord {
 
 export const taskApi = {
   tasks: (page = 1) => request<Page<TaskSummary>>(`/tasks${query({ page, page_size: 15 })}`),
+  conversations: (limit = 30, signal?: AbortSignal) => request<{ total: number; items: ServerConversationSummary[] }>(
+    `/conversations${query({ limit })}`,
+    { signal },
+  ),
+  conversationTasks: (conversationId: string, limit = 50, signal?: AbortSignal) => request<ServerConversationDetail>(
+    `/conversations/${encodeURIComponent(conversationId)}${query({ limit })}`,
+    { signal },
+  ),
   taskEventsUrl: (id: string) => `${API_BASE}/tasks/${encodeURIComponent(id)}/events`,
   taskAudit: (id: string, signal?: AbortSignal) => request<TaskAuditRecord>(
     `/tasks/${encodeURIComponent(id)}/audit`,

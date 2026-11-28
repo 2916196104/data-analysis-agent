@@ -497,6 +497,18 @@ export default function App() {
           }}
           mode={chatMode}
           onMode={setChatMode}
+          onTransferMode={targetMode => {
+            const currentText = (chatMode === 'basic' ? basicInput : draft.agentQuestion || '').trim();
+            setChatMode(targetMode);
+            if (!currentText) return;
+            if (targetMode === 'analysis') {
+              setDraft(previous => ({ ...previous, agentQuestion: currentText }));
+              setBasicInput('');
+            } else {
+              setBasicInput(currentText);
+              setDraft(previous => ({ ...previous, agentQuestion: '' }));
+            }
+          }}
           input={chatMode === 'basic' ? basicInput : draft.agentQuestion || ''}
           onInput={value => (
             chatMode === 'basic'

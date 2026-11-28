@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+import uuid
 from contextlib import asynccontextmanager, closing
 from datetime import datetime, timezone
 from pathlib import Path as FilePath
@@ -14,15 +15,27 @@ from starlette.middleware.cors import CORSMiddleware
 
 from data_analysis_agent.api.responses import ErrorBody, ErrorResult, Result, error_response, ok_result
 from data_analysis_agent.api.routes import analytics, chat, monitoring, reviews, tasks, public_analysis
+from data_analysis_agent.core.clock import utc_now
 from data_analysis_agent.core.config import ConfigurationError, read_settings
 from data_analysis_agent.core.database import DatabaseError, close_database_pools, database_target, is_postgres
 from data_analysis_agent.core.errors import ReviewDataError
-from data_analysis_agent.core.llm_gateway import close_llm_clients
+from data_analysis_agent.core.llm_gateway import close_llm_clients, llm_gateway_stats
 from data_analysis_agent.reviews.monitor_store import check_monitoring_schema
 from data_analysis_agent.reviews.store import connect_review_database
-from data_analysis_agent.jobs.events import ensure_pg_task_listener, stop_pg_task_listeners
+from data_analysis_agent.jobs.events import (
+    ensure_pg_task_listener,
+    event_hub_stats,
+    pg_task_listener_active,
+    stop_pg_task_listeners,
+)
 from data_analysis_agent.jobs.label_metrics import queue_metrics
-from data_analysis_agent.jobs.store import TaskConflict, TaskNotFound, check_task_database, queue_health
+from data_analysis_agent.jobs.store import (
+    TaskConflict,
+    TaskNotFound,
+    check_task_database,
+    queue_health,
+    task_observability_summary,
+)
 from data_analysis_agent.jobs.worker import TaskWorker
 from data_analysis_agent.reviews.human_review import ReviewConflict, ReviewNotFound, check_workbench_schema
 
@@ -74,17 +87,26 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
 
     @app.middleware("http")
     async def local_request(request: Request, call_next):
+        request_id = uuid.uuid4().hex[:16]
+        request.state.request_id = request_id
         if request.url.hostname not in ("127.0.0.1", "localhost", "::1"):
-            return error_response(403, "host_not_allowed", "首版 API 只接受本机 Host。")
+            response = error_response(403, "host_not_allowed", "首版 API 只接受本机 Host。")
+            response.headers["X-Request-ID"] = request_id
+            return response
         origin = request.headers.get("origin")
         own = f"{request.url.scheme}://{request.headers.get('host', '')}"
         if origin is not None and origin != own and origin not in origins:
-            return error_response(403, "origin_not_allowed", "请求来源未配置。")
+            response = error_response(403, "origin_not_allowed", "请求来源未配置。")
+            response.headers["X-Request-ID"] = request_id
+            return response
         if origin is None and request.headers.get("sec-fetch-site") == "cross-site":
-            return error_response(403, "origin_not_allowed", "不接受跨站请求。")
+            response = error_response(403, "origin_not_allowed", "不接受跨站请求。")
+            response.headers["X-Request-ID"] = request_id
+            return response
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Request-ID"] = request_id
         return response
 
     @app.exception_handler(RequestValidationError)
@@ -116,7 +138,8 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
 
     @app.exception_handler(Exception)
     async def unexpected_error(request, exc):
-        logger.error("HTTP request failed (%s)", type(exc).__name__)
+        request_id = getattr(getattr(request, "state", None), "request_id", "-")
+        logger.error("HTTP request failed request_id=%s (%s)", request_id, type(exc).__name__)
         return error_response(500, "internal_error", "请求执行失败，请检查服务配置。")
 
     router = APIRouter(prefix="/api/v1", default_response_class=JSONResponse,
@@ -156,9 +179,25 @@ def create_app(db_path, task_db_path, *, import_root="data/private", env_file=".
             "business_database": "ok",
             "queue": queue,
             "worker_available": available,
+            "pg_listener_active": pg_task_listener_active(task_db),
             "redis_worker_required": redis_required,
             "redis_worker_available": redis_health["available"],
             "redis_queue": redis_health,
+        })
+
+    @router.get("/observability/summary", response_model=Result, tags=["服务"])
+    def observability_summary():
+        """只读运行态可观测摘要（不包含密钥、提示词、连接串或评论原文）。"""
+        from data_analysis_agent.reviews.embedding_process import embedding_process_stats
+        from data_analysis_agent.reviews.hybrid_retrieval import reranker_cache_stats
+
+        return ok_result({
+            "generated_at": utc_now(),
+            "llm_gateway": llm_gateway_stats(),
+            "events": event_hub_stats(task_db),
+            "embedding_process": embedding_process_stats(),
+            "reranker_cache": reranker_cache_stats(),
+            "tasks": task_observability_summary(task_db),
         })
 
     router.include_router(chat.create_router(env_file))

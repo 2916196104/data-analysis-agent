@@ -36,6 +36,7 @@ from data_analysis_agent.agents.runtime import (
 from data_analysis_agent.core.clock import utc_now
 from data_analysis_agent.core.database import PostgresConnection
 from data_analysis_agent.core.errors import ReviewDataError
+from data_analysis_agent.core.llm_gateway import track_llm_usage
 from data_analysis_agent.core.serialization import safe_json
 from data_analysis_agent.reviews.parameters import BaselineScope
 from data_analysis_agent.reviews.store import connect_review_database
@@ -747,6 +748,8 @@ def _finalize_review_result(
     started,
     conversation_context,
     settings,
+    *,
+    llm_telemetry=None,
 ):
     # 解析后要求澄清也应展示已绑定范围，不能退回提交时的全部商品。
     resolved = result["intent_resolution"].get("scope_resolution", {}).get("effective_scope")
@@ -766,6 +769,12 @@ def _finalize_review_result(
             "additional_tool_calls": 0,
         },
     )
+    timings["scope_resolution_duration_ms"] = round(timings.get("scope_resolution_duration_ms", 0.0), 3)
+    timings["intent_resolution_duration_ms"] = round(timings.get("intent_resolution_duration_ms", 0.0), 3)
+    if "embedding_preparation_duration_ms" in timings:
+        timings["embedding_preparation_duration_ms"] = round(timings["embedding_preparation_duration_ms"], 3)
+    if "evidence_completion_duration_ms" in timings:
+        timings["evidence_completion_duration_ms"] = round(timings["evidence_completion_duration_ms"], 3)
     timings["query_duration_ms"] = round(context.query_duration_ms if context else 0, 3)
     timings["planning_duration_ms"] = round(timings["planning_duration_ms"], 3)
     timings["total_duration_ms"] = round((perf_counter() - started) * 1000, 3)
@@ -781,6 +790,24 @@ def _finalize_review_result(
     planning_calls = llm.budget.calls if llm else 0
     answer_calls = result.get("answer_generation", {}).get("attempts", 0)
     intent_calls = result["intent_resolution"].get("model_calls", 0)
+    merged_usage = dict(usage or {})
+    if isinstance(llm_telemetry, dict) and llm_telemetry.get("total_tokens", 0) > 0:
+        if not merged_usage:
+            merged_usage = {
+                "prompt_tokens": int(llm_telemetry["prompt_tokens"]),
+                "completion_tokens": int(llm_telemetry["completion_tokens"]),
+                "total_tokens": int(llm_telemetry["total_tokens"]),
+            }
+        else:
+            planner_role = llm_telemetry.get("by_role", {}).get("planner", {})
+            if planner_role.get("calls", 0) == 0:
+                merged_usage["prompt_tokens"] = int(merged_usage.get("prompt_tokens", 0)) + int(llm_telemetry["prompt_tokens"])
+                merged_usage["completion_tokens"] = int(merged_usage.get("completion_tokens", 0)) + int(llm_telemetry["completion_tokens"])
+                merged_usage["total_tokens"] = int(merged_usage.get("total_tokens", 0)) + int(llm_telemetry["total_tokens"])
+            else:
+                merged_usage["prompt_tokens"] = max(int(merged_usage.get("prompt_tokens", 0)), int(llm_telemetry["prompt_tokens"]))
+                merged_usage["completion_tokens"] = max(int(merged_usage.get("completion_tokens", 0)), int(llm_telemetry["completion_tokens"]))
+                merged_usage["total_tokens"] = max(int(merged_usage.get("total_tokens", 0)), int(llm_telemetry["total_tokens"]))
     result.update(
         results=context.results if context else {},
         trace=context.trace if context else [],
@@ -795,7 +822,8 @@ def _finalize_review_result(
         model_calls=planning_calls,
         planning_model_calls=planning_calls,
         model_responses=model_responses,
-        usage=usage or None,
+        usage=merged_usage or None,
+        **({"llm_telemetry": llm_telemetry} if isinstance(llm_telemetry, dict) else {}),
         answer_model_calls=answer_calls,
         topic_model_calls=topic_calls,
         intent_model_calls=intent_calls,
@@ -823,6 +851,7 @@ def _finalize_review_result(
             reason=result.get("answer"),
             question=question,
             unsupported_code=result.get("unsupported_code"),
+            clarification_choices=result.get("clarification_choices"),
         ),
     )
     if result["status"] == "unsupported" and isinstance(result.get("public_answer"), dict):
@@ -879,6 +908,8 @@ def run_review_agent(
                 progress_error = exc
                 raise
 
+    llm_tracker_ctx = track_llm_usage()
+    llm_tracker = llm_tracker_ctx.__enter__()
     try:
         scope_started = perf_counter()
         if not isinstance(question, str) or not question.strip() or len(question) > 4000:
@@ -1079,8 +1110,15 @@ def run_review_agent(
         from data_analysis_agent.agents.review_task_contract import task_limit
 
         limit = task_limit(question) if isinstance(question, str) else None
-        scope_code = limit[0] if limit and limit[0] == "missing_product" else "missing_scope"
+        scope_code = (
+            exc.code
+            if getattr(exc, "code", None)
+            else (limit[0] if limit and limit[0] == "missing_product" else "missing_scope")
+        )
+        choices = list(getattr(exc, "choices", ()) or ())
         result["user_intent"].update(needs_clarification=True, clarification_question=str(exc))
+        if choices:
+            result["clarification_choices"] = choices
         result.update(status="unsupported", unsupported_code=scope_code, answer=str(exc), result_ids=[])
     except UnsupportedReviewQuery as exc:
         result.update(status="unsupported", answer=str(exc), result_ids=[])
@@ -1110,6 +1148,8 @@ def run_review_agent(
         result.pop("answer_sections", None)
         result.pop("public_answer", None)
         result["public_analysis"] = empty_public("failed").model_dump()
+    finally:
+        llm_tracker_ctx.__exit__(None, None, None)
     return _finalize_review_result(
         question,
         result,
@@ -1121,4 +1161,5 @@ def run_review_agent(
         started,
         conversation_context,
         settings,
+        llm_telemetry=llm_tracker.snapshot(),
     )

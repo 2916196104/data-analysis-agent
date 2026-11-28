@@ -41,6 +41,12 @@ _QUESTION_CLOSE_RE = re.compile(
     r"(?:反馈|抱怨|评论|评价|原文|原话|证据|记录|情况|问题)\s*(?:吗|么|呢|呀|啊)?\s*[？?。！!；;\s]*$"
 )
 _NEGATION_PREFIX_RE = re.compile(r"(?:没有|没|并未|未|并非|不是|不算|毫不|无|不)")
+_NEGATIVE_FACT_RE = re.compile(
+    r"(?:不行|不好|太差|很差|差劲|拒绝|推诿|敷衍|太慢|很慢|延迟|爽约|破损|碎了|漏水|滴水|异响|太吵|太大|太响|失灵|不灵|故障|偷工减料|乱收|收费高|偏贵)"
+)
+_POSITIVE_FACT_RE = re.compile(
+    r"(?:很好|很快|神速|次日达|当天达|静音|安静|听不到|完好|无损|实惠|划算|性价比高|性价比很高|满意|不错|扎实|耐心|态度好|强劲|暖和|凉快)"
+)
 _CROSS_ENCODER_LOCK = Lock()
 _CROSS_ENCODER_CACHE: dict[Path, object] = {}
 
@@ -138,11 +144,30 @@ def extract_lexical_terms(
 
 
 def _has_polarity_conflict(core_query: str, quote: str) -> bool:
-    """保守检测核心目标词在问句与引文之间是否出现显式肯定/否定翻转（如“破损” vs “没有破损”）。"""
+    """保守检测核心目标词在问句与引文之间是否出现显式肯定/否定或反义极性翻转。"""
     if not core_query or not quote:
         return False
     q_norm = unicodedata.normalize("NFKC", core_query).lower()
     quote_norm = unicodedata.normalize("NFKC", quote).lower()
+    quote_has_negative_fact = bool(_NEGATIVE_FACT_RE.search(quote_norm))
+    quote_has_positive_fact = bool(_POSITIVE_FACT_RE.search(quote_norm))
+
+    # 1. 显式语义反义冲突（不依赖字面是否恰好含“不/没”，如“噪音大睡不着”vs“静音听不到噪音”、“送货慢”vs“物流神速”）
+    if re.search(r"(?:噪音|噪声|太吵|吵得|声音大|嗡嗡|异响)", q_norm) and re.search(
+        r"(?:静音|很安静|听不到噪音|没噪音|没有噪音|无噪音|不大|很小)", quote_norm
+    ):
+        return True
+    if re.search(r"(?:慢|延迟|太久|拖延)", q_norm) and re.search(
+        r"(?:不慢|不算慢|并不慢|没有慢|速度正常|很快|神速|次日达|当天达)", quote_norm
+    ):
+        return True
+    if re.search(r"(?:破损|碎|压痕|湿透|浸水|漏水|滴水)", q_norm) and re.search(
+        r"(?:完好|无损|不漏水|没漏水|没有漏水|没有破损|无破损)", quote_norm
+    ):
+        return True
+    if re.search(r"(?:态度差|推诿|不处理|不给|拒绝|乱收|降价|差评|吐槽)", q_norm) and quote_has_positive_fact and not quote_has_negative_fact:
+        return True
+
     query_negated = bool(_NEGATION_PREFIX_RE.search(q_norm))
     quote_negated = bool(_NEGATION_PREFIX_RE.search(quote_norm))
 
@@ -155,14 +180,12 @@ def _has_polarity_conflict(core_query: str, quote: str) -> bool:
         for stem in stems:
             if re.search(r"(?:没有|没|并未|未|并非|不是|不算|无|不)" + re.escape(stem), quote_norm):
                 return True
-        if ("慢" in q_norm) and re.search(r"(?:不慢|不算慢|并不慢|没有慢|速度正常|很快)", quote_norm):
-            return True
-        if ("大" in q_norm and re.search(r"噪|声", q_norm)) and re.search(r"(?:不大|很小|没噪音|没有噪音|无噪音|很安静|静音)", quote_norm):
-            return True
         return False
 
     if query_negated and not quote_negated:
-        # 问句明确问“没收到货/不制冷/没安装”，引文完全不含否定词却含同类主干词（如“收到货了/制冷很好”）。
+        # 问句含否定（如“不制冷/不给保价”），若引文已含明确负面事实（如“保价被拒绝/制冷不行”），不误判冲突。
+        if quote_has_negative_fact:
+            return False
         positive_stems = [
             token for token in extract_lexical_terms(_NEGATION_PREFIX_RE.sub("", q_norm), max_terms=6)
             if len(token) >= 2
@@ -449,6 +472,12 @@ def clear_reranker_cache() -> None:
     """清理进程级本地 Cross-Encoder 模型缓存（供测试或显式释放内存使用）。"""
     with _CROSS_ENCODER_LOCK:
         _CROSS_ENCODER_CACHE.clear()
+
+
+def reranker_cache_stats() -> dict[str, int]:
+    """返回进程级 Cross-Encoder 重排模型缓存数量（不暴露本地缓存路径）。"""
+    with _CROSS_ENCODER_LOCK:
+        return {"cached_models": len(_CROSS_ENCODER_CACHE)}
 
 
 class CrossEncoderReranker:

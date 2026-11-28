@@ -1,11 +1,13 @@
 import { Button, Input, Radio } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
 import type { ChatMode } from './chat-state';
+import { suggestChatMode } from './mode-suggestion';
 
-export default function ChatInput({ value, onChange, onSend, pending, disabled, mode, onMode }: {
+export default function ChatInput({ value, onChange, onSend, pending, disabled, mode, onMode, onTransferMode }: {
   value: string; onChange: (value: string) => void; onSend: () => void; pending: boolean; disabled: boolean;
-  mode: ChatMode; onMode: (mode: ChatMode) => void;
+  mode: ChatMode; onMode: (mode: ChatMode) => void; onTransferMode?: (targetMode: ChatMode) => void;
 }) {
+  const suggestion = pending ? null : suggestChatMode(value, mode);
   return <div className="chat-input-area">
     <div className="chat-input-toolbar">
       <Radio.Group aria-label="问答模式" size="small" optionType="button" buttonStyle="solid" value={mode}
@@ -14,6 +16,12 @@ export default function ChatInput({ value, onChange, onSend, pending, disabled, 
         ]} />
       <span className="chat-mode-hint">{mode === 'basic' ? '普通问答，不查询当前商品数据' : '按当前范围查询已标注评论'}</span>
     </div>
+    {suggestion && <div className="chat-mode-suggestion" role="status" aria-label="模式切换建议">
+      <span>{suggestion.reason}</span>
+      <Button size="small" type="link" onClick={() => (onTransferMode ? onTransferMode(suggestion.targetMode) : onMode(suggestion.targetMode))}>
+        {suggestion.actionLabel}
+      </Button>
+    </div>}
     <div className="chat-input-box">
       <Input.TextArea aria-label={mode === 'basic' ? '基础问答问题' : '评论分析问题'} value={value} onChange={event => onChange(event.target.value)}
         autoSize={{ minRows: 2, maxRows: 5 }} maxLength={4000} disabled={disabled}

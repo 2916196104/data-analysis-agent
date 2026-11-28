@@ -3,6 +3,7 @@
 import asyncio
 import json
 import threading
+from time import perf_counter
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
@@ -12,10 +13,12 @@ from data_analysis_agent.agents.chat import (
     ChatError,
     ChatHistoryTurn,
     answer_message,
+    bounded_history_with_meta,
     stream_answer_message,
 )
 from data_analysis_agent.api.responses import ErrorResult, Result, error_response, ok_result
 from data_analysis_agent.core.config import AgentSettings, read_settings
+from data_analysis_agent.core.llm_gateway import track_llm_usage
 from data_analysis_agent.core.validation import Input
 
 
@@ -48,6 +51,7 @@ def create_router(env_file):
         """SSE 流式基础问答：先校验配置和输入，再持续推送 delta 并在校验 stop 后发送 done。"""
         settings = AgentSettings.from_values(read_settings(env_file))
         # 在建立流式响应前先校验消息与历史，不合法请求直接走标准 HTTP 错误响应。
+        _, history_meta = bounded_history_with_meta(body.history)
         chunk_iterator = stream_answer_message(body.message, settings=settings, history=body.history)
 
         async def _stream():
@@ -57,14 +61,20 @@ def create_router(env_file):
 
             def _produce():
                 parts: list[str] = []
+                started = perf_counter()
                 try:
-                    for delta in chunk_iterator:
-                        if cancelled.is_set():
-                            return
-                        parts.append(delta)
-                        loop.call_soon_threadsafe(queue.put_nowait, ("delta", delta))
+                    with track_llm_usage() as tracker:
+                        for delta in chunk_iterator:
+                            if cancelled.is_set():
+                                return
+                            parts.append(delta)
+                            loop.call_soon_threadsafe(queue.put_nowait, ("delta", delta))
                     if not cancelled.is_set():
-                        loop.call_soon_threadsafe(queue.put_nowait, ("done", "".join(parts).strip()))
+                        elapsed_ms = round((perf_counter() - started) * 1000, 1)
+                        loop.call_soon_threadsafe(
+                            queue.put_nowait,
+                            ("done", ("".join(parts).strip(), tracker.snapshot(), elapsed_ms)),
+                        )
                 except ChatError as exc:
                     if not cancelled.is_set():
                         loop.call_soon_threadsafe(queue.put_nowait, ("error", (exc.code, str(exc))))
@@ -83,7 +93,11 @@ def create_router(env_file):
 
             worker = threading.Thread(target=_produce, name="chat-sse-stream", daemon=True)
             worker.start()
-            yield _format_sse("start", {"mode": "basic"})
+            yield _format_sse("start", {
+                "mode": "basic",
+                "history_truncated": history_meta["truncated"],
+                "included_history_turns": history_meta["included_turns"],
+            })
             try:
                 while True:
                     if await request.is_disconnected():
@@ -100,7 +114,15 @@ def create_router(env_file):
                     if kind == "delta":
                         yield _format_sse("delta", {"delta": payload})
                     elif kind == "done":
-                        yield _format_sse("done", {"answer": payload})
+                        answer_text, telemetry, elapsed_ms = payload
+                        done_payload = {"answer": answer_text, "duration_ms": elapsed_ms}
+                        if telemetry.get("total_tokens", 0) > 0:
+                            done_payload["usage"] = {
+                                "prompt_tokens": telemetry["prompt_tokens"],
+                                "completion_tokens": telemetry["completion_tokens"],
+                                "total_tokens": telemetry["total_tokens"],
+                            }
+                        yield _format_sse("done", done_payload)
                         return
                     elif kind == "error":
                         code, message = payload

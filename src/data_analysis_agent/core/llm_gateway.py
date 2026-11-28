@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import atexit
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 import hashlib
 import os
@@ -56,6 +57,94 @@ def _empty_stats() -> dict[str, Any]:
 
 
 _STATS: dict[str, Any] = _empty_stats()
+
+
+class LLMUsageTracker:
+    """线程/协程隔离的单任务 LLM 调用与 Token 追踪器，用于精准归因单次分析或聊天开销。"""
+
+    def __init__(self, parent: "LLMUsageTracker | None" = None) -> None:
+        self._parent = parent
+        self._lock = Lock()
+        self._calls = 0
+        self._errors = 0
+        self._prompt_tokens = 0
+        self._completion_tokens = 0
+        self._total_tokens = 0
+        self._duration_ms = 0.0
+        self._by_role: dict[str, dict[str, Any]] = {}
+
+    def record(
+        self,
+        role: str,
+        elapsed_ms: float,
+        *,
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+        total_tokens: int = 0,
+        failed: bool = False,
+    ) -> None:
+        with self._lock:
+            self._calls += 1
+            if failed:
+                self._errors += 1
+            self._prompt_tokens += prompt_tokens
+            self._completion_tokens += completion_tokens
+            self._total_tokens += total_tokens
+            self._duration_ms = round(self._duration_ms + elapsed_ms, 3)
+            entry = self._by_role.get(role)
+            if entry is None:
+                entry = {
+                    "calls": 0,
+                    "errors": 0,
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                    "duration_ms": 0.0,
+                }
+                self._by_role[role] = entry
+            entry["calls"] += 1
+            if failed:
+                entry["errors"] += 1
+            entry["prompt_tokens"] += prompt_tokens
+            entry["completion_tokens"] += completion_tokens
+            entry["total_tokens"] += total_tokens
+            entry["duration_ms"] = round(entry["duration_ms"] + elapsed_ms, 3)
+        if self._parent is not None:
+            self._parent.record(
+                role,
+                elapsed_ms,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+                failed=failed,
+            )
+
+    def snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            return {
+                "calls": self._calls,
+                "errors": self._errors,
+                "prompt_tokens": self._prompt_tokens,
+                "completion_tokens": self._completion_tokens,
+                "total_tokens": self._total_tokens,
+                "duration_ms": round(self._duration_ms, 3),
+                "by_role": {role: dict(values) for role, values in self._by_role.items()},
+            }
+
+
+_ACTIVE_TRACKER: ContextVar[LLMUsageTracker | None] = ContextVar("llm_gateway_usage_tracker", default=None)
+
+
+@contextmanager
+def track_llm_usage():
+    """在当前执行上下文内收集所有经由 llm_gateway 发起的调用与 Token 消耗。"""
+    parent = _ACTIVE_TRACKER.get()
+    tracker = LLMUsageTracker(parent=parent)
+    token = _ACTIVE_TRACKER.set(tracker)
+    try:
+        yield tracker
+    finally:
+        _ACTIVE_TRACKER.reset(token)
 
 
 def _pool_enabled() -> bool:
@@ -272,6 +361,16 @@ def _record_call_telemetry(role: str, elapsed_ms: float, *, response: Any = None
         _STATS["total_duration_ms"] = round(_STATS["total_duration_ms"] + elapsed_ms, 3)
         by_role = _STATS["by_role"]
         by_role[role] = by_role.get(role, 0) + 1
+    tracker = _ACTIVE_TRACKER.get()
+    if tracker is not None:
+        tracker.record(
+            role,
+            elapsed_ms,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            failed=failed,
+        )
 
 
 def chat_completion(

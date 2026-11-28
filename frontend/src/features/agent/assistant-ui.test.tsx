@@ -155,4 +155,73 @@ describe('助手界面模式接入', () => {
     expect(view.container.querySelector('.chat-turn-scope')).toBeNull();
     expect(vi.mocked(useTask).mock.calls.length).toBe(callsBefore);
   });
+
+  it('提供非侵入式模式切换建议并支持一键携带草稿转切，历史抽屉可恢复服务端会话', async () => {
+    seedAnalysis();
+    vi.spyOn(api, 'conversations').mockResolvedValue({
+      total: 1,
+      items: [{
+        conversation_id: 'cloud-conv-1',
+        title: '服务端已保存的分析会话',
+        turn_count: 2,
+        last_task_id: 'cloud-task-2',
+        last_status: 'succeeded',
+        created_at: '2026-11-28T10:00:00Z',
+        updated_at: '2026-11-28T10:05:00Z',
+        source: 'reviews_csv',
+        dataset_version: 'reviews-csv',
+        product_ids: ['A'],
+      }],
+    });
+    vi.spyOn(api, 'conversationTasks').mockResolvedValue({
+      conversation_id: 'cloud-conv-1',
+      total: 1,
+      items: [{
+        ...task,
+        task_id: 'cloud-task-2',
+        status: 'succeeded',
+        parameters: {
+          question: '服务端已保存的分析会话',
+          conversation_id: 'cloud-conv-1',
+          source: 'reviews_csv',
+          dataset_version: 'reviews-csv',
+          product_ids: ['A'],
+          model: 'fixture',
+          base_url: 'offline',
+          prompt_version: 'v1',
+          date_from: '2023-02-01',
+          date_to: '2023-02-28',
+          baseline_from: '2023-01-01',
+          baseline_to: '2023-01-31',
+        },
+      }],
+    });
+
+    render(<App />);
+    await waitFor(() => expect(api.options).toHaveBeenCalled());
+
+    // 概念理解问法在基础模式下不误弹切换建议
+    const basicInput = screen.getByRole('textbox', { name: '基础问答问题' });
+    fireEvent.change(basicInput, { target: { value: '如何理解评论标注覆盖率？' } });
+    expect(screen.queryByRole('button', { name: '切换到评论分析' })).toBeNull();
+
+    // 输入业务分析问法弹出建议条，点击按钮后切到评论分析并携带草稿
+    fireEvent.change(basicInput, { target: { value: '按月分析物流好评占比趋势' } });
+    fireEvent.click(screen.getByRole('button', { name: '切换到评论分析' }));
+    expect((screen.getByRole('radio', { name: '评论分析' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('textbox', { name: '评论分析问题' }) as HTMLTextAreaElement).value).toBe('按月分析物流好评占比趋势');
+
+    // 在评论分析模式输入能力咨询弹出基础问答建议，点击按钮切回基础问答并携带草稿
+    fireEvent.change(screen.getByRole('textbox', { name: '评论分析问题' }), { target: { value: '你能做什么？' } });
+    fireEvent.click(screen.getByRole('button', { name: '切换到基础问答' }));
+    expect((screen.getByRole('radio', { name: '基础问答' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('textbox', { name: '基础问答问题' }) as HTMLTextAreaElement).value).toBe('你能做什么？');
+
+    // 打开历史会话抽屉，展示并恢复服务端会话
+    fireEvent.click(screen.getByRole('button', { name: '历史会话' }));
+    const remoteButton = await screen.findByText('服务端已保存的分析会话');
+    fireEvent.click(remoteButton);
+    await waitFor(() => expect(api.conversationTasks).toHaveBeenCalledWith('cloud-conv-1'));
+    await waitFor(() => expect((screen.getByRole('radio', { name: '评论分析' }) as HTMLInputElement).checked).toBe(true));
+  });
 });

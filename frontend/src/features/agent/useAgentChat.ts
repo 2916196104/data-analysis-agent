@@ -473,6 +473,74 @@ export function useAgentChat(
     await submitTurn(next, !!next.taskId);
   }
 
+  async function restoreServerSession(targetConversationId: string): Promise<boolean> {
+    if (typeof api.conversationTasks !== 'function') return false;
+    try {
+      const detail = await api.conversationTasks(targetConversationId);
+      const validTasks = (detail.items || []).filter(item => isAgentTask(item));
+      if (!validTasks.length) return false;
+      const rebuiltTurns: ChatTurn[] = validTasks.map(item => {
+        const question = String(item.parameters.question ?? item.result?.question ?? '');
+        const selection = copyScope((item.parameters.selection_scope || item.parameters) as unknown as AnalysisParameters);
+        const params = {
+          ...item.parameters,
+          product_ids: Array.isArray(item.parameters.product_ids) ? [...item.parameters.product_ids] : [],
+        } as unknown as AnalysisParameters;
+        return {
+          kind: 'analysis',
+          id: `server-${item.task_id}`,
+          taskId: item.task_id,
+          requestKey: `server-${item.task_id}`,
+          question,
+          selection,
+          parameters: params,
+          query: {
+            createdAt: item.created_at || new Date().toISOString(),
+            conversationId: targetConversationId,
+            parentTaskId: typeof item.parameters.context_task_id === 'string' ? item.parameters.context_task_id : undefined,
+            effectiveQuestion: question,
+          },
+        };
+      });
+      const lastValid = [...validTasks].reverse().find(item => validResult(item));
+      const restoredContext = lastValid && validResult(lastValid)
+        ? contextFromResult(
+          targetConversationId,
+          lastValid.task_id,
+          { ...(lastValid.parameters as unknown as AnalysisParameters), ...lastValid.result.scope },
+          lastValid.result,
+        )
+        : undefined;
+      const store = sessions.storeRef.current;
+      const existing = store.sessions.find(item => item.id === targetConversationId);
+      const firstCreated = validTasks[0].created_at || new Date().toISOString();
+      const lastUpdated = validTasks[validTasks.length - 1].updated_at || firstCreated;
+      const rebuiltSession = {
+        ...newSession(targetConversationId),
+        ...existing,
+        id: targetConversationId,
+        title: existing?.customTitle ? existing.title : (rebuiltTurns[0]?.question.slice(0, 40) || '已恢复会话'),
+        createdAt: existing?.createdAt || firstCreated,
+        updatedAt: lastUpdated,
+        turns: rebuiltTurns,
+        activeId: rebuiltTurns[rebuiltTurns.length - 1]?.id,
+        context: restoredContext,
+      };
+      navigationEpoch.current++;
+      dismissedRoute.current = routeTaskId;
+      sessions.save({
+        ...store,
+        activeSessionId: targetConversationId,
+        sessions: existing
+          ? store.sessions.map(item => (item.id === targetConversationId ? rebuiltSession : item))
+          : [...store.sessions, rebuiltSession],
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   return {
     session,
     activeTurn,
@@ -489,6 +557,7 @@ export function useAgentChat(
     stopBasicStream,
     retry,
     clarify,
+    restoreServerSession,
     focusedTaskId: focusedRoute,
     sessions: [...sessions.store.sessions].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     activeSessionId: conversation.id,

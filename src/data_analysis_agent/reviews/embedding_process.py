@@ -276,6 +276,31 @@ def close_embedding_processes():
         _processes.clear()
 
 
+def embedding_process_stats():
+    """返回常驻向量编码子进程的只读运行态摘要（不暴露本地路径或环境变量）。"""
+    with _process_lock:
+        instances = list(_processes.values())
+    alive = 0
+    failed = 0
+    closed = 0
+    restarts = 0
+    for item in instances:
+        restarts += int(item.restart_count)
+        if item.closed:
+            closed += 1
+        elif item.failed:
+            failed += 1
+        elif item.process is not None and item.process.poll() is None:
+            alive += 1
+    return {
+        "total_instances": len(instances),
+        "alive_instances": alive,
+        "failed_instances": failed,
+        "closed_instances": closed,
+        "total_restarts": restarts,
+    }
+
+
 def warmup_embedding_process(python, cache_dir, *, timeout=600):
     """同步预热持久嵌入子进程（加载本地模型并执行健康检查），降低首次语义检索冷启动耗时。"""
     started = monotonic()

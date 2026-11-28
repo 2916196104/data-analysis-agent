@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Drawer, Input, Popconfirm, Spin } from 'antd';
-import { CheckOutlined, CloseOutlined, DeleteOutlined, EditOutlined, HistoryOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
-import type { AgentResult, AnalysisParameters, Options, Quality } from '../../types';
+import { Alert, Button, Drawer, Input, Popconfirm, Spin, Tag } from 'antd';
+import { CheckOutlined, CloseOutlined, CloudOutlined, DeleteOutlined, EditOutlined, HistoryOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
+import { api } from '../../api';
+import type { AgentResult, AnalysisParameters, Options, Quality, ServerConversationSummary } from '../../types';
 import { AGENT_DATASET, datasetKey, type AnalysisDraft } from '../../analysis-draft';
 import type { AgentChat } from './useAgentChat';
 import type { ChatMode } from './chat-state';
@@ -14,10 +15,10 @@ import './assistant.css';
 const questions = ['查看缺失正文、失败标注和覆盖率', '按月分析物流好评占比趋势', '对比当前窗口与基线的物流好评占比'];
 const basicQuestions = ['你能做什么？', '如何理解评论标注覆盖率？'];
 
-export default function AiAssistantPage({ chat, parameters, input, onInput, onSend, onPrepare, onNewQuestion, mode, onMode, draft, options, quality, onApplyScope, loading, refreshKey }: {
+export default function AiAssistantPage({ chat, parameters, input, onInput, onSend, onPrepare, onNewQuestion, mode, onMode, onTransferMode, draft, options, quality, onApplyScope, loading, refreshKey }: {
   chat: AgentChat; parameters?: AnalysisParameters; input: string; draft: AnalysisDraft; options: Options; quality?: Quality;
   loading: boolean; refreshKey: number;
-  mode: ChatMode; onMode: (mode: ChatMode) => void;
+  mode: ChatMode; onMode: (mode: ChatMode) => void; onTransferMode?: (targetMode: ChatMode) => void;
   onInput: (value: string) => void; onSend: () => void;
   onPrepare: (result: AgentResult, products: string[]) => void; onNewQuestion: (preserveSession?: boolean) => void;
   onApplyScope: (scope: AssistantScope) => void;
@@ -29,8 +30,27 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [serverSessions, setServerSessions] = useState<ServerConversationSummary[]>([]);
+  const [serverLoading, setServerLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
   useEffect(() => { stickToBottom.current = true; setShowLatest(false); setScopeEditing(false); }, [chat.activeSessionId]);
   useEffect(() => { if (!historyOpen) { setEditingSessionId(null); setEditingTitle(''); } }, [historyOpen]);
+  useEffect(() => {
+    if (!historyOpen || typeof api.conversations !== 'function') return;
+    const controller = new AbortController();
+    setServerLoading(true);
+    api.conversations(30, controller.signal)
+      .then(res => {
+        if (!controller.signal.aborted) setServerSessions(res.items || []);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setServerSessions([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setServerLoading(false);
+      });
+    return () => controller.abort();
+  }, [historyOpen]);
   const analysis = mode === 'analysis';
   const datasetWarning = !options.products.some(product => datasetKey(product) === AGENT_DATASET)
     ? 'AI 助手数据集 reviews_csv / reviews-csv 当前不可用，请先确认数据集；不会自动切换到其他来源。'
@@ -80,7 +100,7 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
       <p>负向对比按整体统计。细分主题统计仅覆盖已有规则，具体内容归纳取决于有效标注和证据。评论数据不能证明故障原因，也不能用于销量、销售额预测。</p>
     </details>}
     <Drawer title="历史会话" open={historyOpen} onClose={() => setHistoryOpen(false)} width="min(380px, 100vw)">
-      <p className="chat-history-note">会话仅保存在当前浏览器（最多保留 {MAX_SESSIONS} 个）。继续提问使用当前选择范围。</p>
+      <p className="chat-history-note">本地会话保存在当前浏览器（最多保留 {MAX_SESSIONS} 个），分析任务同时保存在服务端，可跨会话恢复。</p>
       <nav className="chat-session-list" aria-label="历史会话列表">
         {chat.sessions.map(item => {
           const isCurrent = item.id === chat.activeSessionId;
@@ -124,6 +144,43 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
           </div>;
         })}
       </nav>
+      {(() => {
+        const localIds = new Set(chat.sessions.map(item => item.id));
+        const remoteOnly = serverSessions.filter(item => !localIds.has(item.conversation_id));
+        if (!serverLoading && !remoteOnly.length) return null;
+        return <>
+          <p className="chat-session-section-title"><CloudOutlined /> 服务端已保存会话</p>
+          {serverLoading && !remoteOnly.length && <div className="chat-status"><Spin size="small" /> 正在读取服务端会话…</div>}
+          {!!remoteOnly.length && <nav className="chat-session-list" aria-label="服务端历史会话列表">
+            {remoteOnly.map(item => <div key={item.conversation_id} className="chat-session-row">
+              <button type="button" className="chat-session-item" disabled={restoringId === item.conversation_id}
+                onClick={async () => {
+                  if (typeof chat.restoreServerSession !== 'function') return;
+                  setRestoringId(item.conversation_id);
+                  try {
+                    const ok = await chat.restoreServerSession(item.conversation_id);
+                    if (ok) {
+                      onNewQuestion(true);
+                      onMode('analysis');
+                      onInput('');
+                      setHistoryOpen(false);
+                    }
+                  } finally {
+                    setRestoringId(null);
+                  }
+                }}>
+                <strong>{item.title}</strong>
+                <div className="chat-session-meta">
+                  <Tag color="green">服务端</Tag>
+                  <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString('zh-CN')}</time>
+                  <span>{item.turn_count} 轮</span>
+                  {restoringId === item.conversation_id && <span>恢复中…</span>}
+                </div>
+              </button>
+            </div>)}
+          </nav>}
+        </>;
+      })()}
     </Drawer>
     {chat.storageError && <Alert className="chat-notice" type="warning" showIcon message="本机会话无法完整读取或保存，原始记录会保留；新消息刷新后可能丢失。后端任务仍可从任务与报告查看。"
       action={chat.recoveryRaw && <Button onClick={() => {
@@ -150,6 +207,7 @@ export default function AiAssistantPage({ chat, parameters, input, onInput, onSe
     {analysis && <AssistantScopeBar draft={draft} options={options} quality={quality} disabled={chat.pending || loading}
       refreshKey={refreshKey} editing={scopeEditing} onEditing={setScopeEditing} onApply={onApplyScope} />}
     <ChatInput value={input} onChange={onInput} onSend={onSend} pending={chat.pending}
-      disabled={analysis && (!parameters || loading || scopeEditing || !!chat.restoreError)} mode={mode} onMode={onMode} />
+      disabled={analysis && (!parameters || loading || scopeEditing || !!chat.restoreError)} mode={mode} onMode={onMode}
+      onTransferMode={onTransferMode} />
   </section>;
 }

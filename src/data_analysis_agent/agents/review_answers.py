@@ -630,7 +630,7 @@ def unavailable_answer(
                     choice_question = item.get("question")
                     if isinstance(label, str) and label.strip() and isinstance(choice_question, str) and choice_question.strip():
                         resolved_choices.append({"label": label.strip(), "question": choice_question.strip()})
-                if len(resolved_choices) >= 5:
+                if len(resolved_choices) >= 6:
                     break
 
         return PublicAnswer(
